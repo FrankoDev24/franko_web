@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* styles.css or global styles */
+.ant-message {
+  z-index: 9999 !important;}
+
+@layer base {
+  body {
+    @apply bg-white;
+  }}
+/* Add this to hide scrollbar in all browsers */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
