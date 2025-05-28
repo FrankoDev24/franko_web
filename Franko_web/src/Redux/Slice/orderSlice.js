@@ -289,7 +289,14 @@ const orderSlice = createSlice({
       // Persist in localStorage
       localStorage.setItem("orderAddressDetails", JSON.stringify(orderAddressDetails));
     },
-
+    updateOrder: (state, action) => {
+      const updated = action.payload;
+      const index = state.orders.findIndex(o => o._id === updated._id);
+      if (index !== -1) {
+        state.orders[index] = { ...state.orders[index], ...updated };
+      }
+    },
+    
     // Store the local order
     storeLocalOrder: (state, action) => {
       const { userId, orderId } = action.payload;
@@ -467,5 +474,5 @@ const orderSlice = createSlice({
     }
 });
 
-export const { storeLocalOrder, fetchOrdersByUser, clearOrders ,saveCheckoutDetails, saveAddressDetails} = orderSlice.actions;
+export const { storeLocalOrder, fetchOrdersByUser, clearOrders ,saveCheckoutDetails, updateOrder, saveAddressDetails} = orderSlice.actions;
 export default orderSlice.reducer;
