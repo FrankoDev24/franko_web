@@ -49,7 +49,7 @@ const StyledDialog = styled(Dialog)(({ theme }) => ({
   '& .MuiDialog-paper': {
     borderRadius: 20,
     maxWidth: 900,
-    width: '90vw',
+    width: '80vw',
     maxHeight: '90vh',
     background: `linear-gradient(135deg, ${alpha(theme.palette.primary.light, 0.1)} 0%, ${alpha(theme.palette.secondary.light, 0.05)} 100%)`,
     backdropFilter: 'blur(10px)',
@@ -58,8 +58,9 @@ const StyledDialog = styled(Dialog)(({ theme }) => ({
 }));
 
 const StyledDialogTitle = styled(DialogTitle)(({ theme }) => ({
-  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
-color: 'rgba(255, 255, 255, 1)',
+  background: `linear-gradient(135deg, ${theme.palette.success.light} 0%, ${theme.palette.primary.dark} 100%)`,
+    color: 'rgba(255, 255, 255, 1)',
+    border: 'none',
 
   padding: theme.spacing(3),
   borderRadius: '20px 20px 0 0',
@@ -429,7 +430,7 @@ const OrderDetailsModal = ({ open, orderId, onClose }) => {
                             ) : null}
                             <Paper
                               sx={{
-                                width: '100%',
+                                width: '50%',
                                 height: 100,
                                 display: imageUrl ? 'none' : 'flex',
                                 alignItems: 'center',
@@ -442,9 +443,9 @@ const OrderDetailsModal = ({ open, orderId, onClose }) => {
                               <Typography variant="caption">No Image</Typography>
                             </Paper>
                           </Grid>
-                          <Grid item xs={12} sm={9}>
+                          <Grid item xs={12} sm={3}>
                             <Stack spacing={1}>
-                              <Typography variant="h6" fontWeight="bold" color="success">
+                              <Typography variant="body" fontWeight="bold" color="success">
                                 {order.productName}
                               </Typography>
                               <Grid container spacing={2}>
@@ -483,7 +484,7 @@ const OrderDetailsModal = ({ open, orderId, onClose }) => {
           </InfoCard>
 
           {/* Total Amount */}
-          <Divider sx={{ my: 3 }} />
+          <Divider sx={{ my: 2 }} />
           <Paper
             elevation={0}
             sx={{

@@ -25,6 +25,13 @@ import Cancellation from './Pages/OrderCancelled'
 import AdminPage from './Pages/AdminPages/AdminPanel'
 import Dashboard from './Pages/AdminPages/Dashboard'
 import Orders from './Pages/AdminPages/Orders/Orders'
+import Products from './Pages/AdminPages/Products/Products'
+import Adminbrands from './Pages/AdminPages/Adminbrands'
+import AdminCategory from './Pages/AdminPages/AdminCategory'
+import AdminShowroom from './Pages/AdminPages/AdminShowroom'
+import Users from './Pages/AdminPages/Users'
+import Customers from './Pages/AdminPages/Customers'
+import AdvertisementPage from './Pages/AdminPages/Advertisement'
 
 function App() {
   return (
@@ -54,6 +61,14 @@ function App() {
         <Route path="/admin" element={<AdminPage/>}>
   <Route path="dashboard" element={<Dashboard />} />
   <Route path="orders" element={<Orders/>} />
+  <Route path="products" element={<Products/>} />
+  <Route path="brands" element={<Adminbrands/>} />
+  <Route path="categories" element={<AdminCategory/>} />
+  <Route path="users" element={<Users/>} />
+  <Route path="customers" element={<Customers/>} />
+  <Route path="showroom" element={<AdminShowroom/>} />
+  <Route path="banner" element={<AdvertisementPage/>} />
+
   {/* other nested routes */}
 </Route>
       </Routes>

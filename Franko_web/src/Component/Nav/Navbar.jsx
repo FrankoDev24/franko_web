@@ -9,14 +9,23 @@ import logo from "../../assets/frankoIcon.png"
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchCategories } from '../../Redux/Slice/categorySlice';
 import { fetchBrands } from '../../Redux/Slice/brandSlice';
+import { fetchProducts } from '../../Redux/Slice/productSlice'; // Import the products slice
 import { getCartById } from '../../Redux/Slice/cartSlice';
 import AuthModal from "../AuthModal";
+import { debounce } from 'lodash';
 
 const Nav = () => {
   const [openDrawer, setOpenDrawer] = useState(false);
   const [isRadioOpen, setIsRadioOpen] = useState(false);
   const [activeSidebar, setActiveSidebar] = useState("menu"); // "menu" or "categories"
   const location = useLocation();
+
+  // Search states - similar to SearchModal
+  const [inputValue, setInputValue] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const searchRef = useRef(null);
+  const debounceRef = useRef(null);
 
   const totalItems = useSelector((state) => state.cart.totalItems);
   const toggleDrawer = () => setOpenDrawer(!openDrawer);
@@ -30,6 +39,7 @@ const Nav = () => {
   const navigate = useNavigate();
   const { categories } = useSelector((state) => state.categories);
   const { brands } = useSelector((state) => state.brands);
+  const { products = [], loading } = useSelector((state) => state.products); // Get products with loading state
 
   const [selectedBrandId, setSelectedBrandId] = useState(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -42,7 +52,10 @@ const Nav = () => {
   useEffect(() => {
     dispatch(fetchCategories());
     dispatch(fetchBrands());
-  }, [dispatch]);
+    if (products.length === 0) {
+      dispatch(fetchProducts()); // Only fetch if no products exist
+    }
+  }, [dispatch, products.length]);
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -53,6 +66,44 @@ const Nav = () => {
       }
     }
   }, [dispatch]);
+
+  // Debounce logic setup - similar to SearchModal
+  useEffect(() => {
+    debounceRef.current = debounce((value) => setSearchQuery(value), 300);
+    return () => debounceRef.current?.cancel();
+  }, []);
+
+  // Search functionality with debouncing
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      setShowSearchResults(true);
+    } else {
+      setShowSearchResults(false);
+    }
+  }, [searchQuery]);
+
+  // Fixed handleClickOutside to properly handle scrollbar clicks
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        // Check if the click is on a scrollbar by examining the target
+        const isScrollbarClick = (
+          event.target === document.documentElement ||
+          event.target === document.body ||
+          (event.target.tagName && event.target.tagName.toLowerCase() === 'html')
+        );
+        
+        // Don't close if it's a scrollbar click
+        if (!isScrollbarClick) {
+          setShowSearchResults(false);
+        }
+      }
+    };
+    
+    // Use mousedown instead of click for better detection
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   
   const handleAccountClick = () => {
     if (!currentCustomer) {
@@ -61,18 +112,69 @@ const Nav = () => {
       navigate("/account");
     }
   }
+
+  // Search handlers - similar to SearchModal
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setInputValue(value);
+    debounceRef.current(value);
+  };
+
+  // Enhanced product click handler with proper navigation
+  const handleProductClick = (productID) => {
+    // Clear search results and input
+    setShowSearchResults(false);
+    setInputValue('');
+    setSearchQuery('');
+    
+    // Navigate to product page
+    navigate(`/product/${productID}`);
+  };
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    // Removed navigation to search page - now just keeps showing results
+    if (inputValue.trim()) {
+      setShowSearchResults(true);
+    }
+  };
+
+  // Utility functions from SearchModal
+  const backendBaseURL = 'https://smfteapi.salesmate.app';
   
-    // Close dropdown if clicked outside
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-          if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-            setShowDropdown(false);
-            setHoveredCategory(null);
-          }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-      }, []);
+  const formatPrice = (price) => `₵${price?.toLocaleString?.() || 'N/A'}`;
+
+  const highlightText = (text = '') => {
+    if (!searchQuery) return text;
+    const regex = new RegExp(`(${searchQuery})`, 'gi');
+    return text.replace(regex, '<span style="background-color: yellow; font-weight: bold;">$1</span>');
+  };
+
+  const getImageURL = (productImage) => {
+    if (!productImage) return null;
+    const imagePath = productImage.split('\\').pop();
+    return `${backendBaseURL}/Media/Products_Images/${imagePath}`;
+  };
+
+  // Filter products based on search query - REMOVED LIMIT to show all results
+  const filteredProducts = searchQuery
+    ? products.filter((product) =>
+        product.productName?.toLowerCase().includes(searchQuery.toLowerCase())
+      ) // Removed .slice(0, 8) to show all results
+    : [];
+  
+  // Close dropdown if clicked outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+        setHoveredCategory(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
     <div className ="sticky top-0 z-50 bg-white">
      <AnnouncementBar />
@@ -167,15 +269,100 @@ const Nav = () => {
           )}
         </div>
 
-        {/* Input Field */}
-        <div className="flex items-center flex-grow bg-gray-100 border border-gray-300 rounded-full px-4 py-1.5 ml-2 focus-within:ring-2 focus-within:ring-green-500 transition">
-  <input
-    type="text"
-    placeholder="Search for products..."
-    className="bg-transparent outline-none w-full text-sm placeholder-gray-500"
-  />
-  <MagnifyingGlassIcon className="h-5 w-5 text-gray-500 ml-2" />
-</div>
+        {/* Search Input with Results */}
+        <div className="flex items-center flex-grow ml-2 relative" ref={searchRef}>
+          <form onSubmit={handleSearchSubmit} className="flex items-center w-full bg-gray-100 border border-gray-300 rounded-full px-4 py-1.5 focus-within:ring-2 focus-within:ring-green-500 transition">
+            <input
+              type="text"
+              value={inputValue}
+              onChange={handleSearchChange}
+              placeholder="Search for products..."
+              className="bg-transparent outline-none w-full text-sm placeholder-gray-500"
+            />
+            <button type="submit">
+              <MagnifyingGlassIcon className="h-5 w-5 text-gray-500 ml-2 cursor-pointer hover:text-green-600" />
+            </button>
+          </form>
+
+          {/* Search Results Dropdown - Enhanced to show all results */}
+          {showSearchResults && (
+            <div 
+              className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto"
+              onMouseDown={(e) => {
+                // Prevent the search results from closing when clicking inside
+                e.stopPropagation();
+              }}
+            >
+              {loading ? (
+                // Loading skeleton
+                <div className="p-4">
+                  {Array.from({ length: 3 }, (_, i) => (
+                    <div key={i} className="flex items-center gap-3 p-3 animate-pulse">
+                      <div className="w-12 h-12 bg-gray-200 rounded-md"></div>
+                      <div className="flex-1">
+                        <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                        <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : inputValue.trim() === '' ? (
+                <div className="p-4 text-center text-gray-500">
+                  Start typing to search for products
+                </div>
+              ) : filteredProducts.length === 0 ? (
+                <div className="p-4 text-center text-gray-500">
+                  No products found for "{inputValue}"
+                </div>
+              ) : (
+                <>
+                  {/* Display count of results */}
+                  <div className="p-3 bg-gray-50 border-b border-gray-100 text-sm text-gray-600">
+                    Found {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} for "{inputValue}"
+                  </div>
+                  
+                  {filteredProducts.map((product) => {
+                    const imageURL = getImageURL(product.productImage);
+                    return (
+                      <div
+                        key={product.productID}
+                        onClick={() => handleProductClick(product.productID)}
+                        className="flex items-center gap-3 p-3 hover:bg-green-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
+                      >
+                        {imageURL ? (
+                          <img
+                            src={imageURL}
+                            alt={product.productName}
+                            className="w-12 h-12 object-cover rounded-md"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-gray-200 rounded-md flex items-center justify-center">
+                            <span className="text-gray-400 text-xs">No Image</span>
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <h4 
+                            className="text-sm font-medium text-green-600 truncate"
+                            dangerouslySetInnerHTML={{
+                              __html: highlightText(product.productName || '')
+                            }}
+                          />
+                          <p className="text-sm text-red-600 font-semibold">
+                            Price: {formatPrice(product.price)}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {/* Removed "View all results" section */}
+                </>
+              )}
+            </div>
+          )}
+        </div>
 
       </div>
   </div>
@@ -187,7 +374,6 @@ const Nav = () => {
     <a href="/shops" className={`hover:text-green-600 ${isActive("/shops") && "text-green-600 font-semibold"}`}>Shops</a>
     <button onClick={toggleRadio} className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 transition">🎧 Radio</button>
     {(() => {
-
 
 if (currentCustomer) {
   const initial = currentCustomer.firstName?.[0]?.toUpperCase() || "U";
@@ -227,9 +413,6 @@ if (currentCustomer) {
   </div>
 </div>
 
- 
-
-
           {/* Mobile Cart Icon */}
           <div className="lg:hidden relative">
           <div onClick={() => navigate(`/cart/${localStorage.getItem('cartId')}`)} className="relative cursor-pointer">
@@ -244,16 +427,96 @@ if (currentCustomer) {
           </div>
         </div>
         {/* Mobile Search Bar */}
-        <div className="w-full lg:hidden">
-  <div className="flex items-center rounded-full px-4 py-2 shadow-md border border-gray-300">
-    <MagnifyingGlassIcon className="h-5 w-5 text-gray-500" />
-    <input
-  type="text"
-  placeholder="Search products, brands and categories"
-  className="ml-3 bg-white text-gray-800 text-sm w-full focus:outline-none placeholder-gray-400"
-/>
-  </div>
-</div>
+        <div className="w-full lg:hidden relative" ref={searchRef}>
+          <form onSubmit={handleSearchSubmit} className="flex items-center rounded-full px-4 py-2 shadow-md border border-gray-300">
+            <MagnifyingGlassIcon className="h-5 w-5 text-gray-500" />
+            <input
+              type="text"
+              value={inputValue}
+              onChange={handleSearchChange}
+              placeholder="Search products, brands and categories"
+              className="ml-3 bg-white text-gray-800 text-sm w-full focus:outline-none placeholder-gray-400"
+            />
+          </form>
+
+          {/* Mobile Search Results - Enhanced to show all results */}
+          {showSearchResults && (
+            <div 
+              className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto"
+              onMouseDown={(e) => {
+                // Prevent the search results from closing when clicking inside
+                e.stopPropagation();
+              }}
+            >
+              {loading ? (
+                <div className="p-4">
+                  {Array.from({ length: 3 }, (_, i) => (
+                    <div key={i} className="flex items-center gap-3 p-3 animate-pulse">
+                      <div className="w-10 h-10 bg-gray-200 rounded-md"></div>
+                      <div className="flex-1">
+                        <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                        <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : inputValue.trim() === '' ? (
+                <div className="p-4 text-center text-gray-500 text-sm">
+                  Start typing to search for products
+                </div>
+              ) : filteredProducts.length === 0 ? (
+                <div className="p-4 text-center text-gray-500 text-sm">
+                  No products found for "{inputValue}"
+                </div>
+              ) : (
+                <>
+                  {/* Display count of results for mobile */}
+                  <div className="p-3 bg-gray-50 border-b border-gray-100 text-sm text-gray-600">
+                    Found {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''}
+                  </div>
+                  
+                  {filteredProducts.map((product) => {
+                    const imageURL = getImageURL(product.productImage);
+                    return (
+                      <div
+                        key={product.productID}
+                        onClick={() => handleProductClick(product.productID)}
+                        className="flex items-center gap-3 p-3 hover:bg-green-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                      >
+                        {imageURL ? (
+                          <img
+                            src={imageURL}
+                            alt={product.productName}
+                            className="w-10 h-10 object-cover rounded-md"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <div className="w-10 h-10 bg-gray-200 rounded-md flex items-center justify-center">
+                            <span className="text-gray-400 text-xs">No Image</span>
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <h4 
+                            className="text-sm font-medium text-green-600 truncate"
+                            dangerouslySetInnerHTML={{
+                              __html: highlightText(product.productName || '')
+                            }}
+                          />
+                          <p className="text-sm text-red-600 font-semibold">
+                            Price: {formatPrice(product.price)}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {/* Removed "View all results" section for mobile */}
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </Navbar>
 
       {/* Mobile Sidebar Drawer */}
@@ -419,9 +682,9 @@ if (currentCustomer) {
           )}
         </div>
       </Drawer>
-
-      {/* Radio Dialog */}
-      <Dialog open={isRadioOpen} handler={toggleRadio} size="sm">
+ 
+            {/* Radio Dialog */}
+            <Dialog open={isRadioOpen} handler={toggleRadio} size="sm">
         <DialogHeader className="flex justify-between items-center">
           Franko Radio Live 🎙️
           <IconButton variant="text" onClick={toggleRadio}>
@@ -444,3 +707,4 @@ if (currentCustomer) {
 };
 
 export default Nav;
+

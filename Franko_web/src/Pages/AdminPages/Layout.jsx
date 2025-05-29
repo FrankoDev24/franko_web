@@ -1,17 +1,12 @@
 import { useState } from 'react';
-import {
-  Layout,
-  Menu,
-  Avatar,
-  Dropdown,
+import {Layout,Menu,Avatar, Dropdown,
   Button,
   Modal,
   Typography,
   Drawer,
   Grid,
 } from 'antd';
-import {UserOutlined, ShopOutlined, ShoppingCartOutlined,AppstoreOutlined, TagsOutlined,TrademarkOutlined,
-  LogoutOutlined,
+import {UserOutlined, ShopOutlined, ShoppingCartOutlined,AppstoreOutlined, TagsOutlined,TrademarkOutlined, LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   UsergroupAddOutlined,
