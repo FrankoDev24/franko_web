@@ -175,8 +175,7 @@ const BestSellers = () => {
       productImage,
     } = product;
 
-    const discount =
-      oldPrice > 0 ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0;
+    const isOnSale = oldPrice > 0 && oldPrice > price;
 
     return (
       <div
@@ -188,9 +187,9 @@ const BestSellers = () => {
             <span className="absolute top-2 left-2 bg-gray-800 text-white text-xs px-2 py-0.5 rounded-full z-10">
               SOLD OUT
             </span>
-          ) : discount > 0 ? (
-            <span className="absolute top-2 left-2 bg-red-400 text-white text-xs font-semibold px-2 py-1 rounded-full z-10 w-10 h-10 flex items-center justify-center">
-              -{discount}%
+          ) : isOnSale > 0 ? (
+            <span className="absolute top-2 left-2 bg-green-400 text-white text-xs font-semibold px-2 py-1 rounded-full z-10 w-10 h-10 flex items-center justify-center">
+        SALE
             </span>
           ) : null}
 

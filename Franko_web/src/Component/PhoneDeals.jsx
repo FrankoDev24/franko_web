@@ -124,8 +124,8 @@ const PhoneDeals = () => {
                   SOLD OUT
                 </span>
               ) : discount > 0 ? (
-                <span className="absolute top-2 left-2 bg-red-400 text-white text-xs font-semibold px-2 py-1 rounded-full z-10 w-10 h-10 flex items-center justify-center">
-                  -{discount}%
+                <span className="absolute top-2 left-2 bg-green-400 text-white text-xs font-semibold px-2 py-1 rounded-full z-10 w-10 h-10 flex items-center justify-center">
+                SALE
                 </span>
               ) : null}
 
