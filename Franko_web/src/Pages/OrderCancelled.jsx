@@ -48,5 +48,4 @@ function Cancellation() {
     </div>
   );
 }
-
 export default Cancellation;

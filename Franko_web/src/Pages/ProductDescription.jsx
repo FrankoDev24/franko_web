@@ -23,9 +23,11 @@ const ProductDescription = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [showStickyHeader, setShowStickyHeader] = useState(false);
 
   const { currentProduct, products, loading } = useSelector((state) => state.products);
   const [viewedProducts, setViewedProducts] = useState([]);
+  
   useEffect(() => {
     dispatch(fetchProducts());
     dispatch(fetchProductById(productID));
@@ -35,6 +37,21 @@ const ProductDescription = () => {
   useEffect(() => {
     const stored = JSON.parse(localStorage.getItem("viewedProducts")) || [];
     setViewedProducts(stored);
+  }, []);
+
+  // Sticky header scroll handler
+  useEffect(() => {
+    const handleScroll = () => {
+      const productDetailsSection = document.getElementById('product-details-section');
+      if (productDetailsSection) {
+        const rect = productDetailsSection.getBoundingClientRect();
+        // Show sticky header when the product details section is scrolled past
+        setShowStickyHeader(rect.bottom < 100);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   useEffect(() => {
@@ -60,6 +77,7 @@ const ProductDescription = () => {
       setViewedProducts(updated);
     }
   }, [currentProduct]);
+  
   const handleBuyNow = (product) => {
     const storedCustomer = JSON.parse(localStorage.getItem("customer"));
   
@@ -81,8 +99,6 @@ const ProductDescription = () => {
     navigate("/checkout");
   };
   
-
-
   const handleShare = (platform) => {
     const url = window.location.href;
     const shareUrl =
@@ -120,7 +136,60 @@ const getValidImageUrl = (imagePath) => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-10">
-      <div className="grid lg:grid-cols-2 gap-12">
+      {/* Sticky Header for Large Screens */}
+      <div className={`fixed top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-lg z-50 transition-transform duration-300 hidden lg:block ${
+        showStickyHeader ? 'translate-y-0' : '-translate-y-full'
+      }`}>
+        <div className="max-w-7xl mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            {/* Product Info */}
+            <div className="flex items-center gap-4">
+              <img
+                src={imageUrl}
+                alt={product.productName}
+                className="w-12 h-12 object-cover rounded-lg"
+              />
+              <div>
+                <h3 className="font-semibold text-gray-800 text-sm line-clamp-1">
+                  {product.productName}
+                </h3>
+                <p className="text-red-500 font-bold text-sm">
+                  ₵{formatPrice(product.price)}.00
+                </p>
+              </div>
+            </div>
+            
+            {/* Action Buttons */}
+            <div className="flex items-center gap-3">
+              <CartButton product={product} />
+              
+              <Button
+                variant="outlined"
+                className="border border-green-600 text-green-600 font-semibold shadow-lg flex items-center gap-2 px-4 py-2 transition duration-300 hover:scale-105 hover:bg-green-50"
+                onClick={() => handleBuyNow(product)}
+              >
+                <ShoppingBagIcon className="w-4 h-4" />
+                Buy Now
+              </Button>
+
+              <a
+                href={`https://wa.me/233XXXXXXXXX?text=Hi! I'm interested in buying the ${encodeURIComponent(
+                  product?.productName
+                )}. Is it currently available, and what's the price?}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-lg flex items-center gap-2 px-3 py-2 transition duration-300 hover:scale-105"
+              >
+                <FaWhatsapp className="w-4 h-4" />
+                Chat
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Product Details Section */}
+      <div id="product-details-section" className="grid lg:grid-cols-2 gap-12">
         <div className="flex justify-center items-start">
           <Image.PreviewGroup>
             <Image
@@ -191,14 +260,14 @@ const getValidImageUrl = (imagePath) => {
               </Button>
 
               <a
-                href={`https://wa.me/233XXXXXXXXX?text=Hi! I’m interested in buying the ${encodeURIComponent(
-                  product?.name
-                )}. Is it currently available, and what’s the price?}`}
+                href={`https://wa.me/233XXXXXXXXX?text=Hi! I'm interested in buying the ${encodeURIComponent(
+                  product?.productName
+                )}. Is it currently available, and what's the price?}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-green-500 hover:bg-green-600 text-white font-Semibold rounded-lg shadow-lg flex items-center gap-2 px-4 py-2 transition duration-300 hover:scale-105"
               >
-                <FaWhatsapp c lassName="w-5 h-5" />
+                <FaWhatsapp className="w-5 h-5" />
                 Chat with Sales
               </a>
               <IconButton
@@ -355,8 +424,6 @@ const getValidImageUrl = (imagePath) => {
     </div>
   </section>
 )}
-
-
 
 {related.length > 0 && (
   <section className="mt-10">

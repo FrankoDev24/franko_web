@@ -32,6 +32,7 @@ import AdminShowroom from './Pages/AdminPages/AdminShowroom'
 import Users from './Pages/AdminPages/Users'
 import Customers from './Pages/AdminPages/Customers'
 import AdvertisementPage from './Pages/AdminPages/Advertisement'
+import Account from './Pages/Account'
 
 function App() {
   return (
@@ -56,6 +57,7 @@ function App() {
         <Route path="/brand/:brandId" element={<BrandsPage />} />
         <Route path ="/checkout" element= {<Checkout/>}/>
         <Route path = "/order-received" element={<OrderReceived/>}/>
+        <Route path = "/account" element={<Account/>}/>
         <Route path = "/shops" element = {<Locations/>}/>
         <Route path="order-cancelled" element={<Cancellation/> } />
         <Route path="/admin" element={<AdminPage/>}>
@@ -68,6 +70,7 @@ function App() {
   <Route path="customers" element={<Customers/>} />
   <Route path="showroom" element={<AdminShowroom/>} />
   <Route path="banner" element={<AdvertisementPage/>} />
+
 
   {/* other nested routes */}
 </Route>

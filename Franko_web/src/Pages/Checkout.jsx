@@ -276,33 +276,29 @@ const Checkout = () => {
     <Divider/>
 
 
-    {/* Payment Method */}
-    <div className="mt-6">
-      <Text strong className="text-sm block mb-2">Payment Method</Text>
-      <Radio.Group
-  value={paymentMethod}
-  onChange={(e) => setPaymentMethod(e.target.value)}
-  className="flex flex-col gap-3"
->
-  {deliveryFee !== 0 && (
-    <Radio value="Cash on Delivery">Cash on Delivery</Radio>
-  )}
-  <Radio value="Mobile Money">Mobile Money</Radio>
-  <Radio value="Credit Card">
- 
-    Credit Card
-  </Radio>
+   {/* Payment Method */}
+<div className="mt-6">
+  <Text strong className="text-sm block mb-2">Payment Method</Text>
+  <Radio.Group
+    value={paymentMethod}
+    onChange={(e) => setPaymentMethod(e.target.value)}
+    className="flex flex-col gap-3"
+  >
+    {(deliveryFee !== 0 || customerAccountType === "agent") && (
+      <Radio value="Cash on Delivery">Cash on Delivery</Radio>
+    )}
+    <Radio value="Mobile Money">Mobile Money</Radio>
+    <Radio value="Credit Card">Credit Card</Radio>
 
-  {/* Additional options for agent accountType */}
-  {customerAccountType === "agent" && (
-    <>
-      <Radio value="Pick Up">Pick Up</Radio>
-      <Radio value="Paid Already">Paid Already</Radio>
-    </>
-  )}
-</Radio.Group>
-
-    </div>
+    {/* Additional options for agent accountType */}
+    {customerAccountType === "agent" && (
+      <>
+        <Radio value="Pick Up">Pick Up</Radio>
+        <Radio value="Paid Already">Paid Already</Radio>
+      </>
+    )}
+  </Radio.Group>
+</div>
     {/* Checkout Button */}
      {/* Place Order Button */}
      <button

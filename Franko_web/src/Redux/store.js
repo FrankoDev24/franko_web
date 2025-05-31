@@ -11,10 +11,12 @@ import userReducer from './Slice/userSlice';
 import customerReducer from './Slice/customerSlice';
 import cartReducer from './Slice/cartSlice';
 import advertismentReducer from './Slice/advertismentSlice';
+import wishlistReducer from './Slice/wishlistSlice';
 
 // Combine reducers
 const rootReducer = combineReducers({
   categories: categoryReducer,
+  wishlist: wishlistReducer,
   brands: brandReducer,
   products: productReducer,
   showrooms: showroomReducer,
