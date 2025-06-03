@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Button } from "@material-tailwind/react";
-import { ShoppingCartIcon } from "@heroicons/react/24/outline";
+import { ShoppingCartIcon, CheckIcon } from "@heroicons/react/24/outline";
 import { message } from "antd";
 import { addToCart } from "../Redux/Slice/cartSlice";
 
@@ -11,6 +11,7 @@ const CartButton = ({ product, className = "", fullWidth = false }) => {
   const cartItems = useSelector((state) => state.cart.cart);
   const cartId = useSelector((state) => state.cart.cartId);
   const [loading, setLoading] = useState(false);
+  const [justAdded, setJustAdded] = useState(false);
 
   const handleAddToCart = () => {
     const isProductInCart = cartItems.some(
@@ -18,7 +19,13 @@ const CartButton = ({ product, className = "", fullWidth = false }) => {
     );
 
     if (isProductInCart) {
-      message.warning("Product is already in the cart.");
+      message.warning({
+        content: "Product is already in the cart.",
+        duration: 3,
+        style: {
+          marginTop: '20vh',
+        },
+      });
       return;
     }
 
@@ -33,7 +40,20 @@ const CartButton = ({ product, className = "", fullWidth = false }) => {
 
     dispatch(addToCart(cartData))
       .then(() => {
-        message.success("Product added to cart successfully!");
+        // Enhanced success notification
+        message.success({
+          content: `${product.productName || 'Product'} added to cart successfully! 🛒`,
+          duration: 4,
+          style: {
+            marginTop: '20vh',
+          },
+        });
+
+        // Visual feedback on button
+        setJustAdded(true);
+        setTimeout(() => setJustAdded(false), 2000);
+
+        // Google Analytics tracking
         window.dataLayer = window.dataLayer || [];
         window.dataLayer.push({
           event: "add_to_cart",
@@ -50,9 +70,13 @@ const CartButton = ({ product, className = "", fullWidth = false }) => {
         });
       })
       .catch((error) => {
-        message.error(
-          `Failed to add product to cart: ${error?.message || "Unknown error"}`
-        );
+        message.error({
+          content: `Failed to add product to cart: ${error?.message || "Unknown error"}`,
+          duration: 5,
+          style: {
+            marginTop: '20vh',
+          },
+        });
       })
       .finally(() => setLoading(false));
   };
@@ -62,14 +86,30 @@ const CartButton = ({ product, className = "", fullWidth = false }) => {
       fullWidth={fullWidth}
       disabled={loading}
       onClick={handleAddToCart}
-      className={`flex items-center gap-2 px-4 py-3 font-semibold rounded-lg transition duration-300 hover:scale-105 shadow-md ${
+      className={`flex items-center gap-2 px-4 py-3 font-semibold rounded-lg transition-all duration-300 hover:scale-105 shadow-md ${
         loading
           ? "bg-red-300 cursor-not-allowed"
+          : justAdded
+          ? "bg-green-500 hover:bg-green-600 text-white"
           : "bg-red-400 hover:bg-red-700 text-white"
       } ${className}`}
     >
-      <ShoppingCartIcon className="w-5 h-5" />
-      {loading ? "Adding..." : "Add to Cart"}
+      {loading ? (
+        <>
+          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          Adding...
+        </>
+      ) : justAdded ? (
+        <>
+          <CheckIcon className="w-5 h-5" />
+          Added!
+        </>
+      ) : (
+        <>
+          <ShoppingCartIcon className="w-5 h-5" />
+          Add to Cart
+        </>
+      )}
     </Button>
   );
 };

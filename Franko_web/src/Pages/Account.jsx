@@ -22,54 +22,6 @@ const Account = () => {
       setLoading(false);
     }, []);
 
-  const wishlistItems = [
-    {
-      id: 1,
-      name: 'Wireless Headphones Pro',
-      price: 299.99,
-      image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200&h=200&fit=crop',
-      inStock: true
-    },
-    {
-      id: 2,
-      name: 'Smart Watch Series X',
-      price: 399.99,
-      image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200&h=200&fit=crop',
-      inStock: false
-    },
-    {
-      id: 3,
-      name: 'Premium Coffee Maker',
-      price: 189.99,
-      image: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=200&h=200&fit=crop',
-      inStock: true
-    }
-  ];
-
-  const recentOrders = [
-    {
-      id: 'ORD-2024-5678',
-      date: '2024-12-05',
-      status: 'Delivered',
-      total: 156.99,
-      items: 3
-    },
-    {
-      id: 'ORD-2024-5679',
-      date: '2024-11-28',
-      status: 'Processing',
-      total: 89.50,
-      items: 2
-    },
-    {
-      id: 'ORD-2024-5680',
-      date: '2024-11-15',
-      status: 'Delivered',
-      total: 245.75,
-      items: 5
-    }
-  ];
-
 
 
   const handleInputChange = (field, value) => {
@@ -120,9 +72,7 @@ const Account = () => {
     { key: 'profile', label: 'Profile', icon: User },
     { key: 'orders', label: 'Orders', icon: Package },
     { key: 'wishlist', label: 'Wishlist', icon: Heart },
-    { key: 'addresses', label: 'Addresses', icon: MapPin },
-    { key: 'payment', label: 'Payment', icon: CreditCard },
-    { key: 'settings', label: 'Settings', icon: Settings }
+    
   ];
 
   return (
@@ -173,10 +123,7 @@ const Account = () => {
               <div className="text-sm text-gray-600">Total Orders</div>
             </div>
             
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-800">{wishlistItems.length}</div>
-              <div className="text-sm text-gray-600">Wishlist Items</div>
-            </div>
+
           </div>
         </div>
 
@@ -303,23 +250,7 @@ const Account = () => {
                 </div>
 
                 <div className="space-y-4">
-                  {recentOrders.map((order) => (
-                    <div key={order.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="font-semibold text-gray-800">Order {order.id}</div>
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
-                          {order.status}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm text-gray-600">
-                        <div className="flex items-center gap-4">
-                          <span>{new Date(order.date).toLocaleDateString()}</span>
-                          <span>{order.items} items</span>
-                        </div>
-                        <div className="font-semibold text-gray-800">${order.total}</div>
-                      </div>
-                    </div>
-                  ))}
+                
                 </div>
               </div>
             )}
@@ -335,50 +266,7 @@ const Account = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {wishlistItems.map((item) => (
-                    <div key={item.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                      <div className="flex gap-4">
-                        <img
-                          src={item.image}
-                          alt={item.name}
-                          className="w-20 h-20 rounded-lg object-cover"
-                        />
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-800 mb-1">{item.name}</h3>
-                          <p className="text-lg font-bold text-blue-600 mb-2">${item.price}</p>
-                          <div className="flex items-center justify-between">
-                            <span className={`text-sm ${item.inStock ? 'text-green-600' : 'text-red-600'}`}>
-                              {item.inStock ? 'In Stock' : 'Out of Stock'}
-                            </span>
-                            <div className="flex gap-2">
-                              <button className="text-blue-600 hover:text-blue-800 p-1">
-                                <Package className="h-4 w-4" />
-                              </button>
-                              <button className="text-red-600 hover:text-red-800 p-1">
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'addresses' && (
-              <div className="bg-white rounded-2xl shadow-xl p-8">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-gray-800">Saved Addresses</h2>
-                  <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
-                    <Plus className="h-4 w-4" />
-                    Add New Address
-                  </button>
-                </div>
-                <div className="text-center py-12 text-gray-500">
-                  <MapPin className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p>No saved addresses yet. Add your first address to get started.</p>
+               
                 </div>
               </div>
             )}
@@ -395,7 +283,7 @@ const Account = () => {
           
 
             {/* Support */}
-            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-xl p-6 text-white">
+            <div className="bg-gradient-to-br from-green-500 to-indigo-100 rounded-2xl shadow-xl p-6 text-white">
               <h3 className="text-lg font-semibold mb-4">Need Help?</h3>
               <p className="text-blue-100 mb-4 text-sm">
                 Our support team is here to help you with any questions or issues.

@@ -256,7 +256,7 @@ const dispatch = useDispatch();
                               <h4 className="font-semibold text-gray-600 text-sm  line-clamp-2 mb-1">
                                 {item.productName}
                               </h4>
-                              <p className="text-green-400 font-semibold">₵{item.price}.00</p>
+                              <p className="text-red-400 font-semibold">₵{item.price}.00</p>
                             </div>
                           </div>
 
@@ -334,7 +334,7 @@ const dispatch = useDispatch();
                     <Divider className="my-3" />
                     <div className="flex justify-between items-center text-lg font-bold text-gray-800">
                       <span>Total:</span>
-                      <span className="text-green-600">
+                      <span className="text-red-600">
                         ₵{(selectedItems.length > 0 ? selectedTotal : fullTotal).toFixed(2)}
                       </span>
                     </div>

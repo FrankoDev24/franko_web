@@ -1,7 +1,6 @@
 // src/hooks/useAddToCart.js
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { message } from "antd";
 import { addToCart } from "../Redux/Slice/cartSlice";
 
 const useAddToCart = () => {
@@ -16,8 +15,7 @@ const useAddToCart = () => {
     );
 
     if (isProductInCart) {
-      message.warning("Product is already in the cart.");
-      return;
+      throw new Error("Product is already in the cart");
     }
 
     setLoading(true);
@@ -31,7 +29,6 @@ const useAddToCart = () => {
 
     try {
       await dispatch(addToCart(cartData)).unwrap();
-      message.success("Product added to cart successfully!");
 
       // Optional: Google Tag Manager or similar
       window.dataLayer = window.dataLayer || [];
@@ -48,10 +45,10 @@ const useAddToCart = () => {
           ],
         },
       });
+      
+      return true; // Success
     } catch (error) {
-      message.error(
-        `Failed to add product to cart: ${error?.message || "Unknown error"}`
-      );
+      throw new Error(error?.message || "Failed to add product to cart");
     } finally {
       setLoading(false);
     }

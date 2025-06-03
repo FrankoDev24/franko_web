@@ -1,15 +1,72 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState , useCallback} from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import {
   HeartIcon as OutlineHeartIcon,
   ShoppingCartIcon,ArrowRightIcon,
+  HeartIcon as SolidHeartIcon,
   EyeIcon,
+  CheckCircleIcon,
+  XCircleIcon
 } from "@heroicons/react/24/solid";
 import { fetchProductByShowroomAndRecord } from "../Redux/Slice/productSlice";
 import { fetchHomePageShowrooms } from "../Redux/Slice/showRoomSlice";
 import useAddToCart from "./Cart";
 import {  Tooltip } from "@material-tailwind/react";
+import {
+  addToWishlist,
+  removeFromWishlist,
+} from "../Redux/Slice/wishlistSlice";
+
+const Notification = ({ message, type, isVisible, onClose }) => {
+  const timeoutRef = useRef(null);
+
+  useEffect(() => {
+    // Clear any existing timeout when component unmounts or dependencies change
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    // Clear existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
+    // Only set timeout if notification is visible and has a message
+    if (isVisible && message) {
+      timeoutRef.current = setTimeout(() => {
+        onClose();
+      }, 3000);
+    }
+  }, [isVisible, message]); // Remove onClose from dependencies to prevent recreation
+
+  if (!isVisible || !message) return null;
+
+  const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
+  const Icon = type === 'success' ? CheckCircleIcon : XCircleIcon;
+
+
+  return (
+    <div className="fixed top-4 right-4 z-50 animate-slide-in">
+      <div className={`${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 min-w-[300px]`}>
+        <Icon className="w-5 h-5 flex-shrink-0" />
+        <span className="text-sm font-medium">{message}</span>
+        <button
+          onClick={onClose}
+          className="ml-auto text-white/80 hover:text-white text-lg leading-none"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const BestSellers = () => {
   const dispatch = useDispatch();
@@ -19,10 +76,65 @@ const BestSellers = () => {
   const { homePageShowrooms } = useSelector((state) => state.showrooms);
   const { productsByShowroom, loading } = useSelector((state) => state.products);
   const { addProductToCart, loading: cartLoading } = useAddToCart();
+  const wishlist = useSelector((state) => state.wishlist.items);
+
+  const isInWishlist = (id) => wishlist.some((item) => item.id === id);
 
   const [activeShowroom, setActiveShowroom] = useState(null);
   const [isHovered, setIsHovered] = useState(false);
   const [showArrows, setShowArrows] = useState({ left: false, right: false });
+  const [notification, setNotification] = useState({
+    message: '',
+    type: 'success',
+    isVisible: false
+  });
+
+  // Memoize the hide function to prevent unnecessary re-renders
+  const hideNotification = useCallback(() => {
+    setNotification(prev => ({ 
+      ...prev, 
+      isVisible: false 
+    }));
+  }, []);
+
+  const showNotification = useCallback((message, type = 'success') => {
+    // Reset any existing notification first
+    setNotification({ message: '', type: 'success', isVisible: false });
+    
+    // Use requestAnimationFrame to ensure state reset is processed
+    requestAnimationFrame(() => {
+      setNotification({
+        message,
+        type,
+        isVisible: true
+      });
+    });
+  }, []);
+
+
+  const handleWishlistToggle = async (product) => {
+    try {
+      const id = product.id || product.productID;
+      if (isInWishlist(id)) {
+        dispatch(removeFromWishlist(id));
+        showNotification("Removed from wishlist", "success");
+      } else {
+        dispatch(addToWishlist({ ...product, id }));
+        showNotification("Added to wishlist", "success");
+      }
+    } catch {
+      showNotification("Failed to update wishlist", "error");
+    }
+  };
+
+  const handleAddToCart = async (product) => {
+    try {
+      await addProductToCart(product);
+      showNotification("Added to cart successfully", "success");
+    } catch {
+      showNotification("Failed to add to cart", "error");
+    }
+  };
 
   useEffect(() => {
     dispatch(fetchHomePageShowrooms());
@@ -91,7 +203,15 @@ const BestSellers = () => {
   };
 
   return (
+    
     <section className="px-4 md:px-16 py-6">
+      <Notification
+        key={notification.id}
+        message={notification.message}
+        type={notification.type}
+        isVisible={notification.isVisible}
+        onClose={hideNotification}
+      />
      {/* Showroom Tabs */}
      <div className="mb-6">
   <div className="flex items-center gap-4 flex-wrap md:flex-nowrap">
@@ -176,6 +296,7 @@ const BestSellers = () => {
     } = product;
 
     const isOnSale = oldPrice > 0 && oldPrice > price;
+    const inWishlist = isInWishlist(productID);
 
     return (
       <div
@@ -205,29 +326,41 @@ const BestSellers = () => {
           </div>
 
           <div className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20 transition-all">
-            <Tooltip content="Add to Wishlist" placement="top">
-              <button className="p-2 bg-white/10 hover:bg-white/20 rounded-full">
-                <OutlineHeartIcon className="w-5 h-5 text-white hover:text-red-400" />
-              </button>
-            </Tooltip>
-            <Tooltip content="View Details" placement="top">
-              <button
-                onClick={() => navigate(`/product/${productID}`)}
-                className="p-2 bg-white/10 hover:bg-white/20 rounded-full"
-              >
-                <EyeIcon className="w-5 h-5 text-white hover:text-yellow-400" />
-              </button>
-            </Tooltip>
-            <Tooltip content="Add to Cart" placement="top">
-              <button
-                onClick={() => addProductToCart(product)}
-                className="p-2 bg-white/10 hover:bg-white/20 rounded-full"
-                disabled={cartLoading}
-              >
-                <ShoppingCartIcon className="w-5 h-5 text-white hover:text-green-400" />
-              </button>
-            </Tooltip>
-          </div>
+                      {/* Wishlist Icon */}
+                      <Tooltip content={inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}>
+                        <button 
+                          className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+                          onClick={() => handleWishlistToggle(product)}
+                        >
+                          {inWishlist ? (
+                            <SolidHeartIcon className="w-5 h-5 text-red-500" />
+                          ) : (
+                            <OutlineHeartIcon className="w-5 h-5 text-white hover:text-red-400" />
+                          )}
+                        </button>
+                      </Tooltip>
+
+                      {/* View Details */}
+                      <Tooltip content="View Details">
+                        <button
+                          onClick={() => navigate(`/product/${productID}`)}
+                          className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+                        >
+                          <EyeIcon className="w-5 h-5 text-white hover:text-green-400" />
+                        </button>
+                      </Tooltip>
+
+                      {/* Add to Cart */}
+                      <Tooltip content={stock === 0 ? "Out of Stock" : "Add to Cart"}>
+                        <button
+                          onClick={() => handleAddToCart(product)}
+                          className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={cartLoading || stock === 0}
+                        >
+                          <ShoppingCartIcon className="w-5 h-5 text-white hover:text-red-400" />
+                        </button>
+                      </Tooltip>
+                    </div>
         </div>
 
         <div className="p-3 text-center space-y-1">
@@ -260,6 +393,22 @@ const BestSellers = () => {
 </div>
 
       </div>
+
+      <style jsx>{`
+        @keyframes slide-in {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        .animate-slide-in {
+          animation: slide-in 0.3s ease-out;
+        }
+      `}</style>
     </section>
   );
 };

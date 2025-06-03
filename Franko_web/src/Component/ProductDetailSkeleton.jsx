@@ -67,18 +67,7 @@ const ProductDetailSkeleton = () => {
         ))}
       </div>
 
-      {/* Product Specifications/Details */}
-      <div className="space-y-6">
-        <div className="h-7 w-48 bg-gray-300 rounded" />
-        <div className="bg-white rounded-2xl border p-6 space-y-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
-              <div className="h-4 bg-gray-300 rounded w-32" />
-              <div className="h-4 bg-gray-200 rounded w-24" />
-            </div>
-          ))}
-        </div>
-      </div>
+    
 
       {/* Recently Viewed Products */}
       <div className="space-y-6">
@@ -136,32 +125,7 @@ const ProductDetailSkeleton = () => {
         </div>
       </div>
 
-      {/* Customer Reviews Section */}
-      <div className="space-y-6">
-        <div className="h-7 w-40 bg-gray-300 rounded" />
-        <div className="space-y-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="bg-white rounded-2xl border p-6 space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-gray-300 rounded-full" />
-                <div className="space-y-2">
-                  <div className="h-4 bg-gray-300 rounded w-24" />
-                  <div className="flex gap-1">
-                    {Array.from({ length: 5 }).map((_, j) => (
-                      <div key={j} className="w-4 h-4 bg-gray-200 rounded" />
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="h-4 bg-gray-200 rounded w-full" />
-                <div className="h-4 bg-gray-200 rounded w-4/5" />
-                <div className="h-4 bg-gray-200 rounded w-3/5" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+    
     </div>
   );
 };

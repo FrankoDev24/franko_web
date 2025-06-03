@@ -79,7 +79,7 @@ const Phones = () => {
       {/* Filter Header */}
       <div className="hidden lg:flex items-center gap-3 pb-4 border-b border-gray-300">
         <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg">
-          <AdjustmentsHorizontalIcon className="w-5 h-5 text-white" />
+          <AdjustmentsHorizontalIcon className="w-5 h-5 text-red-400" />
         </div>
         <h3 className="text-xl font-bold text-gray-800">Filters</h3>
       </div>
@@ -148,7 +148,7 @@ const Phones = () => {
       <div className="bg-gradient-to-br from-red-50 to-orange-50 p-6 rounded-2xl border border-red-100">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-red-400 to-orange-500 rounded-lg">
+            <div className="p-2 bg-gradient-to-br from-red-300 to-orange-300 rounded-lg">
               <TagIcon className="w-4 h-4 text-white" />
             </div>
             <label htmlFor="discount-toggle" className="text-base font-semibold text-gray-800 cursor-pointer">
@@ -194,9 +194,9 @@ const Phones = () => {
 
       {/* Brand Selection */}
       {brands.length > 0 && (
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-100">
+        <div className="bg-gradient-to-br from-green-50 to-indigo-50 p-6 rounded-2xl border border-green-100">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
             <h4 className="text-base font-semibold text-gray-800">Filter by Brand</h4>
           </div>
           
@@ -206,8 +206,8 @@ const Phones = () => {
                 key={brand}
                 className={`w-full text-left px-4 py-3 text-sm font-medium rounded-xl transition-all duration-300 transform hover:scale-105 ${
                   filters.selectedBrand === brand
-                    ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg"
-                    : "bg-white text-gray-700 border border-gray-200 hover:border-blue-300 hover:text-blue-600 hover:shadow-md"
+                                       ? "bg-gradient-to-r from-green-500 to-teal-600 text-white shadow-lg"
+                    : "bg-white text-gray-700 border border-gray-200 hover:border-emerald-300 hover:text-green-600 hover:shadow-md"
                 }`}
                 onClick={() =>
                   setFilters((prev) => ({
@@ -223,13 +223,7 @@ const Phones = () => {
         </div>
       )}
 
-      {/* Reset Filters Button */}
-      <button
-        onClick={resetFilters}
-        className="w-full px-6 py-3 bg-gradient-to-r from-red-400 to-pink-500 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-      >
-        Clear All Filters
-      </button>
+       
     </div>
   );
 
@@ -274,8 +268,8 @@ const Phones = () => {
               <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 z-10">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg">
-                      <AdjustmentsHorizontalIcon className="w-5 h-5 text-red" />
+                    <div className="p-2 bg-gradient-to-br rounded-lg">
+                      <AdjustmentsHorizontalIcon className="w-5 h-5 text-red-400" />
                     </div>
                     <h2 className="text-xl font-bold text-gray-800">Filters</h2>
                   </div>
@@ -402,7 +396,7 @@ const Phones = () => {
               {brands.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                     <h4 className="text-sm font-semibold text-gray-800">Brands</h4>
                   </div>
                   
@@ -418,8 +412,8 @@ const Phones = () => {
                         }
                         className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
                           filters.selectedBrand === brand
-                            ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-sm"
-                            : "bg-white text-gray-700 border border-gray-200 hover:border-blue-300 hover:text-blue-600"
+                                                ? "bg-gradient-to-r from-green-500 to-teal-600 text-white shadow-lg"
+                    : "bg-white text-gray-700 border border-gray-200 hover:border-emerald-300 hover:text-green-600 hover:shadow-md"
                         }`}
                       >
                         {brand}
@@ -451,24 +445,25 @@ const Phones = () => {
             {currentProducts.length > 0 ? (
               <div className="space-y-6">
                 {/* Header */}
-                <div className="hidden md:block bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <div className="hidden md:block  p-6 rounded-2xl shadow-sm border ">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-3 mb-2">
                         <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg">
-                          <DevicePhoneMobileIcon className="w-6 h-6 text-white" />
+                          <DevicePhoneMobileIcon className="w-6 h-6 text-red-300" />
                         </div>
                         <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                          {filters.selectedBrand || "All Phones"}
+                        {(filters.selectedBrand ? `${filters.selectedBrand} phones ` : "Mobile phones")}
+
                         </h2>
                       </div>
-                      <p className="text-gray-500 text-sm">
+                      <p className="text-gray-400 text-xs">
                         Discover the latest smartphones and mobile devices
                       </p>
                     </div>
                     
                     <div className="flex items-center gap-4">
-                      <div className="bg-gradient-to-r from-emerald-100 to-teal-100 px-4 py-2 rounded-full border border-emerald-200">
+                      <div className="bg-gradient-to-r from-green-100 to-teal-100 px-4 py-2 rounded-full border border-emerald-200">
                         <span className="text-sm font-medium text-emerald-700">
                           <strong>{currentProducts.length}</strong> of <strong>{filteredProducts.length}</strong> products
                         </span>
@@ -478,7 +473,7 @@ const Phones = () => {
                 </div>
 
                 {/* Products Grid */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <div className="p-1 md:p-4 rounded-2xl">
                   <ProductCard
                     currentProducts={currentProducts}
                     navigate={navigate}
@@ -489,7 +484,7 @@ const Phones = () => {
                 {/* Pagination */}
                 {totalPages > 1 && !loading && (
                   <div className="flex justify-center">
-                    <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                    <div >
                       <CircularPagination
                         currentPage={currentPage}
                         totalPages={totalPages}
