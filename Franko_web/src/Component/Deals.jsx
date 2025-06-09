@@ -307,7 +307,7 @@ const Deals = () => {
                         SOLD OUT
                       </span>
                     ) : isOnSale ? (
-                      <span className="absolute top-2 left-2 bg-green-400 text-white text-xs font-semibold w-10 h-10 rounded-full z-10 flex items-center justify-center">
+                      <span className="absolute top-2 left-2 bg-red-600 text-white text-xs font-semibold w-10 h-10 rounded-full z-10 flex items-center justify-center">
                         SALE
                       </span>
                     ) : null}

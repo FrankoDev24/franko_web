@@ -87,7 +87,7 @@ export const fetchProduct = createAsyncThunk(
       const filteredProducts = products
         .filter(product => product.status == 1) // Loose equality to handle possible type mismatch
         .sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated))
-        .slice(0, 24); // Limit to the 24 most recent
+        .slice(0, 10); // Limit to the 24 most recent
 
       return filteredProducts;
     } catch (error) {
@@ -98,7 +98,7 @@ export const fetchProduct = createAsyncThunk(
 );
 export const fetchPaginatedProducts = createAsyncThunk(
   'products/fetchPaginatedProducts',
-  async ({ pageNumber, pageSize = 24 }, { rejectWithValue }) => {
+  async ({ pageNumber, pageSize = 16 }, { rejectWithValue }) => {
     try {
       const response = await axios.get(
         `${API_BASE_URL}/Product/Product-Get-Paginated`,

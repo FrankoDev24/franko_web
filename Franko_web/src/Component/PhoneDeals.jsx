@@ -193,7 +193,7 @@ const PhoneDeals = () => {
         <div className="flex-grow h-px bg-gray-300" />
         <Link
           to="/phones"
-          className="flex items-center gap-1 text-green-500 hover:text-green-600 transition"
+          className="flex items-center gap-1 text-red-400 hover:text-red-600 transition"
         >
           <span className="text-sm font-medium">View All</span>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -238,7 +238,7 @@ const PhoneDeals = () => {
                   SOLD OUT
                 </span>
               ) : discount > 0 ? (
-                <span className="absolute top-2 left-2 bg-green-400 text-white text-xs font-semibold px-2 py-1 rounded-full z-10 w-10 h-10 flex items-center justify-center">
+                <span className="absolute top-2 left-2 bg-red-600 text-white text-xs font-semibold px-2 py-1 rounded-full z-10 w-10 h-10 flex items-center justify-center">
                   SALE
                 </span>
               ) : null}

@@ -10,7 +10,7 @@ import UpdateProduct from "./EditProduct";
 import UpdateProductImage from "./UpdateProductImage";
 
 
-const Products = () => {
+const AdminProducts = () => {
   const dispatch = useDispatch();
   const { products } = useSelector((state) => state.products);
   const { brands } = useSelector((state) => state.brands);
@@ -350,4 +350,4 @@ const [selectedProductIdForImage, setSelectedProductIdForImage] = useState(null)
   );
 };
 
-export default Products;
+export default AdminProducts;

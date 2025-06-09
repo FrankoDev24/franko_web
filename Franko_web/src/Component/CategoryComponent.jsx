@@ -121,7 +121,7 @@ const CategoryComponent = () => {
            onClick={() => navigate(`/${cat.name.toLowerCase()}`)}
            className="flex-shrink-0 w-28 md:w-32 lg:w-36 flex flex-col items-center text-center cursor-pointer group transition-transform duration-300 hover:scale-105"
          >
-           <div className="w-24 h-24 md:w-28 md:h-28 rounded-full mt-2 shadow-md group-hover:shadow-xl ring-1 ring-gray-200 group-hover:ring-green-400 flex items-center justify-center mb-2 transition-all duration-300">
+           <div className="w-24 h-24 md:w-28 md:h-28 rounded-full mt-2 shadow-md group-hover:shadow-xl ring-1 ring-gray-200 group-hover:ring-red-400 flex items-center justify-center mb-2 transition-all duration-300">
              <div className="w-16 h-16 md:w-20 md:h-20 flex items-center justify-center overflow-hidden">
                <img
                  src={cat.img}
@@ -130,7 +130,7 @@ const CategoryComponent = () => {
                />
              </div>
            </div>
-           <Typography className="text-xs md:text-sm text-gray-800 font-semibold group-hover:text-green-600 transition-colors duration-300">
+           <Typography className="text-xs md:text-sm text-gray-800 font-semibold group-hover:text-red-600 transition-colors duration-300">
              {cat.name}
            </Typography>
          </div>

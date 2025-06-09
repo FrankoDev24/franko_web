@@ -1,11 +1,11 @@
 import {
-  EyeIcon,
-  ShoppingCartIcon,
   HeartIcon as OutlineHeartIcon,
   HeartIcon as SolidHeartIcon,
+  ShoppingCartIcon,
+  EyeIcon,
   CheckCircleIcon,
-  XCircleIcon,
-} from "@heroicons/react/24/outline";
+  XCircleIcon
+} from "@heroicons/react/24/solid";
 import { Tooltip } from "@material-tailwind/react";
 import useAddToCart from "./Cart";
 import { useDispatch, useSelector } from "react-redux";

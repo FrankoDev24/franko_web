@@ -20,7 +20,7 @@ const AnnouncementBar = () => {
           100% { transform: translateX(-100%); }
         }
       `}</style>
-      <div className="bg-gradient-to-r from-green-300 to-green-400 text-white overflow-hidden">
+      <div className="bg-gradient-to-r from-red-500 to-red-400 text-white overflow-hidden">
       {/* Desktop Layout - Side by side */}
       <div className="hidden md:flex items-center justify-between px-2 py12">
         {/* Marquee Section */}

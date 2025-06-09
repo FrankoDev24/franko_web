@@ -224,17 +224,17 @@ const BestSellers = () => {
       {homePageShowrooms?.map((showroom) => {
         const isActive = activeShowroom === showroom.showRoomID;
         return (
-          <button
-            key={showroom.showRoomID}
-            onClick={() => handleShowroomClick(showroom.showRoomID)}
-            className={`transition text-sm px-4 py-1.5 rounded-full font-medium border ${
-              isActive
-                ? "bg-green-400 text-white border-green-600"
-                : "text-gray-500 border-gray-300 hover:text-black hover:border-black"
-            }`}
-          >
-            {showroom.showRoomName}
-          </button>
+         <button
+  key={showroom.showRoomID}
+  onClick={() => handleShowroomClick(showroom.showRoomID)}
+  className={`transition text-sm px-4 py-1.5 rounded-full font-medium border ${
+    isActive
+      ? "bg-gradient-to-r from-red-500 via-yellow-800 to-red-600 text-white border-red-600 hover:scale-105"
+      : "text-gray-500 border-gray-300 hover:text-black hover:scale-105 "
+  }`}
+>
+  {showroom.showRoomName}
+</button>
         );
       })}
     </div>
@@ -309,7 +309,7 @@ const BestSellers = () => {
               SOLD OUT
             </span>
           ) : isOnSale > 0 ? (
-            <span className="absolute top-2 left-2 bg-green-400 text-white text-xs font-semibold px-2 py-1 rounded-full z-10 w-10 h-10 flex items-center justify-center">
+            <span className="absolute top-2 left-2 bg-red-600 text-white text-xs font-semibold px-2 py-1 rounded-full z-10 w-10 h-10 flex items-center justify-center">
         SALE
             </span>
           ) : null}
@@ -364,7 +364,7 @@ const BestSellers = () => {
         </div>
 
         <div className="p-3 text-center space-y-1">
-          <h3 className="text-sm font-medium text-gray-800 line-clamp-2">{productName}</h3>
+          <h3 className="text-xs md:text-sm font-medium text-gray-900 line-clamp-2">{productName}</h3>
           <div className="flex items-center justify-center gap-1 mt-1">
             <span className="text-red-500 font-medium text-sm">{formatPrice(price)}</span>
             {oldPrice > 0 && (
@@ -383,7 +383,7 @@ const BestSellers = () => {
     <div className="min-w-[150px] w-[200px] flex items-center justify-center">
       <button
         onClick={() => navigate(`/showroom/${activeShowroom}`)}
-        className="flex items-center gap-1 text-green-500 hover:text-green-600 transition"
+        className="flex items-center gap-1 text-red-500 hover:text-red-600 transition"
       >
         <span className="text-sm font-medium">View All</span>
         <ArrowRightIcon className="w-5 h-5" />

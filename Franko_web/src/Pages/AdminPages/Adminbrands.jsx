@@ -7,13 +7,7 @@ import {
 } from "../../Redux/Slice/brandSlice";
 import { fetchCategories } from "../../Redux/Slice/categorySlice";
 import {
-  Select,
-  Form,
-  Input,
-  Button,
-  Table,
-  Upload,
-  Modal,
+  Select, Form, Input,Button,Table,Upload,Modal,
   message,
   Row,
   Col,
@@ -38,8 +32,6 @@ const Adminbrands = () => {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-
-
 
   useEffect(() => {
     dispatch(fetchBrands({ page: currentPage, limit: 10 }));
@@ -277,8 +269,6 @@ const Adminbrands = () => {
     ))}
   </Select>
 </Form.Item>
-
-
 
           <Form.Item
             label="Logo"

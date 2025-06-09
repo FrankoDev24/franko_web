@@ -180,7 +180,7 @@ const Nav = () => {
      <AnnouncementBar />
 
       {/* Top Navbar */}
-      <Navbar className="mx-auto max-w-full px-4 py-2 rounded-none shadow-md bg-white s">
+      <Navbar className="mx-auto max-w-full px-4 py-1 rounded-none shadow-md bg-white s">
      
         <div className="flex items-center justify-between text-blue-gray-900">
           <div className="flex items-center gap-2 lg:hidden">
@@ -205,14 +205,14 @@ const Nav = () => {
   </Typography>
 
   {/* Full-width Search */}
-  <div className="flex-1 mx-8">
+  <div className="flex-1 mx-12">
   <div className="flex items-center gap-2 px-3 py-2 w-full">
         
         {/* Category Dropdown */}
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setShowDropdown(!showDropdown)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-400 rounded-full hover:bg-green-700 transition duration-200"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-400 rounded-full hover:bg-green-700 transition duration-200"
           >
             <Squares2X2Icon className="h-5 w-5" />
             All Categories
@@ -231,7 +231,7 @@ const Nav = () => {
                   .map((category) => (
                     <div
                       key={category.categoryId}
-                      className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer hover:bg-green-300 rounded-lg transition ${
+                      className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer hover:bg-red-300 rounded-lg transition ${
                         hoveredCategory === category.categoryId ? 'bg-green-600 text-white' : ''
                       }`}
                       onMouseEnter={() => setHoveredCategory(category.categoryId)}
@@ -369,10 +369,10 @@ const Nav = () => {
 
   {/* Right side links */}
   <div className="flex items-center gap-4">
-    <a href="/" className={`hover:text-green-600 ${isActive("/") && "text-green-600 font-semibold"}`}>Home</a>
-    <a href="/about" className={`hover:text-green-600 ${isActive("/about") && "text-green-600 font-semibold"}`}>About Us</a>
-    <a href="/shops" className={`hover:text-green-600 ${isActive("/shops") && "text-green-600 font-semibold"}`}>Shops</a>
-    <button onClick={toggleRadio} className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 transition">🎧 Radio</button>
+    <a href="/" className={`hover:text-red-500 ${isActive("/") && "text-red-500 font-semibold"}`}>Home</a>
+    <a href="/about" className={`hover:text-red-500 ${isActive("/about") && "text-red-500 font-semibold"}`}>About Us</a>
+    <a href="/shops" className={`hover:text-red-500 ${isActive("/shops") && "text-red-500 font-semibold"}`}>Shops</a>
+    <button onClick={toggleRadio} className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-500 transition">🎧 Radio</button>
     {(() => {
 
 if (currentCustomer) {
@@ -381,7 +381,7 @@ if (currentCustomer) {
   return (
     <button
       onClick={handleAccountClick}
-      className="bg-green-500 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold hover:bg-green-600 transition"
+      className="bg-red-500 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold hover:bg-red-600 transition"
       title={`${currentCustomer.firstName || ''} ${currentCustomer.lastName || ''}`.trim()}
     >
       {initial}

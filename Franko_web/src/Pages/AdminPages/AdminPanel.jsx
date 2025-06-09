@@ -4,7 +4,7 @@ import AdminLayout from './Layout';  // Assuming AdminLayout provides sidebar an
 import Dashboard from './Dashboard';
 import Brands from './Adminbrands.jsx';
 import Categories from './AdminCategory';
-import Products from './Products/Products';
+import Products from './Products/AdminProducts.jsx';
 import Orders from './Orders/Orders';
 import ShowRoom from "./AdminShowroom.jsx";
 import Users from './Users';

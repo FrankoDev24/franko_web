@@ -10,6 +10,8 @@ import FridgeDeals from '../Component/FridgeDeals'
 import BrandsBanner from '../Component/BrandsBanner'
 import PhoneDeals from '../Component/PhoneDeals'
 import TeleDeals from '../Component/TeleDeals'
+import NewArrivals from '../Component/NewArrivals'
+import Footer from '../Component/Footer'
 
 function Home() {
   return (
@@ -25,6 +27,8 @@ function Home() {
  <FridgeDeals/>
  <TeleDeals/>
  <BrandsBanner/>
+ <NewArrivals/>
+ <Footer/>
     </div>
   )
 }

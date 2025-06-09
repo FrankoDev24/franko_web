@@ -376,8 +376,8 @@ const Brand = () => {
             {currentProducts.length > 0 ? (
               <div className="space-y-6">
                 {/* Header */}
-                <div className="hidden md:block p-6 rounded-2xl shadow-sm border border-gray-100">
-  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="hidden md:block p-4 rounded-2xl shadow-sm border border-gray-100">
+  <div className="flex flex-col md:flex-row sm:items-center justify-between gap-4">
     <div>
       <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent lg:block">
         {selectedBrand?.brandName}
@@ -388,8 +388,8 @@ const Brand = () => {
     </div>
     
     <div className="flex items-center gap-4">
-    <div className="bg-gradient-to-r from-green-100 to-teal-100 px-4 py-2 rounded-full border border-emerald-200">
-                        <span className="text-sm font-medium text-emerald-700">
+    <div className="bg-gradient-to-r from-red-400 to-red-600  px-2 py-1 rounded-full border border-emerald-200">
+                        <span className="text-sm font-medium text-white">
                           <strong>{currentProducts.length}</strong> of <strong>{filteredProducts.length}</strong> products
                         </span>
                       </div>

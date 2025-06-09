@@ -25,7 +25,7 @@ import Cancellation from './Pages/OrderCancelled'
 import AdminPage from './Pages/AdminPages/AdminPanel'
 import Dashboard from './Pages/AdminPages/Dashboard'
 import Orders from './Pages/AdminPages/Orders/Orders'
-import Products from './Pages/AdminPages/Products/Products'
+import AdminProducts from './Pages/AdminPages/Products/AdminProducts'
 import Adminbrands from './Pages/AdminPages/Adminbrands'
 import AdminCategory from './Pages/AdminPages/AdminCategory'
 import AdminShowroom from './Pages/AdminPages/AdminShowroom'
@@ -33,6 +33,8 @@ import Users from './Pages/AdminPages/Users'
 import Customers from './Pages/AdminPages/Customers'
 import AdvertisementPage from './Pages/AdminPages/Advertisement'
 import Account from './Pages/Account'
+
+import Products from './Pages/Products'
 
 function App() {
   return (
@@ -55,6 +57,7 @@ function App() {
         <Route path="/product/:productID" element={<ProductDescription />} />
         <Route path ="showroom/:showRoomID" element={<ShowroomProductsPage/>}/>
         <Route path="/brand/:brandId" element={<BrandsPage />} />
+        <Route path="/products" element={<Products />} />
         <Route path ="/checkout" element= {<Checkout/>}/>
         <Route path = "/order-received" element={<OrderReceived/>}/>
         <Route path = "/account" element={<Account/>}/>
@@ -63,7 +66,7 @@ function App() {
         <Route path="/admin" element={<AdminPage/>}>
   <Route path="dashboard" element={<Dashboard />} />
   <Route path="orders" element={<Orders/>} />
-  <Route path="products" element={<Products/>} />
+  <Route path="products" element={<AdminProducts/>} />
   <Route path="brands" element={<Adminbrands/>} />
   <Route path="categories" element={<AdminCategory/>} />
   <Route path="users" element={<Users/>} />
