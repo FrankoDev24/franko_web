@@ -288,7 +288,7 @@ const dispatch = useDispatch();
 
                             {/* Total Price */}
                             <div className="text-right">
-                              <div className="text-gray-800 font-bold text-lg">
+                              <div className="text-gray-700 font-bold text-sm">
                                 ₵{(item.price * item.quantity).toFixed(2)}
                               </div>
                             </div>

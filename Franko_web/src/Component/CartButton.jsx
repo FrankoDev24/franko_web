@@ -86,7 +86,7 @@ const CartButton = ({ product, className = "", fullWidth = false }) => {
       fullWidth={fullWidth}
       disabled={loading}
       onClick={handleAddToCart}
-      className={`flex items-center gap-2 px-4 py-3 font-semibold rounded-lg transition-all duration-300 hover:scale-105 shadow-md ${
+      className={`flex items-center gap-2 px-2 py-3 font-semibold rounded-lg transition-all duration-300 hover:scale-105 shadow-md ${
         loading
           ? "bg-red-300 cursor-not-allowed"
           : justAdded

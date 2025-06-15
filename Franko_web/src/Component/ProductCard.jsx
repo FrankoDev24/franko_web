@@ -154,8 +154,8 @@ const ProductCard = ({ currentProducts = [], navigate, loading = false }) => {
                 >
                   <div className="relative overflow-hidden">
                     {isOnSale && (
-                      <span className="absolute top-2 left-2 bg-green-400 text-white text-xs font-semibold w-10 h-10 rounded-full z-10 flex items-center justify-center">
-                        Sale
+                      <span className="absolute top-2 left-2 bg-red-400 text-white text-xs font-semibold w-10 h-10 rounded-full z-10 flex items-center justify-center">
+                        SALE
                       </span>
                     )}
 
@@ -209,21 +209,23 @@ const ProductCard = ({ currentProducts = [], navigate, loading = false }) => {
                   </div>
 
                   {/* Product Info */}
-                  <div className="p-3 text-center space-y-1">
-                    <h3 className="text-sm font-medium text-gray-800 line-clamp-2">
-                      {productName || "Unnamed Product"}
-                    </h3>
-                    <div className="flex items-center justify-center gap-1 mt-1">
-                      <span className="text-red-500 font-medium text-sm">
-                        {formatPrice(price)}
-                      </span>
-                      {oldPrice > 0 && (
-                        <span className="text-xs line-through text-gray-400">
-                          {formatPrice(oldPrice)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                 <div className="p-3 text-center space-y-1">
+  <h3 className="text-sm font-medium text-gray-800 line-clamp-2">
+    {productName || "Franko Trading"}
+  </h3>
+
+  <div className="flex flex-col items-center justify-center gap-1 mt-1 md:flex-row">
+    <span className="text-red-500 font-medium text-sm">
+      {formatPrice(price)}
+    </span>
+    {oldPrice > 0 && (
+      <span className="text-xs line-through text-gray-400">
+        {formatPrice(oldPrice)}
+      </span>
+    )}
+  </div>
+</div>
+
                 </div>
               );
             })}

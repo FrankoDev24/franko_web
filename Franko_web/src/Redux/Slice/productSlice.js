@@ -98,7 +98,7 @@ export const fetchProduct = createAsyncThunk(
 );
 export const fetchPaginatedProducts = createAsyncThunk(
   'products/fetchPaginatedProducts',
-  async ({ pageNumber, pageSize = 16 }, { rejectWithValue }) => {
+  async ({ pageNumber, pageSize = 10 }, { rejectWithValue }) => {
     try {
       const response = await axios.get(
         `${API_BASE_URL}/Product/Product-Get-Paginated`,

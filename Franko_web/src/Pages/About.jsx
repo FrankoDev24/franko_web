@@ -1,7 +1,10 @@
 import React from 'react';
 import { Phone, Laptop, Tv, Headphones, MapPin, Users, Award, Heart, Zap, Shield, Truck, RotateCcw, CheckCircle, MessageCircle, ArrowRight, Star } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function AboutUs() {
+  const navigate = useNavigate();
+
   const coreValues = [
     { 
       icon: <Shield className="w-8 h-8" />,
@@ -15,6 +18,7 @@ export default function AboutUs() {
       desc: 'Constantly pushing boundaries and improving.',
       color: 'from-green-500 to-green-600'
     },
+
     { 
       icon: <Heart className="w-8 h-8" />,
       title: 'Customer Satisfaction', 
@@ -31,9 +35,14 @@ export default function AboutUs() {
 
   const benefits = [
     { icon: <Truck className="w-8 h-8" />, text: 'Fast Delivery', desc: 'Quick delivery across Ghana' },
-    { icon: <RotateCcw className="w-8 h-8" />, text: 'Easy Returns', desc: 'Hassle-free return policy' },
+{ 
+  icon: <RotateCcw className="w-8 h-8" />, 
+  text: 'Secure Payments', 
+  desc: 'Safe and protected transactions ' 
+}
+,
     { icon: <CheckCircle className="w-8 h-8" />, text: 'Quality Guaranteed', desc: 'Only authentic products' },
-    { icon: <MessageCircle className="w-8 h-8" />, text: 'Customer Support', desc: '24/7 dedicated support' },
+    { icon: <MessageCircle className="w-8 h-8" />, text: 'Customer Support', desc: 'Dedicated support Team' },
   ];
 
   const products = [
@@ -74,7 +83,7 @@ export default function AboutUs() {
             </h1>
             
             <p className="text-xl md:text-2xl mb-8 text-green-100 font-light">
-              "Phone Papa Fie" - Your trusted technology partner since 2004
+              "Phone Papa Fie" - Your trusted electronic partner since 2004
             </p>
             
             <div className="flex flex-wrap justify-center gap-4 mb-8">
@@ -87,7 +96,8 @@ export default function AboutUs() {
             </div>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button className="bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-semibold px-8 py-4 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg">
+              <button onClick={() => navigate('/products')}
+className="bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-semibold px-8 py-4 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg">
                 Explore Products
               </button>
               <button className="border-2 border-white text-white hover:bg-white hover:text-green-700 font-semibold px-8 py-4 rounded-full transition-all duration-300">
@@ -134,7 +144,8 @@ export default function AboutUs() {
                 Located at Adabraka Opposite Roxy Cinema in Accra, we've earned the nickname "Phone Papa Fie" (Home of Quality Phones) by consistently delivering quality and affordability to every Ghanaian family.
               </p>
               
-              <button className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-full transition-all duration-300">
+              <button   onClick={() => navigate('/shops')}
+ className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-full transition-all duration-300">
                 Visit Our Store
                 <ArrowRight className="w-4 h-4" />
               </button>
@@ -161,7 +172,7 @@ export default function AboutUs() {
                   <div className="bg-white rounded-2xl p-6 shadow-md">
                     <Headphones className="w-8 h-8 text-red-600 mb-3" />
                     <h4 className="font-semibold text-gray-900">Accessories</h4>
-                    <p className="text-sm text-gray-600">All your tech needs</p>
+                    <p className="text-sm text-gray-600">All your accessories needs</p>
                   </div>
                 </div>
               </div>
@@ -186,9 +197,9 @@ export default function AboutUs() {
             </div>
 
             {/* Vision */}
-            <div className="bg-white rounded-3xl p-8 shadow-xl border-l-4 border-blue-500">
-              <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mb-6">
-                <Zap className="w-8 h-8 text-blue-600" />
+            <div className="bg-white rounded-3xl p-8 shadow-xl border-l-4 border-red-500">
+              <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mb-6">
+                <Zap className="w-8 h-8 text-red-600" />
               </div>
               <h3 className="text-2xl font-bold mb-4 text-gray-900">Our Vision</h3>
               <p className="text-gray-700 leading-relaxed">
@@ -267,7 +278,7 @@ export default function AboutUs() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-bold px-10 py-4 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg">
+            <button   onClick={() => navigate('/products')} className="bg-yellow-300 text-gray-700 font-bold px-10 py-4 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg">
               Browse Our Products
             </button>
             <button className="border-2 border-white text-white hover:bg-white hover:text-green-700 font-semibold px-10 py-4 rounded-full transition-all duration-300">

@@ -380,7 +380,7 @@ const Deals = () => {
               <div className="min-w-[150px] w-[200px] flex items-center justify-center">
                 <Link
                   to={`/showroom/${showroomID}`}
-                  className="flex items-center gap-1 text-green-500 hover:text-green-600 transition-colors"
+                  className="flex items-center gap-1 text-red-500 hover:text-red-600 transition-colors"
                 >
                   <span className="text-sm font-medium">View All</span>
                   <ArrowRightIcon className="w-5 h-5" />

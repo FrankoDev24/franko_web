@@ -27,7 +27,7 @@ const OrderReceived = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center p-6 relative">
-      <Confetti width={dimensions.width} height={dimensions.height} recycle={false} numberOfPieces={400} />
+      <Confetti width={dimensions.width} height={dimensions.height} recycle={false} numberOfPieces={900} />
 
       <div className="bg-white shadow-xl rounded-3xl w-full max-w-md p-8 text-center space-y-6 transition-all duration-300 z-10">
         <div className="flex justify-center">

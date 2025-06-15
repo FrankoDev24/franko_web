@@ -1,8 +1,7 @@
 import React from "react";
 import { Typography } from "@material-tailwind/react";
 import { PhoneIcon } from "@heroicons/react/24/outline";
-import { FaWhatsapp } from "react-icons/fa";
-
+import { PhoneOutlined,   WhatsAppOutlined, } from "@ant-design/icons";
 const promoMessages = [
   "🎉 FRANKO EASTER SALE!",
   "🔥 UP TO -40%",
@@ -22,10 +21,10 @@ const AnnouncementBar = () => {
       `}</style>
       <div className="bg-gradient-to-r from-red-500 to-red-400 text-white overflow-hidden">
       {/* Desktop Layout - Side by side */}
-      <div className="hidden md:flex items-center justify-between px-2 py12">
+      <div className="hidden md:flex items-center justify-between px-2 ">
         {/* Marquee Section */}
         <div className="flex-1 overflow-hidden">
-          <div className="flex animate-marquee whitespace-nowrap" style={{animation: 'marquee 25s linear infinite'}}>
+          <div className="flex animate-marquee whitespace-nowrap" style={{animation: 'marquee 65s linear infinite'}}>
             {[...promoMessages, ...promoMessages].map((msg, index) => (
               <span key={index} className="mx-5 text-sm font-medium">
                 {msg}
@@ -44,16 +43,25 @@ const AnnouncementBar = () => {
           {/* Contact Details Row */}
           <div className="flex items-center space-x-4">
             {/* Call */}
-            <div className="flex items-center space-x-2">
-              <PhoneIcon className="h-4 w-4" />
-              <span className="text-sm">030 274 0642</span>
-            </div>
-            
+     <p className="text-white text-sm flex items-center">
+              <PhoneOutlined className="mr-2" />
+              <a href="tel:+233302225651" className="text-white hover:text-gray-200 transition">
+                +233302225651
+              </a>
+            </p>
             {/* WhatsApp */}
-            <div className="flex items-center space-x-2">
-              <FaWhatsapp className="h-4 w-4" />
-              <span className="text-sm">055 260 2605</span>
-            </div>
+             <p className="text-white text-sm flex items-center">
+  <WhatsAppOutlined className="mr-2" />
+  <a
+    href="https://wa.me/233246422338"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="text-white hover:text-gray-200 transition"
+  >
+    +233246422338
+  </a>
+</p>
+
           </div>
         </div>
       </div>
@@ -82,24 +90,26 @@ const AnnouncementBar = () => {
   {/* Contact Details Row */}
   <div className="flex items-center justify-center space-x-6">
     {/* Call - Clickable */}
-    <a 
-      href="tel:+233302740642" 
-      className="flex items-center space-x-2 hover:text-blue-200 transition-colors duration-200 cursor-pointer group"
-    >
-      <PhoneIcon className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
-      <span className="text-sm group-hover:underline">030 274 0642</span>
-    </a>
+   <p className="text-white text-sm flex items-center">
+              <PhoneOutlined className="mr-2" />
+              <a href="tel:+233302225651" className="text-white hover:text-gray-200 transition">
+                +233302225651
+              </a>
+            </p>
     
     {/* WhatsApp - Clickable */}
-    <a 
-      href="https://wa.me/233552602605" 
-      target="_blank" 
-      rel="noopener noreferrer"
-      className="flex items-center space-x-2 hover:text-green-200 transition-colors duration-200 cursor-pointer group"
-    >
-      <FaWhatsapp className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
-      <span className="text-sm group-hover:underline">055 260 2605</span>
-    </a>
+             <p className="text-white text-sm flex items-center">
+  <WhatsAppOutlined className="mr-2" />
+  <a
+    href="https://wa.me/233246422338"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="text-white hover:text-gray-200 transition"
+  >
+    +233246422338
+  </a>
+</p>
+
   </div>
 </div>
       </div>

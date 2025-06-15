@@ -11,7 +11,9 @@ import { FaWhatsapp } from "react-icons/fa";
 import CartButton from "../Component/CartButton";
 import ProductCard from "../Component/ProductCard";
 import useAddToCart from "../Component/Cart";
+import { v4 as uuidv4 } from "uuid";
 
+ 
 import AuthModal from "../Component/AuthModal"; 
 const formatPrice = (price) =>
   price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -78,26 +80,35 @@ const ProductDescription = () => {
     }
   }, [currentProduct]);
   
-  const handleBuyNow = (product) => {
-    const storedCustomer = JSON.parse(localStorage.getItem("customer"));
-  
-    if (!storedCustomer) {
-      setAuthModalOpen(true); // Show login/signup modal if not authenticated
-      return;
-    }
-  
-    const selectedCart = [{
-      productId: product.productID,
-      productName: product.productName,
-      price: product.price,
-      total: product.price,
-      quantity: 1,
-      imagePath: product.productImage || "",
-    }];
-  
-    localStorage.setItem("selectedCart", JSON.stringify(selectedCart));
-    navigate("/checkout");
-  };
+const handleBuyNow = (product) => {
+  const storedCustomer = JSON.parse(localStorage.getItem("customer"));
+
+  if (!storedCustomer) {
+    setAuthModalOpen(true); // Show login/signup modal if not authenticated
+    return;
+  }
+
+  // ✅ Check and generate cart ID
+  let cartId = localStorage.getItem("cartId");
+  if (!cartId) {
+    cartId = uuidv4(); // generate new cart ID
+    localStorage.setItem("cartId", cartId);
+  }
+
+  const selectedCart = [{
+    cartId, // associate with the generated cart ID
+    productId: product.productID,
+    productName: product.productName,
+    price: product.price,
+    total: product.price,
+    quantity: 1,
+    imagePath: product.productImage || "",
+  }];
+
+  localStorage.setItem("selectedCart", JSON.stringify(selectedCart));
+  navigate("/checkout");
+};
+
   
   const handleShare = (platform) => {
     const url = window.location.href;
@@ -154,7 +165,7 @@ const getValidImageUrl = (imagePath) => {
                   {product.productName}
                 </h3>
                 <p className="text-red-500 font-bold text-sm">
-                  ₵{formatPrice(product.price)}.00
+                 GH₵{formatPrice(product.price)}.00
                 </p>
               </div>
             </div>
@@ -207,13 +218,13 @@ const getValidImageUrl = (imagePath) => {
           </div>
 
           {/* Price Section */}
-          <div className="flex items-center gap-4">
-            <div className="text-lg md:text-xl font-bold text-red-500 bg-red-50 px-4 py-1.5 rounded-xl shadow-sm">
-              ₵{formatPrice(product.price)}.00
+          <div className="flex items-center gap-4 text-red-500 bg-red-50 rounded-lg p-3 shadow-md">
+            <div className="text-lg md:text-xl font-bold">
+             GH₵{formatPrice(product.price)}.00
             </div>
             {product.oldPrice > 0 && (
               <div className="text-sm text-gray-400 line-through">
-                ₵{formatPrice(product.oldPrice)}.00
+                GH₵ {formatPrice(product.oldPrice)}.00
               </div>
             )}
           </div>
@@ -336,10 +347,14 @@ const getValidImageUrl = (imagePath) => {
       </div>
       {viewedProducts.length > 0 && (
   <section className="mt-16">
-    <h2 className="text-sm md:text-lg font-bold text-gray-900 relative whitespace-nowrap mb-6">
-      Recently Viewed
-      <span className="absolute -bottom-1 left-0 w-16 h-1 bg-red-400 rounded-full "></span>
-    </h2>
+   <div className="mb-6 flex items-center gap-4 flex-wrap md:flex-nowrap">
+                <h2 className="text-sm md:text-xl font-bold text-gray-900 relative whitespace-nowrap">
+               Recently Viewed Products
+                  <span className="absolute -bottom-1 left-0 w-16 h-1 bg-red-400 rounded-full" />
+                </h2>
+                <div className="flex-grow h-px bg-gray-300" />
+               
+              </div>
 
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
       {viewedProducts.map((product, index) => {
@@ -427,10 +442,14 @@ const getValidImageUrl = (imagePath) => {
 
 {related.length > 0 && (
   <section className="mt-10">
-    <h2 className="text-sm md:text-lg font-bold text-gray-900 relative whitespace-nowrap mb-6">
-      You May Also Like
-      <span className="absolute -bottom-1 left-0 w-16 h-1 bg-red-400 rounded-full "></span>
-    </h2>
+    <div className="mb-6 flex items-center gap-4 flex-wrap md:flex-nowrap">
+                <h2 className="text-sm md:text-xl font-bold text-gray-900 relative whitespace-nowrap">
+              You May Also Like
+                  <span className="absolute -bottom-1 left-0 w-16 h-1 bg-red-400 rounded-full" />
+                </h2>
+                <div className="flex-grow h-px bg-gray-300" />
+               
+              </div>
     <ProductCard currentProducts={related} navigate={navigate} />
   </section>
 )}

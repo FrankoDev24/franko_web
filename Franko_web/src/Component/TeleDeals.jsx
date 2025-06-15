@@ -193,7 +193,7 @@ const TeleDeals = () => {
         <div className="flex-grow h-px bg-gray-300" />
         <Link
           to="/television"
-          className="flex items-center gap-1 text-green-500 hover:text-green-600 transition"
+          className="flex items-center gap-1 text-red-500 hover:text-green-600 transition"
         >
           <span className="text-sm font-medium">View All</span>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

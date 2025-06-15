@@ -2,8 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 /* styles.css or global styles */
-.ant-message {
-  z-index: 9999 !important;}
 
 @layer base {
   body {

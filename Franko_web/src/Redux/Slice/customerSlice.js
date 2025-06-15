@@ -54,6 +54,49 @@ export const loginCustomer = createAsyncThunk(
     }
   }
 );
+export const updateAccountStatus = createAsyncThunk(
+  "customers/updateAccountStatus",
+  async (_, { rejectWithValue }) => {
+    try {
+      console.log("Fetching customer details from localStorage...");
+      const customer = await localStorage.getItem("customer");
+
+      if (!customer) {
+        console.error("No customer found in localStorage.");
+        return rejectWithValue("No customer found.");
+      }
+
+      const parsedCustomer = JSON.parse(customer);
+      console.log("Customer details:", parsedCustomer);
+
+      const { customerAccountNumber } = parsedCustomer; // Fix here
+      console.log("Customer account number:", customerAccountNumber);
+
+      if (!customerAccountNumber) {
+        console.error("Missing customerAccountNumber.");
+        return rejectWithValue("Invalid customer data.");
+      }
+
+      const response = await axios.post(`${API_BASE_URL}/Users/Customer-Status`, {
+        accountNumber: customerAccountNumber, // Fix here
+        accountStatus: "0",
+      });
+
+      console.log("Response from server:", response.data);
+
+      // Remove customer from localStorage
+      await localStorage.removeItem("customer");
+      console.log("Customer data removed from localStorage.");
+
+      return response.data;
+    } catch (error) {
+      console.error("Error updating account status:", error.response?.data || error.message);
+      return rejectWithValue(error.response?.data || "Failed to update account status.");
+    }
+  }
+);
+
+
 
 // Initial state
 const initialState = {
@@ -84,6 +127,16 @@ const customerSlice = createSlice({
     clearSelectedCustomer: (state) => {
       state.selectedCustomer = null;
     },
+    
+    // New action to manually set current customer (useful for guest accounts)
+    setCurrentCustomer: (state, action) => {
+      state.currentCustomer = action.payload;
+      state.currentCustomerDetails = action.payload;
+      // Also update localStorage
+      if (action.payload) {
+        localStorage.setItem('customer', JSON.stringify(action.payload));
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -94,15 +147,29 @@ const customerSlice = createSlice({
       .addCase(createCustomer.fulfilled, (state, action) => {
         state.loading = false;
 
-        if (action.payload && action.payload.ResponseCode === '1') {
+        // Handle successful customer creation (including guests)
+        if (action.payload && (action.payload.ResponseCode === '1' || action.payload.ResponseCode === '0')) {
           const newCustomer = {
-            ...action.meta.arg,
-            ...action.payload,
+            ...action.meta.arg, // Original customer data sent to API
+            ...action.payload,  // Response data from API
           };
           state.currentCustomer = newCustomer;
+          state.currentCustomerDetails = newCustomer;
           localStorage.setItem('customer', JSON.stringify(newCustomer));
-        } else {
-          state.error = "Failed to create customer.";
+        } 
+        // Handle guest accounts specifically - even if no specific response code
+        else if (action.meta.arg.isGuest) {
+          // For guest accounts, use the original data we sent since it contains all the info
+          const guestCustomer = {
+            ...action.meta.arg,
+            ...action.payload, // Include any response data from server
+          };
+          state.currentCustomer = guestCustomer;
+          state.currentCustomerDetails = guestCustomer;
+          localStorage.setItem('customer', JSON.stringify(guestCustomer));
+        } 
+        else {
+          state.error = action.payload?.ResponseMessage || "Failed to create customer.";
         }
       })
       .addCase(createCustomer.rejected, (state, action) => {
@@ -133,13 +200,31 @@ const customerSlice = createSlice({
       .addCase(loginCustomer.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || "Login failed.";
+      })
+       .addCase(updateAccountStatus.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(updateAccountStatus.fulfilled, (state) => {
+        state.status = "succeeded";
+        state.customerData = null; // Clear customer data from Redux
+      })
+      .addCase(updateAccountStatus.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.payload || "Failed to update account status.";
       });
-  
+
   },
 });
 
 // Export the actions
-export const { logoutCustomer, clearCustomers, setCustomer, clearSelectedCustomer } = customerSlice.actions;
+export const { 
+  logoutCustomer, 
+  clearCustomers, 
+  setCustomer, 
+  clearSelectedCustomer, 
+  setCurrentCustomer 
+} = customerSlice.actions;
 
 // Export the reducer
 export default customerSlice.reducer;

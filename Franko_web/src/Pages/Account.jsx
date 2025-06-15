@@ -1,297 +1,364 @@
-import React, { useState, useEffect } from 'react';
-import { User, Heart, Package, MapPin, CreditCard, Settings, Shield, Bell, Gift, Star, Edit2, Eye, EyeOff, Calendar, Mail, Phone, Home, Camera, LogOut, Download, Upload, Trash2, Plus, Check, X } from 'lucide-react';
+import  { useEffect, useState } from "react";
+import { Card, Button, Typography, message, Modal, Spin, Badge, Divider } from "antd";
+import { 
+  LogOut, 
+  Trash2, 
+  User, 
+  Mail, 
+  Phone, 
+  MapPin, 
+  BadgeInfo, 
+  Package, 
+  Heart,
+  Gift,
+  Star,
+  Camera
+} from "lucide-react";
+import { useDispatch } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import { updateAccountStatus } from "../Redux/Slice/customerSlice";
+
+
+const { Title, Text } = Typography;
 
 const Account = () => {
-    const [user, setUser] = useState(null);
-    const [activeTab, setActiveTab] = useState('profile');
-    const [isEditing, setIsEditing] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [editForm, setEditForm] = useState({});
-  
-    useEffect(() => {
-      const storedCustomer = localStorage.getItem('customer');
-      if (storedCustomer) {
+  const [customer, setCustomer] = useState(null);
+  const [activeTab, setActiveTab] = useState('profile');
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const [wishlist, setWishlist] = useState([]);
+
+  useEffect(() => {
+    const storedCustomer = localStorage.getItem("customer");
+    if (storedCustomer) {
+      setCustomer(JSON.parse(storedCustomer));
+    }
+  }, []);
+  useEffect(() => {
+  const storedWishlist = JSON.parse(localStorage.getItem("wishlist")) || [];
+  setWishlist(storedWishlist);
+}, []);
+
+
+  const handleLogout = () => {
+    localStorage.removeItem("customer");
+    message.success("Logged out successfully.");
+    navigate("/");
+  };
+
+  const handleDeleteAccount = () => {
+    Modal.confirm({
+      title: "Confirm Account Deletion",
+      content: (
+        <div className="py-4">
+          <p className="text-gray-600 mb-2">Are you sure you want to delete your account?</p>
+          <p className="text-red-500 text-sm font-medium">⚠️ This action cannot be undone and will:</p>
+          <ul className="text-sm text-gray-500 mt-2 ml-4">
+            <li>• Remove all your personal data</li>
+            <li>• Cancel active orders</li>
+            <li>• Delete your purchase history</li>
+          </ul>
+        </div>
+      ),
+      okText: "Yes, Delete My Account",
+      okType: "danger",
+      cancelText: "Keep My Account",
+      width: 480,
+      onOk: async () => {
         try {
-          const parsedCustomer = JSON.parse(storedCustomer);
-          setUser(parsedCustomer);
-          setEditForm(parsedCustomer);
+          await dispatch(updateAccountStatus()).unwrap();
+          message.success("Account deleted successfully.");
+          navigate("/");
         } catch (error) {
-          console.error('Failed to parse customer from localStorage:', error);
+          message.error(error || "Failed to delete account.");
         }
-      }
-      setLoading(false);
-    }, []);
-
-
-
-  const handleInputChange = (field, value) => {
-    setEditForm(prev => ({...prev, [field]: value}));
+      },
+    });
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'active': return 'text-green-600 bg-green-100';
-      case 'processing': return 'text-yellow-600 bg-yellow-100';
-      case 'delivered': return 'text-green-600 bg-green-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
-  const getTierColor = (tier) => {
-    switch (tier) {
-      case 'gold': return 'text-yellow-600 bg-yellow-100';
-      case 'silver': return 'text-gray-600 bg-gray-100';
-      case 'platinum': return 'text-purple-600 bg-purple-100';
-      default: return 'text-blue-600 bg-blue-100';
-    }
-  };
-
-  if (loading) {
+  if (!customer) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-slate-50 to-green-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading User Information...</p>
+ 
+          <Text className="text-gray-500">Loading your profile...</Text>
         </div>
       </div>
     );
   }
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <User className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600">No user data found</p>
-        </div>
-      </div>
-    );
-  }
+  const {
+    firstName,
+    lastName,
+    email,
+    contactNumber,
+    address,
+    customerAccountNumber,
+    isGuest,
+  } = customer;
 
-  const tabItems = [
-    { key: 'profile', label: 'Profile', icon: User },
-    { key: 'orders', label: 'Orders', icon: Package },
-    { key: 'wishlist', label: 'Wishlist', icon: Heart },
-    
+  const tabs = [
+    { key: 'profile', label: 'Profile', icon: <User className="w-4 h-4" /> },
+   
+    { key: 'wishlist', label: 'Wishlist', icon: <Heart className="w-4 h-4" /> },
+   
   ];
 
+  const quickStats = [
+    { label: 'Total Orders', value: '12', icon: <Package className="w-5 h-5" />, color: 'bg-green-500' },
+   { label: 'wishlist', value: ` ${wishlist.length}`, icon: <Heart className="w-4 h-4" /> , color: 'bg-red-500'},
+
+    { label: 'Reward Points', value: '2,450', icon: <Gift className="w-5 h-5" />, color: 'bg-green-500' },
+    { label: 'Verified Member', value: '2025', icon: <Star className="w-5 h-5" />, color: 'bg-red-500' }
+  ];
+  
+  const backendBaseURL = "https://smfteapi.salesmate.app";
+
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="bg-white rounded-2xl shadow-xl mb-8 overflow-hidden">
-          <div className="bg-gradient-to-r from-green-200 to-red-100 px-8 py-12 text-white relative">
-            <div className="flex flex-col md:flex-row items-center gap-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-indigo-50 p-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Header Section */}
+        <div className="mb-8">
+          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+            <div className="flex flex-col md:flex-row items-center gap-6 ">
+              {/* Avatar */}
               <div className="relative">
-                <img
-                  src={user.imagePath}
-                  alt="Profile"
-                  className="w-32 h-32 rounded-full border-4 border-white shadow-lg object-cover"
-                />
-                <button className="absolute bottom-0 right-0 bg-white text-blue-600 rounded-full p-2 shadow-lg hover:bg-gray-50 transition-colors">
-                  <Camera className="h-4 w-4" />
+                <div className="w-16 h-16 md:w-24 md:h-24 rounded-full bg-red-400 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+                  {firstName?.charAt(0)}{lastName?.charAt(0)}
+                </div>
+                <button className="absolute -bottom-1 -right-1 w-8 h-8 bg-white rounded-full shadow-lg border-2 border-gray-100 flex items-center justify-center hover:bg-gray-50 transition-colors">
+                  <Camera className="w-4 h-4 text-gray-600" />
                 </button>
               </div>
-              <div className="text-center md:text-left flex-1">
-                <h1 className="text-3xl font-bold mb-2">
-                  {user.firstName} {user.lastName}
-                </h1>
-                <p className="text-blue-100 mb-4">Account: {user.customerAccountNumber}</p>
-                <div className="flex flex-wrap gap-4 justify-center md:justify-start">
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(user.accountType)}`}>
-                    {user.accountType}
-                  </span>
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getTierColor(user.membershipTier)}`}>
-                    {user.membershipTier} Member
-                  </span>
+
+              {/* User Info */}
+              <div className="flex-1 text-center md:text-left">
+                <div className="md:flexitems-center gap-3 justify-center md:justify-start mb-2">
+                  <div  className=" text-xl md:text-2xl !mb-0 text-gray-800">
+                    {firstName} {lastName}
+                  </div>
+                  <Badge 
+                    className="px-2 py-1"
+                    color={isGuest ? "orange" : "green"}
+                    text={isGuest ? "Guest Account" : "Verified Member"}
+                  />
+                </div>
+                <div className="flex items-center gap-2 text-gray-600 justify-center md:justify-start mb-4">
+              
+                  <Text>Account #{customerAccountNumber}</Text>
+                </div>
+
+                {/* Quick Stats */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {quickStats.map((stat, index) => (
+                    <div key={index} className="text-center p-3 bg-gray-50 rounded-lg">
+                      <div className={`w-8 h-8 ${stat.color} rounded-full flex items-center justify-center text-white mx-auto mb-2`}>
+                        {stat.icon}
+                      </div>
+                      <div className="text-lg font-semibold text-gray-800">{stat.value}</div>
+                      <div className="text-xs text-gray-500">{stat.label}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
-              <div className="flex gap-2">
-               
-                <button className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
-                  <LogOut className="h-4 w-4" />
-                  Logout
-                </button>
-              </div>
-            </div>
-          </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-6 bg-gray-50">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-800">{user.totalOrders}</div>
-              <div className="text-sm text-gray-600">Total Orders</div>
+             
             </div>
-            
+          </Card>
+        </div>
 
+        {/* Tab Navigation */}
+        <div className="mb-6">
+          <div className="flex space-x-1 bg-white rounded-lg p-1 shadow-sm border">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-all ${
+                  activeTab === tab.key
+                    ? 'bg-green-600 text-white shadow-md'
+                    : 'text-gray-600 hover:text-green-600 hover:bg-blue-50'
+                }`}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="bg-white rounded-2xl shadow-xl mb-8">
-          <div className="flex overflow-x-auto">
-            {tabItems.map((tab) => {
-              const IconComponent = tab.icon;
-              return (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`flex items-center gap-2 px-6 py-4 whitespace-nowrap transition-colors ${
-                    activeTab === tab.key
-                      ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50'
-                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-                  }`}
-                >
-                  <IconComponent className="h-5 w-5" />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Content Area */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2">
             {activeTab === 'profile' && (
-              <div className="bg-white rounded-2xl shadow-xl p-8">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-gray-800">Personal Information</h2>
-                  {isEditing && (
-                    <div className="flex gap-2">
-                     
+              <Card className="border-0 shadow-lg">
+                <div className="p-6">
+                  <Title level={4} className="mb-6 flex items-center gap-2">
+                    <User className="w-5 h-5 text-green-600" />
+                    Personal Information
+                  </Title>
+                  
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <div className="p-4 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Mail className="w-4 h-4 text-green-600" />
+                            <Text strong className="text-gray-700">Email Address</Text>
+                          </div>
+                          <Text className="text-gray-900">{email}</Text>
+                        </div>
+
+                        <div className="p-4 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Phone className="w-4 h-4 text-green-600" />
+                            <Text strong className="text-gray-700">Phone Number</Text>
+                          </div>
+                          <Text className="text-gray-900">{contactNumber}</Text>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="p-4 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-3 mb-2">
+                            <MapPin className="w-4 h-4 text-red-600" />
+                            <Text strong className="text-gray-700">Address</Text>
+                          </div>
+                          <Text className="text-gray-900">{address}</Text>
+                        </div>
+
+                        <div className="p-4 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-3 mb-2">
+                            <BadgeInfo className="w-4 h-4 text-red-600" />
+                            <Text strong className="text-gray-700">Account Type</Text>
+                          </div>
+                          <Text className="text-gray-900">{isGuest ? "Guest Account" : "Registered Member"}</Text>
+                        </div>
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-               
+              </Card>
+            )}
+{activeTab === "wishlist" && (
+  <Card>
+    <Title level={4}>Wishlist Preview</Title>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={editForm.lastName}
-                        onChange={(e) => handleInputChange('lastName', e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    ) : (
-                      <div className="flex items-center gap-2 p-2">
-                        <User className="h-5 w-5 text-gray-400" />
-                        <span className="text-gray-800">{user.lastName}</span>
-                      </div>
-                    )}
+    {wishlist.length === 0 ? (
+      <Text type="secondary">Your wishlist is empty.</Text>
+    ) : (
+      <>
+        {wishlist.slice(0, 3).map((item, index) => {
+          const imagePath = item.productImage || "";
+          const imageUrl = `${backendBaseURL}/Media/Products_Images/${imagePath.split("\\").pop()}`;
+
+          return (
+            <div
+              key={index}
+              className="flex items-center justify-between bg-gray-50 border rounded-lg p-4 mb-3"
+            >
+              <div className="flex items-center gap-4">
+                <img
+                  src={imageUrl}
+                  alt={item.productName}
+                  className="w-16 h-16 object-contain border rounded"
+                  onError={(e) => {
+                    e.target.src = "/images/placeholder.png";
+                  }}
+                />
+                <div>
+                  <div className="text-sm">{item.productName}</div>
+                  <div className="text-sm text-gray-400">
+                   {item.brandName || "N/A"} • {item.categoryName || "N/A"}
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                    {isEditing ? (
-                      <input
-                        type="email"
-                        value={editForm.email}
-                        onChange={(e) => handleInputChange('email', e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    ) : (
-                      <div className="flex items-center gap-2 p-2">
-                        <Mail className="h-5 w-5 text-gray-400" />
-                        <span className="text-gray-800">{user.email}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
-                    {isEditing ? (
-                      <input
-                        type="tel"
-                        value={editForm.contactNumber}
-                        onChange={(e) => handleInputChange('contactNumber', e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    ) : (
-                      <div className="flex items-center gap-2 p-2">
-                        <Phone className="h-5 w-5 text-gray-400" />
-                        <span className="text-gray-800">{user.contactNumber}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
-                    {isEditing ? (
-                      <textarea
-                        value={editForm.address}
-                        onChange={(e) => handleInputChange('address', e.target.value)}
-                        rows={3}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    ) : (
-                      <div className="flex items-center gap-2 p-2">
-                        <Home className="h-5 w-5 text-gray-400" />
-                        <span className="text-gray-800">{user.address}</span>
-                      </div>
-                    )}
+                  <div className="text-sm font-medium text-red-500 mt-1">
+                    GH₵ {item.price?.toLocaleString() || "0.00"}
                   </div>
                 </div>
               </div>
-            )}
 
-            {activeTab === 'orders' && (
-              <div className="bg-white rounded-2xl shadow-xl p-8">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-gray-800">Recent Orders</h2>
-                  <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
-                    <Package className="h-4 w-4" />
-                    View All Orders
-                  </button>
-                </div>
+              <Button
+                size="small"
+                onClick={() => navigate(`/product/${item.productID}`)}
+                className="bg-red-500 text-white hover:bg-green-700"
+       
+              >
+                View Product
+              </Button>
+            </div>
+          );
+        })}
 
-                <div className="space-y-4">
-                
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'wishlist' && (
-              <div className="bg-white rounded-2xl shadow-xl p-8">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-gray-800">My Wishlist</h2>
-                  <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
-                    <Heart className="h-4 w-4" />
-                    Clear All
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-               
-                </div>
-              </div>
-            )}
-
-
+        {wishlist.length > 3 && (
+          <Button
+            type="primary"
+            className="mt-1 bg-green-500 hover:bg-green-600 text-white"
+            icon={<Heart className="w-4 h-4" />}
+            block 
+            onClick={() => message.info("Wishlist page coming soon")}
+          >
+            View All Wishlist
+          </Button>
+        )}
+      </>
+    )}
+  </Card>
+)}
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Quick Actions */}
-            
+            <Card className="border-0 shadow-lg">
+              <div className="p-6">
+                <Title level={5} className="mb-4">Quick Actions</Title>
+                <div className="space-y-3">
+                  
+                  <Button 
+                    block 
+                    icon={<Package className="w-4 h-4" />}
+                    className="text-left justify-start border-gray-200 hover:border-green-400"
+                  >
+                    Order History
+                  </Button>
+                    <Button
+                    block
+                    icon={<LogOut className="w-4 h-4" />}
+                    className="border-orange-300 text-orange-600 hover:bg-orange-50 hover:border-orange-400"
+                    onClick={handleLogout}
+                  >
+                    Sign Out
+                  </Button>
+                  <Button
+                    block
+                    danger
+                    icon={<Trash2 className="w-4 h-4" />}
+                    onClick={handleDeleteAccount}
+                  >
+                    Delete Account
+                  </Button>
+                  
+                </div>
+              </div>
+            </Card>
 
-            {/* Account Info */}
-          
-
-            {/* Support */}
-            <div className="bg-gradient-to-br from-green-500 to-indigo-100 rounded-2xl shadow-xl p-6 text-white">
-              <h3 className="text-lg font-semibold mb-4">Need Help?</h3>
-              <p className="text-blue-100 mb-4 text-sm">
-                Our support team is here to help you with any questions or issues.
-              </p>
-              <button className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg w-full transition-colors">
-                Contact Support
-              </button>
-            </div>
+            {/* Help & Support */}
+            <Card className="border-0 shadow-lg bg-red-500 text-white">
+              <div className="p-2">
+                <Title level={5} className="!text-white mb-2">Need Help? </Title>
+                <Text className="text-green-100 mb-4">
+                  Our support team is here to assist you 24/7
+                </Text>
+                <Button 
+                  className="bg-white text-green-600 border-0 font-medium"
+                  block
+                >
+                  Contact Support
+                </Button>
+              </div>
+            </Card>
           </div>
         </div>
       </div>
