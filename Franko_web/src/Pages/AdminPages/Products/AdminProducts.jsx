@@ -1,49 +1,182 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchAllProducts } from "../../../Redux/Slice/productSlice";
 import { fetchBrands } from "../../../Redux/Slice/brandSlice";
 import { fetchShowrooms } from "../../../Redux/Slice/showRoomSlice";
-import { Button, Table, message, Input, Modal, Tooltip, Tag, Checkbox } from "antd";
-import { EyeOutlined, EditOutlined , PlusOutlined , UploadOutlined } from "@ant-design/icons";
+import { 
+  Button, 
+  Table, 
+  message, 
+  Input, 
+  Modal, 
+  Tooltip, 
+  Tag, 
+  Card,
+  Space,
+  Select,
+  Row,
+  Col,
+  Statistic,
+  Avatar
+} from "antd";
+import { 
+  EyeOutlined, 
+  EditOutlined, 
+  PlusOutlined, 
+  UploadOutlined, 
+  ReloadOutlined, 
+  DownloadOutlined,
+  SearchOutlined,
+  ShopOutlined,
+  TagsOutlined,} from "@ant-design/icons";
+import * as XLSX from 'xlsx';
 import AddProduct from "./AddProduct";
 import UpdateProduct from "./EditProduct";
 import UpdateProductImage from "./UpdateProductImage";
 
+const { Option } = Select;
 
 const AdminProducts = () => {
   const dispatch = useDispatch();
-  const { products } = useSelector((state) => state.products);
-  const { brands } = useSelector((state) => state.brands);
-  const { showrooms } = useSelector((state) => state.showrooms);
+  const { products, loading: productsLoading } = useSelector((state) => state.products);
+  const { brands, loading: brandsLoading } = useSelector((state) => state.brands);
+  const { showrooms, loading: showroomsLoading } = useSelector((state) => state.showrooms);
+  
+  // Modal states
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [isUpdateModalVisible, setIsUpdateModalVisible] = useState(false);
   const [isImageModalVisible, setIsImageModalVisible] = useState(false);
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
   const [isDescriptionModalVisible, setIsDescriptionModalVisible] = useState(false);
+  const [isUpdateImageModalVisible, setIsUpdateImageModalVisible] = useState(false);
+  
+  // Data states
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [searchText, setSearchText] = useState("");
+  const [selectedProductIdForImage, setSelectedProductIdForImage] = useState(null);
   const [fullImageUrl, setFullImageUrl] = useState("");
   const [descriptionText, setDescriptionText] = useState("");
-  const [filterOutOfStock, setFilterOutOfStock] = useState(false);
-  const [isUpdateImageModalVisible, setIsUpdateImageModalVisible] = useState(false);
-const [selectedProductIdForImage, setSelectedProductIdForImage] = useState(null);
-
+  
+  // Filter states
+  const [searchText, setSearchText] = useState("");
+  const [filterBrand, setFilterBrand] = useState("");
+  const [filterShowroom, setFilterShowroom] = useState("");
+  const [filterStock, setFilterStock] = useState("all"); // 'all', 'in_stock', 'out_of_stock'
+  
+  // Loading state for manual refresh
+  const [refreshLoading, setRefreshLoading] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   const backendBaseURL = import.meta.env.VITE_API_BASE_URL;
-  const fetchProductData = useCallback(async () => {
+
+  // Check if any data is loading
+  const isLoading = productsLoading || brandsLoading || showroomsLoading || refreshLoading;
+
+  // Fetch data only once on mount
+  const fetchInitialData = useCallback(async () => {
+    if (dataLoaded) return;
+    
     try {
-      await dispatch(fetchAllProducts()).unwrap();
-      await dispatch(fetchBrands()).unwrap();
-      await dispatch(fetchShowrooms()).unwrap();
+      const promises = [];
+      
+      // Only fetch if data doesn't exist
+      if (!products?.length) {
+        promises.push(dispatch(fetchAllProducts()).unwrap());
+      }
+      if (!brands?.length) {
+        promises.push(dispatch(fetchBrands()).unwrap());
+      }
+      if (!showrooms?.length) {
+        promises.push(dispatch(fetchShowrooms()).unwrap());
+      }
+      
+      if (promises.length > 0) {
+        await Promise.all(promises);
+        message.success("Data loaded successfully!");
+      }
+      setDataLoaded(true);
     } catch (err) {
       console.error(err);
       message.error("Failed to load data.");
     }
+  }, [dispatch, products, brands, showrooms, dataLoaded]);
+
+  // Manual refresh function
+  const handleRefresh = useCallback(async () => {
+    setRefreshLoading(true);
+    try {
+      await Promise.all([
+        dispatch(fetchAllProducts()).unwrap(),
+        dispatch(fetchBrands()).unwrap(),
+        dispatch(fetchShowrooms()).unwrap()
+      ]);
+      message.success("Data refreshed successfully!");
+    } catch (err) {
+      console.error(err);
+      message.error("Failed to refresh data.");
+    } finally {
+      setRefreshLoading(false);
+    }
   }, [dispatch]);
 
   useEffect(() => {
-    fetchProductData();
-  }, [fetchProductData]);
+    fetchInitialData();
+  }, [fetchInitialData]);
+
+  // Memoized filtered and sorted products
+  const { filteredProducts, productStats } = useMemo(() => {
+    const filtered = (products || []).filter((product) => {
+      // Search filter
+      const searchMatch = !searchText || [
+        product.productName,
+        product.showRoomName,
+        product.brandName,
+        product.description
+      ].some(field => 
+        field?.toLowerCase().includes(searchText.toLowerCase())
+      );
+
+      // Brand filter
+      const brandMatch = !filterBrand || product.brandName === filterBrand;
+      
+      // Showroom filter
+      const showroomMatch = !filterShowroom || product.showRoomName === filterShowroom;
+      
+      // Stock filter
+      let stockMatch = true;
+      if (filterStock === 'in_stock') {
+        stockMatch = product.status == 1;
+      } else if (filterStock === 'out_of_stock') {
+        stockMatch = product.status == 0;
+      }
+
+      return searchMatch && brandMatch && showroomMatch && stockMatch;
+    });
+
+    // Sort by date created (newest first)
+    const sorted = [...filtered].sort(
+      (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
+    );
+
+    // Calculate statistics
+    const stats = {
+      total: products?.length || 0,
+      filtered: filtered.length,
+      inStock: (products || []).filter(p => p.status == 1).length,
+      outOfStock: (products || []).filter(p => p.status == 0).length,
+      totalValue: (products || []).reduce((sum, p) => sum + parseFloat(p.price || 0), 0)
+    };
+
+    return { filteredProducts: sorted, productStats: stats };
+  }, [products, searchText, filterBrand, filterShowroom, filterStock]);
+
+  // Modal handlers with optimized re-fetching
+  const handleModalClose = useCallback((modalSetter, shouldRefresh = false) => {
+    modalSetter(false);
+    if (shouldRefresh) {
+      // Only refresh products, not all data
+      dispatch(fetchAllProducts());
+    }
+  }, [dispatch]);
 
   const handleAddProduct = () => {
     setSelectedProduct(null);
@@ -52,64 +185,76 @@ const [selectedProductIdForImage, setSelectedProductIdForImage] = useState(null)
 
   const handleUpdateProduct = (product) => {
     setSelectedProduct(product);
-    setIsUpdateModalVisible(true);  // Show the Update modal
+    setIsUpdateModalVisible(true);
   };
+
   const handleUpdateProductImage = (productID) => {
     setSelectedProductIdForImage(productID);
     setIsUpdateImageModalVisible(true);
   };
-  
 
   const handleViewProductDetails = (product) => {
     setSelectedProduct(product);
     setIsDetailModalVisible(true);
   };
 
-  const handleSearch = (e) => {
-    setSearchText(e.target.value);
-  };
-
   const handleDescriptionClick = (description) => {
     setDescriptionText(description);
     setIsDescriptionModalVisible(true);
   };
-  const filteredProducts = (products || []).filter((product) => {
-    const productNameMatch =
-      product.productName?.toLowerCase().includes(searchText.toLowerCase()) || false;
-    const showroomMatch =
-      product.showRoomName?.toLowerCase().includes(searchText.toLowerCase()) || false;
-    const brandMatch =
-      product.brandName?.toLowerCase().includes(searchText.toLowerCase()) || false;
-    const stockFilter = filterOutOfStock ? product.status == 0 : true; // status 0 means out of stock
-  
-    return (productNameMatch || showroomMatch || brandMatch) && stockFilter;
-  })
 
-  const sortedProducts = filteredProducts.sort(
-    (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
-  );
+  const exportToExcel = () => {
+    try {
+      const exportData = filteredProducts.map((product, index) => ({
+        'S/N': index + 1,
+        'Product Name': product.productName || '',
+        'Description': product.description || '',
+        'Price (₵)': parseFloat(product.price || 0).toFixed(2),
+        'Old Price (₵)': product.oldPrice ? parseFloat(product.oldPrice).toFixed(2) : '',
+        'Brand': product.brandName || '',
+        'Category': product.categoryName || '',
+        'Showroom': product.showRoomName || '',
+        'Availability': product.status == 1 ? 'In Stock' : 'Out of Stock',
+        'Product ID': product.productID || '',
+        'Date Created': product.dateCreated ? new Date(product.dateCreated).toLocaleDateString() : ''
+      }));
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(exportData);
+
+      const colWidths = [
+        { wch: 5 }, { wch: 25 }, { wch: 40 }, { wch: 12 }, { wch: 12 },
+        { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 15 }
+      ];
+      ws['!cols'] = colWidths;
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Products');
+
+      const currentDate = new Date().toISOString().split('T')[0];
+      const filename = `products_export_${currentDate}.xlsx`;
+
+      XLSX.writeFile(wb, filename);
+      message.success(`Products exported successfully as ${filename}`);
+    } catch (error) {
+      console.error('Export error:', error);
+      message.error('Failed to export products to Excel');
+    }
+  };
 
   const columns = [
     {
       title: "Image",
       dataIndex: "productImage",
       key: "productImage",
+      width: 80,
       render: (imagePath) => {
-        const imageUrl = `${backendBaseURL}/Media/Products_Images/${imagePath
-          .split("\\")
-          .pop()}`;
-
+        const imageUrl = `${backendBaseURL}/Media/Products_Images/${imagePath?.split("\\").pop()}`;
         return (
-          <img
+          <Avatar
             src={imageUrl}
-            alt="Product"
-            style={{
-              width: 50,
-              height: 50,
-              objectFit: "cover",
-              borderRadius: "5px",
-              cursor: "pointer",
-            }}
+            size={50}
+            shape="square"
+            style={{ cursor: "pointer", border: "1px solid #f0f0f0" }}
             onClick={() => {
               setFullImageUrl(imageUrl);
               setIsImageModalVisible(true);
@@ -119,155 +264,331 @@ const [selectedProductIdForImage, setSelectedProductIdForImage] = useState(null)
       },
     },
     {
-      title: "Product Name",
+      title: "Product Details",
+      key: "productDetails",
+      width: 300,
       dataIndex: "productName",
-      key: "productName",
+  
+      render: (_, record) => (
+        <div>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>
+            {record.productName}
+          </div>
+          <div style={{ fontSize: '12px', color: '#666', marginBottom: 2 }}>
+            ID: {record.productID}
+          </div>
+          <div style={{ fontSize: '12px', color: '#999' }}>
+            {new Date(record.dateCreated).toLocaleDateString()}
+          </div>
+        </div>
+      ),
     },
-    {
-      title: "Description",
-      dataIndex: "description",
-      key: "description",
-      render: (text) => {
-        const truncatedText = text.length > 30 ? `${text.substring(0, 30)}...` : text;
-    
-        return (
-          <Tooltip title="View description">
-            <span onClick={() => handleDescriptionClick(text)}>
-              {truncatedText}
-            </span>
-          </Tooltip>
-        );
-      },
-    },
-    
-    
+   
     {
       title: "Price",
       dataIndex: "price",
       key: "price",
-      render: (text) => `₵${parseFloat(text).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-    },
-    
-    {
-      title: "Date Created",
-      dataIndex: "dateCreated",
-      key: "dateCreated",
-      render: (text) => new Date(text).toLocaleDateString(),
-      sorter: (a, b) => new Date(a.dateCreated) - new Date(b.dateCreated),
-    },
-    {
-      title: "Brand",
-      dataIndex: "brandName",
-      key: "brandName",
-    },
-    {
-      title: 'Availability',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status) => (
-        // eslint-disable-next-line eqeqeq
-        status == 1 ? 
-          <Tag color="green">In Stock</Tag> : 
-          <Tag color="red">Out of Stock</Tag>
+
+      render: (price, record) => (
+        <div>
+          <div style={{ fontWeight: 600, color: '#ff4d4f' }}>
+            ₵{parseFloat(price).toLocaleString(undefined, { 
+              minimumFractionDigits: 2, 
+              maximumFractionDigits: 2 
+            })}
+          </div>
+          {record.oldPrice > 0 && (
+            <div style={{ 
+              fontSize: '12px', 
+              textDecoration: 'line-through', 
+              color: '#999' 
+            }}>
+              ₵{parseFloat(record.oldPrice).toLocaleString(undefined, { 
+                minimumFractionDigits: 2, 
+                maximumFractionDigits: 2 
+              })}
+            </div>
+          )}
+        </div>
       ),
     },
-    
-  
-    
+    {
+      title: "Brand & Category",
+      key: "brandCategory",
+   
+      render: (_, record) => (
+        <div>
+          <Tag color="red" style={{ marginBottom: 4 }}>
+            {record.brandName}
+          </Tag>
+          <br />
+          <Tag color="orange">
+            {record.categoryName}
+          </Tag>
+        </div>
+      ),
+    },
+    {
+      title: "Showroom",
+      dataIndex: 'showRoomName',
+      key: 'showRoomName',
+      render: (showRoomName) => (
+        <Tag color="green" style={{ marginBottom: 4 }}>
+          {showRoomName}
+        </Tag>
+      ),  
+    },
+   
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+ 
+      render: (status) => (
+        <Tag color={status == 1 ? "success" : "error"}>
+          {status == 1 ? 'In Stock' : 'Out of Stock'}
+        </Tag>
+      ),
+    },
     {
       title: "Actions",
       key: "actions",
-      render: (text, record) => (
-        <div style={{ display: "flex", gap: "8px" }}>
-          <Tooltip title="Edit">
+   
+  
+      render: (_, record) => (
+        <Space size="small">
+          <Tooltip title="Edit Product">
             <Button 
+              type="text"
               icon={<EditOutlined />} 
               onClick={() => handleUpdateProduct(record)} 
             />
           </Tooltip>
-         
           <Tooltip title="Update Image">
             <Button
+              type="text"
               icon={<UploadOutlined />}
               onClick={() => handleUpdateProductImage(record.productID)}
             />
           </Tooltip>
           <Tooltip title="View Details">
             <Button
+              type="text"
               icon={<EyeOutlined />} 
               onClick={() => handleViewProductDetails(record)}
             />
           </Tooltip>
-        </div>
+        </Space>
       ),
     }
-    
-    ];
+  ];
 
   return (
-    <div>
-      <h1 className="text-xl font-bold mb-4 text-red-500">Products Management</h1>
-      <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: 16 }}>
-  <Input.Search
-    placeholder="Search by product, showroom, or brand name"
-    onChange={handleSearch}
-    style={{ width: "400px" }}
-  />
-  <Button
-    icon={<PlusOutlined />}
-    type="primary"
-    onClick={handleAddProduct}
-    className="bg-green-600 text-white transition rounded-full"
-  >
-    Add Product
-  </Button>
-  <Checkbox
-    checked={filterOutOfStock}
-    onChange={(e) => setFilterOutOfStock(e.target.checked)}
-    style={{ marginLeft: "auto" }}
-  >
-    Show Only Out of Stock
-  </Checkbox>
-</div>
+    <div style={{ minHeight: '100vh' }}>
+      {/* Header */}
+      <div style={{ marginBottom: '24px' }}>
+        <h1 style={{ 
+          fontSize: '20px', 
+          fontWeight: 700, 
+          color: '#262626',
+          margin: 0,
+          marginBottom: '3px'
+        }}>
+          Products Management
+        </h1>
+        <p style={{ color: '#8c8c8c', margin: 0 }}>
+          Manage your product inventory, pricing, and availability
+        </p>
+      </div>
 
-      <Table
-        dataSource={sortedProducts}
-        columns={columns}
-        rowKey="productID"
-        bordered
-      />
+      {/* Statistics Cards */}
+      <Row gutter={16} style={{ marginBottom: '20px' }}>
+        <Col xs={24} sm={12} md={6}>
+          <Card>
+            <Statistic
+              title="Total Products"
+              value={productStats.total}
+              prefix={<TagsOutlined style={{ color: '#1890ff' }} />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card>
+            <Statistic
+              title="In Stock"
+              value={productStats.inStock}
+              valueStyle={{ color: '#3f8600' }}
+              prefix={<ShopOutlined style={{ color: '#3f8600' }} />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card>
+            <Statistic
+              title="Out of Stock"
+              value={productStats.outOfStock}
+              valueStyle={{ color: '#cf1322' }}
+              prefix={<ShopOutlined style={{ color: '#cf1322' }} />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card>
+            <Statistic
+              title="Total Value"
+              value={productStats.totalValue}
+              precision={2}
+              prefix="₵"
+              valueStyle={{ color: '#3f8600' }}
+            />
+          </Card>
+        </Col>
+      </Row>
 
-      {/* Add Product Modal */}
+      {/* Filters and Controls */}
+      <Card style={{ marginBottom: '24px' }}>
+        <Row gutter={[16, 16]} align="middle">
+          <Col xs={24} sm={12} md={8}>
+            <Input.Search
+              placeholder="Search products, brands, showrooms..."
+   
+              prefix={<SearchOutlined />}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              style={{ width: '100%' }}
+            />
+          </Col>
+          
+          <Col xs={24} sm={12} md={4}>
+            <Select
+              placeholder="Filter by Brand"
+           
+              style={{ width: '100%' }}
+              value={filterBrand}
+              onChange={setFilterBrand}
+            >
+              {brands?.map(brand => (
+                <Option key={brand.brandID} value={brand.brandName}>
+                  {brand.brandName}
+                </Option>
+              ))}
+            </Select>
+          </Col>
+
+          <Col xs={24} sm={12} md={4}>
+            <Select
+              placeholder="Filter by Showroom"
+             
+              style={{ width: '100%' }}
+              value={filterShowroom}
+              onChange={setFilterShowroom}
+            >
+              {showrooms?.map(showroom => (
+                <Option key={showroom.showRoomID} value={showroom.showRoomName}>
+                  {showroom.showRoomName}
+                </Option>
+              ))}
+            </Select>
+          </Col>
+
+          <Col xs={24} sm={12} md={4}>
+            <Select
+              placeholder="Stock Status"
+              style={{ width: '100%' }}
+              value={filterStock}
+              onChange={setFilterStock}
+            >
+              <Option value="all">All Products</Option>
+              <Option value="in_stock">In Stock Only</Option>
+              <Option value="out_of_stock">Out of Stock Only</Option>
+            </Select>
+          </Col>
+
+          <Col xs={24} md={4}>
+            <Space>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={handleAddProduct}
+                style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
+              >
+                Add Product
+              </Button>
+            </Space>
+          </Col>
+        </Row>
+
+        <Row gutter={16} style={{ marginTop: '16px' }}>
+          <Col>
+            <Space>
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={handleRefresh}
+                loading={refreshLoading}
+              >
+                Refresh
+              </Button>
+
+              <Button
+                icon={<DownloadOutlined />}
+                onClick={exportToExcel}
+                disabled={filteredProducts.length === 0}
+                type="dashed"
+              >
+                Export Excel
+              </Button>
+            </Space>
+          </Col>
+          
+          <Col style={{ marginLeft: 'auto' }}>
+            <span style={{ color: '#8c8c8c' }}>
+              Showing {productStats.filtered} of {productStats.total} products
+            </span>
+          </Col>
+        </Row>
+      </Card>
+
+      {/* Products Table */}
+      <Card>
+        <Table
+          dataSource={filteredProducts}
+          columns={columns}
+          rowKey="productID"
+          loading={isLoading}
+          scroll={{ x: 1200 }}
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total, range) => 
+              `${range[0]}-${range[1]} of ${total} products`,
+            pageSizeOptions: ['10', '15', '25', '50'],
+          }}
+          size="small"
+        />
+      </Card>
+
+      {/* Modals */}
       <AddProduct
         visible={isAddModalVisible}
-        onClose={() => {
-          setIsAddModalVisible(false);
-          fetchProductData();
-        }}
+        onClose={() => handleModalClose(setIsAddModalVisible, true)}
         brands={brands}
         showrooms={showrooms}
       />
       
       <UpdateProduct
- visible={isUpdateModalVisible}
- onClose={() => {
-   setIsUpdateModalVisible(false);
-   fetchProductData();
- }}
-  product={selectedProduct || {}}
-  brands={brands}
-  showrooms={showrooms}
-/>
-<UpdateProductImage
-  visible={isUpdateImageModalVisible}
-  onClose={() => {
-    setIsUpdateImageModalVisible(false);
-    fetchProductData(); // Refresh product data after image update
-  }}
-  productID={selectedProductIdForImage}
-/>
+        visible={isUpdateModalVisible}
+        onClose={() => handleModalClose(setIsUpdateModalVisible, true)}
+        product={selectedProduct || {}}
+        brands={brands}
+        showrooms={showrooms}
+      />
 
-
+      <UpdateProductImage
+        visible={isUpdateImageModalVisible}
+        onClose={() => handleModalClose(setIsUpdateImageModalVisible, true)}
+        productID={selectedProductIdForImage}
+      />
       
       {/* Full Image Modal */}
       <Modal
@@ -275,67 +596,92 @@ const [selectedProductIdForImage, setSelectedProductIdForImage] = useState(null)
         onCancel={() => setIsImageModalVisible(false)}
         footer={null}
         title="Product Image"
+        width={600}
+        centered
       >
         <img
           src={fullImageUrl}
           alt="Full Product"
-          style={{ width: "100%", height: "auto" }}
+          style={{ width: "100%", height: "auto", borderRadius: '8px' }}
         />
       </Modal>
 
       {/* Product Details Modal */}
       <Modal
-  visible={isDetailModalVisible}
-  onCancel={() => setIsDetailModalVisible(false)}
-  footer={null}
-  centered
-  bodyStyle={{ padding: 0 }}
-  width={500}
->
-  {selectedProduct && (
-    <div style={{ borderRadius: 10, overflow: "hidden", boxShadow: "0 4px 8px rgba(0,0,0,0.2)" }}>
-      {/* Product Image */}
-      <div style={{ backgroundColor: "#f0f0f0", textAlign: "center" }}>
-        <img
-          src={`${backendBaseURL}/Media/Products_Images/${selectedProduct.productImage.split("\\").pop()}`}
-          alt={selectedProduct.productName}
-          style={{ width: "100%", maxHeight: "500px", objectFit: "cover" }}
-        />
-      </div>
+        visible={isDetailModalVisible}
+        onCancel={() => setIsDetailModalVisible(false)}
+        footer={null}
+        centered
+        width={600}
+        title="Product Details"
+      >
+        {selectedProduct && (
+          <div>
+            <div style={{ textAlign: "center", marginBottom: '20px' }}>
+              <img
+                src={`${backendBaseURL}/Media/Products_Images/${selectedProduct.productImage?.split("\\").pop()}`}
+                alt={selectedProduct.productName}
+                style={{ 
+                  width: "100%", 
+                  maxHeight: "300px", 
+                  objectFit: "cover",
+                  borderRadius: '8px'
+                }}
+              />
+            </div>
 
-      {/* Product Details */}
-      <div style={{ padding: 20 }}>
-        <h2 style={{ fontSize: "1.5rem", fontWeight: 600, marginBottom: 8 }}>
-          {selectedProduct.productName}
-        </h2>
-        <div style={{ display: "flex", alignItems: "center", marginBottom: 15 }}>
-          <span style={{ fontSize: "1.2rem", fontWeight: 500, color: "red", marginRight: 10 }}>
-            ₵{parseFloat(selectedProduct.price).toLocaleString("en-US", { minimumFractionDigits: 2 })}
-          </span>
-          {selectedProduct.oldPrice > 0 && (
-            <span style={{ fontSize: "1rem", textDecoration: "line-through", color: "#999" }}>
-              ₵{parseFloat(selectedProduct.oldPrice).toLocaleString("en-US", { minimumFractionDigits: 2 })}
-            </span>
-          )}
-        </div>
+            <div>
+              <h2 style={{ fontSize: "24px", fontWeight: 600, marginBottom: '16px' }}>
+                {selectedProduct.productName}
+              </h2>
+              
+              <Row gutter={[16, 12]}>
+                <Col span={12}>
+                  <strong>Product ID:</strong> {selectedProduct.productID}
+                </Col>
+                <Col span={12}>
+                  <strong>Category:</strong> {selectedProduct.categoryName}
+                </Col>
+                <Col span={12}>
+                  <strong>Brand:</strong> {selectedProduct.brandName}
+                </Col>
+                <Col span={12}>
+                  <strong>Showroom:</strong> {selectedProduct.showRoomName}
+                </Col>
+                <Col span={12}>
+                  <strong>Date Created:</strong> {new Date(selectedProduct.dateCreated).toLocaleDateString()}
+                </Col>
+                <Col span={12}>
+                  <strong>Status:</strong> 
+                  <Tag color={selectedProduct.status == 1 ? "success" : "error"} style={{ marginLeft: 8 }}>
+                    {selectedProduct.status == 1 ? 'In Stock' : 'Out of Stock'}
+                  </Tag>
+                </Col>
+              </Row>
 
-        <p style={{ color: "#777", fontSize: "0.9rem", marginBottom: 5 }}>
-          <strong>Product ID:</strong> {selectedProduct.productID}
-        </p>
+              <div style={{ marginTop: '16px' }}>
+                <div style={{ display: "flex", alignItems: "center", marginBottom: '16px' }}>
+                  <span style={{ fontSize: "20px", fontWeight: 600, color: "#ff4d4f", marginRight: 16 }}>
+                    ₵{parseFloat(selectedProduct.price).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  </span>
+                  {selectedProduct.oldPrice > 0 && (
+                    <span style={{ fontSize: "16px", textDecoration: "line-through", color: "#999" }}>
+                      ₵{parseFloat(selectedProduct.oldPrice).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    </span>
+                  )}
+                </div>
+              </div>
 
-
-        <div style={{ fontSize: "1rem", color: "#555", marginBottom: 10 }}>
-          <p><strong>Category:</strong> {selectedProduct.categoryName}</p>
-          <p><strong>Brand:</strong> {selectedProduct.brandName}</p>
-          <p><strong>Showroom:</strong> {selectedProduct.showRoomName}</p>
-          <p><strong>Date Created:</strong> {new Date(selectedProduct.dateCreated).toLocaleDateString()}</p>
-        </div>
-      </div>
-    </div>
-  )}
-</Modal>
-
-
+              <div>
+                <strong>Description:</strong>
+                <p style={{ marginTop: '8px', lineHeight: '1.6', color: '#666' }}>
+                  {selectedProduct.description}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Full Description Modal */}
       <Modal
@@ -343,8 +689,13 @@ const [selectedProductIdForImage, setSelectedProductIdForImage] = useState(null)
         onCancel={() => setIsDescriptionModalVisible(false)}
         footer={null}
         title="Product Description"
+        width={700}
       >
-        <p>{descriptionText}</p>
+        <div style={{ maxHeight: "400px", overflowY: "auto" }}>
+          <p style={{ whiteSpace: "pre-wrap", lineHeight: "1.6" }}>
+            {descriptionText}
+          </p>
+        </div>
       </Modal>
     </div>
   );

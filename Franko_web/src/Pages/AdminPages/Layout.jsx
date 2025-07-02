@@ -190,14 +190,14 @@ const AdminLayout = ({ children }) => {
 
         <Content
           style={{
-            marginTop: 80,
-            marginBottom: 24,
-            padding: 24,
+            marginTop: 50,
+            marginBottom: 8,
+            padding: 14,
             background: '#fff',
-            minHeight: 360,
+            minHeight: 240,
             borderRadius: 8,
-            marginRight: 24,
-            marginLeft: 24,
+            marginRight: 2,
+            marginLeft: 2,
             boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
           }}
         >

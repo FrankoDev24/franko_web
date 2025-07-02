@@ -229,7 +229,7 @@ const BestSellers = () => {
   onClick={() => handleShowroomClick(showroom.showRoomID)}
   className={`transition text-sm px-4 py-1.5 rounded-full font-medium border ${
     isActive
-      ? "bg-pink-300 text-white border-red-600 hover:scale-105"
+      ? "bg-red-400 text-white border-red-600 hover:scale-105"
       : "text-gray-500 border-gray-300 hover:text-black hover:scale-105 "
   }`}
 >

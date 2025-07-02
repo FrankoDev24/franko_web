@@ -320,7 +320,7 @@ const Nav = () => {
 
         {/* Search Input with Results */}
         <div className="flex items-center flex-grow ml-2 relative" ref={searchRef}>
-          <form onSubmit={handleSearchSubmit} className="flex items-center w-full bg-gray-100 border border-gray-300 rounded-full px-4 py-1.5 focus-within:ring-2 focus-within:ring-green-500 transition">
+          <form onSubmit={handleSearchSubmit} className="flex items-center w-full bg-gray-100 border border-gray-300 rounded-full px-4 py-1.5 focus-within:ring-2 focus-within:ring-red-300 transition">
             <input
               type="text"
               value={inputValue}
@@ -329,7 +329,7 @@ const Nav = () => {
               className="bg-transparent outline-none w-full text-sm placeholder-gray-500"
             />
             <button type="submit">
-              <MagnifyingGlassIcon className="h-5 w-5 text-gray-500 ml-2 cursor-pointer hover:text-green-600" />
+              <MagnifyingGlassIcon className="h-5 w-5 text-gray-500 ml-2 cursor-pointer hover:text-red-600" />
             </button>
           </form>
 
@@ -420,6 +420,7 @@ const Nav = () => {
   <div className="flex items-center gap-4">
     <a href="/" className={`hover:text-red-500 transition-colors ${isActive("/") && "text-red-500 font-semibold"}`}>Home</a>
     <a href="/about" className={`hover:text-red-500 transition-colors ${isActive("/about") && "text-red-500 font-semibold"}`}>About Us</a>
+        <a href="/order-history" className={`hover:text-red-500 transition-colors ${isActive("/order-history") && "text-red-500 font-semibold"}`}>My Orders</a>
     <a href="/shops" className={`hover:text-red-500 transition-colors ${isActive("/shops") && "text-red-500 font-semibold"}`}>Shops</a>
     <button onClick={toggleRadio} className="bg-red-500 text-white px-3 py-1.5 rounded-full hover:bg-red-600 transition-all duration-200 transform hover:scale-105 shadow-md">
       🎧 Radio

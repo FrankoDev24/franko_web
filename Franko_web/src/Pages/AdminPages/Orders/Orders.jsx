@@ -314,14 +314,13 @@ const Orders = () => {
           color="primary"
         />
       </Stack>
+{isDetailModalOpen && (
+  <OrderDetailsModal
+    orderId={selectedOrderId}
+    onClose={() => setIsDetailModalOpen(false)}
+  />
+)}
 
-      {/* Modals */}
-      <OrderDetailsModal
-        open={isDetailModalOpen}
-        onClose={() => setIsDetailModalOpen(false)}
-        orderId={selectedOrderId}
-        orderDetails={cachedOrderDetails[selectedOrderId]}
-      />
 
       {isCycleModalOpen && (
         <CycleUpdateModal

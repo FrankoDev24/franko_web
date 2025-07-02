@@ -8,6 +8,7 @@ const loadCartFromLocalStorage = () => {
   return savedCart ? JSON.parse(savedCart) : [];
 };
 
+
 const saveCartToLocalStorage = (cart) => {
   localStorage.setItem('cart', JSON.stringify(cart));
 };
@@ -20,6 +21,18 @@ const initialState = {
   loading: false,
   error: null,
 };
+
+export const createCartItem = createAsyncThunk(
+  'cart/createCartItem',
+  async (cartItem, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(`https://smfteapi.salesmate.app/Cart/Add-To-Cart`, cartItem);
+      return { ...cartItem, ...response.data };
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
 
 // Async Thunks
 export const addToCart = createAsyncThunk(
@@ -210,7 +223,27 @@ const cartSlice = createSlice({
       .addCase(deleteCartItem.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message;
+      })
+            .addCase(createCartItem.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(createCartItem.fulfilled, (state, action) => {
+        state.loading = false;
+        const existingItemIndex = state.cart.findIndex(item => item.productId === action.payload.productId);
+        if (existingItemIndex >= 0) {
+          state.cart[existingItemIndex].quantity += action.payload.quantity;
+        } else {
+          state.cart.push(action.payload);
+        }
+        state.totalItems = state.cart.reduce((total, item) => total + item.quantity, 0);
+        saveCartToLocalStorage(state.cart);
+      })
+      .addCase(createCartItem.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || action.error.message;
       });
+
   },
 });
 

@@ -1,17 +1,4 @@
-import {
-    Modal,
-    Form,
-    Input,
-    Select,
-    Button,
-    message,
-    Upload,
-    Progress,
-    Row,
-    Col,
-    Divider,
-    Typography,
-  } from 'antd';
+import { Modal, Form, Input,Select,Button,message,Upload,  Progress, Row, Col, Divider, Typography, } from 'antd';
   import { UploadOutlined } from '@ant-design/icons';
   import PropTypes from 'prop-types';
   import { useDispatch, useSelector } from 'react-redux';

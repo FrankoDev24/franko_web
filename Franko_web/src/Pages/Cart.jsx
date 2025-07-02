@@ -7,8 +7,8 @@ import {TrashIcon,MinusIcon,PlusIcon,ShoppingBagIcon,ArrowLeftIcon} from '@heroi
 import { useNavigate } from 'react-router-dom';
 import { Divider } from 'antd';
 
-const CartPage = () => {
-const dispatch = useDispatch();
+const Cart = () => {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const { cart, loading, error, cartId } = useSelector((state) => state.cart);
@@ -16,18 +16,19 @@ const dispatch = useDispatch();
   const [selectAll, setSelectAll] = useState(false);
   const [openModal, setOpenModal] = useState(false);
 
+  // Fetch cart data when component mounts or cartId changes
   useEffect(() => {
-    if (cartId) dispatch(getCartById(cartId));
+    if (cartId) {
+      dispatch(getCartById(cartId));
+    }
   }, [dispatch, cartId]);
-  
-  useEffect(() => {
-    const selectedCartData = cart.filter((item) =>
-      selectedItems.includes(item.productId)
-    );
-    localStorage.setItem("selectedCart", JSON.stringify(selectedCartData));
-  }, [selectedItems, cart]);
 
-    
+  // Reset selection when cart changes
+  useEffect(() => {
+    setSelectedItems([]);
+    setSelectAll(false);
+  }, [cart]);
+
   const toggleSelectAll = () => {
     const allSelected = !selectAll;
     setSelectAll(allSelected);
@@ -35,11 +36,16 @@ const dispatch = useDispatch();
   };
 
   const toggleItemSelection = (productId) => {
-    setSelectedItems((prev) =>
-      prev.includes(productId)
+    setSelectedItems((prev) => {
+      const newSelection = prev.includes(productId)
         ? prev.filter((id) => id !== productId)
-        : [...prev, productId]
-    );
+        : [...prev, productId];
+      
+      // Update selectAll state based on new selection
+      setSelectAll(newSelection.length === cart.length && cart.length > 0);
+      
+      return newSelection;
+    });
   };
 
   const handleCheckout = () => {
@@ -50,12 +56,8 @@ const dispatch = useDispatch();
       return;
     }
   
-    const selectedCartItems = selectedItems.length > 0
-      ? cart.filter((item) => selectedItems.includes(item.productId))
-      : cart;
-  
-    localStorage.setItem("selectedCart", JSON.stringify(selectedCartItems));
-  
+    // Send all cart items to checkout, not just selected ones
+    localStorage.setItem("selectedCart", JSON.stringify(cart));
     navigate("/checkout");
   };
   
@@ -71,6 +73,8 @@ const dispatch = useDispatch();
 
   const handleRemoveItem = (productId) => {
     dispatch(deleteCartItem({ cartId, productId }));
+    // Remove from selection if it was selected
+    setSelectedItems(prev => prev.filter(id => id !== productId));
   };
 
   const handleBatchDelete = () => {
@@ -81,16 +85,9 @@ const dispatch = useDispatch();
     setSelectAll(false);
     setOpenModal(false);
   };
- 
-  const selectedCartItems = selectedItems.length > 0
-    ? cart.filter((item) => selectedItems.includes(item.productId))
-    : cart;
 
-  const selectedTotal = selectedCartItems.reduce(
-    (acc, item) => acc + item.price * item.quantity, 0
-  );
-
-  const fullTotal = cart.reduce(
+  // Calculate totals for the entire cart
+  const cartTotal = cart.reduce(
     (acc, item) => acc + item.price * item.quantity, 0
   );
 
@@ -110,7 +107,6 @@ const dispatch = useDispatch();
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
- 
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
           <p className="text-gray-600 mt-4 font-medium">Loading your cart...</p>
         </div>
@@ -197,7 +193,7 @@ const dispatch = useDispatch();
         ) : (
           // Cart with items
           <>
-            {/* Cart Controls */}
+            {/* Cart Controls - Only show when there are items */}
             <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
@@ -212,11 +208,7 @@ const dispatch = useDispatch();
                     ripple={false}
                     className="hover:before:opacity-10"
                   />
-                  {selectedItems.length > 0 && (
-                    <div className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
-                      {selectedItems.length} selected
-                    </div>
-                  )}
+                 
                 </div>
                 {selectedItems.length > 0 && (
                   <Button
@@ -227,13 +219,13 @@ const dispatch = useDispatch();
                     className="flex items-center gap-2 hover:bg-red-50"
                   >
                     <TrashIcon className="w-4 h-4" />
-                    Remove Selected
+                   delete Selected
                   </Button>
                 )}
               </div>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-6">
+            <div className="flex flex-col lg:flex-row gap-4">
               {/* Cart Items */}
               <div className="flex-1">
                 <div className="bg-white rounded-xl shadow-sm overflow-hidden">
@@ -253,10 +245,10 @@ const dispatch = useDispatch();
                               {renderImage(item.imagePath)}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-gray-600 text-sm  line-clamp-2 mb-1">
+                              <h4 className="font-semibold text-gray-600 text-xs md:text-sm line-clamp-2 mb-1">
                                 {item.productName}
                               </h4>
-                              <p className="text-red-400 font-semibold">₵{item.price}.00</p>
+                              <p className="text-red-400 text-xs md:text-sm font-bold">₵{item.price}.00</p>
                             </div>
                           </div>
 
@@ -324,19 +316,13 @@ const dispatch = useDispatch();
 
                   <div className="space-y-3 mb-6">
                     <div className="flex justify-between items-center text-gray-600">
-                      <span>
-                        {selectedItems.length > 0 ? 'Selected Items:' : 'All Items:'}
-                      </span>
-                      <span className="font-medium">
-                        ₵{selectedTotal.toFixed(2)}
-                      </span>
+                      <span>Subtotal ({totalCartItems} items):</span>
+                      <span className="font-medium">₵{cartTotal.toFixed(2)}</span>
                     </div>
                     <Divider className="my-3" />
                     <div className="flex justify-between items-center text-lg font-bold text-gray-800">
                       <span>Total:</span>
-                      <span className="text-red-600">
-                        ₵{(selectedItems.length > 0 ? selectedTotal : fullTotal).toFixed(2)}
-                      </span>
+                      <span className="text-red-600">₵{cartTotal.toFixed(2)}</span>
                     </div>
                   </div>
 
@@ -347,7 +333,7 @@ const dispatch = useDispatch();
                   <div className="space-y-3">
                     <button
                       onClick={handleCheckout}
-                      className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold py-3 px-4 rounded-xl shadow-md transition duration-200 ease-in-out transform hover:scale-105"
+                      className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white font-semibold py-3 px-4 rounded-xl shadow-md transition duration-200 ease-in-out transform hover:scale-105"
                     >
                       Proceed to Checkout
                     </button>
@@ -370,16 +356,14 @@ const dispatch = useDispatch();
         <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50">
           <div className="p-4">
             <div className="flex justify-between items-center mb-3">
-              <span className="text-gray-600 font-medium">
-                {selectedItems.length > 0 ? 'Selected Total:' : 'Cart Total:'}
-              </span>
-              <span className="text-xl font-bold text-green-600">
-                ₵{(selectedItems.length > 0 ? selectedTotal : fullTotal).toFixed(2)}
+              <span className="text-gray-600 font-medium">Cart Total:</span>
+              <span className="text-lg font-bold text-red-600">
+                ₵{cartTotal.toFixed(2)}
               </span>
             </div>
             <button
               onClick={handleCheckout}
-              className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold py-3 px-4 rounded-xl shadow-md transition duration-200"
+              className="w-full bg-gradient-to-r from-red-500 to-red-700 hover:from-red-500 hover:to-red-700 text-white font-semibold py-3 px-4 rounded-xl shadow-md transition duration-200"
             >
               Proceed to Checkout
             </button>
@@ -422,4 +406,4 @@ const dispatch = useDispatch();
   )
 };
 
-export default CartPage;
+export default Cart;

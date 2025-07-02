@@ -34,6 +34,9 @@ import AdvertisementPage from './Pages/AdminPages/Advertisement'
 import Account from './Pages/Account'
 
 import Products from './Pages/Products'
+import Terms from './Pages/Terms'
+import OrderHistory from './Pages/OrderHistory'
+import Wishlist from './Pages/Wishlist'
 
 function App() {
   return (
@@ -55,7 +58,10 @@ function App() {
         <Route path="/cart/:cartId" element={<Cart />} />
         <Route path="/product/:productID" element={<ProductDescription />} />
         <Route path ="showroom/:showRoomID" element={<ShowroomProductsPage/>}/>
+        <Route path="/order-history" element={<OrderHistory />} />
+        <Route path="/wishlist" element={<Wishlist />} />
         <Route path="/brand/:brandId" element={<BrandsPage />} />
+            <Route path="/terms" element={<Terms />} />
         <Route path="/products" element={<Products />} />
         <Route path ="/checkout" element= {<Checkout/>}/>
         <Route path = "/order-received" element={<OrderReceived/>}/>

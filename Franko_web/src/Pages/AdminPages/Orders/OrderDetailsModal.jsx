@@ -1,41 +1,22 @@
-import React, { useEffect, useRef } from 'react';
+ import React, { useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchSalesOrderById, fetchOrderDeliveryAddress } from '../../../Redux/Slice/orderSlice';
+import { Modal, Spin,  Button,  Image } from 'antd';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  CircularProgress,
-  Typography,
-  Grid,
-  Button,
-  Card,
-  CardContent,
-  Box,
-  Avatar,
-  Chip,
-  Divider,
-  IconButton,
-  Paper,
-  Stack,
-  useTheme,
-  alpha,
-} from '@mui/material';
-import {
-  Person as PersonIcon,
-  Phone as PhoneIcon,
-  Home as HomeIcon,
-  Edit as EditIcon,
-  Receipt as ReceiptIcon,
-  AccessTime as AccessTimeIcon,
-  Close as CloseIcon,
-  Print as PrintIcon,
-  Download as DownloadIcon,
-  ShoppingCart as ShoppingCartIcon,
-  LocalShipping as LocalShippingIcon,
-} from '@mui/icons-material';
-import { styled } from '@mui/material/styles';
+  User,
+  Phone,
+  MapPin,
+  Edit3,
+  FileText,
+  Clock,
+  Printer,
+  Download,
+  X,
+  Package,
+  CreditCard,
+  Truck,
+  ShoppingCart
+} from 'lucide-react';
 import PrintableInvoice from './PrintableInvoice';
 import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
@@ -44,145 +25,7 @@ const formatPrice = (amount) => {
   return amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 };
 
-// Custom styled components
-const StyledDialog = styled(Dialog)(({ theme }) => ({
-  '& .MuiDialog-paper': {
-    borderRadius: 20,
-    maxWidth: 900,
-    width: '80vw',
-    maxHeight: '90vh',
-    background: `linear-gradient(135deg, ${alpha(theme.palette.primary.light, 0.1)} 0%, ${alpha(theme.palette.secondary.light, 0.05)} 100%)`,
-    backdropFilter: 'blur(10px)',
-    border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-  },
-}));
-
-const StyledDialogTitle = styled(DialogTitle)(({ theme }) => ({
-  background: `linear-gradient(135deg, ${theme.palette.success.light} 0%, ${theme.palette.primary.dark} 100%)`,
-    color: 'rgba(255, 255, 255, 1)',
-    border: 'none',
-
-  padding: theme.spacing(3),
-  borderRadius: '20px 20px 0 0',
-  position: 'relative',
-  '&::before': {
-    content: '""',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: 'url("data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.1"%3E%3Ccircle cx="7" cy="7" r="3"/%3E%3Ccircle cx="27" cy="7" r="3"/%3E%3Ccircle cx="47" cy="7" r="3"/%3E%3Ccircle cx="7" cy="27" r="3"/%3E%3Ccircle cx="27" cy="27" r="3"/%3E%3Ccircle cx="47" cy="27" r="3"/%3E%3Ccircle cx="7" cy="47" r="3"/%3E%3Ccircle cx="27" cy="47" r="3"/%3E%3Ccircle cx="47" cy="47" r="3"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
-  },
-}));
-
-const InfoCard = styled(Card)(({ theme, variant }) => {
-  const colors = {
-    customer: {
-      bg: `linear-gradient(135deg, ${alpha(theme.palette.success.light, 0.1)} 0%, ${alpha(theme.palette.success.main, 0.05)} 100%)`,
-      border: theme.palette.success.main,
-      icon: theme.palette.success.main,
-    },
-    delivery: {
-      bg: `linear-gradient(135deg, ${alpha(theme.palette.warning.light, 0.1)} 0%, ${alpha(theme.palette.warning.main, 0.05)} 100%)`,
-      border: theme.palette.warning.main,
-      icon: theme.palette.warning.main,
-    },
-    order: {
-      bg: `linear-gradient(135deg, ${alpha(theme.palette.info.light, 0.1)} 0%, ${alpha(theme.palette.info.main, 0.05)} 100%)`,
-      border: theme.palette.info.main,
-      icon: theme.palette.info.main,
-    },
-  };
-
-  const color = colors[variant] || colors.customer;
-
-  return {
-    background: color.bg,
-    border: `2px solid ${alpha(color.border, 0.3)}`,
-    borderRadius: 16,
-    marginBottom: theme.spacing(3),
-    position: 'relative',
-    overflow: 'visible',
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-    '&:hover': {
-      transform: 'translateY(-4px)',
-      boxShadow: `0 12px 40px ${alpha(color.border, 0.15)}`,
-      borderColor: color.border,
-    },
-    '&::before': {
-      content: '""',
-      position: 'absolute',
-      top: -1,
-      left: -1,
-      right: -1,
-      bottom: -1,
-      background: `linear-gradient(135deg, ${color.border}, ${alpha(color.border, 0.5)})`,
-      borderRadius: 16,
-      zIndex: -1,
-      opacity: 0,
-      transition: 'opacity 0.3s ease',
-    },
-    '&:hover::before': {
-      opacity: 0.1,
-    },
-  };
-});
-
-const ProductCard = styled(Card)(({ theme }) => ({
-  background: `linear-gradient(135deg, ${alpha(theme.palette.background.paper, 0.8)} 0%, ${alpha(theme.palette.background.paper, 0.6)} 100%)`,
-  backdropFilter: 'blur(10px)',
-  border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-  borderRadius: 16,
-  marginBottom: theme.spacing(2),
-  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-  '&:hover': {
-    transform: 'translateY(-2px)',
-    boxShadow: `0 8px 32px ${alpha(theme.palette.primary.main, 0.1)}`,
-    border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
-  },
-}));
-
-const StyledButton = styled(Button)(({ theme, variant: buttonVariant }) => {
-  const variants = {
-    print: {
-      background: `linear-gradient(135deg, ${theme.palette.success.main} 0%, ${theme.palette.success.dark} 100%)`,
-      '&:hover': {
-        background: `linear-gradient(135deg, ${theme.palette.success.dark} 0%, ${theme.palette.success.main} 100%)`,
-        transform: 'translateY(-2px)',
-        boxShadow: `0 8px 25px ${alpha(theme.palette.success.main, 0.4)}`,
-      },
-    },
-    export: {
-      background: `linear-gradient(135deg, ${theme.palette.info.main} 0%, ${theme.palette.info.dark} 100%)`,
-      '&:hover': {
-        background: `linear-gradient(135deg, ${theme.palette.info.dark} 0%, ${theme.palette.info.main} 100%)`,
-        transform: 'translateY(-2px)',
-        boxShadow: `0 8px 25px ${alpha(theme.palette.info.main, 0.4)}`,
-      },
-    },
-    close: {
-      background: `linear-gradient(135deg, ${theme.palette.grey[400]} 0%, ${theme.palette.grey[600]} 100%)`,
-      '&:hover': {
-        background: `linear-gradient(135deg, ${theme.palette.grey[600]} 0%, ${theme.palette.grey[400]} 100%)`,
-        transform: 'translateY(-2px)',
-        boxShadow: `0 8px 25px ${alpha(theme.palette.grey[500], 0.4)}`,
-      },
-    },
-  };
-
-  return {
-    borderRadius: 12,
-    padding: theme.spacing(1.5, 3),
-    fontWeight: 600,
-    textTransform: 'none',
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-    ...(variants[buttonVariant] || variants.close),
-  };
-});
-
-const OrderDetailsModal = ({ open, orderId, onClose }) => {
-  const theme = useTheme();
+const OrderDetailsModal = ({ orderId, onClose }) => {
   const dispatch = useDispatch();
   const { salesOrder, loading, error, deliveryAddress } = useSelector((state) => state.orders);
 
@@ -190,11 +33,11 @@ const OrderDetailsModal = ({ open, orderId, onClose }) => {
   const downloadRef = useRef(null);
 
   useEffect(() => {
-    if (open && orderId) {
+    if (orderId) {
       dispatch(fetchSalesOrderById(orderId));
       dispatch(fetchOrderDeliveryAddress(orderId));
     }
-  }, [dispatch, orderId, open]);
+  }, [dispatch, orderId]);
 
   const handlePrint = () => {
     const printContent = printRef.current;
@@ -210,7 +53,7 @@ const OrderDetailsModal = ({ open, orderId, onClose }) => {
       console.error("No order details available for export.");
       return;
     }
-
+  
     const invoiceData = [
       ["Invoice Details"],
       ["Order No", orderId?.slice(-7) || "N/A"],
@@ -225,20 +68,19 @@ const OrderDetailsModal = ({ open, orderId, onClose }) => {
         order.total,
       ]),
     ];
-
+  
     const ws = XLSX.utils.aoa_to_sheet(invoiceData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Invoice");
-
+  
     const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-
+  
     saveAs(data, `Invoice_${orderId?.slice(-7) || "Unknown"}.xlsx`);
   };
-
-  if (loading) return <CircularProgress size={60} sx={{ display: 'none' }} />;
-  if (error) return <div style={{ display: 'none' }}>Error loading order: {error.message || 'An error occurred'}</div>;
-  if (!open) return null;
+  
+  if (loading) return <Spin size="large" className='hidden' />;
+  if (error) return <div className='hidden'>Error loading order: {error.message || 'An error occurred'}</div>;
   if (!salesOrder || salesOrder.length === 0) return <div>No order details found.</div>;
 
   const backendBaseURL = 'https://smfteapi.salesmate.app/';
@@ -246,289 +88,241 @@ const OrderDetailsModal = ({ open, orderId, onClose }) => {
   const address = deliveryAddress?.[0] || {};
 
   return (
-    <StyledDialog 
-    open={open} 
-    onClose={onClose} 
-    maxWidth={false}
-  
-   
-    PaperProps={{
-      style: {
-        backgroundColor: 'white'
+    <Modal
+      open={true}
+      onCancel={onClose}
+      footer={null}
+      width={900}
+      className="modern-order-modal"
+      style={{ top: 20 }}
+      closeIcon={
+        <X className="w-5 h-5 text-gray-500 hover:text-red-500 transition-colors cursor-pointer" />
       }
-    }}
-  >
-    
-      <StyledDialogTitle>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
-          <Box display="flex" flexDirection="column" alignItems="center" sx={{ flex: 1 }}>
-            <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
-              <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}>
-                <ReceiptIcon />
-              </Avatar>
-              <Typography variant="h5" component="h2" fontWeight="bold">
-                Order Details
-              </Typography>
-            </Stack>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <AccessTimeIcon sx={{ fontSize: 20, opacity: 0.9 }} />
-              <Typography variant="body1" sx={{ opacity: 0.95 }}>
-                {new Date(salesOrder[0]?.orderDate).toLocaleString()}
-              </Typography>
-            </Stack>
-          </Box>
-          <IconButton
-            onClick={onClose}
-            sx={{
-            color: 'rgba(255, 255, 255, 1)',
+    >
+      <div className="bg-white">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-green-300 to-green-400 px-4 py-2 text-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="bg-white/20 p-2 rounded-lg">
+                <FileText className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Order Details</h2>
+                <div className="flex items-center space-x-2 text-green-100 text-sm">
+                  <Clock className="w-4 h-4" />
+                  <span>{new Date(salesOrder[0]?.orderDate).toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-green-100 text-sm">Order ID</div>
+         <div className="font-mono text-lg">{orderId || 'N/A'}</div>
 
-              bgcolor: 'rgba(255,255,255,0.1)',
-              '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' },
-            }}
-          >
-            <CloseIcon />
-          </IconButton>
-        </Stack>
-      </StyledDialogTitle>
+            </div>
+          </div>
+        </div>
 
-      <DialogContent sx={{ p: 3, maxHeight: '70vh', overflowY: 'auto' }}>
-        <Box ref={downloadRef}>
-          {/* Customer Information */}
-          <InfoCard variant="customer" style={{marginTop:"10px"}}>
-            <CardContent sx={{ p: 2, }}>
-              <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
-                <Avatar sx={{ bgcolor: theme.palette.success.main }}>
-                  <PersonIcon />
-                </Avatar>
-                <Typography variant="h6" fontWeight="bold" color="success.dark">
-                  Customer Information
-                </Typography>
-              </Stack>
-              <Grid container spacing={3}>
-                <Grid item xs={12} sm={6}>
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                    <PersonIcon color="success" fontSize="small" />
-                    <Typography variant="subtitle2" fontWeight="bold">Name:</Typography>
-                  </Stack>
-                  <Typography variant="body1" sx={{ pl: 3 }}>{salesOrder[0]?.fullName}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                    <PhoneIcon color="success" fontSize="small" />
-                    <Typography variant="subtitle2" fontWeight="bold">Contact:</Typography>
-                  </Stack>
-                  <Typography variant="body1" sx={{ pl: 3 }}>{salesOrder[0]?.contactNumber}</Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                    <HomeIcon color="success" fontSize="small" />
-                    <Typography variant="subtitle2" fontWeight="bold">Address:</Typography>
-                  </Stack>
-                  <Typography variant="body1" sx={{ pl: 3 }}>{salesOrder[0]?.address}</Typography>
-                </Grid>
-              </Grid>
-            </CardContent>
-          </InfoCard>
+        {/* Content */}
+        <div className="max-h-[70vh] overflow-y-auto p-6 space-y-6" style={{ scrollbarWidth: 'thin' }}>
+          
+          {/* Customer & Delivery Info Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Customer Information */}
+            <div className="bg-green-50 border border-green-200 rounded-xl p-5">
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="bg-green-500 p-2 rounded-lg">
+                  <User className="w-4 h-4 text-white" />
+                </div>
+                <h3 className="text-md font-semibold text-green-800">Customer/Agent Information</h3>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-start space-x-3">
+                  <User className="w-4 h-4 text-green-600 mt-1" />
+                  <div>
+                    <div className="text-sm text-gray-500">Name</div>
+                    <div className="font-medium text-gray-900">{salesOrder[0]?.fullName}</div>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <Phone className="w-4 h-4 text-green-600 mt-1" />
+                  <div>
+                    <div className="text-sm text-gray-500">Contact</div>
+                    <div className="font-medium text-gray-900">{salesOrder[0]?.contactNumber}</div>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <MapPin className="w-4 h-4 text-green-600 mt-1" />
+                  <div>
+                    <div className="text-sm text-gray-500">Address</div>
+                    <div className="font-medium text-gray-900">{salesOrder[0]?.address}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-          {/* Delivery Address */}
-          <InfoCard variant="delivery">
-            <CardContent sx={{ p: 3 }}>
-              <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
-                <Avatar sx={{ bgcolor: theme.palette.warning.main }}>
-                  <LocalShippingIcon />
-                </Avatar>
-                <Typography variant="h6" fontWeight="bold" color="warning.dark">
-                  Delivery Address
-                </Typography>
-              </Stack>
+            {/* Delivery Address */}
+            <div className="bg-red-50 border border-red-200 rounded-xl p-5">
+              <div className="flex items-center space-x-2 mb-4">
+                <div className="bg-red-500 p-2 rounded-lg">
+                  <Truck className="w-4 h-4 text-white" />
+                </div>
+                <h3 className="text-md font-semibold text-red-800">Delivery Address</h3>
+              </div>
               {address.recipientName ? (
-                <Grid container spacing={3}>
-                  <Grid item xs={12} sm={6}>
-                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                      <PersonIcon color="warning" fontSize="small" />
-                      <Typography variant="subtitle2" fontWeight="bold">Recipient Name:</Typography>
-                    </Stack>
-                    <Typography variant="body1" sx={{ pl: 3 }}>{address.recipientName}</Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                      <PhoneIcon color="warning" fontSize="small" />
-                      <Typography variant="subtitle2" fontWeight="bold">Contact:</Typography>
-                    </Stack>
-                    <Typography variant="body1" sx={{ pl: 3 }}>{address.recipientContactNumber}</Typography>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                      <HomeIcon color="warning" fontSize="small" />
-                      <Typography variant="subtitle2" fontWeight="bold">Address:</Typography>
-                    </Stack>
-                    <Typography variant="body1" sx={{ pl: 3 }}>{address.address}</Typography>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                      <EditIcon color="warning" fontSize="small" />
-                      <Typography variant="subtitle2" fontWeight="bold">Note:</Typography>
-                    </Stack>
-                    <Typography variant="body1" sx={{ pl: 3 }}>{address.orderNote}</Typography>
-                  </Grid>
-                </Grid>
+                <div className="space-y-3">
+                  <div className="flex items-start space-x-3">
+                    <User className="w-4 h-4 text-red-600 mt-1" />
+                    <div>
+                      <div className="text-sm text-gray-500">Recipient Name</div>
+                      <div className="font-medium text-gray-900">{address.recipientName}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <Phone className="w-4 h-4 text-red-600 mt-1" />
+                    <div>
+                      <div className="text-sm text-gray-500">Contact</div>
+                      <div className="font-medium text-gray-900">{address.recipientContactNumber}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <MapPin className="w-4 h-4 text-red-600 mt-1" />
+                    <div>
+                      <div className="text-sm text-gray-500">Address</div>
+                      <div className="font-medium text-gray-900">{address.address}</div>
+                    </div>
+                  </div>
+                  {address.orderNote && (
+                    <div className="flex items-start space-x-3">
+                      <Edit3 className="w-4 h-4 text-red-600 mt-1" />
+                      <div>
+                        <div className="text-sm text-gray-500">Note</div>
+                        <div className="font-medium text-gray-900">{address.orderNote}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ) : (
-                <Typography variant="body1" color="text.secondary">
-                  No delivery address available.
-                </Typography>
+                <div className="text-gray-500 italic">No delivery address available.</div>
               )}
-            </CardContent>
-          </InfoCard>
+            </div>
+          </div>
 
-          {/* Order Details */}
-          <InfoCard variant="order">
-            <CardContent sx={{ p: 3 }}>
-              <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
-                <Avatar sx={{ bgcolor: theme.palette.info.main }}>
-                  <ShoppingCartIcon />
-                </Avatar>
-                <Typography variant="h6" fontWeight="bold" color="info.dark">
-                  Order Details
-                </Typography>
-                <Chip 
-                  label={`${salesOrder.length} items`} 
-                  color="info" 
-                  size="small"
-                  sx={{ ml: 'auto' }}
-                />
-              </Stack>
-              
-              <Stack spacing={2}>
-                {salesOrder.map((order, index) => {
-                  const imagePath = order?.imagePath;
-                  const imageUrl = imagePath
-                    ? `${backendBaseURL}Media/Products_Images/${imagePath.split('\\').pop()}`
-                    : null;
+          {/* Order Items */}
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+              <div className="flex items-center space-x-2">
+                <div className="bg-gray-600 p-2 rounded-lg">
+                  <ShoppingCart className="w-4 h-4 text-white" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-600">Order Items</h3>
+                <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-sm font-medium">
+                  {salesOrder.length} item{salesOrder.length > 1 ? 's' : ''}
+                </span>
+              </div>
+            </div>
+            
+            <div className="p-2 space-y-4">
+              {salesOrder.map((order, index) => {
+                const imagePath = order?.imagePath;
+                const imageUrl = imagePath
+                  ? `${backendBaseURL}Media/Products_Images/${imagePath.split('\\').pop()}`
+                  : null;
 
-                  return (
-                    <ProductCard key={index}>
-                      <CardContent sx={{ p: 2 }}>
-                        <Grid container spacing={2} alignItems="center">
-                          <Grid item xs={12} sm={3}>
-                            {imageUrl ? (
-                              <Box
-                                component="img"
-                                src={imageUrl}
-                                alt="Product"
-                                sx={{
-                                  width: '100%',
-                                  height: 100,
-                                  objectFit: 'cover',
-                                  borderRadius: 2,
-                                  border: `2px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-                                }}
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  e.target.nextSibling.style.display = 'flex';
-                                }}
-                              />
-                            ) : null}
-                            <Paper
-                              sx={{
-                                width: '50%',
-                                height: 100,
-                                display: imageUrl ? 'none' : 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                bgcolor: alpha(theme.palette.error.main, 0.1),
-                                color: 'error.main',
-                                borderRadius: 2,
-                              }}
-                            >
-                              <Typography variant="caption">No Image</Typography>
-                            </Paper>
-                          </Grid>
-                          <Grid item xs={12} sm={3}>
-                            <Stack spacing={1}>
-                              <Typography variant="body" fontWeight="bold" color="success">
-                                {order.productName}
-                              </Typography>
-                              <Grid container spacing={2}>
-                                <Grid item xs={6} sm={3}>
-                                  <Typography variant="caption" color="text.secondary">Qty</Typography>
-                                  <Typography variant="body1" fontWeight="bold">{order.quantity}</Typography>
-                                </Grid>
-                                <Grid item xs={6} sm={3}>
-                                  <Typography variant="caption" color="text.secondary">Tag</Typography>
-                                  <Typography variant="body1" fontWeight="bold">{order.tag}</Typography>
-                                </Grid>
-                                <Grid item xs={6} sm={3}>
-                                  <Typography variant="caption" color="text.secondary">Colour</Typography>
-                                  <Typography variant="body1" fontWeight="bold">{order.productColor}</Typography>
-                                </Grid>
-                                <Grid item xs={6} sm={4}>
-                                  <Typography variant="caption" color="text.secondary">Unit Price</Typography>
-                                  <Typography variant="body1" fontWeight="bold">₵{formatPrice(order.price)}.00</Typography>
-                                </Grid>
-                                <Grid item xs={12} sm={5}>
-                                  <Typography variant="caption" color="text.secondary">Total Price</Typography>
-                                  <Typography variant="body1" fontWeight="bold" color="success.main">
-                                    ₵{formatPrice(order.total)}.00
-                                  </Typography>
-                                </Grid>
-                              </Grid>
-                            </Stack>
-                          </Grid>
-                        </Grid>
-                      </CardContent>
-                    </ProductCard>
-                  );
-                })}
-              </Stack>
-            </CardContent>
-          </InfoCard>
+                return (
+                  <div key={index} className=" rounded-lg p-2 hover:bg-gray-100 transition-colors">
+                    <div className="flex space-x-4">
+                      <div className="flex-shrink-0">
+                        {imageUrl ? (
+                          <div className="w-20 h-20 bg-white rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+                            <Image
+                              src={imageUrl}
+                              alt="Product"
+                              className="w-full h-full object-cover"
+                              preview={false}
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-20 h-20 bg-gray-200 rounded-lg flex items-center justify-center">
+                            <Package className="w-8 h-8 text-gray-400" />
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-md font-semibold text-gray-900 mb-1">{order.productName}</h4>
+                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                          <div>
+                            <div className="text-sm text-gray-600">Quantity</div>
+                            <div className="font-medium text-gray-900">{order.quantity}</div>
+                          </div>
+                          <div>
+                            <div className="text-sm text-gray-600">Unit Price</div>
+                            <div className="font-medium text-gray-900">₵{formatPrice(order.price)}.00</div>
+                          </div>
+                          <div>
+                            <div className="text-sm text-gray-600">Total</div>
+                            <div className="font-bold text-red-600 text-lg">₵{formatPrice(order.total)}.00</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
-          {/* Total Amount */}
-          <Divider sx={{ my: 2 }} />
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)`,
-              border: `2px solid ${alpha(theme.palette.primary.main, 0.2)}`,
-              borderRadius: 4,
-              textAlign: 'center',
-            }}
-          >
-            <Typography variant="h6" fontWeight="bold" color="primary">
-              Total Amount: ₵{formatPrice(totalAmount)}.00
-            </Typography>
-          </Paper>
-        </Box>
-      </DialogContent>
+          {/* Total Section */}
+ <div className="bg-red-50 border border-red-500 rounded-xl p-2 shadow-sm">
+  <div className="flex items-center justify-end">
+    <div className="flex items-center space-x-3">
+      <div className="bg-red-100 p-2 rounded-lg">
+        <CreditCard className="w-5 h-5 text-red-500" />
+      </div>
+      <div className="text-right">
+        <div className="text-xs text-red-300 font-semibold">Grand Total</div>
+        <div className="text-xl font-bold text-red-600">₵{formatPrice(totalAmount)}.00</div>
+      </div>
+    </div>
+  </div>
+</div>
 
-      <DialogActions sx={{ p: 3, pt: 0 }}>
-        <Stack direction="row" spacing={2} justifyContent="flex-end" width="100%">
-          <StyledButton
-            variant="contained"
-            startIcon={<PrintIcon />}
-            onClick={handlePrint}
-            buttonVariant="print"
-          >
-            Print Invoice
-          </StyledButton>
-          <StyledButton
-            variant="contained"
-            startIcon={<DownloadIcon />}
-            onClick={exportToExcel}
-            buttonVariant="export"
-          >
-            Export Excel
-          </StyledButton>
-          <StyledButton
-            variant="contained"
-            onClick={onClose}
-            buttonVariant="close"
-          >
-            Close
-          </StyledButton>
-        </Stack>
-      </DialogActions>
+        </div>
+
+        {/* Footer Actions */}
+        <div className="border-t border-gray-200 px-6 py-4 bg-gray-50">
+          <div className="flex flex-wrap gap-3 justify-end">
+            <Button
+              onClick={exportToExcel}
+              className="flex items-center space-x-2 bg-green-500 hover:bg-green-600 border-green-500 hover:border-green-600 text-white font-medium"
+              size="large"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export Excel</span>
+            </Button>
+            
+            <Button
+              onClick={handlePrint}
+              className="flex items-center space-x-2 bg-red-500 hover:bg-red-600 border-red-500 hover:border-red-600 text-white font-medium"
+              size="large"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Print Invoice</span>
+            </Button>
+            
+            <Button
+              onClick={onClose}
+              size="large"
+              className="flex items-center space-x-2 border-gray-300 text-gray-700 hover:border-gray-400 hover:text-gray-800 font-medium"
+            >
+              <X className="w-4 h-4" />
+              <span>Close</span>
+            </Button>
+          </div>
+        </div>
+      </div>
 
       {/* Hidden Printable Invoice */}
       <div ref={printRef} style={{ display: 'none' }}>
@@ -538,7 +332,41 @@ const OrderDetailsModal = ({ open, orderId, onClose }) => {
           deliveryAddress={deliveryAddress}
         />
       </div>
-    </StyledDialog>
+
+      <style jsx>{`
+        .modern-order-modal .ant-modal-content {
+          border-radius: 12px;
+          overflow: hidden;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        
+        .modern-order-modal .ant-modal-header {
+          border: none;
+          padding: 0;
+        }
+        
+        .modern-order-modal .ant-modal-body {
+          padding: 0;
+        }
+        
+        ::-webkit-scrollbar {
+          width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+          background: #f1f1f1;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+          background: #10b981;
+          border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+          background: #059669;
+        }
+      `}</style>
+    </Modal>
   );
 };
 
