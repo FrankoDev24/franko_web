@@ -1,12 +1,6 @@
+import { Modal, Input, Typography, Space, Divider} from "antd";
 import {
-  Modal,
-  Input,
-  Typography,
-  Space,
-  Divider
-} from "antd";
-import {
-  UserOutlined,
+UserOutlined,
   LockOutlined,
   HomeOutlined,
   PhoneOutlined,

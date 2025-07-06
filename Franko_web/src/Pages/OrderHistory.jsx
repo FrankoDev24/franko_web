@@ -272,16 +272,7 @@ const OrderHistoryPage = () => {
                 <p className="text-gray-600 text-xs">Track and manage all your previous orders</p>
               </div>
             </div>
-            <Button
-              type="text"
-              size="large"
-              onClick={handleRefresh}
-              className="hover:bg-gray-100 bg-green-200 text-white rounded-full transition-all duration-200"
            
-              loading={loading}
-            >
-              Refresh
-            </Button>
           </div>
         </div>
 

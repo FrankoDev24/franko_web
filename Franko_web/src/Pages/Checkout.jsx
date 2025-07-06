@@ -7,13 +7,15 @@ import {
   saveCheckoutDetails,
   saveAddressDetails,
 } from "../Redux/Slice/orderSlice";
+import { getHubtelCallbackById } from "../Redux/Slice/paymentSlice";
 import { clearCart } from "../Redux/Slice/cartSlice";
-import { message, Card, Typography, Radio, Divider, Modal, Checkbox, Alert } from "antd";
+import { message, Card, Typography, Radio, Divider, Modal, Alert } from "antd";
 import CheckoutForm from "../Component/CheckoutForm";
 import locations from "../Component/Locations";
 import { ShoppingBagIcon, ExclamationTriangleIcon, CreditCardIcon, MapPinIcon } from "@heroicons/react/24/outline";
+import TagManager from "react-gtm-module";
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
 
 const Checkout = () => {
   const dispatch = useDispatch();
@@ -30,11 +32,15 @@ const Checkout = () => {
 
   // Validation states
   const [showValidationAlerts, setShowValidationAlerts] = useState(false);
-
-  // Payment Modal States
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null);
   const [confirmationChecked, setConfirmationChecked] = useState(false);
+
+  // Electronics alert modal
+  const [isElectronicsAlertVisible, setIsElectronicsAlertVisible] = useState(false);
+  
+  // Payment modal states
+  const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
+  const [paymentUrl, setPaymentUrl] = useState(null);
 
   // Get cart items from localStorage
   const getCartItems = () => {
@@ -92,6 +98,20 @@ const Checkout = () => {
     }
   }, [deliveryInfo]);
 
+  // Check for electronics in cart and show alert
+  useEffect(() => {
+    const electronicItems = ["fridge", "laptop", "tv", "Air", "Air condition", "condition"];
+    const hasElectronics = cartItems.some((item) =>
+      electronicItems.some((keyword) => 
+        item.productName?.toLowerCase().includes(keyword.toLowerCase())
+      )
+    );
+  
+    if (hasElectronics) {
+      setIsElectronicsAlertVisible(true);
+    }
+  }, [cartItems]);
+
   // Monitor cart changes
   useEffect(() => {
     const handleStorageChange = () => {
@@ -99,10 +119,8 @@ const Checkout = () => {
       setCartItems(newItems);
     };
 
-    // Listen for storage changes
     window.addEventListener('storage', handleStorageChange);
     
-    // Also check periodically for changes within the same tab
     const interval = setInterval(() => {
       const newItems = getCartItems();
       if (JSON.stringify(newItems) !== JSON.stringify(cartItems)) {
@@ -115,6 +133,35 @@ const Checkout = () => {
       clearInterval(interval);
     };
   }, [cartItems]);
+
+  // Hubtel payment status check
+  useEffect(() => {
+    let intervalId;
+
+    const checkHubtelStatus = async () => {
+      const orderId = localStorage.getItem("pendingOrderId");
+      if (!orderId) return;
+
+      const action = await dispatch(getHubtelCallbackById(orderId));
+      const response = action?.payload;
+
+      if (response?.responseCode === "0000") {
+        clearInterval(intervalId);
+        localStorage.removeItem("pendingOrderId");
+        navigate(`/order-success/${orderId}`);
+      } else if (response?.responseCode === "2001") {
+        clearInterval(intervalId);
+        localStorage.removeItem("pendingOrderId");
+        navigate("/order-cancelled");
+      }
+    };
+
+    if (["Mobile Money", "Credit Card"].includes(paymentMethod)) {
+      intervalId = setInterval(checkHubtelStatus, 3000);
+    }
+
+    return () => clearInterval(intervalId);
+  }, [paymentMethod, dispatch, navigate]);
   
   const calculateTotalAmount = () => {
     const subtotal = cartItems.reduce((total, item) => {
@@ -145,10 +192,10 @@ const Checkout = () => {
     const payload = {
       totalAmount,
       description: `Payment for ${cartItems.map((item) => item.productName).join(", ")}`,
-      callbackUrl: "https://eon1b314mokendl.m.pipedream.net/",
+      callbackUrl: "https://smfteapi.salesmate.app/PaymentSystem/PostHubtelCallBack",
       returnUrl: `https://frankotrading.com/order-success/${orderId}`,
-      merchantAccountNumber: "2020892",
       cancellationUrl: "https://frankotrading.com/order-cancelled",
+      merchantAccountNumber: "2020892",
       clientReference: orderId,
     };
 
@@ -163,75 +210,84 @@ const Checkout = () => {
       });
 
       const result = await response.json();
+      
       if (result.status === "Success") {
+        localStorage.setItem("pendingOrderId", orderId);
         return result.data.checkoutUrl;
+      } else {
+        throw new Error(`Hubtel Error: ${result.message}`);
       }
-      throw new Error(result.message || "Payment initiation failed.");
     } catch (error) {
       console.error("Payment initiation error:", error);
       throw error;
     }
   };
 
+  const processDirectCheckout = async (orderId, checkoutDetails, addressDetails) => {
+    try {
+      await dispatchOrderCheckout(orderId, checkoutDetails);
+      await dispatchOrderAddress(orderId, addressDetails);
+    } catch (error) {
+      throw new Error("An error occurred during checkout.");
+    }
+  };
+
+  const dispatchOrderCheckout = async (orderId, checkoutDetails) => {
+    try {
+      const checkoutPayload = {
+        cartId: getCartId(),
+        ...checkoutDetails,
+      };
+
+      await dispatch(checkOutOrder(checkoutPayload)).unwrap();
+    } catch (error) {
+      console.error("Checkout Error:", error);
+      throw new Error("An error occurred during order checkout.");
+    }
+  };
+
+  const dispatchOrderAddress = async (orderId, addressDetails) => {
+    try {
+      await dispatch(updateOrderDelivery(addressDetails)).unwrap();
+      dispatch(clearCart());
+      localStorage.removeItem("cart");
+      localStorage.removeItem("cartId");
+    } catch (error) {
+      console.error("Address Update Error:", error);
+      throw new Error("An error occurred while updating the order address.");
+    }
+  };
+
   // Handle payment method selection
   const handlePaymentMethodChange = (e) => {
     const selectedMethod = e.target.value;
-    
-    if (selectedMethod === "Mobile Money" || selectedMethod === "Credit Card") {
-      setSelectedPaymentMethod(selectedMethod);
-      setShowPaymentModal(true);
-      setConfirmationChecked(false);
-    } else {
-      setPaymentMethod(selectedMethod);
-    }
+    setPaymentMethod(selectedMethod);
 
     // Hide validation alerts when user makes selection
     if (showValidationAlerts) {
       setShowValidationAlerts(false);
     }
   };
-
-  // Handle payment modal confirmation
-  const handlePaymentModalConfirm = () => {
-    if (!confirmationChecked) {
-      message.warning("Please confirm that you understand the payment process.");
-      return;
-    }
-    
-    setPaymentMethod(selectedPaymentMethod);
-    setShowPaymentModal(false);
-    setConfirmationChecked(false);
-  };
-
-  // Handle payment modal cancel
-  const handlePaymentModalCancel = () => {
-    setShowPaymentModal(false);
-    setSelectedPaymentMethod(null);
-    setConfirmationChecked(false);
-  };
-
+  
   const handleCheckout = async () => {
     // Validation
     if (cartItems.length === 0) {
       message.warning("Your cart is empty. Please add items before checkout.");
       return;
     }
-    const missingPayment = !paymentMethod;
-    const missingAddress = !selectedAddress;
 
-    if (missingPayment || missingAddress) {
-      setShowValidationAlerts(true);
-      
-      if (missingPayment && missingAddress) {
-        message.error("Please select a payment method and delivery address to continue.");
-      } else if (missingPayment) {
-        message.error("Please select a payment method to continue.");
-      } else {
-        message.error("Please select a delivery address to continue.");
-      }
-      
-      // Scroll to top to show validation alerts
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (!paymentMethod) {
+      message.warning("Please select a payment method to proceed.");
+      return;
+    }
+
+    if (!selectedAddress) {
+      message.warning("Please enter your delivery address to proceed.");
+      return;
+    }
+
+    if (paymentMethod === "Cash on Delivery" && deliveryFee === 0) {
+      message.warning("Please select another payment method.");
       return;
     }
 
@@ -239,6 +295,37 @@ const Checkout = () => {
     const orderDate = new Date().toISOString();
     const totalAmount = calculateTotalAmount();
     const cartId = getCartId();
+
+    // Meta Pixel Event
+    if (typeof window.fbq === 'function') {
+      window.fbq('track', 'InitiateCheckout', {
+        content_type: 'product',
+        contents: cartItems.map((item) => ({
+          id: item.productId,
+          name: item.productName,
+          quantity: item.quantity,
+          item_price: item.price,
+        })),
+        value: totalAmount,
+        currency: 'GHS',
+      });
+    }
+
+    // Google Tag Manager Event
+    TagManager.dataLayer({
+      dataLayer: {
+        event: "place_order",
+        orderId: orderId,
+        paymentMethod: paymentMethod,
+        totalAmount: totalAmount,
+        items: cartItems.map((item) => ({
+          name: item.productName,
+          id: item.productId,
+          price: item.price,
+          quantity: item.quantity,
+        })),
+      },
+    });
 
     const checkoutDetails = {
       Cartid: cartId,
@@ -276,32 +363,18 @@ const Checkout = () => {
         
         const paymentUrl = await initiatePayment(totalAmount, cartItems, orderId);
         if (paymentUrl) {
-
-          window.location.href = paymentUrl;
+          setPaymentUrl(paymentUrl);
+          setIsPaymentModalVisible(true);
         }
       } else {
- 
-        
-        const checkoutResult = await dispatch(checkOutOrder({ 
-          cartId, 
-          ...checkoutDetails 
-        })).unwrap();
-        
-        
-        const addressResult = await dispatch(updateOrderDelivery(addressDetails)).unwrap();
-        console.log("Address update result:", addressResult);
-        
-        // Clear cart after successful order
-        dispatch(clearCart());
-        localStorage.removeItem("cart");
-        localStorage.removeItem("cartId");
-        
-        message.success("Order placed successfully!");
+        // Process direct checkout for other payment methods
+        await processDirectCheckout(orderId, checkoutDetails, addressDetails);
+        message.success("Your order has been placed successfully!");
         navigate("/order-received");
       }
     } catch (error) {
-    
-      message.error(`An error occurred during checkout: ${error.message || 'Unknown error'}`);
+      console.error("Checkout error:", error);
+      message.error("An error occurred during checkout.");
     } finally {
       setLoading(false);
     }
@@ -357,6 +430,13 @@ const Checkout = () => {
 
   return (
     <div className="p-4 mx-auto">
+      {/* Loading overlay */}
+      {loading && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+          <div className="animate-spin h-10 w-10 border-4 border-t-4 border-gray-300 rounded-full"></div>
+        </div>
+      )}
+
       <div className="flex items-center mb-6 w-full">
         <h2 className="text-md md:text-xl font-bold text-gray-700 flex items-center gap-2">
           <ShoppingBagIcon className="w-5 h-5 md:w-6 md:h-6 text-gray-700" />
@@ -396,7 +476,7 @@ const Checkout = () => {
         <div className="lg:col-span-1">
           <Card className="h-fit">
             <div className="mb-4">
-              <h2 className="text-lg font-semibold text-gray-800">Recipient Details</h2>
+              <h2 className="text-lg font-semibold text-gray-800">Billing Information</h2>
               <div className="relative mt-1">
                 <div className="absolute w-24 h-1 bg-red-300 rounded"></div>
                 <div className="border-b border-gray-300"></div>
@@ -441,8 +521,7 @@ const Checkout = () => {
                     <div className="text-sm flex-1">
                       <p className="font-medium text-gray-800 mb-1">{item.productName || 'Product Name'}</p>
                       <p className="text-xs text-gray-500">Qty: {item.quantity || 1}</p>
-                      <p className="text-xs text-gray-500">₵{(item.price || 0).toFixed(2)}
-                      </p>
+                      <p className="text-xs text-gray-500">₵{(item.price || 0).toFixed(2)}</p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -594,17 +673,9 @@ const Checkout = () => {
                       <span>
                         {isFormValid ? 'Place Order' : 'Complete Required Fields'}
                       </span>
-
                     </>
                   )}
                 </div>
-
-                {/* Success ripple effect */}
-                {!loading && isFormValid && (
-                  <div className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity duration-300">
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white-skew-x-12 animate-pulse opacity-10"></div>
-                  </div>
-                )}
               </button>
 
               {/* Security badge */}
@@ -621,76 +692,48 @@ const Checkout = () => {
         </div>
       </div>
 
-      {/* Payment Information Modal */}
+      {/* Electronics Delivery Alert Modal */}
       <Modal
-        title={
-          <div className="flex items-center gap-2">
-            <ExclamationTriangleIcon className="w-6 h-6 text-orange-500" />
-            <span className="text-lg font-semibold">Payment Information</span>
-          </div>
-        }
-        open={showPaymentModal}
-        onCancel={handlePaymentModalCancel}
+        title={<Title level={4} style={{ margin: 0, color: "#FC5130" }}>📢 Delivery Price Notice</Title>}
+        open={isElectronicsAlertVisible}
+        onCancel={() => setIsElectronicsAlertVisible(false)}
+        centered
         footer={[
           <button
-            key="cancel"
-            onClick={handlePaymentModalCancel}
-            className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors mr-2"
+            key="gotIt"
+            onClick={() => setIsElectronicsAlertVisible(false)}
+            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
           >
-            Cancel
+            Got It
           </button>,
-          <button
-            key="continue"
-            onClick={handlePaymentModalConfirm}
-            disabled={!confirmationChecked}
-            className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-              confirmationChecked
-                ? 'bg-green-500 text-white hover:bg-green-600'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-           Agree
-          </button>
         ]}
-        width={500}
-        centered
       >
-        <div className="py-4">
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
-            <h3 className="font-semibold text-orange-800 mb-2">Important Payment Instructions</h3>
-            <div className="text-sm text-orange-700 space-y-2">
-              <p>
-                <strong>Step 1:</strong> You will be redirected to the {selectedPaymentMethod} payment gateway.
-              </p>
-              <p>
-                <strong>Step 2:</strong> Complete your payment on the secure payment page.
-              </p>
-              <p>
-                <strong>Step 3:</strong> After successful payment,Click the "Continue" button to complete your order placement.
-              </p>
-             
-            </div>
-          </div>
+        <p style={{ marginTop: 10 }}>
+          Delivery charges for electronic items such as <strong>fridges, televisions, and air conditioners</strong> may vary based on location.
+        </p>
+      </Modal>
 
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-            <h4 className="font-semibold text-red-800 mb-2">⚠️ Important Notice</h4>
-            <p className="text-sm text-red-700">
-              Your order will NOT be processed until you click the "Continue" button after payment. 
-              Please do not close the browser window or navigate away without clicking "Continue" button after payment.
-            </p>
-          </div>
-
-          <div className="flex items-start gap-2 mt-4">
-            <Checkbox
-              checked={confirmationChecked}
-              onChange={(e) => setConfirmationChecked(e.target.checked)}
-              className="mt-1"
-            />
-            <label className="text-sm text-gray-700 cursor-pointer" onClick={() => setConfirmationChecked(!confirmationChecked)}>
-              I understand the payment process and will click "Continue" after completing the payment to ensure my order is placed successfully.
-            </label>
-          </div>
-        </div>
+      {/* Payment Modal */}
+      <Modal
+        open={isPaymentModalVisible}
+        onCancel={() => setIsPaymentModalVisible(false)}
+        footer={null}
+        closable
+        centered
+        width={600}
+      >
+        {paymentUrl ? (
+          <iframe
+            src={paymentUrl}
+            title="Hubtel Payment"
+            width="100%"
+            height="700px"
+            frameBorder="0"
+       
+          />
+        ) : (
+          <p>Loading payment interface...</p>
+        )}
       </Modal>
     </div>
   );

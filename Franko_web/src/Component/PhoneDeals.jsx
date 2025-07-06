@@ -9,6 +9,7 @@ import {
   CheckCircleIcon,
   XCircleIcon
 } from "@heroicons/react/24/solid";
+
 import { fetchProductsByCategory } from "../Redux/Slice/productSlice";
 import { Card, CardBody, Tooltip } from "@material-tailwind/react";
 import useAddToCart from "./Cart";

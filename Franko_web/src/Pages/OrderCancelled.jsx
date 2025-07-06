@@ -18,7 +18,7 @@ function Cancellation() {
             Payment Unsuccessful
           </h1>
           <p className="text-gray-700 text-base sm:text-lg mb-6">
-            Unfortunately, your order could not be completed due to a payment issue. Don't worry—your account has not been charged.
+            Unfortunately, your order could not be completed due to a payment issue. 
           </p>
 
           <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded-md text-left">

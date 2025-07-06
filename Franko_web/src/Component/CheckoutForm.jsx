@@ -1,12 +1,6 @@
-import React, { useState, useEffect } from "react";
-import {
-  Form,
-  Input,
-  Select,
-  Modal,
-} from "antd";
+import { useState, useEffect } from "react";
+import { Form, Input, Select, Modal} from "antd";
 import { EnvironmentOutlined, PhoneOutlined,UserOutlined, AimOutlined,PushpinOutlined, SaveOutlined,} from "@ant-design/icons";
-
 const { TextArea } = Input;
 const { Option } = Select;
 

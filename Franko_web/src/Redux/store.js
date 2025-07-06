@@ -12,6 +12,7 @@ import customerReducer from './Slice/customerSlice';
 import cartReducer from './Slice/cartSlice';
 import advertismentReducer from './Slice/advertismentSlice';
 import wishlistReducer from './Slice/wishlistSlice';
+import paymentReducer from './Slice/paymentSlice'; // Assuming you have a payment slice
 
 // Combine reducers
 const rootReducer = combineReducers({
@@ -24,7 +25,8 @@ const rootReducer = combineReducers({
   user: userReducer,
   customer: customerReducer,
   cart: cartReducer,
-  advertisment: advertismentReducer
+  advertisment: advertismentReducer,
+ payment: paymentReducer, // Assuming you have a payment slice
   
 });
 

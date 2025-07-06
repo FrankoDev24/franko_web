@@ -151,6 +151,8 @@ const ProductDescription = () => {
     dispatch(getCartById(cartId));
   };
 
+
+
   // Checkout handler with authentication check
   const handleCheckout = () => {
     const storedCustomer = JSON.parse(localStorage.getItem("customer"));
@@ -233,6 +235,12 @@ const ProductDescription = () => {
     setAuthModalOpen(false);
   };
 
+    // Helper function to check if product is out of stock
+  const isOutOfStock = (product) => {
+    return product.brandName === "All brands";
+  };
+
+
   if (loading || !currentProduct?.length) {
     return <ProductDetailSkeleton />;
   }
@@ -248,6 +256,7 @@ const ProductDescription = () => {
   ));
 
   const related = products.slice(-12);
+   const outOfStock = isOutOfStock(product);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-10">
@@ -294,7 +303,7 @@ const ProductDescription = () => {
               </Button>
 
               <a
-                href={`https://wa.me/233XXXXXXXXX?text=Hi! I'm interested in buying the ${encodeURIComponent(
+                href={`https://wa.me/233246422338?text=Hi! I'm interested in buying the ${encodeURIComponent(
                   product?.productName
                 )}. Is it currently available, and what's the price?}`}
                 target="_blank"
@@ -324,6 +333,18 @@ const ProductDescription = () => {
         <div className="space-y-4">
           <div className="font-bold text-gray-700 text-lg md:text-xl">
             {product.productName}
+          </div>
+           <div className="flex items-center gap-2 flex-wrap">
+            {product.tag && (
+              <div className="bg-gradient-to-r from-orange-400 to-red-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-md">
+                {product.tag}
+              </div>
+            )}
+            {product.productColor && (
+              <div className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-medium border">
+                Color: {product.productColor}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-4 text-red-500 bg-red-50 rounded-lg p-3 shadow-md">
@@ -382,7 +403,7 @@ const ProductDescription = () => {
               </Button>
 
               <a
-                href={`https://wa.me/233XXXXXXXXX?text=Hi! I'm interested in buying the ${encodeURIComponent(
+                href={`https://wa.me/233246422338?text=Hi! I'm interested in buying the ${encodeURIComponent(
                   product?.productName
                 )}. Is it currently available, and what's the price?}`}
                 target="_blank"
@@ -402,14 +423,17 @@ const ProductDescription = () => {
             </div>
 
             {/* Mobile Bottom Bar */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 shadow-xl z-50 flex items-center justify-between md:hidden">
-              <div className="flex gap-3 w-full">
+             <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 shadow-xl z-50 flex items-center justify-between md:hidden">
+              <div className="flex gap-2 w-full">
                 <Button
                   variant="outlined"
-                  fullWidth
-                  className="border border-red-300 bg-red-100 text-red-600 font-semibold rounded-xl flex items-center justify-center gap-2 py-3 transition duration-300 hover:scale-105 shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  className={`border font-semibold rounded-xl flex items-center justify-center gap-2 py-3 transition duration-300 hover:scale-105 shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex-1 ${
+                    outOfStock 
+                      ? 'border-gray-400 bg-gray-100 text-gray-500' 
+                      : 'border-red-300 bg-red-100 text-red-600'
+                  }`}
                   onClick={() => handleAddToCartAndOpenSidebar(product)}
-                  disabled={isCartButtonLoading}
+                  disabled={isCartButtonLoading || outOfStock}
                 >
                   {isCartButtonLoading ? (
                     <>
@@ -419,10 +443,29 @@ const ProductDescription = () => {
                   ) : (
                     <>
                       <ShoppingCartIcon className="w-5 h-5" />
-                      Add to Cart
+                      {outOfStock ? "Out of Stock" : "Add to Cart"}
                     </>
                   )}
                 </Button>
+
+                <a
+                  href={`https://wa.me/233246422338?text=Hi! I'm interested in buying the ${encodeURIComponent(
+                    product?.productName
+                  )}. Is it currently available, and what's the price?}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl shadow-lg flex items-center justify-center gap-2 px-4 py-3 transition duration-300 hover:scale-105"
+                >
+                  <FaWhatsapp className="w-5 h-5" />
+                  Chat
+                </a>
+
+                <IconButton
+                  onClick={() => handleShare("general")}
+                  className="bg-blue-500 text-white rounded-xl p-3 shadow-lg transition duration-300 hover:scale-110"
+                >
+                  <ShareIcon className="w-5 h-5" />
+                </IconButton>
               </div>
             </div>
           </div>
@@ -728,7 +771,15 @@ const ProductDescription = () => {
       </Drawer>
 
       {/* Auth Modal */}
-      <AuthModal open={authModalOpen} onClose={() => setAuthModalOpen(false)} />
+      <AuthModal
+        open={authModalOpen}
+        onClose={handleAuthModalClose}
+        onSuccess={() => {
+          setAuthModalOpen(false);
+          setCartSidebarOpen(true);
+        }}
+
+ />
     </div>
   );
 };

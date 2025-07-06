@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef} from "react";
 import {Navbar,Typography,IconButton,Drawer, List,ListItem,ListItemPrefix,Dialog,DialogHeader,DialogBody} from "@material-tailwind/react";
 import {ShoppingBagIcon,UserCircleIcon,Bars3Icon,XMarkIcon,HomeIcon,DevicePhoneMobileIcon,Squares2X2Icon,ChevronRightIcon,TagIcon, RadioIcon,PhoneArrowDownLeftIcon,TruckIcon,MagnifyingGlassIcon} from "@heroicons/react/24/outline";
-import { Heart, CheckIcon } from "lucide-react"; // Import Lucide React icons
+import { Heart, User } from "lucide-react"; // Import Lucide React icons
 import { useLocation, useNavigate } from "react-router-dom";
 import AnnouncementBar from "./AnnouncentBar";
 import logo from "../../assets/frankoIcon.png"
@@ -420,33 +420,37 @@ const Nav = () => {
   <div className="flex items-center gap-4">
     <a href="/" className={`hover:text-red-500 transition-colors ${isActive("/") && "text-red-500 font-semibold"}`}>Home</a>
     <a href="/about" className={`hover:text-red-500 transition-colors ${isActive("/about") && "text-red-500 font-semibold"}`}>About Us</a>
-        <a href="/order-history" className={`hover:text-red-500 transition-colors ${isActive("/order-history") && "text-red-500 font-semibold"}`}>My Orders</a>
+    
+    {/* Only show My Orders if user is logged in */}
+    {currentCustomer && (
+      <a href="/order-history" className={`hover:text-red-500 transition-colors ${isActive("/order-history") && "text-red-500 font-semibold"}`}>My Orders</a>
+    )}
+    
     <a href="/shops" className={`hover:text-red-500 transition-colors ${isActive("/shops") && "text-red-500 font-semibold"}`}>Shops</a>
-    <button onClick={toggleRadio} className="bg-red-500 text-white px-3 py-1.5 rounded-full hover:bg-red-600 transition-all duration-200 transform hover:scale-105 shadow-md">
+    <button onClick={toggleRadio} className="bg-red-500 text-white px-3 py-1.5 rounded-md hover:bg-red-600 transition-all duration-200 transform hover:scale-105 shadow-md">
       🎧 Radio
     </button>
     
     {/* Enhanced Account Button */}
-    {(() => {
-      if (currentCustomer) {
-        const initial = currentCustomer.firstName?.[0]?.toUpperCase() || "U";
-        return (
-          <button
-            onClick={handleAccountClick}
-            className="bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full h-9 w-9 flex items-center justify-center font-bold hover:from-red-600 hover:to-red-700 transition-all duration-200 transform hover:scale-105 shadow-md"
-            title={`${currentCustomer.firstName || ''} ${currentCustomer.lastName || ''}`.trim()}
-          >
-            {initial}
-          </button>
-        );
-      } else {
-        return (
-          <button onClick={handleAccountClick} className="p-2 rounded-full hover:bg-gray-100 transition-all duration-200">
-            <UserCircleIcon className="h-6 w-6 text-gray-700 hover:text-green-600" />
-          </button>
-        );
-      }
-    })()}
+    {currentCustomer ? (
+      // Show user initial when logged in
+      <button
+        onClick={handleAccountClick}
+        className="bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full h-9 w-9 flex items-center justify-center font-bold hover:from-red-600 hover:to-red-700 transition-all duration-200 transform hover:scale-105 shadow-md"
+        title={`${currentCustomer.firstName || ''} ${currentCustomer.lastName || ''}`.trim()}
+      >
+        {currentCustomer.firstName?.[0]?.toUpperCase() || "U"}
+      </button>
+    ) : (
+      // Show Sign Up button when not logged in
+     <button 
+  onClick={handleAccountClick} 
+  className="bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-2 rounded-md hover:from-green-600 hover:to-green-700 transition-all duration-200 transform hover:scale-105 shadow-md font-medium text-xs flex items-center space-x-2"
+>
+  <User className="w-4 h-4" />
+  <span>Sign Up</span>
+</button>
+    )}
 
     {/* Enhanced Wishlist Icon */}
     <div 
@@ -596,7 +600,7 @@ const Nav = () => {
                       </div>
                     );
                   })}
-                  {/* Removed "View all results" section for mobile */}
+
                 </>
               )}
             </div>
@@ -645,180 +649,172 @@ const Nav = () => {
   <div className="h-full overflow-hidden">
     {activeSidebar === "menu" ? (
       <List>
-        {(() => {
-          const customer = localStorage.getItem("customer");
-          if (customer) {
-            const parsed = JSON.parse(customer);
-            const firstName = parsed?.firstName || "User";
+        {/* User Section - Show different content based on login status */}
+        {currentCustomer ? (
+          // Show user info when logged in
+          <div className="flex items-center gap-3 px-3 py-2 mb-3 rounded-lg bg-gradient-to-r from-green-50 to-green-100 border border-green-200">
+            <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+              <span className="text-white font-semibold text-sm">
+                {currentCustomer.firstName?.charAt(0)?.toUpperCase() || "U"}
+              </span>
+            </div>
+            <span className="text-gray-800 font-medium">
+              Welcome, {currentCustomer.firstName || "User"}
+            </span>
+          </div>
+        ) : (
+          // Show Sign Up button when not logged in
+          <div className="mb-3 p-3 border border-gray-200 rounded-lg bg-gray-50">
+            <button
+              onClick={handleAccountClick}
+              className="flex items-center gap-3 w-full text-left hover:text-green-600 transition-colors"
+            >
+              <UserCircleIcon className="h-5 w-5 text-gray-700" />
+              <span className="font-medium text-green-600">Sign Up / Login</span>
+            </button>
+          </div>
+        )}
 
-            return (
-              <div className="flex items-center gap-3 px-3 py-2 mb-3 rounded-lg bg-gradient-to-r from-green-50 to-green-100 border border-green-200">
-                <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                  <span className="text-white font-semibold text-sm">
-                    {firstName.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <span className="text-gray-800 font-medium">
-                  Welcome, {firstName}
-                </span>
-              </div>
-            );
-          } else {
-            return (
-              <div className="mb-3 p-3 border border-gray-200 rounded-lg bg-gray-50">
-                <button
-                  onClick={handleAccountClick}
-                  className="flex items-center gap-3 w-full text-left hover:text-green-600 transition-colors"
-                >
-                  <UserCircleIcon className="h-8 w-8 text-gray-400" />
-                  <span className="text-gray-700 font-medium">Sign In</span>
-                </button>
-              </div>
-            );
-          }
-        })()}
+        <ListItem onClick={() => closeDrawerAndNavigate("/")} className={isActive("/") ? "text-green-600 bg-green-50" : ""}>
+          <ListItemPrefix>
+            <HomeIcon className="h-5 w-5" />
+          </ListItemPrefix>
+          Home
+        </ListItem>
 
-        <ListItem onClick={() => closeDrawerAndNavigate("/")}>
-          <ListItemPrefix><HomeIcon className="h-5 w-5" /></ListItemPrefix>Home
+        <ListItem onClick={() => closeDrawerAndNavigate("/about")} className={isActive("/about") ? "text-green-600 bg-green-50" : ""}>
+          <ListItemPrefix>
+            <UserCircleIcon className="h-5 w-5" />
+          </ListItemPrefix>
+          About Us
         </ListItem>
-        <ListItem onClick={() => closeDrawerAndNavigate("/about")}>
-          <ListItemPrefix><DevicePhoneMobileIcon className="h-5 w-5" /></ListItemPrefix>About Us
+
+        {/* Only show My Orders if user is logged in */}
+        {currentCustomer && (
+          <ListItem onClick={() => closeDrawerAndNavigate("/order-history")} className={isActive("/order-history") ? "text-green-600 bg-green-50" : ""}>
+            <ListItemPrefix>
+              <TruckIcon className="h-5 w-5" />
+            </ListItemPrefix>
+            My Orders
+          </ListItem>
+        )}
+
+        <ListItem onClick={() => closeDrawerAndNavigate("/shops")} className={isActive("/shops") ? "text-green-600 bg-green-50" : ""}>
+          <ListItemPrefix>
+            <DevicePhoneMobileIcon className="h-5 w-5" />
+          </ListItemPrefix>
+          Shops
         </ListItem>
-        <ListItem onClick={() => closeDrawerAndNavigate("/track")}>
-          <ListItemPrefix><TruckIcon className="h-5 w-5" /></ListItemPrefix>Track Order
+
+        {/* Account/Profile - only show if logged in */}
+        {currentCustomer && (
+          <ListItem onClick={() => closeDrawerAndNavigate("/account")} className={isActive("/account") ? "text-green-600 bg-green-50" : ""}>
+            <ListItemPrefix>
+              <UserCircleIcon className="h-5 w-5" />
+            </ListItemPrefix>
+            My Account
+          </ListItem>
+        )}
+
+        <ListItem onClick={handleWishlistClick} className={isActive("/wishlist") ? "text-green-600 bg-green-50" : ""}>
+          <ListItemPrefix>
+            <Heart className="h-5 w-5" />
+          </ListItemPrefix>
+          <div className="flex items-center justify-between w-full">
+            <span>Wishlist</span>
+            {wishlistCount > 0 && (
+              <span className="bg-pink-500 text-white text-xs px-2 py-1 rounded-full">
+                {wishlistCount > 99 ? '99+' : wishlistCount}
+              </span>
+            )}
+          </div>
         </ListItem>
+
+        <ListItem onClick={() => closeDrawerAndNavigate(`/cart/${localStorage.getItem('cartId')}`)} className="relative">
+          <ListItemPrefix>
+            <ShoppingBagIcon className="h-5 w-5" />
+          </ListItemPrefix>
+          <div className="flex items-center justify-between w-full">
+            <span>Cart</span>
+            {totalItems > 0 && (
+              <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                {totalItems > 99 ? '99+' : totalItems}
+              </span>
+            )}
+          </div>
+        </ListItem>
+
         <ListItem onClick={toggleRadio}>
-          <ListItemPrefix><RadioIcon className="h-5 w-5 text-green-600" /></ListItemPrefix>
-          <span className="text-green-600 font-medium">🎧 Franko Radio</span>
+          <ListItemPrefix>
+            <RadioIcon className="h-5 w-5" />
+          </ListItemPrefix>
+          Radio
         </ListItem>
+
         <ListItem onClick={() => closeDrawerAndNavigate("/contact")}>
-          <ListItemPrefix><PhoneArrowDownLeftIcon className="h-5 w-5" /></ListItemPrefix>Support
+          <ListItemPrefix>
+            <PhoneArrowDownLeftIcon className="h-5 w-5" />
+          </ListItemPrefix>
+          Contact
         </ListItem>
       </List>
     ) : (
-      <div className="h-full flex flex-col">
-
-
-        {/* Categories List */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-          <List className="space-y-2">
-            {categories
-              .filter((cat) => 
-                cat.stockStatus !== "Products out of stock" &&
-                cat.categoryName !== "Products out of stock"
-              )
-              .map((category) => {
-                const categoryBrands = brands.filter(
-                  (brand) => brand.categoryId === category.categoryId
-                );
-                const isExpanded = hoveredCategory === category.categoryId;
-                const hasMatchingBrands = categoryBrands.length > 0;
-
-                return (
-                  <div key={category.categoryId} className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-sm transition-shadow">
-                    {/* Category Header */}
-                    <div 
-                      className="flex justify-between items-center p-3 hover:bg-gray-50 transition-colors cursor-pointer"
-                      onClick={() => {
-                        if (hasMatchingBrands) {
-                          // Only allow toggling when clicking the header area directly
-                          if (isExpanded) {
-                            setHoveredCategory(null);
-                          } else {
-                            setHoveredCategory(category.categoryId);
-                          }
-                        }
-                      }}
-                    >
-                      <div className="flex items-center gap-3 text-left w-full pointer-events-none">
-                        <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                          <TagIcon className="h-4 w-4 text-green-600" />
-                        </div>
-                        <div className="flex-1">
-                          <span className="font-medium text-gray-800 block">
-                            {category.categoryName}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {categoryBrands.length} brand{categoryBrands.length !== 1 ? 's' : ''}
-                          </span>
-                        </div>
-                      </div>
-
-                      {hasMatchingBrands && (
-                        <div className="pointer-events-none">
-                          <ChevronRightIcon
-                            className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${
-                              isExpanded ? "rotate-90" : ""
-                            }`}
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Brands List */}
-                    <div
-                      className={`transition-all duration-300 ease-in-out ${
-                        isExpanded ? "max-h-64" : "max-h-0"
-                      } overflow-hidden`}
-                    >
-                      {hasMatchingBrands && (
-                        <div 
-                          className="border-t border-gray-100 bg-gray-50"
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div 
-                            className="p-2 space-y-1 max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300"
-                            onMouseDown={(e) => e.stopPropagation()}
-                            onMouseUp={(e) => e.stopPropagation()}
-                            onClick={(e) => e.stopPropagation()}
-                            onScroll={(e) => e.stopPropagation()}
-                          >
-                            {categoryBrands.map((brand) => (
-                              <button
-                                key={brand.brandId}
-                                onMouseDown={(e) => e.stopPropagation()}
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setSelectedBrandId(brand.brandId);
-                                  closeDrawerAndNavigate(`/brand/${brand.brandId}`);
-                                  // Don't close the category here - let it stay open
-                                }}
-                                className={`w-full flex items-center gap-3 p-2 rounded-md text-left transition-all ${
-                                  selectedBrandId === brand.brandId
-                                    ? "bg-green-100 text-green-700 border border-green-200"
-                                    : "hover:bg-white hover:shadow-sm text-gray-700"
-                                }`}
-                              >
-                                <div className="w-6 h-6 bg-white rounded-md flex items-center justify-center shadow-sm">
-                                  <span className="text-xs font-medium text-gray-600">
-                                    {brand.brandName.charAt(0).toUpperCase()}
-                                  </span>
-                                </div>
-                                <span className="font-medium text-sm">
-                                  {brand.brandName}
-                                </span>
-                                {selectedBrandId === brand.brandId && (
-                                  <CheckIcon className="h-4 w-4 text-green-600 ml-auto" />
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+      // Categories Tab Content
+      <div className="h-full overflow-y-auto">
+        <List>
+          {categories
+            .filter(cat => 
+              cat.stockStatus !== 'Products out of stock' && 
+              cat.categoryName !== 'Products out of stock'
+            )
+            .map((category) => (
+              <div key={category.categoryId} className="mb-2">
+                <ListItem 
+                  onClick={() => {
+                    setSelectedBrandId(selectedBrandId === category.categoryId ? null : category.categoryId);
+                  }}
+                  className="flex items-center justify-between hover:bg-green-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <TagIcon className="h-5 w-5 text-green-600" />
+                    <span className="font-medium">{category.categoryName}</span>
                   </div>
-                );
-              })}
-          </List>
-        </div>
+                  <ChevronRightIcon 
+                    className={`h-4 w-4 transition-transform ${
+                      selectedBrandId === category.categoryId ? 'rotate-90' : ''
+                    }`} 
+                  />
+                </ListItem>
+
+                {/* Brands under this category */}
+                {selectedBrandId === category.categoryId && (
+                  <div className="ml-8 mt-2 space-y-1">
+                    {brands
+                      .filter((brand) => brand.categoryId === category.categoryId)
+                      .map((brand) => (
+                        <div
+                          key={brand.brandId}
+                          onClick={() => {
+                            navigate(`/brand/${brand.brandId}`);
+                            setOpenDrawer(false);
+                          }}
+                          className="px-3 py-2 text-sm cursor-pointer hover:bg-green-100 rounded-md transition-colors border-l-2 border-green-200"
+                        >
+                          {brand.brandName}
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            ))}
+        </List>
       </div>
     )}
   </div>
 </Drawer>
- 
-            {/* Radio Dialog */}
+
+      {/* Radio Dialog */}
+     {/* Radio Dialog */}
             <Dialog open={isRadioOpen} handler={toggleRadio} size="sm">
         <DialogHeader className="flex justify-between items-center">
           Franko Radio Live 🎙️
@@ -842,4 +838,3 @@ const Nav = () => {
 };
 
 export default Nav;
-
