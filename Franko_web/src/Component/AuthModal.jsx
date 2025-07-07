@@ -74,7 +74,7 @@ const Notification = ({ message, type, isVisible, onClose }) => {
 const AuthModal = ({ open, onClose }) => {
   const dispatch = useDispatch();
 
-  const [authMode, setAuthMode] = useState('login'); // 'login', 'signup', 'guest'
+  const [authMode, setAuthMode] = useState('signup'); // 'login', 'signup', 'guest'
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState({
     message: '',
@@ -400,7 +400,7 @@ const handleGuestContinue = async () => {
       
       // Switch to login mode after a short delay
       setTimeout(() => {
-        setAuthMode('login');
+        setAuthMode('signup');
         // Pre-fill the contact number in login form
         setLoginData(prev => ({
           ...prev,
@@ -510,7 +510,7 @@ const handleGuestContinue = async () => {
   useEffect(() => {
     if (!open) {
       hideNotification();
-      setAuthMode('login'); // Reset to login mode when modal closes
+      setAuthMode('signup'); // Reset to login mode when modal closes
     }
   }, [open, hideNotification]);
 

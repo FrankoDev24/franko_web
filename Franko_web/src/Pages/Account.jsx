@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { updateAccountStatus } from "../Redux/Slice/customerSlice";
+import { updateAccountStatus, logoutCustomer } from "../Redux/Slice/customerSlice";
 
 
 const { Title, Text } = Typography;
@@ -24,6 +24,7 @@ const { Title, Text } = Typography;
 const Account = () => {
   const [customer, setCustomer] = useState(null);
   const [activeTab, setActiveTab] = useState('profile');
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [wishlist, setWishlist] = useState([]);
@@ -39,10 +40,25 @@ const Account = () => {
   setWishlist(storedWishlist);
 }, []);
 
-
   const handleLogout = () => {
-    localStorage.removeItem("customer");
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogout = () => {
+    // Dispatch the Redux logout action
+    dispatch(logoutCustomer());
+    
+    // Clear additional data from localStorage if needed
+    localStorage.removeItem("wishlist");
+    localStorage.removeItem("authToken"); // Add any other auth-related items
+    
+    // Show success message
     message.success("Logged out successfully.");
+    
+    // Close modal
+    setShowLogoutModal(false);
+    
+    // Navigate to home page
     navigate("/");
   };
 
@@ -67,6 +83,12 @@ const Account = () => {
       onOk: async () => {
         try {
           await dispatch(updateAccountStatus()).unwrap();
+          
+          // Clear localStorage after successful account deletion
+          localStorage.removeItem("customer");
+          localStorage.removeItem("wishlist");
+          localStorage.removeItem("authToken");
+          
           message.success("Account deleted successfully.");
           navigate("/");
         } catch (error) {
@@ -362,6 +384,25 @@ const Account = () => {
           </div>
         </div>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        title="Confirm Logout"
+        open={showLogoutModal}
+        onOk={confirmLogout}
+        onCancel={() => setShowLogoutModal(false)}
+        okText="Yes, Sign Out"
+        cancelText="Cancel"
+        width={400}
+        okButtonProps={{ 
+          className: "bg-orange-500 hover:bg-orange-600 border-orange-500 hover:border-orange-600" 
+        }}
+      >
+        <div className="py-4">
+          <p className="text-gray-600 mb-2">Are you sure you want to sign out?</p>
+          <p className="text-orange-500 text-sm font-medium">⚠️ You will need to sign in again to access your account.</p>
+        </div>
+      </Modal>
     </div>
   );
 };
