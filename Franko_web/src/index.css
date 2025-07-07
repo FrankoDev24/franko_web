@@ -3,10 +3,7 @@
 @tailwind utilities;
 /* styles.css or global styles */
 
-@layer base {
-  body {
-    @apply bg-white;
-  }}
+
 /* Add this to hide scrollbar in all browsers */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
