@@ -3,9 +3,8 @@ import { Typography } from "@material-tailwind/react";
 import { PhoneIcon } from "@heroicons/react/24/outline";
 import { PhoneOutlined,   WhatsAppOutlined, } from "@ant-design/icons";
 const promoMessages = [
-  "🎉 FRANKO EASTER SALE!",
+  "🎉 FRANKO TRADING!",
   "🔥 UP TO -40%",
-  "🚚 FREE DELIVERY ON SELECTED ITEMS",
   "📻 TUNE IN TO FRANKO RADIO FOR TECH UPDATES!",
   "🎁 SHOP NOW WHILE STOCK LASTS!",
 ];
