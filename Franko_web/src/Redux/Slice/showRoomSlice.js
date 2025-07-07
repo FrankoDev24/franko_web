@@ -15,14 +15,19 @@ export const fetchShowrooms = createAsyncThunk('showrooms/fetchShowrooms', async
 });
 
 // Async thunk for fetching showrooms displayed on the home page
-export const fetchHomePageShowrooms = createAsyncThunk('showrooms/fetchHomePageShowrooms', async () => {
-  try {
-    const response = await axios.get(`${API_BASE_URL}/ShowRoom/Get-HomePageShowRoom`);
-    return response.data;
-  } catch (error) {
-    throw error.response?.data?.message || 'Failed to fetch home page showrooms';
+export const fetchHomePageShowrooms = createAsyncThunk(
+  'showrooms/fetchHomePageShowrooms',
+  async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/ShowRoom/Get-HomePageShowRoom`);
+      // ensure response.data is an array
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      throw error.response?.data?.message || 'Failed to fetch home page showrooms';
+    }
   }
-});
+);
+
 
 // Async thunk for adding a new showroom
 export const addShowroom = createAsyncThunk('showrooms/addShowroom', async (showroomData) => {
@@ -90,10 +95,11 @@ const showroomSlice = createSlice({
       .addCase(fetchHomePageShowrooms.pending, (state) => {
         state.loading = true;
       })
-      .addCase(fetchHomePageShowrooms.fulfilled, (state, action) => {
-        state.loading = false;
-        state.homePageShowrooms = action.payload;
-      })
+   .addCase(fetchHomePageShowrooms.fulfilled, (state, action) => {
+  state.loading = false;
+  state.homePageShowrooms = Array.isArray(action.payload) ? action.payload : [];
+})
+
       .addCase(fetchHomePageShowrooms.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message;

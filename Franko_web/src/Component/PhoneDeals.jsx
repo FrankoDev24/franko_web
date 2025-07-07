@@ -128,11 +128,11 @@ const PhoneDeals = () => {
       showNotification("Failed to add to cart", "error");
     }
   };
+const sortedProducts = (Array.isArray(productsByCategory[categoryId]) ? productsByCategory[categoryId] : [])
+  .filter((product) => product.productID !== "9d88a301-e4ff-42a2-957a-9c611d4cce12")
+  .sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated))
+  .slice(0, 10);
 
-  const sortedProducts = (productsByCategory[categoryId] || [])
-    .filter((product) => product.productID !== "9d88a301-e4ff-42a2-957a-9c611d4cce12")
-    .sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated))
-    .slice(0, 10);
 
   useEffect(() => {
     dispatch(fetchProductsByCategory(categoryId));
