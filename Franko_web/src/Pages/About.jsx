@@ -54,7 +54,7 @@ export default function AboutUs() {
 
   const stats = [
     { number: '20+', label: 'Years of Excellence' },
-    { number: '100K+', label: 'Happy Customers' },
+    { number: '100K+', label: 'Customers Base' },
     { number: '50+', label: 'Brand Partners' },
     { number: '24/7', label: 'Customer Support' },
   ];
