@@ -234,23 +234,24 @@ const Deals = () => {
       />
 
       <div className="mx-auto px-4 md:px-24 py-4">
-        <div className="mb-2">
-          <div className="flex items-center gap-4 flex-wrap md:flex-nowrap">
-            <h2 className="text-sm md:text-lg font-bold text-gray-900 relative whitespace-nowrap">
-              Deals of the Week
-              <span className="absolute -bottom-1 left-0 w-16 h-1 bg-red-400 rounded-full"></span>
-            </h2>
-            <div className="flex-grow h-px bg-gray-300" />
-            <div className="bg-red-400 text-white px-2 py-2 rounded-full shadow-lg flex gap-3 font-md text-sm tracking-wide items-center whitespace-nowrap">
-              <span>Ends in:</span>
-              <div className="flex gap-1">
-                <span>{String(timeLeft.days).padStart(2, "0")}d</span>:
-                <span>{String(timeLeft.hours).padStart(2, "0")}h</span>:
-                <span>{String(timeLeft.minutes).padStart(2, "0")}m</span>:
-                <span>{String(timeLeft.seconds).padStart(2, "0")}s</span>
-              </div>
-            </div>
-          </div>
+        <div className="mb-1">
+         <div className="flex items-center gap-4 flex-nowrap">
+  <h2 className="text-sm md:text-lg font-bold text-gray-900 relative whitespace-nowrap">
+    Deals of the Week
+    <span className="absolute -bottom-1 left-0 w-16 h-1 bg-red-400 rounded-full"></span>
+  </h2>
+  <div className="flex-grow h-px bg-gray-300" />
+  <div className="bg-red-400 text-white px-1.5 md:px-2 py-1.5 md:py-2 rounded-full shadow-lg flex gap-3 font-md text-xs md:text-sm tracking-wide items-center whitespace-nowrap">
+    <span>Ends in:</span>
+    <div className="flex">
+      <span>{String(timeLeft.days).padStart(2, "0")}d</span>:
+      <span>{String(timeLeft.hours).padStart(2, "0")}h</span>:
+      <span>{String(timeLeft.minutes).padStart(2, "0")}m</span>:
+      <span>{String(timeLeft.seconds).padStart(2, "0")}s</span>
+    </div>
+  </div>
+</div>
+
         </div>
 
         <div className="relative mt-6">
@@ -299,7 +300,7 @@ const Deals = () => {
               return (
                 <div
                   key={productID}
-                  className="group mb-2 rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden min-w-[200px] w-[200px]"
+                  className="group mb-2 rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden min-w-[170px] w-[200px]"
                 >
                   <div className="relative overflow-hidden">
                     {stock === 0 ? (
@@ -361,8 +362,8 @@ const Deals = () => {
                     </div>
                   </div>
 
-                  <div className="p-3 text-center space-y-1">
-                    <h3 className="text-sm font-medium text-gray-800 line-clamp-2">{productName}</h3>
+                  <div className="p-1 md:p-2 text-center space-y-1">
+                    <h3 className="text-xs md:text-sm text-gray-800 line-clamp-2">{productName}</h3>
                     <div className="flex items-center justify-center gap-1 mt-1">
                       <span className="text-red-500 font-medium text-sm">{formatPrice(price)}</span>
                       {oldPrice > 0 && (

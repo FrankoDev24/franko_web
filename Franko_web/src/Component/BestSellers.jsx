@@ -303,7 +303,7 @@ const BestSellers = () => {
     return (
       <div
         key={productID}
-        className="group bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden min-w-[200px] w-[200px]"
+        className="group bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden min-w-[170px] w-[200px]"
       >
         <div className="relative overflow-hidden">
           {stock === 0 ? (
@@ -367,7 +367,8 @@ const BestSellers = () => {
 
         <div className="p-3 text-center space-y-1">
           <h3 className="text-xs md:text-sm font-medium text-gray-900 line-clamp-2">{productName}</h3>
-          <div className="flex items-center justify-center gap-1 mt-1">
+         <div className="flex flex-col md:flex-row items-center justify-center gap-1 mt-1">
+
             <span className="text-red-500 font-medium text-sm">{formatPrice(price)}</span>
             {oldPrice > 0 && (
               <span className="text-xs line-through text-gray-400">

@@ -14,13 +14,20 @@ const saveCartToLocalStorage = (cart) => {
 };
 
 // Initial State
+let storedCartId = localStorage.getItem('cartId');
+if (!storedCartId) {
+  storedCartId = uuidv4();
+  localStorage.setItem('cartId', storedCartId);
+}
+
 const initialState = {
   cart: loadCartFromLocalStorage(),
   totalItems: loadCartFromLocalStorage().reduce((total, item) => total + item.quantity, 0),
-  cartId: localStorage.getItem('cartId') || uuidv4(),
+  cartId: storedCartId,
   loading: false,
   error: null,
 };
+
 
 export const createCartItem = createAsyncThunk(
   'cart/createCartItem',

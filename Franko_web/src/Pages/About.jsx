@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Phone, Laptop, Tv, Headphones, MapPin, Users, Award, Heart, Zap, Shield, Truck, RotateCcw, CheckCircle, MessageCircle, ArrowRight, Star } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -281,7 +281,7 @@ className="bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-semibold px-8 py
             <button   onClick={() => navigate('/products')} className="bg-yellow-300 text-gray-700 font-bold px-10 py-4 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg">
               Browse Our Products
             </button>
-            <button className="border-2 border-white text-white hover:bg-white hover:text-green-700 font-semibold px-10 py-4 rounded-full transition-all duration-300">
+            <button  onClick={() => navigate('/contact')} className="border-2 border-white text-white hover:bg-white hover:text-green-700 font-semibold px-10 py-4 rounded-full transition-all duration-300">
               Contact Us Today
             </button>
           </div>

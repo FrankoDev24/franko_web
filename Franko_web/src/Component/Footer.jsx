@@ -95,10 +95,10 @@ const Footer = () => {
             <ul className="space-y-3">
               <li>
                 <Link 
-                  to="/profile" 
+                  to="/account" 
                   className="text-gray-300 hover:text-green-400 text-sm transition-colors duration-300 hover:translate-x-1 inline-block"
                 >
-                  My Profile
+                  My Account
                 </Link>
               </li>
                <li>

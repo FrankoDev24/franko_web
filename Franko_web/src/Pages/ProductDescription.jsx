@@ -311,7 +311,7 @@ const ProductDescription = () => {
                 className="bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-lg flex items-center gap-2 px-3 py-2 transition duration-300 hover:scale-105"
               >
                 <FaWhatsapp className="w-4 h-4" />
-                Chat
+                Chat with Us
               </a>
             </div>
           </div>
@@ -334,18 +334,7 @@ const ProductDescription = () => {
           <div className="font-bold text-gray-700 text-lg md:text-xl">
             {product.productName}
           </div>
-           <div className="flex items-center gap-2 flex-wrap">
-            {product.tag && (
-              <div className="bg-gradient-to-r from-orange-400 to-red-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-md">
-                {product.tag}
-              </div>
-            )}
-            {product.productColor && (
-              <div className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-medium border">
-                Color: {product.productColor}
-              </div>
-            )}
-          </div>
+          
 
           <div className="flex items-center gap-4 text-red-500 bg-red-50 rounded-lg p-3 shadow-md">
             <div className="text-lg md:text-xl font-bold">
@@ -357,6 +346,28 @@ const ProductDescription = () => {
               </div>
             )}
           </div>
+        <div className="flex items-center flex-wrap justify-between gap-2">
+  <div className="flex items-center flex-wrap gap-2">
+    {product.tag && (
+      <div className="bg-gradient-to-r from-orange-400 to-red-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-md">
+        {product.tag}
+      </div>
+    )}
+    {product.productColor && (
+      <div className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-medium border">
+        Color: {product.productColor}
+      </div>
+    )}
+  </div>
+
+  <IconButton
+    onClick={() => handleShare("general")}
+    className="bg-red-400 text-white rounded-full p-3 shadow-lg transition duration-300 hover:scale-110"
+  >
+    <ShareIcon className="w-5 h-5" />
+  </IconButton>
+</div>
+
 
           <div className="flex items-center gap-2 px-4 py-1 rounded-lg bg-green-50 text-green-800 text-sm font-semibold shadow-sm border border-green-200 hover:shadow-md transition duration-200 w-max">
             <CheckCircleIcon className="w-4 h-4 text-green-600" />
@@ -411,15 +422,10 @@ const ProductDescription = () => {
                 className="bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-lg flex items-center gap-2 px-4 py-2 transition duration-300 hover:scale-105"
               >
                 <FaWhatsapp className="w-5 h-5" />
-                Chat with Sales
+                Chat with Us
               </a>
               
-              <IconButton
-                onClick={() => handleShare("general")}
-                className="bg-green-300 text-white rounded-full p-3 shadow-lg transition duration-300 hover:scale-110"
-              >
-                <ShareIcon className="w-5 h-5" />
-              </IconButton>
+             
             </div>
 
             {/* Mobile Bottom Bar */}
@@ -454,18 +460,13 @@ const ProductDescription = () => {
                   )}. Is it currently available, and what's the price?}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl shadow-lg flex items-center justify-center gap-2 px-4 py-3 transition duration-300 hover:scale-105"
+                  className="bg-green-500 hover:bg-green-600 text-white  rounded-xl shadow-lg flex items-center justify-center gap-2 px-4 py-3 transition duration-300 hover:scale-105"
                 >
                   <FaWhatsapp className="w-5 h-5" />
-                  Chat
+                  Chat with Us
                 </a>
 
-                <IconButton
-                  onClick={() => handleShare("general")}
-                  className="bg-blue-500 text-white rounded-xl p-3 shadow-lg transition duration-300 hover:scale-110"
-                >
-                  <ShareIcon className="w-5 h-5" />
-                </IconButton>
+                
               </div>
             </div>
           </div>

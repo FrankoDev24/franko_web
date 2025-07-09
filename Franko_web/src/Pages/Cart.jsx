@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {updateCartItem,deleteCartItem,getCartById} from '../Redux/Slice/cartSlice';
 import {Button,Checkbox,Dialog,DialogHeader,DialogBody,DialogFooter} from '@material-tailwind/react';
@@ -16,12 +16,12 @@ const Cart = () => {
   const [selectAll, setSelectAll] = useState(false);
   const [openModal, setOpenModal] = useState(false);
 
-  // Fetch cart data when component mounts or cartId changes
-  useEffect(() => {
-    if (cartId) {
-      dispatch(getCartById(cartId));
-    }
-  }, [dispatch, cartId]);
+useEffect(() => {
+  const storedId = cartId || localStorage.getItem('cartId');
+  if (storedId) {
+    dispatch(getCartById(storedId));
+  }
+}, [dispatch, cartId]);
 
   // Reset selection when cart changes
   useEffect(() => {
@@ -108,7 +108,7 @@ const Cart = () => {
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
-          <p className="text-gray-600 mt-4 font-medium">Loading your cart...</p>
+          <p className="text-gray-600 mt-4 font-medium">Loading your cart items...</p>
         </div>
       </div>
     );
@@ -136,7 +136,7 @@ const Cart = () => {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b sticky top-0 z-40">
-        <div className=" px-4 py-4">
+        <div className=" px-4 py-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
@@ -194,7 +194,7 @@ const Cart = () => {
           // Cart with items
           <>
             {/* Cart Controls - Only show when there are items */}
-            <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+            <div className="bg-white rounded-xl shadow-sm p-2 mb-2">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <Checkbox
