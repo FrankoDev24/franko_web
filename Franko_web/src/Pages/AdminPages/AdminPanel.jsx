@@ -22,7 +22,7 @@ const AdminPage = () => {
         return <Dashboard />;
       case '/admin/brands':
         return <Brands />;
-      case '/admin/categories':
+      case '/admin/categories': 
         return <Categories />;
       case '/admin/products':
         return <Products />;

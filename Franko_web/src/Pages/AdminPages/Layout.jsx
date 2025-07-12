@@ -130,7 +130,7 @@ const AdminLayout = ({ children }) => {
             fontWeight: 'bold',
             letterSpacing: 1
           }}>
-            {collapsed ? 'CM' : 'Control Manager'}
+            {collapsed ? 'M' : 'Admin Manager'}
           </div>
           {renderSidebarMenu()}
         </Sider>
@@ -171,14 +171,7 @@ const AdminLayout = ({ children }) => {
               icon={collapsed || isMobile ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
               style={{ fontSize: 20, marginRight: 16 }}
             />
-            <Button
-              type="link"
-              style={{ fontSize: 16, fontWeight: 500, color: '#2ed573' }}
-              onClick={() => navigate('/')}
-              icon={<HomeOutlined />}
-            >
-              Home
-            </Button>
+        
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <Dropdown overlay={userMenu} placement="bottomRight">

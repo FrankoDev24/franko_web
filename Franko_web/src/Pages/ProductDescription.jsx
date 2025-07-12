@@ -311,7 +311,7 @@ const ProductDescription = () => {
                 className="bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-lg flex items-center gap-2 px-3 py-2 transition duration-300 hover:scale-105"
               >
                 <FaWhatsapp className="w-4 h-4" />
-                Chat with Us
+                Whatsapp support
               </a>
             </div>
           </div>
@@ -422,7 +422,7 @@ const ProductDescription = () => {
                 className="bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-lg flex items-center gap-2 px-4 py-2 transition duration-300 hover:scale-105"
               >
                 <FaWhatsapp className="w-5 h-5" />
-                Chat with Us
+               Whatsapp support
               </a>
               
              
@@ -463,7 +463,7 @@ const ProductDescription = () => {
                   className="bg-green-500 hover:bg-green-600 text-white  rounded-xl shadow-lg flex items-center justify-center gap-2 px-4 py-3 transition duration-300 hover:scale-105"
                 >
                   <FaWhatsapp className="w-5 h-5" />
-                  Chat with Us
+                  Whatsapp support
                 </a>
 
                 

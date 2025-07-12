@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import Nav from './Component/Nav/Navbar'
 import Home from './Pages/Home'
 import About from './Pages/About'
@@ -32,16 +32,21 @@ import Users from './Pages/AdminPages/Users'
 import Customers from './Pages/AdminPages/Customers'
 import AdvertisementPage from './Pages/AdminPages/Advertisement'
 import Account from './Pages/Account'
-
 import Products from './Pages/Products'
 import Terms from './Pages/Terms'
 import OrderHistory from './Pages/OrderHistory'
 import Wishlist from './Pages/Wishlist'
 
 function App() {
+  const location = useLocation()
+
+  // Hide Navbar for any /admin path
+  const hideNavbar = location.pathname.startsWith('/admin')
+
   return (
     <>
-      <Nav /> {/* ✅ Now inside the Router context */}
+      {!hideNavbar && <Nav />}
+
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
@@ -57,33 +62,33 @@ function App() {
         <Route path="/air-conditioners" element={<Airconditioners ProductCard={ProductCard} />} />
         <Route path="/cart/:cartId" element={<Cart />} />
         <Route path="/product/:productID" element={<ProductDescription />} />
-        <Route path ="showroom/:showRoomID" element={<ShowroomProductsPage/>}/>
+        <Route path="showroom/:showRoomID" element={<ShowroomProductsPage />} />
         <Route path="/order-history" element={<OrderHistory />} />
         <Route path="/wishlist" element={<Wishlist />} />
         <Route path="/brand/:brandId" element={<BrandsPage />} />
-            <Route path="/terms" element={<Terms />} />
+        <Route path="/terms" element={<Terms />} />
         <Route path="/products" element={<Products />} />
-        <Route path ="/checkout" element= {<Checkout/>}/>
-        <Route path = "/order-received" element={<OrderReceived/>}/>
-        <Route path = "/account" element={<Account/>}/>
-        <Route path = "/shops" element = {<Locations/>}/>
-        <Route path="order-cancelled" element={<Cancellation/> } />
-        <Route path="/admin" element={<AdminPage/>}>
-  <Route path="dashboard" element={<Dashboard />} />
-  <Route path="orders" element={<Orders/>} />
-  <Route path="products" element={<AdminProducts/>} />
-  <Route path="brands" element={<Adminbrands/>} />
-  <Route path="categories" element={<AdminCategory/>} />
-  <Route path="users" element={<Users/>} />
-  <Route path="customers" element={<Customers/>} />
-  <Route path="showroom" element={<AdminShowroom/>} />
-  <Route path="banner" element={<AdvertisementPage/>} />
+        <Route path="/checkout" element={<Checkout />} />
+        <Route path="/order-received" element={<OrderReceived />} />
+        <Route path="/account" element={<Account />} />
+        <Route path="/shops" element={<Locations />} />
+        <Route path="/order-cancelled" element={<Cancellation />} />
 
-
-  {/* other nested routes */}
-</Route>
+        {/* Admin routes */}
+        <Route path="/admin" element={<AdminPage />}>
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="orders" element={<Orders />} />
+          <Route path="products" element={<AdminProducts />} />
+          <Route path="brands" element={<Adminbrands />} />
+          <Route path="categories" element={<AdminCategory />} />
+          <Route path="users" element={<Users />} />
+          <Route path="customers" element={<Customers />} />
+          <Route path="showroom" element={<AdminShowroom />} />
+          <Route path="banner" element={<AdvertisementPage />} />
+        </Route>
       </Routes>
     </>
   )
 }
+
 export default App
