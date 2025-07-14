@@ -63,33 +63,20 @@ const AdminProducts = () => {
   const isLoading = productsLoading || brandsLoading || showroomsLoading || refreshLoading;
 
   // Fetch data only once on mount
-  const fetchInitialData = useCallback(async () => {
-    if (dataLoaded) return;
-    
-    try {
-      const promises = [];
-      
-      // Only fetch if data doesn't exist
-      if (!products?.length) {
-        promises.push(dispatch(fetchAllProducts()).unwrap());
-      }
-      if (!brands?.length) {
-        promises.push(dispatch(fetchBrands()).unwrap());
-      }
-      if (!showrooms?.length) {
-        promises.push(dispatch(fetchShowrooms()).unwrap());
-      }
-      
-      if (promises.length > 0) {
-        await Promise.all(promises);
-        message.success("Data loaded successfully!");
-      }
-      setDataLoaded(true);
-    } catch (err) {
-      console.error(err);
-      message.error("Failed to load data.");
-    }
-  }, [dispatch, products, brands, showrooms, dataLoaded]);
+const fetchInitialData = useCallback(() => {
+  if (!products?.length) dispatch(fetchAllProducts());
+  if (!brands?.length) dispatch(fetchBrands());
+  if (!showrooms?.length) dispatch(fetchShowrooms());
+
+  setDataLoaded(true);
+}, [dispatch, products?.length, brands?.length, showrooms?.length]);
+
+
+useEffect(() => {
+  if (!dataLoaded) {
+    fetchInitialData();
+  }
+}, [fetchInitialData, dataLoaded]);
 
   // Manual refresh function
   const handleRefresh = useCallback(async () => {

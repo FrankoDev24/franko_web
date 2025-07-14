@@ -97,6 +97,25 @@ const Account = () => {
       },
     });
   };
+   const handleOrderHistoryClick = () => {
+    // Check if user is an agent and navigate accordingly
+    if (customer?.accountType === 'agent' || customer?.isAgent) {
+      navigate("/agent/dashboard");
+    } else {
+      // Navigate to regular customer order history
+      navigate("/order-history");
+    }
+  };
+    const getBadgeProps = () => {
+    if (isUserAgent) return { color: "blue", text: "Agent" };
+    if (isGuest) return { color: "orange", text: "Guest Account" };
+    return { color: "green", text: "Verified Member" };
+  };
+    const getAccountTypeDisplay = () => {
+    if (isUserAgent) return "Agent";
+    if (isGuest) return "Guest Account";
+    return "Registered Member";
+  };
 
   if (!customer) {
     return (
@@ -117,7 +136,10 @@ const Account = () => {
     address,
     customerAccountNumber,
     isGuest,
+    isAgent,
+    accountType
   } = customer;
+    const isUserAgent = accountType === 'agent' || isAgent;
 
   const tabs = [
     { key: 'profile', label: 'Profile', icon: <User className="w-4 h-4" /> },
@@ -157,13 +179,14 @@ const Account = () => {
               {/* User Info */}
               <div className="flex-1 text-center md:text-left">
                 <div className="md:flexitems-center gap-3 justify-center md:justify-start mb-2">
-                  <div  className=" text-xl md:text-2xl !mb-0 text-gray-800">
+                 <div className=" text-xl md:text-2xl !mb-0 text-gray-800">
                     {firstName} {lastName}
+                   
                   </div>
                   <Badge 
                     className="px-2 py-1"
-                    color={isGuest ? "orange" : "green"}
-                    text={isGuest ? "Guest Account" : "Verified Member"}
+                    color={getBadgeProps().color}
+                    text={getBadgeProps().text}
                   />
                 </div>
                 <div className="flex items-center gap-2 text-gray-600 justify-center md:justify-start mb-4">
@@ -256,7 +279,9 @@ const Account = () => {
                             <BadgeInfo className="w-4 h-4 text-red-600" />
                             <Text strong className="text-gray-700">Account Type</Text>
                           </div>
-                          <Text className="text-gray-900">{isGuest ? "Guest Account" : "Registered Member"}</Text>
+                           <Text className={`text-gray-900 ${isUserAgent ? 'font-semibold text-blue-600' : ''}`}>
+                            {getAccountTypeDisplay()}
+                          </Text>
                         </div>
                       </div>
                     </div>
@@ -338,12 +363,13 @@ const Account = () => {
                 <Title level={5} className="mb-4">Quick Actions</Title>
                 <div className="space-y-3">
                   
-                  <Button 
+                 <Button 
                     block 
                     icon={<Package className="w-4 h-4" />}
                     className="text-left justify-start border-gray-200 hover:border-green-400"
+                    onClick={handleOrderHistoryClick}
                   >
-                    Order History
+                    {isUserAgent ? 'Agent Dashboard' : 'Order History'}
                   </Button>
                     <Button
                     block

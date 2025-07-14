@@ -1,4 +1,5 @@
-import { Routes, Route, useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import {Routes, Route, useLocation, Navigate } from 'react-router-dom'
 import Nav from './Component/Nav/Navbar'
 import Home from './Pages/Home'
 import About from './Pages/About'
@@ -36,18 +37,151 @@ import Products from './Pages/Products'
 import Terms from './Pages/Terms'
 import OrderHistory from './Pages/OrderHistory'
 import Wishlist from './Pages/Wishlist'
+import AgentPage from './Pages/Agents/AgentPage/AgentPage'
+import AgentDashboard from './Pages/Agents/AgentPage/AgentDashboard'
+import AgentOrders from './Pages/Agents/AgentPage/AgentOrders'
+import FulfillmentPage from './Pages/Fulfilments/FulfilmentPage/FulfilmentPage'
+import FulfilmentsDashboard from './Pages/Fulfilments/FulfilmentPage/FulfilmentsDashboard'
+import FulfilmentsOrder from './Pages/Fulfilments/FulfilmentPage/FulfilmentsOrder'
+import ContentDashboard from './Pages/ContentManager/ContentManagerPage/ContentDashboard'
+import ContentProduct from './Pages/ContentManager/ContentManagerPage/ContentProduct'
+import ContentShowroom from './Pages/ContentManager/ContentManagerPage/ContentShowroom'
+import Contentbrand from './Pages/ContentManager/ContentManagerPage/Contentbrand'
+import ContentCategory from './Pages/ContentManager/ContentManagerPage/ContentCategory'
+import ContentBanner from './Pages/ContentManager/ContentManagerPage/ContentBanner'
+import ContentPage from './Pages/ContentManager/ContentPage'
+import NoInternetPage from './Component/NoInternet'
+
+// Utility to fetch customer role
+const getUserRole = () => {
+  try {
+    const customer = JSON.parse(localStorage.getItem("customer"));
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (!customer && !user) {
+      return null;
+    }
+    // First, check user position from the user object, if exists
+    if (user && user.position) {
+      return user.position; // e.g., 'Supervisor', 'Webcontentmanager', 'Fulfillment'
+    }
+    
+    // If the user object doesn't have a position, fallback to the customer object
+    return customer?.accountType || null; // 'customer', 'agent', or 'admin'
+  } catch (error) {
+    console.error("Error parsing customer or user data from localStorage:", error);
+    return null;
+  }
+};
+
+const getUserPosition = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem("user"));
+    return user?.position || null; // e.g., 'Supervisor', 'Webcontentmanager', 'Fulfillment'
+  } catch (error) {
+    console.error("Error parsing user data from localStorage:", error);
+    return null;
+  }
+};
+
+const isWebBrowser = () => {
+  const ua = navigator.userAgent;
+  return !ua.includes("Electron") && /Mozilla|Chrome|Safari|Firefox/i.test(ua);
+};
+
+const isElectron = () => {
+  return navigator.userAgent.includes("Electron");
+};
+
+const ProtectedRoute = ({ children, allowedRoles }) => {
+  const userRole = getUserRole();
+  const userPosition = getUserPosition();
+
+  // ✅ Restrict web browser access to only Developer and agent
+  if (isWebBrowser() && userRole && !["Developer", "agent"].includes(userRole)) {
+    return <Navigate to="/" replace />;
+  }
+
+  // ✅ If in Electron app, allow access regardless of role
+  if (isElectron()) {
+    return children;
+  }
+
+  // Redirect based on user position if available
+  if (userPosition) {
+    switch (userPosition) {
+      case "Supervisor":
+        return <AdminPage />;
+      case "Webcontentmanager":
+        return <ContentPage />;
+      case "Fulfillment":
+        return <FulfillmentPage />;
+      case "Developer":
+        return <DevPage />;
+      default:
+        break;
+    }
+  }
+
+  // If role isn't allowed
+  if (!userRole || !allowedRoles.includes(userRole)) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+};
+
+const ConditionalNavbar = () => {
+  const location = useLocation();
+  const pathname = location.pathname;
+
+  const hiddenPaths = [
+    "/admin/login",
+    "/admin/register",
+    "/sign-in",
+    "/sign-up",
+  ];
+
+  const isAdminPath = pathname.startsWith("/admin/");
+  const isAgentPath = pathname.startsWith("/agent/");
+  const isFulfillmentPath = pathname.startsWith("/fulfillment/");
+  const isContentPath = pathname.startsWith("/content/");
+
+  return !hiddenPaths.includes(pathname) && 
+         !isAdminPath && 
+         !isAgentPath && 
+         !isFulfillmentPath && 
+         !isContentPath && 
+         <Nav />;
+};
 
 function App() {
-  const location = useLocation()
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  // Hide Navbar for any /admin path
-  const hideNavbar = location.pathname.startsWith('/admin')
+  // Monitor network status
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  if (!isOnline) {
+    return <div>
+<NoInternetPage/>
+    </div>; 
+  }
 
   return (
     <>
-      {!hideNavbar && <Nav />}
+      <ConditionalNavbar />
 
       <Routes>
+        {/* Public Routes */}
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
@@ -74,18 +208,238 @@ function App() {
         <Route path="/shops" element={<Locations />} />
         <Route path="/order-cancelled" element={<Cancellation />} />
 
-        {/* Admin routes */}
-        <Route path="/admin" element={<AdminPage />}>
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="orders" element={<Orders />} />
-          <Route path="products" element={<AdminProducts />} />
-          <Route path="brands" element={<Adminbrands />} />
-          <Route path="categories" element={<AdminCategory />} />
-          <Route path="users" element={<Users />} />
-          <Route path="customers" element={<Customers />} />
-          <Route path="showroom" element={<AdminShowroom />} />
-          <Route path="banner" element={<AdvertisementPage />} />
-        </Route>
+        {/* Admin Routes - Protected */}
+        <Route 
+          path="/admin/*" 
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'Supervisor']}>
+              <AdminPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/dashboard" 
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'Supervisor']}>
+              <AdminPage>
+                <Dashboard />
+              </AdminPage>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/orders" 
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'Supervisor']}>
+              <AdminPage>
+                <Orders />
+              </AdminPage>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/products" 
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'Supervisor']}>
+              <AdminPage>
+                <AdminProducts />
+              </AdminPage>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/brands" 
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'Supervisor']}>
+              <AdminPage>
+                <Adminbrands />
+              </AdminPage>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/categories" 
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'Supervisor']}>
+              <AdminPage>
+                <AdminCategory />
+              </AdminPage>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/users" 
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'Supervisor']}>
+              <AdminPage>
+                <Users />
+              </AdminPage>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/customers" 
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'Supervisor']}>
+              <AdminPage>
+                <Customers />
+              </AdminPage>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/showroom" 
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'Supervisor']}>
+              <AdminPage>
+                <AdminShowroom />
+              </AdminPage>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/banner" 
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'Supervisor']}>
+              <AdminPage>
+                <AdvertisementPage />
+              </AdminPage>
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* Agent Routes - Protected */}
+        <Route 
+          path="/agent/*" 
+          element={
+            <ProtectedRoute allowedRoles={['agent']}>
+              <AgentPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/agent/dashboard" 
+          element={
+            <ProtectedRoute allowedRoles={['agent']}>
+              <AgentPage>
+                <AgentDashboard />
+              </AgentPage>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/agent/orders" 
+          element={
+            <ProtectedRoute allowedRoles={['agent']}>
+              <AgentPage>
+                <AgentOrders />
+              </AgentPage>
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* Fulfillment Routes - Protected */}
+        <Route 
+          path="/fulfillment/*" 
+          element={
+            <ProtectedRoute allowedRoles={['Fulfillment']}>
+              <FulfillmentPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/fulfillment/dashboard" 
+          element={
+            <ProtectedRoute allowedRoles={['Fulfillment']}>
+              <FulfillmentPage>
+                <FulfilmentsDashboard />
+              </FulfillmentPage>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/fulfillment/orders" 
+          element={
+            <ProtectedRoute allowedRoles={['Fulfillment']}>
+              <FulfillmentPage>
+                <FulfilmentsOrder />
+              </FulfillmentPage>
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* Content Manager Routes - Protected */}
+        <Route 
+          path="/content/*" 
+          element={
+            <ProtectedRoute allowedRoles={['Webcontentmanager']}>
+              <ContentPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/content/dashboard" 
+          element={
+            <ProtectedRoute allowedRoles={['Webcontentmanager']}>
+              <ContentPage>
+                <ContentDashboard />
+              </ContentPage>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/content/products" 
+          element={
+            <ProtectedRoute allowedRoles={['Webcontentmanager']}>
+              <ContentPage>
+                <ContentProduct />
+              </ContentPage>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/content/showroom" 
+          element={
+            <ProtectedRoute allowedRoles={['Webcontentmanager']}>
+              <ContentPage>
+                <ContentShowroom />
+              </ContentPage>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/content/brands" 
+          element={
+            <ProtectedRoute allowedRoles={['Webcontentmanager']}>
+              <ContentPage>
+                <Contentbrand />
+              </ContentPage>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/content/category" 
+          element={
+            <ProtectedRoute allowedRoles={['Webcontentmanager']}>
+              <ContentPage>
+                <ContentCategory />
+              </ContentPage>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/content/banner" 
+          element={
+            <ProtectedRoute allowedRoles={['Webcontentmanager']}>
+              <ContentPage>
+                <ContentBanner />
+              </ContentPage>
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* Default route redirects */}
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </>
   )

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchSalesOrderById, fetchOrderDeliveryAddress } from '../Redux/Slice/orderSlice';
 import { 
@@ -14,7 +14,10 @@ import {
   Space,
   Badge,
   Avatar,
-  Statistic
+  Statistic,
+  Tag,
+  Empty,
+  Tooltip
 } from 'antd';
 import { 
   UserOutlined, 
@@ -24,16 +27,22 @@ import {
   DownloadOutlined,
   ShoppingOutlined,
   CalendarOutlined,
-  DollarOutlined
+  DollarOutlined,
+  EyeOutlined,
+  ShoppingCartOutlined,
+  EnvironmentOutlined,
+  FileTextOutlined,
+  CloseOutlined
 } from '@ant-design/icons';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+// Note: jsPDF would need to be installed separately
+// For now, we'll create a fallback HTML-based invoice download
 
-const { Title, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
 
 const OrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
   const dispatch = useDispatch();
   const { salesOrder, loading, error, deliveryAddress } = useSelector((state) => state.orders);
+  const [imagePreview, setImagePreview] = useState({ visible: false, url: null });
 
   useEffect(() => {
     if (orderId && isModalVisible) {
@@ -56,302 +65,470 @@ const OrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
     
     const order = salesOrder[0];
     const address = deliveryAddress?.[0] || {};
-    const doc = new jsPDF();
-    
-    // Company Header
-    doc.setFontSize(20);
-    doc.setTextColor(76, 175, 80);
-    doc.text('Franko Trading Ltd.', 20, 30);
-    
-    doc.setFontSize(10);
-    doc.setTextColor(51, 51, 51);
-    doc.text('123 Adabraka Street, Accra, Ghana', 20, 40);
-    doc.text('Contact: +233 123 456 789 | Email: online@frankotrading.com', 20, 47);
-    
-    // Invoice Title
-    doc.setFontSize(24);
-    doc.setTextColor(76, 175, 80);
-    doc.text('INVOICE', 20, 65);
-    
-    // Order Information
-    doc.setFontSize(12);
-    doc.setTextColor(51, 51, 51);
-    doc.text(`Order Code: ${order?.orderCode || orderCode}`, 20, 80);
-    doc.text(`Order Date: ${formatDate(order?.orderDate)}`, 20, 90);
-    doc.text(`Invoice Date: ${formatDate(new Date())}`, 20, 100);
-    
-    // Customer Information
-    doc.setFontSize(14);
-    doc.setTextColor(76, 175, 80);
-    doc.text('Bill To:', 20, 120);
-    
-    doc.setFontSize(12);
-    doc.setTextColor(51, 51, 51);
-    doc.text(`Name: ${address?.recipientName || 'N/A'}`, 20, 135);
-    doc.text(`Contact: ${address?.recipientContactNumber || 'N/A'}`, 20, 145);
-    doc.text(`Address: ${address?.address || 'N/A'}`, 20, 155);
-    if (address?.orderNote) {
-      doc.text(`Note: ${address.orderNote}`, 20, 165);
-    }
-    
-    // Products Table
-    const tableData = salesOrder.map((item, index) => [
-      index + 1,
-      item.productName || 'N/A',
-      item.quantity || 0,
-      `₵${formatPrice(item.price)}`,
-      `₵${formatPrice(item.price * item.quantity)}`
-    ]);
-    
     const totalAmount = salesOrder.reduce((total, item) => total + (item.price * item.quantity), 0);
     
-    doc.autoTable({
-      head: [['SN', 'Product Name', 'Qty', 'Unit Price', 'Total']],
-      body: tableData,
-      startY: 180,
-      theme: 'grid',
-      headStyles: { 
-        fillColor: [76, 175, 80],
-        textColor: [255, 255, 255],
-        fontStyle: 'bold'
-      },
-      bodyStyles: { textColor: [51, 51, 51] },
-      alternateRowStyles: { fillColor: [245, 245, 245] },
-      margin: { left: 20, right: 20 },
-      columnStyles: {
-        0: { halign: 'center', cellWidth: 20 },
-        1: { cellWidth: 80 },
-        2: { halign: 'center', cellWidth: 25 },
-        3: { halign: 'right', cellWidth: 35 },
-        4: { halign: 'right', cellWidth: 35 }
-      }
-    });
+    // Create HTML invoice content
+    const invoiceHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Invoice - ${order?.orderCode || orderCode}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
+          .header { text-align: center; margin-bottom: 30px; }
+          .company-name { color: #4CAF50; font-size: 28px; font-weight: bold; margin-bottom: 10px; }
+          .company-info { font-size: 14px; color: #666; }
+          .invoice-title { font-size: 32px; color: #4CAF50; font-weight: bold; margin: 30px 0; }
+          .invoice-info { margin-bottom: 30px; }
+          .customer-info { margin-bottom: 30px; }
+          .section-title { color: #4CAF50; font-size: 16px; font-weight: bold; margin-bottom: 10px; }
+          table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+          th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+          th { background-color: #4CAF50; color: white; font-weight: bold; }
+          tr:nth-child(even) { background-color: #f9f9f9; }
+          .text-right { text-align: right; }
+          .text-center { text-align: center; }
+          .total-row { font-weight: bold; font-size: 18px; color: #4CAF50; }
+          .footer { margin-top: 40px; text-align: center; color: #888; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="company-name">Franko Trading Ltd.</div>
+          <div class="company-info">
+            123 Adabraka Street, Accra, Ghana<br>
+            Contact: +233 123 456 789 | Email: online@frankotrading.com
+          </div>
+        </div>
+        
+        <div class="invoice-title text-center">INVOICE</div>
+        
+        <div class="invoice-info">
+          <strong>Order Code:</strong> ${order?.orderCode || orderCode}<br>
+          <strong>Order Date:</strong> ${formatDate(order?.orderDate)}<br>
+          <strong>Invoice Date:</strong> ${formatDate(new Date())}
+        </div>
+        
+        <div class="customer-info">
+          <div class="section-title">Bill To:</div>
+          <strong>Name:</strong> ${address?.recipientName || 'N/A'}<br>
+          <strong>Contact:</strong> ${address?.recipientContactNumber || 'N/A'}<br>
+          <strong>Address:</strong> ${address?.address || 'N/A'}
+          ${address?.orderNote ? `<br><strong>Note:</strong> ${address.orderNote}` : ''}
+        </div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th class="text-center">SN</th>
+              <th>Product Name</th>
+              <th class="text-center">Qty</th>
+              <th class="text-right">Unit Price</th>
+              <th class="text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${salesOrder.map((item, index) => `
+              <tr>
+                <td class="text-center">${index + 1}</td>
+                <td>${item.productName || 'N/A'}</td>
+                <td class="text-center">${item.quantity || 0}</td>
+                <td class="text-right">₵${formatPrice(item.price)}</td>
+                <td class="text-right">₵${formatPrice(item.price * item.quantity)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        
+        <div class="total-row text-right">
+          Total Amount: ₵${formatPrice(totalAmount)}
+        </div>
+        
+        <div class="footer">
+          Thank you for your business!<br>
+          This is a computer-generated invoice.
+        </div>
+      </body>
+      </html>
+    `;
     
-    // Total Amount
-    const finalY = doc.lastAutoTable.finalY + 20;
-    doc.setFontSize(16);
-    doc.setTextColor(76, 175, 80);
-    doc.text(`Total Amount: ₵${formatPrice(totalAmount)}`, 20, finalY);
+    // Create a new window with the invoice
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(invoiceHTML);
+    printWindow.document.close();
     
-    // Footer
-    doc.setFontSize(10);
-    doc.setTextColor(128, 128, 128);
-    doc.text('Thank you for your business!', 20, finalY + 20);
-    doc.text('This is a computer-generated invoice.', 20, finalY + 30);
-    
-    // Save the PDF
-    doc.save(`Invoice_${order?.orderCode || orderCode}.pdf`);
+    // Wait for content to load then trigger print
+    printWindow.onload = function() {
+      printWindow.print();
+      // Uncomment the line below if you want to close the window after printing
+      // printWindow.close();
+    };
   };
 
   const backendBaseURL = 'https://smfteapi.salesmate.app';
   const totalAmount = salesOrder.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const totalItems = salesOrder.reduce((acc, item) => acc + item.quantity, 0);
 
-  return (
-    <Modal
-      title={
-        <div className="flex items-center space-x-2">
-          <ShoppingOutlined className="text-blue-500" />
-          <span>Order Details</span>
-          <Badge count={orderCode} style={{ backgroundColor: '#52c41a' }} />
-        </div>
-      }
-      open={isModalVisible}
-      onCancel={onClose}
-      width={600}
-      centered
-      footer={
-        salesOrder.length > 0 ? (
-          <div className="flex justify-between items-center w-full">
-            <Space direction="vertical" size={0}>
-              <Text type="secondary" className="text-xs">Total Amount</Text>
-              <Text strong className="text-xl text-green-600">₵{formatPrice(totalAmount)}</Text>
-            </Space>
-            <Button
-              type="primary"
-              icon={<DownloadOutlined />}
-              onClick={downloadInvoice}
-              className="bg-green-600 hover:bg-green-700 border-green-600"
-              size="large"
-            >
-              Download Invoice
-            </Button>
-          </div>
-        ) : null
-      }
-    >
-      {loading ? (
-        <div className="flex justify-center items-center py-16">
-          <Space direction="vertical" align="center">
-            <Spin size="large" />
-            <Text type="secondary">Loading order details...</Text>
-          </Space>
-        </div>
-      ) : error ? (
-        <div className="text-center py-16">
-          <div className="mb-4">
-            <Avatar size={64} icon={<ShoppingOutlined />} className="bg-red-100 text-red-500" />
-          </div>
-          <Text type="danger" className="text-lg">
-            Error loading order: {error?.message || error || 'An error occurred'}
-          </Text>
-        </div>
-      ) : salesOrder.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="mb-4">
-            <Avatar size={64} icon={<ShoppingOutlined />} className="bg-gray-100 text-gray-400" />
-          </div>
-          <Text type="secondary" className="text-lg">No order details found.</Text>
-        </div>
-      ) : (
-        <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
-          {/* Order Summary Cards */}
-          <Row gutter={[16, 16]} className="mb-6">
-            <Col span={8}>
-              <Card className="text-center border-blue-200 hover:shadow-md transition-shadow">
-                <Statistic
-                  title="Order Date"
-                  value={formatDate(salesOrder[0]?.orderDate)}
-                  prefix={<CalendarOutlined className="text-blue-500" />}
-                  valueStyle={{ fontSize: '14px', color: '#1890ff' }}
-                />
-              </Card>
-            </Col>
-            <Col span={8}>
-              <Card className="text-center border-green-200 hover:shadow-md transition-shadow">
-                <Statistic
-                  title="Total Items"
-                  value={totalItems}
-                  prefix={<ShoppingOutlined className="text-green-500" />}
-                  valueStyle={{ fontSize: '18px', color: '#52c41a' }}
-                />
-              </Card>
-            </Col>
-            <Col span={8}>
-              <Card className="text-center border-orange-200 hover:shadow-md transition-shadow">
-                <Statistic
-                  title="Amount"
-                  value={formatPrice(totalAmount)}
-                  prefix={<DollarOutlined className="text-orange-500" />}
-                  valueStyle={{ fontSize: '16px', color: '#fa8c16' }}
-                />
-              </Card>
-            </Col>
-          </Row>
+  const handleImageError = (e) => {
+    e.target.style.display = 'none';
+    e.target.nextSibling.style.display = 'flex';
+  };
 
-          {/* Delivery Address Card */}
-          <Card 
-            className="mb-6 border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow"
-            title={
-              <div className="flex items-center space-x-2">
-                <HomeOutlined className="text-blue-500" />
-                <span className="text-gray-700">Delivery Information</span>
+  const renderProductImage = (item) => {
+    const imagePath = item?.imagePath;
+    const imageUrl = imagePath
+      ? `${backendBaseURL}/Media/Products_Images/${imagePath.split('\\').pop()}`
+      : null;
+
+    return (
+      <div className="relative group">
+        <div className="w-24 h-24 rounded-xl overflow-hidden shadow-lg bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-white">
+          {imageUrl ? (
+            <>
+              <img
+                src={imageUrl}
+                alt={item?.productName || 'Product'}
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                onError={handleImageError}
+              />
+              <div 
+                className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200"
+                style={{ display: 'none' }}
+              >
+                <ShoppingCartOutlined className="text-gray-400 text-2xl" />
               </div>
-            }
-          >
-            <Row gutter={[16, 12]}>
-              <Col span={12}>
-                <div className="flex items-center space-x-2">
-                  <UserOutlined className="text-gray-400" />
-                  <div>
-                    <Text type="secondary" className="text-xs block">Recipient</Text>
-                    <Text strong>{deliveryAddress?.[0]?.recipientName || 'N/A'}</Text>
-                  </div>
-                </div>
-              </Col>
-              <Col span={12}>
-                <div className="flex items-center space-x-2">
-                  <PhoneOutlined className="text-gray-400" />
-                  <div>
-                    <Text type="secondary" className="text-xs block">Contact</Text>
-                    <Text strong>{deliveryAddress?.[0]?.recipientContactNumber || 'N/A'}</Text>
-                  </div>
-                </div>
-              </Col>
-              <Col span={24}>
-                <div className="flex items-start space-x-2">
-                  <HomeOutlined className="text-gray-400 mt-1" />
-                  <div className="flex-1">
-                    <Text type="secondary" className="text-xs block">Address</Text>
-                    <Text>{deliveryAddress?.[0]?.address || 'N/A'}</Text>
-                  </div>
-                </div>
-              </Col>
-              {deliveryAddress?.[0]?.orderNote && (
-                <Col span={24}>
-                  <div className="flex items-start space-x-2">
-                    <EditOutlined className="text-gray-400 mt-1" />
-                    <div className="flex-1">
-                      <Text type="secondary" className="text-xs block">Special Notes</Text>
-                      <Text italic className="text-gray-600">{deliveryAddress[0].orderNote}</Text>
-                    </div>
-                  </div>
-                </Col>
-              )}
-            </Row>
-          </Card>
-
-          {/* Products Section */}
-          <Card 
-            title={
-              <div className="flex items-center space-x-2">
-                <ShoppingOutlined className="text-green-500" />
-                <span className="text-gray-700">Order Items</span>
-                <Badge count={salesOrder.length} style={{ backgroundColor: '#52c41a' }} />
-              </div>
-            }
-            className="border-l-4 border-l-green-500"
-          >
-            <div className="space-y-4">
-              {salesOrder.map((item, index) => {
-                const imagePath = item?.imagePath;
-                const imageUrl = imagePath
-                  ? `${backendBaseURL}/Media/Products_Images/${imagePath.split('\\').pop()}`
-                  : null;
-
-                return (
-                  <div key={index} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div className="flex-shrink-0">
-                      {imageUrl ? (
-                        <Image
-                          src={imageUrl}
-                          alt="Product"
-                          className="w-20 h-20 object-cover rounded-lg shadow-sm"
-                          preview={false}
-                        />
-                      ) : (
-                        <div className="w-20 h-20 bg-gray-200 rounded-lg flex items-center justify-center">
-                          <ShoppingOutlined className="text-gray-400 text-xl" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <div className="mb-2">
-                        <Text strong className="text-lg text-gray-800">{item?.productName || 'N/A'}</Text>
-                      </div>
-                      <Row gutter={[16, 8]}>
-                        <Col span={8}>
-                          <Text type="secondary" className="text-xs block">Quantity</Text>
-                          <Text strong className="text-blue-600">{item?.quantity || 0}</Text>
-                        </Col>
-                        <Col span={8}>
-                          <Text type="secondary" className="text-xs block">Unit Price</Text>
-                          <Text strong className="text-green-600">₵{formatPrice(item?.price || 0)}</Text>
-                        </Col>
-                        <Col span={8}>
-                          <Text type="secondary" className="text-xs block">Subtotal</Text>
-                          <Text strong className="text-orange-600">₵{formatPrice((item?.price || 0) * (item?.quantity || 0))}</Text>
-                        </Col>
-                      </Row>
-                    </div>
-                  </div>
-                );
-              })}
+            </>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+              <ShoppingCartOutlined className="text-gray-400 text-2xl" />
             </div>
-          </Card>
+          )}
+          
+          {/* Hover overlay */}
+          {imageUrl && (
+            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
+              <Button
+                type="primary"
+                shape="circle"
+                size="small"
+                icon={<EyeOutlined />}
+                className="bg-white text-gray-800 border-none shadow-lg hover:bg-gray-100"
+                onClick={() => setImagePreview({ visible: true, url: imageUrl })}
+              />
+            </div>
+          )}
         </div>
-      )}
-    </Modal>
+        
+        {/* Product badge */}
+        <div className="absolute -top-2 -right-2">
+          <Badge
+            count={item?.quantity || 0}
+            style={{ 
+              backgroundColor: '#52c41a',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+            }}
+          />
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <Modal
+        title={
+          <div className="flex items-center justify-between w-full pr-8">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <ShoppingOutlined className="text-white text-lg" />
+              </div>
+              <div>
+                <Title level={4} className="mb-0 text-gray-800">Order Details</Title>
+                <Text type="secondary" className="text-sm">#{orderCode}</Text>
+              </div>
+            </div>
+            <Tag color="success" className="px-3 py-1 text-sm font-medium">
+              Active Order
+            </Tag>
+          </div>
+        }
+        open={isModalVisible}
+        onCancel={onClose}
+        width={800}
+        centered
+        className="order-modal"
+        styles={{
+          body: { padding: '24px' },
+          header: { 
+            borderBottom: '1px solid #f0f0f0',
+            paddingBottom: '16px'
+          }
+        }}
+        footer={
+          salesOrder.length > 0 ? (
+            <div className="flex justify-between items-center w-full p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg">
+              <div className="flex items-center space-x-6">
+                <div className="text-center">
+                  <Text type="secondary" className="text-xs block">Total Items</Text>
+                  <Text strong className="text-xl text-blue-600">{totalItems}</Text>
+                </div>
+                <Divider type="vertical" className="h-12" />
+                <div className="text-center">
+                  <Text type="secondary" className="text-xs block">Total Amount</Text>
+                  <Text strong className="text-2xl text-green-600">₵{formatPrice(totalAmount)}</Text>
+                </div>
+              </div>
+              <Button
+                type="primary"
+                icon={<DownloadOutlined />}
+                onClick={downloadInvoice}
+                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 border-none shadow-lg"
+                size="large"
+              >
+                Download Invoice
+              </Button>
+            </div>
+          ) : null
+        }
+      >
+        {loading ? (
+          <div className="flex justify-center items-center py-20">
+            <Space direction="vertical" align="center" size="large">
+              <Spin size="large" />
+              <Text type="secondary" className="text-lg">Loading order details...</Text>
+            </Space>
+          </div>
+        ) : error ? (
+          <div className="text-center py-20">
+            <div className="mb-6">
+              <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <ShoppingOutlined className="text-red-500 text-3xl" />
+              </div>
+              <Title level={4} type="danger">Unable to load order</Title>
+              <Text type="secondary" className="text-lg">
+                {error?.message || error || 'An unexpected error occurred'}
+              </Text>
+            </div>
+          </div>
+        ) : salesOrder.length === 0 ? (
+          <div className="py-20">
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description={
+                <div>
+                  <Text type="secondary" className="text-lg block mb-2">No order details found</Text>
+                  <Text type="secondary">Please check the order code and try again</Text>
+                </div>
+              }
+            />
+          </div>
+        ) : (
+          <div style={{ maxHeight: '650px', overflowY: 'auto' }} className="custom-scrollbar">
+            {/* Order Summary Cards */}
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <Card className="text-center bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-lg transition-all duration-300">
+                <div className="flex flex-col items-center space-y-2">
+                  <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                    <CalendarOutlined className="text-white text-xl" />
+                  </div>
+                  <div>
+                    <Text type="secondary" className="text-xs block">Order Date</Text>
+                    <Text strong className="text-sm text-blue-700">
+                      {formatDate(salesOrder[0]?.orderDate)}
+                    </Text>
+                  </div>
+                </div>
+              </Card>
+              
+              <Card className="text-center bg-gradient-to-br from-green-50 to-green-100 border-green-200 hover:shadow-lg transition-all duration-300">
+                <div className="flex flex-col items-center space-y-2">
+                  <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                    <ShoppingCartOutlined className="text-white text-xl" />
+                  </div>
+                  <div>
+                    <Text type="secondary" className="text-xs block">Total Items</Text>
+                    <Text strong className="text-lg text-green-700">{totalItems}</Text>
+                  </div>
+                </div>
+              </Card>
+              
+              <Card className="text-center bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200 hover:shadow-lg transition-all duration-300">
+                <div className="flex flex-col items-center space-y-2">
+                  <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center">
+                    <DollarOutlined className="text-white text-xl" />
+                  </div>
+                  <div>
+                    <Text type="secondary" className="text-xs block">Amount</Text>
+                    <Text strong className="text-lg text-orange-700">₵{formatPrice(totalAmount)}</Text>
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            {/* Delivery Address Card */}
+            <Card 
+              className="mb-6 bg-gradient-to-r from-indigo-50 to-purple-50 border-l-4 border-l-indigo-500 hover:shadow-lg transition-all duration-300"
+              title={
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center">
+                    <EnvironmentOutlined className="text-white" />
+                  </div>
+                  <span className="text-gray-800 font-semibold">Delivery Information</span>
+                </div>
+              }
+            >
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-3 p-3 bg-white rounded-lg shadow-sm">
+                    <UserOutlined className="text-indigo-500" />
+                    <div>
+                      <Text type="secondary" className="text-xs block">Recipient Name</Text>
+                      <Text strong className="text-gray-800">{deliveryAddress?.[0]?.recipientName || 'N/A'}</Text>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-3 p-3 bg-white rounded-lg shadow-sm">
+                    <PhoneOutlined className="text-green-500" />
+                    <div>
+                      <Text type="secondary" className="text-xs block">Contact Number</Text>
+                      <Text strong className="text-gray-800">{deliveryAddress?.[0]?.recipientContactNumber || 'N/A'}</Text>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="flex items-start space-x-3 p-3 bg-white rounded-lg shadow-sm">
+                    <HomeOutlined className="text-blue-500 mt-1" />
+                    <div className="flex-1">
+                      <Text type="secondary" className="text-xs block">Delivery Address</Text>
+                      <Paragraph className="mb-0 text-gray-800" ellipsis={{ rows: 2, expandable: true }}>
+                        {deliveryAddress?.[0]?.address || 'N/A'}
+                      </Paragraph>
+                    </div>
+                  </div>
+                  
+                  {deliveryAddress?.[0]?.orderNote && (
+                    <div className="flex items-start space-x-3 p-3 bg-white rounded-lg shadow-sm">
+                      <FileTextOutlined className="text-purple-500 mt-1" />
+                      <div className="flex-1">
+                        <Text type="secondary" className="text-xs block">Special Notes</Text>
+                        <Text italic className="text-gray-600">{deliveryAddress[0].orderNote}</Text>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Card>
+
+            {/* Products Section */}
+            <Card 
+              title={
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                      <ShoppingCartOutlined className="text-white" />
+                    </div>
+                    <span className="text-gray-800 font-semibold">Order Items</span>
+                  </div>
+                  <Badge 
+                    count={salesOrder.length} 
+                    style={{ 
+                      backgroundColor: '#52c41a',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                    }} 
+                  />
+                </div>
+              }
+              className="bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-l-green-500"
+            >
+              <div className="space-y-4">
+                {salesOrder.map((item, index) => (
+                  <div key={index} className="flex items-center space-x-4 p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100">
+                    {renderProductImage(item)}
+                    
+                    <div className="flex-1">
+                      <div className="mb-3">
+                        <Title level={5} className="mb-1 text-gray-800">
+                          {item?.productName || 'Product Name Not Available'}
+                        </Title>
+                        <Text type="secondary" className="text-sm">
+                          Item #{index + 1}
+                        </Text>
+                      </div>
+                      
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="text-center p-2 bg-blue-50 rounded-lg">
+                          <Text type="secondary" className="text-xs block">Quantity</Text>
+                          <Text strong className="text-lg text-blue-600">{item?.quantity || 0}</Text>
+                        </div>
+                        <div className="text-center p-2 bg-green-50 rounded-lg">
+                          <Text type="secondary" className="text-xs block">Unit Price</Text>
+                          <Text strong className="text-lg text-green-600">₵{formatPrice(item?.price || 0)}</Text>
+                        </div>
+                        <div className="text-center p-2 bg-orange-50 rounded-lg">
+                          <Text type="secondary" className="text-xs block">Subtotal</Text>
+                          <Text strong className="text-lg text-orange-600">
+                            ₵{formatPrice((item?.price || 0) * (item?.quantity || 0))}
+                          </Text>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        )}
+      </Modal>
+
+      {/* Image Preview Modal */}
+      <Modal
+        open={imagePreview.visible}
+        onCancel={() => setImagePreview({ visible: false, url: null })}
+        footer={null}
+        width={600}
+        centered
+        className="image-preview-modal"
+      >
+        <div className="text-center">
+          <Image
+            src={imagePreview.url}
+            alt="Product Preview"
+            className="max-w-full max-h-96 object-contain rounded-lg"
+            preview={false}
+          />
+        </div>
+      </Modal>
+
+      <style jsx global>{`
+        .order-modal .ant-modal-header {
+          background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 3px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #c1c1c1;
+          border-radius: 3px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #a8a8a8;
+        }
+        
+        .image-preview-modal .ant-modal-body {
+          padding: 20px;
+        }
+      `}</style>
+    </>
   );
 };
 
