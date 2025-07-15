@@ -10,16 +10,16 @@ import {
   Menu,
   X,
   Users,
-  Home,
   Image,
   ChevronLeft,
-  ChevronRight
+  Banknote,
+
 } from 'lucide-react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { logoutUser } from '../../Redux/Slice/userSlice';
 
-const AdminLayout = ({ children }) => {
+const DevLayout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
@@ -30,7 +30,7 @@ const AdminLayout = ({ children }) => {
 
   const currentPath = location.pathname;
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const userName = user ? user.fullName : 'Admin';
+  const userName = user ? user.fullName : 'dev';
   const userPosition = user ? user.position : '';
 
   const isMobile = window.innerWidth < 768;
@@ -56,15 +56,17 @@ const AdminLayout = ({ children }) => {
   const closeDrawer = () => setDrawerVisible(false);
 
   const menuItems = [
-    { key: '/admin/dashboard', icon: Store, label: 'Dashboard', link: '/admin/dashboard' },
-    { key: '/admin/orders', icon: ShoppingCart, label: 'Orders', link: '/admin/orders' },
-    { key: '/admin/categories', icon: Tag, label: 'Categories', link: '/admin/categories' },
-    { key: '/admin/products', icon: Grid3X3, label: 'Products', link: '/admin/products' },
-    { key: '/admin/brands', icon: Award, label: 'Brands', link: '/admin/brands' },
-    { key: '/admin/showroom', icon: Store, label: 'Showroom', link: '/admin/showroom' },
-    { key: '/admin/banner', icon: Image, label: 'Banner', link: '/admin/banner' },
-    { key: '/admin/users', icon: User, label: 'Users', link: '/admin/users' },
-    { key: '/admin/customers', icon: Users, label: 'Customers', link: '/admin/customers' },
+    { key: '/dev/dashboard', icon: Store, label: 'Dashboard', link: '/dev/dashboard' },
+    { key: '/dev/orders', icon: ShoppingCart, label: 'Orders', link: '/dev/orders' },
+      { key: '/dev/payments', icon: Banknote , label: 'Payments', link: '/dev/payments' },
+    { key: '/dev/categories', icon: Tag, label: 'Categories', link: '/dev/categories' },
+    { key: '/dev/products', icon: Grid3X3, label: 'Products', link: '/dev/products' },
+    { key: '/dev/brands', icon: Award, label: 'Brands', link: '/dev/brands' },
+    { key: '/dev/showroom', icon: Store, label: 'Showroom', link: '/dev/showroom' },
+    { key: '/dev/banner', icon: Image, label: 'Banner', link: '/dev/banner' },
+    { key: '/dev/users', icon: User, label: 'Users', link: '/dev/users' },
+    { key: '/dev/customers', icon: Users, label: 'Customers', link: '/dev/customers' },
+
     { key: 'logout', icon: LogOut, label: 'Logout', action: showLogoutModal },
   ];
 
@@ -115,7 +117,7 @@ const AdminLayout = ({ children }) => {
         >
           <div className="h-16 flex items-center justify-center border-b border-red-700">
             <h1 className="text-xl font-bold tracking-wide">
-              {collapsed ? 'M' : 'Admin Manager'}
+              {collapsed ? 'D' : 'Developer Panel'}
             </h1>
           </div>
           <nav className="mt-4">
@@ -149,7 +151,7 @@ const AdminLayout = ({ children }) => {
           <div className="fixed inset-0 bg-black bg-opacity-50" onClick={closeDrawer}></div>
           <div className="relative bg-red-800 text-white w-64 h-full">
             <div className="h-16 flex items-center justify-between px-4 border-b border-red-700">
-              <h1 className="text-xl font-bold">Admin Panel</h1>
+              <h1 className="text-xl font-bold">dev Panel</h1>
               <button onClick={closeDrawer} className="text-white hover:text-gray-300">
                 <X size={24} />
               </button>
@@ -212,7 +214,7 @@ const AdminLayout = ({ children }) => {
               {userDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-2 z-20">
                   <Link
-                    to="/admin/profile"
+                    to="/dev/profile"
                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     onClick={() => setUserDropdownOpen(false)}
                   >
@@ -277,4 +279,4 @@ const AdminLayout = ({ children }) => {
   );
 };
 
-export default AdminLayout;
+export default DevLayout;

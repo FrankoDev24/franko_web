@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Card, Row, Col, Spin, Typography, Table, Avatar, Progress, DatePicker, Tag, Button, Statistic } from 'antd';
 import { 
-  LineChart,Line, XAxis, YAxis, 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer, 
@@ -12,20 +15,22 @@ import {
   Pie, 
   Cell,
   ComposedChart,
-  Area} from 'recharts';
+  Area,
+} from 'recharts';
 import { fetchOrdersByDate } from '../../Redux/Slice/orderSlice';
 import { fetchAllProducts } from '../../Redux/Slice/productSlice';
 import { fetchBrands } from '../../Redux/Slice/brandSlice';
 import { fetchCustomers } from '../../Redux/Slice/customerSlice';
-import moment from 'moment';
+import dayjs from 'dayjs';
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
+import isBetween from 'dayjs/plugin/isBetween';
 import { 
   ShoppingCartOutlined, 
-  RiseOutlined,
-DollarCircleOutlined,
+ 
   CrownOutlined,
   CalendarOutlined,
-  ClockCircleOutlined,
-  CheckCircleOutlined,
+
   ExclamationCircleOutlined,
   SyncOutlined,
   ReloadOutlined,
@@ -34,8 +39,21 @@ DollarCircleOutlined,
   ArrowDownOutlined,
   SwapOutlined,
   UserOutlined,
-  EyeOutlined
+  EyeOutlined,
+CheckCircleOutlined,
+ClockCircleOutlined,
+  PhoneOutlined,
+  WarningOutlined,
+  RiseOutlined,
+
+  CheckOutlined
+
 } from '@ant-design/icons';
+
+// Initialize dayjs plugins
+dayjs.extend(isSameOrBefore);
+dayjs.extend(isSameOrAfter);
+dayjs.extend(isBetween);
 
 const { Title, Text } = Typography;
 const { MonthPicker } = DatePicker;
@@ -50,41 +68,56 @@ const Dashboard = () => {
   const loading = !(products && brands && orders && customerList);
   const error = !loading && (!products || !brands || !orders || !customerList);
 
-  const [selectedMonth, setSelectedMonth] = useState(moment());
-  const [selectedComparisonMonth, setSelectedComparisonMonth] = useState(moment().subtract(1, 'month'));
-  const [monthlyComparison, setMonthlyComparison] = useState({});
+  const [selectedMonth, setSelectedMonth] = useState(dayjs());
+  const [selectedComparisonMonth, setSelectedComparisonMonth] = useState(dayjs().subtract(1, 'month'));
+  const [monthlyComparison, setMonthlyComparison] = useState({
+    current: null,
+    comparison: null,
+    growth: null
+  });
   const [weeklyData, setWeeklyData] = useState([]);
   const [topCustomers, setTopCustomers] = useState([]);
   const [orderCycleStats, setOrderCycleStats] = useState([]);
   const [realTimeStats, setRealTimeStats] = useState({});
-  const [lastUpdated, setLastUpdated] = useState(moment());
+  const [lastUpdated, setLastUpdated] = useState(dayjs());
 
-  const COLORS = {
-    'Completed': '#10B981',
-    'Pending': '#F59E0B', 
-    'Processing': '#3B82F6',
-    'Cancelled': '#EF4444',
-    'Delivered': '#06B6D4',
-    'Shipped': '#8B5CF6',
-    'Unknown': '#6B7280'
-  };
+const COLORS = {
+  'Completed': '#10B981',        // Emerald-500
+  'Pending': '#F59E0B',          // Amber-500
+  'Processing': '#3B82F6',       // Blue-500
+  'Cancelled': '#EF4444',        // Red-500
+  'Delivery': '#006838',        // Cyan-500
+  'Wrong Number': '#8B5CF6',     // Violet-500
+  'Not Answered': '#6B7280',     // Gray-500
+  'Out of Stock': '#D97706',     // Amber-600
+  'Multiple Orders': '#9333EA',  // Purple-600
+  'Order Placement': '#F43F5E',  // Rose-500
+  'Confirmed': '#FBBF24',        // Yellow-400
+  'Shipped': '#3B82F6'           // Blue-500 (same as Processing for consistency)
+};
 
-  const CYCLE_ICONS = {
-    'Completed': <CheckCircleOutlined style={{ color: '#10B981' }} />,
-    'Pending': <ClockCircleOutlined style={{ color: '#F59E0B' }} />,
-    'Processing': <SyncOutlined spin style={{ color: '#3B82F6' }} />,
-    'Cancelled': <ExclamationCircleOutlined style={{ color: '#EF4444' }} />,
-    'Delivered': <CheckCircleOutlined style={{ color: '#06B6D4' }} />,
-    'Shipped': <RiseOutlined style={{ color: '#8B5CF6' }} />
-  };
+const CYCLE_ICONS = {
+  'Completed': <CheckCircleOutlined style={{ color: COLORS['Completed'] }} />,
+  'Pending': <ClockCircleOutlined style={{ color: COLORS['Pending'] }} />,
+  'Processing': <SyncOutlined spin style={{ color: COLORS['Processing'] }} />,
+  'Cancelled': <ExclamationCircleOutlined style={{ color: COLORS['Cancelled'] }} />,
+  'Delivery': <CheckCircleOutlined style={{ color: COLORS['Delivery'] }} />,
+  'Shipped': <RiseOutlined style={{ color: COLORS['Shipped'] }} />,
+  'Wrong Number': <PhoneOutlined style={{ color: COLORS['Wrong Number'] }} />,
+  'Not Answered': <WarningOutlined style={{ color: COLORS['Not Answered'] }} />,
+  'Out of Stock': <ExclamationCircleOutlined style={{ color: COLORS['Out of Stock'] }} />,
+  'Multiple Orders': <ShoppingCartOutlined style={{ color: COLORS['Multiple Orders'] }} />,
+  'Order Placement': <ShoppingCartOutlined style={{ color: COLORS['Order Placement'] }} />,
+  'Confirmed': <CheckOutlined style={{ color: COLORS['Confirmed'] }} />
+};
 
   // Auto-refresh every 30 seconds for real-time data
   useEffect(() => {
     const interval = setInterval(() => {
       const startDate = '2020-01-01';
-      const endDate = moment().add(1, 'day').format('YYYY-MM-DD');
+      const endDate = dayjs().add(1, 'day').format('YYYY-MM-DD');
       dispatch(fetchOrdersByDate({ from: startDate, to: endDate }));
-      setLastUpdated(moment());
+      setLastUpdated(dayjs());
     }, 30000);
 
     return () => clearInterval(interval);
@@ -92,12 +125,12 @@ const Dashboard = () => {
 
   useEffect(() => {
     const startDate = '2020-01-01';
-    const endDate = moment().add(1, 'day').format('YYYY-MM-DD');
+    const endDate = dayjs().add(1, 'day').format('YYYY-MM-DD');
     dispatch(fetchOrdersByDate({ from: startDate, to: endDate }));
     dispatch(fetchAllProducts());
     dispatch(fetchBrands());
     dispatch(fetchCustomers());
-    setLastUpdated(moment());
+    setLastUpdated(dayjs());
   }, [dispatch]);
 
   useEffect(() => {
@@ -111,63 +144,97 @@ const Dashboard = () => {
   }, [orders, selectedMonth, selectedComparisonMonth]);
 
   const calculateMonthlyComparison = () => {
-    const currentMonthOrders = orders.filter(order =>
-      moment(order.orderDate).isSame(selectedMonth, 'month')
-    );
+    // Filter orders for current month
+    const currentMonthOrders = orders.filter(order => {
+      const orderDate = dayjs(order.orderDate);
+      return orderDate.isSame(selectedMonth, 'month') && orderDate.isSame(selectedMonth, 'year');
+    });
     
-    const comparisonMonthOrders = orders.filter(order =>
-      moment(order.orderDate).isSame(selectedComparisonMonth, 'month')
-    );
+    // Filter orders for comparison month
+    const comparisonMonthOrders = orders.filter(order => {
+      const orderDate = dayjs(order.orderDate);
+      return orderDate.isSame(selectedComparisonMonth, 'month') && orderDate.isSame(selectedComparisonMonth, 'year');
+    });
 
     const currentMonthStats = analyzeOrders(currentMonthOrders);
     const comparisonMonthStats = analyzeOrders(comparisonMonthOrders);
+
+    // Calculate additional metrics
+    const currentMonthCycles = getOrderCycleBreakdown(currentMonthOrders);
+    const comparisonMonthCycles = getOrderCycleBreakdown(comparisonMonthOrders);
+
+    // Calculate completion rates
+    const currentCompletionRate = calculateCompletionRate(currentMonthOrders);
+    const comparisonCompletionRate = calculateCompletionRate(comparisonMonthOrders);
+
+    // Calculate average orders per day
+    const currentDaysInMonth = selectedMonth.daysInMonth();
+    const comparisonDaysInMonth = selectedComparisonMonth.daysInMonth();
+    const currentAvgOrdersPerDay = currentMonthStats.totalOrders / currentDaysInMonth;
+    const comparisonAvgOrdersPerDay = comparisonMonthStats.totalOrders / comparisonDaysInMonth;
 
     setMonthlyComparison({
       current: {
         ...currentMonthStats,
         month: selectedMonth.format('MMMM YYYY'),
-        orderCycles: getOrderCycleBreakdown(currentMonthOrders)
+        orderCycles: currentMonthCycles,
+        completionRate: currentCompletionRate,
+        avgOrdersPerDay: currentAvgOrdersPerDay,
+        daysInMonth: currentDaysInMonth
       },
       comparison: {
         ...comparisonMonthStats,
         month: selectedComparisonMonth.format('MMMM YYYY'),
-        orderCycles: getOrderCycleBreakdown(comparisonMonthOrders)
+        orderCycles: comparisonMonthCycles,
+        completionRate: comparisonCompletionRate,
+        avgOrdersPerDay: comparisonAvgOrdersPerDay,
+        daysInMonth: comparisonDaysInMonth
       },
       growth: {
         orders: calculateGrowthPercentage(currentMonthStats.totalOrders, comparisonMonthStats.totalOrders),
-        revenue: calculateGrowthPercentage(currentMonthStats.totalRevenue, comparisonMonthStats.totalRevenue),
         customers: calculateGrowthPercentage(currentMonthStats.uniqueCustomers, comparisonMonthStats.uniqueCustomers),
-        avgOrderValue: calculateGrowthPercentage(currentMonthStats.avgOrderValue, comparisonMonthStats.avgOrderValue)
+        avgOrdersPerDay: calculateGrowthPercentage(currentAvgOrdersPerDay, comparisonAvgOrdersPerDay),
+        completionRate: calculateGrowthPercentage(currentCompletionRate, comparisonCompletionRate),
+        pendingOrders: calculateGrowthPercentage(
+          currentMonthCycles.find(c => c.status === 'Pending')?.count || 0,
+          comparisonMonthCycles.find(c => c.status === 'Pending')?.count || 0
+        ),
+        completedOrders: calculateGrowthPercentage(
+          currentMonthCycles.find(c => c.status === 'Completed')?.count || 0,
+          comparisonMonthCycles.find(c => c.status === 'Completed')?.count || 0
+        )
       }
     });
   };
 
   const calculateWeeklyData = () => {
-    const startOfMonth = selectedMonth.clone().startOf('month');
-    const endOfMonth = selectedMonth.clone().endOf('month');
+    const startOfMonth = selectedMonth.startOf('month');
+    const endOfMonth = selectedMonth.endOf('month');
     const weeks = [];
     
-    let currentWeek = startOfMonth.clone().startOf('week');
+    let currentWeek = startOfMonth.startOf('week');
     let weekNumber = 1;
 
     while (currentWeek.isSameOrBefore(endOfMonth, 'day')) {
-      const weekEnd = currentWeek.clone().endOf('week');
+      const weekEnd = currentWeek.endOf('week');
       const weekOrders = orders.filter(order => {
-        const orderDate = moment(order.orderDate);
+        const orderDate = dayjs(order.orderDate);
         return orderDate.isBetween(currentWeek, weekEnd, null, '[]') && 
                orderDate.isSame(selectedMonth, 'month');
       });
 
       const weekStats = analyzeOrders(weekOrders);
+      const weekCycles = getOrderCycleBreakdown(weekOrders);
       
       weeks.push({
         week: `Week ${weekNumber}`,
         weekRange: `${currentWeek.format('MMM DD')} - ${weekEnd.format('MMM DD')}`,
         ...weekStats,
-        orderCycleBreakdown: getOrderCycleBreakdown(weekOrders)
+        orderCycleBreakdown: weekCycles,
+        completionRate: calculateCompletionRate(weekOrders)
       });
 
-      currentWeek.add(1, 'week');
+      currentWeek = currentWeek.add(1, 'week');
       weekNumber++;
     }
 
@@ -175,9 +242,10 @@ const Dashboard = () => {
   };
 
   const calculateTopCustomers = () => {
-    const monthOrders = orders.filter(order =>
-      moment(order.orderDate).isSame(selectedMonth, 'month')
-    );
+    const monthOrders = orders.filter(order => {
+      const orderDate = dayjs(order.orderDate);
+      return orderDate.isSame(selectedMonth, 'month') && orderDate.isSame(selectedMonth, 'year');
+    });
 
     const customerStats = {};
     
@@ -191,19 +259,22 @@ const Dashboard = () => {
           name: customerName,
           phone: order.contactNumber || 'N/A',
           totalOrders: 0,
-          totalSpent: 0,
           lastOrder: null,
           orderCycles: {},
-          avgOrderValue: 0
+          avgOrdersPerWeek: 0,
+          firstOrder: null
         };
       }
       
       customerStats[customerId].totalOrders += 1;
-      customerStats[customerId].totalSpent += order.total || 0;
       
-      const orderDate = moment(order.orderDate);
+      const orderDate = dayjs(order.orderDate);
       if (!customerStats[customerId].lastOrder || orderDate.isAfter(customerStats[customerId].lastOrder)) {
         customerStats[customerId].lastOrder = orderDate;
+      }
+      
+      if (!customerStats[customerId].firstOrder || orderDate.isBefore(customerStats[customerId].firstOrder)) {
+        customerStats[customerId].firstOrder = orderDate;
       }
 
       const cycle = order.orderCycle || 'Unknown';
@@ -211,13 +282,18 @@ const Dashboard = () => {
     });
 
     const topCustomersList = Object.values(customerStats)
-      .map(customer => ({
-        ...customer,
-        avgOrderValue: customer.totalOrders > 0 ? customer.totalSpent / customer.totalOrders : 0,
-        lastOrderFormatted: customer.lastOrder ? customer.lastOrder.format('MMM DD, YYYY') : 'N/A',
-        avatar: customer.name.charAt(0).toUpperCase(),
-        completionRate: ((customer.orderCycles['Completed'] || 0) / customer.totalOrders * 100).toFixed(1)
-      }))
+      .map(customer => {
+        const weeksInMonth = selectedMonth.daysInMonth() / 7;
+        return {
+          ...customer,
+          avgOrdersPerWeek: customer.totalOrders / weeksInMonth,
+          lastOrderFormatted: customer.lastOrder ? customer.lastOrder.format('MMM DD, YYYY') : 'N/A',
+          avatar: customer.name.charAt(0).toUpperCase(),
+          completionRate: customer.totalOrders > 0 ? ((customer.orderCycles['Completed'] || 0) / customer.totalOrders * 100).toFixed(1) : 0,
+          orderFrequency: customer.firstOrder && customer.lastOrder ? 
+            customer.lastOrder.diff(customer.firstOrder, 'day') / customer.totalOrders : 0
+        };
+      })
       .sort((a, b) => b.totalOrders - a.totalOrders)
       .slice(0, 10)
       .map((customer, index) => ({ ...customer, rank: index + 1 }));
@@ -226,9 +302,10 @@ const Dashboard = () => {
   };
 
   const calculateOrderCycleStats = () => {
-    const monthOrders = orders.filter(order =>
-      moment(order.orderDate).isSame(selectedMonth, 'month')
-    );
+    const monthOrders = orders.filter(order => {
+      const orderDate = dayjs(order.orderDate);
+      return orderDate.isSame(selectedMonth, 'month') && orderDate.isSame(selectedMonth, 'year');
+    });
 
     const cycleStats = getOrderCycleBreakdown(monthOrders);
     const totalOrders = monthOrders.length;
@@ -243,39 +320,47 @@ const Dashboard = () => {
   };
 
   const calculateRealTimeStats = () => {
-    const today = moment();
+    const today = dayjs();
     const todayOrders = orders.filter(order =>
-      moment(order.orderDate).isSame(today, 'day')
+      dayjs(order.orderDate).isSame(today, 'day')
     );
 
     const thisWeek = orders.filter(order =>
-      moment(order.orderDate).isSame(today, 'week')
+      dayjs(order.orderDate).isSame(today, 'week')
     );
 
     const thisMonth = orders.filter(order =>
-      moment(order.orderDate).isSame(today, 'month')
+      dayjs(order.orderDate).isSame(today, 'month')
+    );
+
+    const lastHour = orders.filter(order =>
+      dayjs(order.orderDate).isAfter(dayjs().subtract(1, 'hour'))
     );
 
     setRealTimeStats({
       today: analyzeOrders(todayOrders),
       thisWeek: analyzeOrders(thisWeek),
       thisMonth: analyzeOrders(thisMonth),
-      lastHour: orders.filter(order =>
-        moment(order.orderDate).isAfter(moment().subtract(1, 'hour'))).length
+      lastHour: lastHour.length
     });
   };
 
   const analyzeOrders = (orderList) => {
     const totalOrders = orderList.length;
-    const totalRevenue = orderList.reduce((sum, order) => sum + (order.total || 0), 0);
     const uniqueCustomers = new Set(orderList.map(order => order.customerId)).size;
-    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    
+    // Calculate different order status counts
+    const statusCounts = {
+      completed: orderList.filter(order => order.orderCycle === 'Completed').length,
+      pending: orderList.filter(order => order.orderCycle === 'Pending').length,
+      processing: orderList.filter(order => order.orderCycle === 'Processing').length,
+      cancelled: orderList.filter(order => order.orderCycle === 'Cancelled').length
+    };
     
     return {
       totalOrders,
-      totalRevenue,
       uniqueCustomers,
-      avgOrderValue
+      statusCounts
     };
   };
 
@@ -291,6 +376,12 @@ const Dashboard = () => {
       count,
       name: status
     }));
+  };
+
+  const calculateCompletionRate = (orderList) => {
+    if (orderList.length === 0) return 0;
+    const completedOrders = orderList.filter(order => order.orderCycle === 'Completed').length;
+    return ((completedOrders / orderList.length) * 100).toFixed(1);
   };
 
   const calculateGrowthPercentage = (current, previous) => {
@@ -370,26 +461,14 @@ const Dashboard = () => {
       ),
     },
     {
-      title: 'Total Spent',
-      dataIndex: 'totalSpent',
-      key: 'totalSpent',
-      align: 'center',
-      render: (spent) => (
-        <div className="text-center">
-          <div className="font-bold text-xl text-green-600">₵{spent.toFixed(2)}</div>
-          <div className="text-xs text-gray-500">total</div>
-        </div>
-      ),
-    },
-    {
-      title: 'Avg Order',
-      dataIndex: 'avgOrderValue',
-      key: 'avgOrderValue',
+      title: 'Weekly Avg',
+      dataIndex: 'avgOrdersPerWeek',
+      key: 'avgOrdersPerWeek',
       align: 'center',
       render: (avg) => (
         <div className="text-center">
-          <div className="font-bold text-lg text-purple-600">₵{avg.toFixed(2)}</div>
-          <div className="text-xs text-gray-500">average</div>
+          <div className="font-bold text-lg text-purple-600">{avg.toFixed(1)}</div>
+          <div className="text-xs text-gray-500">per week</div>
         </div>
       ),
     },
@@ -430,7 +509,7 @@ const Dashboard = () => {
           <p className="font-semibold text-gray-800">{label}</p>
           {payload.map((entry, index) => (
             <p key={index} style={{ color: entry.color }} className="text-sm">
-              {entry.name}: {entry.name === 'totalRevenue' ? `₵${entry.value.toFixed(2)}` : entry.value}
+              {entry.name}: {entry.value}
             </p>
           ))}
         </div>
@@ -441,9 +520,9 @@ const Dashboard = () => {
 
   const refreshData = () => {
     const startDate = '2020-01-01';
-    const endDate = moment().add(1, 'day').format('YYYY-MM-DD');
+    const endDate = dayjs().add(1, 'day').format('YYYY-MM-DD');
     dispatch(fetchOrdersByDate({ from: startDate, to: endDate }));
-    setLastUpdated(moment());
+    setLastUpdated(dayjs());
   };
 
   if (loading) {
@@ -465,7 +544,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="p-6 min-h-screen bg-gray-50">
+    <div className="p-1 min-h-screen">
       {/* Enhanced Header */}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-6">
@@ -475,7 +554,7 @@ const Dashboard = () => {
               Real-Time Analytics Dashboard
             </Title>
             <Text className="text-gray-600 text-lg">
-              Live business insights with comprehensive performance metrics
+              Live business insights with comprehensive order performance metrics
             </Text>
           </div>
           <div className="flex items-center space-x-4">
@@ -513,7 +592,7 @@ const Dashboard = () => {
               </div>
               <div className="text-right">
                 <ShoppingCartOutlined className="text-4xl text-white/80 mb-2" />
-                <div className="text-white/80 text-xs">₵{(realTimeStats.today?.totalRevenue || 0).toFixed(2)}</div>
+                <div className="text-white/80 text-xs">{realTimeStats.today?.uniqueCustomers || 0} customers</div>
               </div>
             </div>
           </Card>
@@ -526,12 +605,12 @@ const Dashboard = () => {
                 <div className="text-white/80 text-sm mb-1">This Week</div>
                 <div className="text-3xl font-bold mb-2">{realTimeStats.thisWeek?.totalOrders || 0}</div>
                 <div className="text-white/80 text-xs">
-                  ₵{(realTimeStats.thisWeek?.totalRevenue || 0).toFixed(2)} revenue
+                  {realTimeStats.thisWeek?.uniqueCustomers || 0} customers
                 </div>
               </div>
               <div className="text-right">
                 <CalendarOutlined className="text-4xl text-white/80 mb-2" />
-                <div className="text-white/80 text-xs">{realTimeStats.thisWeek?.uniqueCustomers || 0} customers</div>
+                <div className="text-white/80 text-xs">Week total</div>
               </div>
             </div>
           </Card>
@@ -549,7 +628,7 @@ const Dashboard = () => {
               </div>
               <div className="text-right">
                 <RiseOutlined className="text-4xl text-white/80 mb-2" />
-                <div className="text-white/80 text-xs">₵{(realTimeStats.thisMonth?.totalRevenue || 0).toFixed(2)}</div>
+                <div className="text-white/80 text-xs">Monthly total</div>
               </div>
             </div>
           </Card>
@@ -559,13 +638,13 @@ const Dashboard = () => {
           <Card className="shadow-lg border-0 hover:shadow-xl transition-shadow duration-300" style={{ background: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', color: 'white' }}>
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <div className="text-white/80 text-sm mb-1">Avg Order Value</div>
-                <div className="text-3xl font-bold mb-2">₵{(realTimeStats.thisMonth?.avgOrderValue || 0).toFixed(2)}</div>
-                <div className="text-white/80 text-xs">This month average</div>
+                <div className="text-white/80 text-sm mb-1">Completion Rate</div>
+                <div className="text-3xl font-bold mb-2">{monthlyComparison.current?.completionRate || 0}%</div>
+                <div className="text-white/80 text-xs">Monthly success rate</div>
               </div>
               <div className="text-right">
-                <DollarCircleOutlined className="text-4xl text-white/80 mb-2" />
-                <div className="text-white/80 text-xs">Monthly metric</div>
+                <CheckCircleOutlined className="text-4xl text-white/80 mb-2" />
+                <div className="text-white/80 text-xs">Success metric</div>
               </div>
             </div>
           </Card>
@@ -610,9 +689,9 @@ const Dashboard = () => {
                     {monthlyComparison.current?.totalOrders || 0}
                   </div>
                   <div className="text-sm text-gray-600 mb-3">
-                    Orders ({monthlyComparison.current?.month})
+                    Total Orders ({monthlyComparison.current?.month || 'N/A'})
                   </div>
-                  <GrowthIndicator value={monthlyComparison.growth?.orders} />
+                  <GrowthIndicator value={monthlyComparison.growth?.orders || 0} />
                   <div className="text-xs text-gray-500 mt-1">
                     vs {monthlyComparison.comparison?.totalOrders || 0} last period
                   </div>
@@ -621,42 +700,42 @@ const Dashboard = () => {
               <Col xs={24} md={6}>
                 <div className="text-center p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-200">
                   <div className="text-3xl font-bold text-green-600 mb-2">
-                    ₵{(monthlyComparison.current?.totalRevenue || 0).toFixed(2)}
-                  </div>
-                  <div className="text-sm text-gray-600 mb-3">
-                    Revenue ({monthlyComparison.current?.month})
-                  </div>
-                  <GrowthIndicator value={monthlyComparison.growth?.revenue} />
-                  <div className="text-xs text-gray-500 mt-1">
-                    vs ₵{(monthlyComparison.comparison?.totalRevenue || 0).toFixed(2)}
-                  </div>
-                </div>
-              </Col>
-              <Col xs={24} md={6}>
-                <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl border border-purple-200">
-                  <div className="text-3xl font-bold text-purple-600 mb-2">
                     {monthlyComparison.current?.uniqueCustomers || 0}
                   </div>
                   <div className="text-sm text-gray-600 mb-3">
-                    Customers ({monthlyComparison.current?.month})
+                    Unique Customers ({monthlyComparison.current?.month || 'N/A'})
                   </div>
-                  <GrowthIndicator value={monthlyComparison.growth?.customers} />
+                  <GrowthIndicator value={monthlyComparison.growth?.customers || 0} />
                   <div className="text-xs text-gray-500 mt-1">
                     vs {monthlyComparison.comparison?.uniqueCustomers || 0} last period
                   </div>
                 </div>
               </Col>
               <Col xs={24} md={6}>
-                <div className="text-center p-6 bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl border border-orange-200">
-                  <div className="text-3xl font-bold text-orange-600 mb-2">
-                    ₵{(monthlyComparison.current?.avgOrderValue || 0).toFixed(2)}
+                <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl border border-purple-200">
+                  <div className="text-3xl font-bold text-purple-600 mb-2">
+                    {monthlyComparison.current?.avgOrdersPerDay?.toFixed(1) || '0.0'}
                   </div>
                   <div className="text-sm text-gray-600 mb-3">
-                    Avg Order ({monthlyComparison.current?.month})
+                    Avg Orders/Day ({monthlyComparison.current?.month || 'N/A'})
                   </div>
-                  <GrowthIndicator value={monthlyComparison.growth?.avgOrderValue} />
+                  <GrowthIndicator value={monthlyComparison.growth?.avgOrdersPerDay || 0} />
                   <div className="text-xs text-gray-500 mt-1">
-                    vs ₵{(monthlyComparison.comparison?.avgOrderValue || 0).toFixed(2)}
+                    vs {monthlyComparison.comparison?.avgOrdersPerDay?.toFixed(1) || '0.0'} last period
+                  </div>
+                </div>
+              </Col>
+              <Col xs={24} md={6}>
+                <div className="text-center p-6 bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl border border-yellow-200">
+                  <div className="text-3xl font-bold text-yellow-600 mb-2">
+                    {monthlyComparison.current?.completionRate || 0}%
+                  </div>
+                  <div className="text-sm text-gray-600 mb-3">
+                    Completion Rate ({monthlyComparison.current?.month || 'N/A'})
+                  </div>
+                  <GrowthIndicator value={monthlyComparison.growth?.completionRate || 0} />
+                  <div className="text-xs text-gray-500 mt-1">
+                    vs {monthlyComparison.comparison?.completionRate || 0}% last period
                   </div>
                 </div>
               </Col>
@@ -665,53 +744,66 @@ const Dashboard = () => {
         </Col>
       </Row>
 
-      {/* Enhanced Weekly Analysis & Order Cycle Stats */}
+      {/* Enhanced Charts Section */}
       <Row gutter={[24, 24]} className="mb-8">
         <Col xs={24} lg={16}>
-          <Card 
-            title={
-              <div className="flex items-center">
-                <BarChart className="mr-2 text-blue-500" />
-                <span>Weekly Analysis - {selectedMonth.format('MMMM YYYY')}</span>
-              </div>
-            }
-            className="shadow-lg border-0"
-          >
+          <Card className="shadow-lg border-0" title={
+            <div className="flex items-center">
+              <LineChart className="mr-2 text-blue-500" />
+              <span>Weekly Order Trends - {selectedMonth.format('MMMM YYYY')}</span>
+            </div>
+          }>
             <ResponsiveContainer width="100%" height={400}>
-              <ComposedChart data={weeklyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-           
-                <XAxis dataKey="week" />
-                <YAxis yAxisId="left" />
-                <YAxis yAxisId="right" orientation="right" />
+              <ComposedChart data={weeklyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis 
+                  dataKey="week" 
+                  tick={{ fontSize: 12 }}
+                  axisLine={{ stroke: '#d1d5db' }}
+                />
+                <YAxis 
+                  tick={{ fontSize: 12 }}
+                  axisLine={{ stroke: '#d1d5db' }}
+                />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar yAxisId="left" dataKey="totalOrders" fill="#3B82F6" name="Orders" />
-                <Line yAxisId="right" type="monotone" dataKey="totalRevenue" stroke="#10B981" strokeWidth={3} name="Revenue" />
-                <Line yAxisId="right" type="monotone" dataKey="avgOrderValue" stroke="#F59E0B" strokeWidth={2} name="Avg Order Value" />
+                <Bar dataKey="totalOrders" fill="#3B82F6" name="Total Orders" radius={[4, 4, 0, 0]} />
+                <Line 
+                  type="monotone" 
+                  dataKey="uniqueCustomers" 
+                  stroke="#10B981" 
+                  strokeWidth={3}
+                  dot={{ fill: '#10B981', strokeWidth: 2, r: 6 }}
+                  name="Unique Customers"
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="completionRate" 
+                  stroke="#F59E0B" 
+                  strokeWidth={3}
+                  dot={{ fill: '#F59E0B', strokeWidth: 2, r: 6 }}
+                  name="Completion Rate (%)"
+                />
               </ComposedChart>
             </ResponsiveContainer>
           </Card>
         </Col>
 
         <Col xs={24} lg={8}>
-          <Card 
-            title={
-              <div className="flex items-center">
-                <PieChart className="mr-2 text-green-500" />
-                <span>Order Status Distribution</span>
-              </div>
-            }
-            className="shadow-lg border-0"
-          >
-            <ResponsiveContainer width="100%" height={300}>
+          <Card className="shadow-lg border-0" title={
+            <div className="flex items-center">
+              <PieChart className="mr-2 text-green-500" />
+              <span>Order Status Distribution</span>
+            </div>
+          }>
+            <ResponsiveContainer width="100%" height={400}>
               <PieChart>
                 <Pie
                   data={orderCycleStats}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percentage }) => `${name} (${percentage}%)`}
-                  outerRadius={80}
+                  label={({ name, percentage }) => `${name}: ${percentage}%`}
+                  outerRadius={120}
                   fill="#8884d8"
                   dataKey="count"
                 >
@@ -722,91 +814,129 @@ const Dashboard = () => {
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
-            
-            <div className="mt-4 space-y-2">
-              {orderCycleStats.map((stat, index) => (
-                <div key={index} className="flex items-center justify-between p-12 rounded">
-                  <div className="flex items-center">
-                    {CYCLE_ICONS[stat.status]}
-                    <span className="ml-2 text-sm font-medium">{stat.status}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm font-bold">{stat.count}</span>
-                    <span className="text-xs text-gray-500">({stat.percentage}%)</span>
-                  </div>
-                </div>
-              ))}
-            </div>
           </Card>
         </Col>
       </Row>
 
-      {/* Enhanced Top Customers */}
-      <Row gutter={[24, 24]} className="mb-8">
-        <Col span={24}>
-          <Card 
-            title={
+      {/* Enhanced Order Cycle Status Cards */}
+      <Row gutter={[16, 16]} className="mb-8">
+        {orderCycleStats.map((stat, index) => (
+          <Col xs={24} sm={12} md={8} lg={6} key={index}>
+            <Card className="shadow-md border-0 hover:shadow-lg transition-shadow duration-300">
               <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <CrownOutlined className="mr-2 text-yellow-500" />
-                  <span>Top Customers - {selectedMonth.format('MMMM YYYY')}</span>
+                <div className="flex-1">
+                  <div className="flex items-center mb-2">
+                    {CYCLE_ICONS[stat.status] || <ClockCircleOutlined style={{ color: '#6B7280' }} />}
+                    <Text className="ml-2 text-sm font-medium text-gray-600">{stat.status}</Text>
+                  </div>
+                  <div className="text-2xl font-bold mb-1" style={{ color: stat.color }}>
+                    {stat.count}
+                  </div>
+                  <div className="text-sm text-gray-500">{stat.percentage}% of total</div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Tag color="gold" className="flex items-center">
-                    <FireOutlined className="mr-1" />
-                    VIP Status
-                  </Tag>
-                  <Text className="text-sm text-gray-500">
-                    Showing top 10 customers by order volume
-                  </Text>
+                <div className="text-right">
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center" 
+                       style={{ backgroundColor: `${stat.color}20` }}>
+                    <div className="text-xl font-bold" style={{ color: stat.color }}>
+                      {stat.percentage}%
+                    </div>
+                  </div>
                 </div>
               </div>
-            }
-            className="shadow-lg border-0"
-          >
+            </Card>
+          </Col>
+        ))}
+      </Row>
+
+      {/* Enhanced Top Customers Section */}
+      <Row gutter={[24, 24]}>
+        <Col span={24}>
+          <Card className="shadow-lg border-0" title={
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <CrownOutlined className="mr-2 text-yellow-500 text-xl" />
+                <span className="text-lg font-semibold">Top Customers - {selectedMonth.format('MMMM YYYY')}</span>
+              </div>
+              <div className="flex items-center space-x-4 text-sm text-gray-600">
+                <div className="flex items-center">
+                  <div className="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
+                  <span>VIP Customers</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+                  <span>Regular Customers</span>
+                </div>
+              </div>
+            </div>
+          }>
             <Table
               columns={topCustomersColumns}
               dataSource={topCustomers}
-              pagination={false}
               rowKey="id"
+              pagination={false}
+              size="large"
               className="custom-table"
-              rowClassName={(record) => record.rank <= 3 ? 'bg-gradient-to-r from-yellow-50 to-yellow-100' : ''}
+              rowClassName={(record) => 
+                record.rank <= 3 ? 'bg-gradient-to-r from-yellow-50 to-yellow-100' : 'hover:bg-gray-50'
+              }
             />
           </Card>
         </Col>
       </Row>
 
-      {/* Enhanced Monthly Trends */}
-      <Row gutter={[24, 24]} className="mb-8">
+      {/* Enhanced Monthly Growth Summary */}
+      <Row gutter={[24, 24]} className="mt-8">
         <Col span={24}>
-          <Card 
-            title={
-              <div className="flex items-center">
-                <LineChart className="mr-2 text-purple-500" />
-                <span>Order Trends</span>
-              </div>
-            }
-            className="shadow-lg border-0"
-          >
-            <ResponsiveContainer width="100%" height={400}>
-              <ComposedChart data={weeklyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="weekRange" />
-                <YAxis yAxisId="left" />
-                <YAxis yAxisId="right" orientation="right" />
-                <Tooltip content={<CustomTooltip />} />
-                <Area yAxisId="left" type="monotone" dataKey="totalOrders" stackId="1" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
-                <Line yAxisId="right" type="monotone" dataKey="totalRevenue" stroke="#82ca9d" strokeWidth={3} />
-                <Line yAxisId="right" type="monotone" dataKey="avgOrderValue" stroke="#ffc658" strokeWidth={2} />
-              </ComposedChart>
-            </ResponsiveContainer>
+          <Card className="shadow-lg border-0 bg-gradient-to-r from-indigo-50 to-purple-50">
+            <div className="text-center py-6">
+              <Title level={3} className="text-gray-800 mb-4">
+                Monthly Performance Summary
+              </Title>
+              <Row gutter={[32, 32]}>
+                <Col xs={24} md={8}>
+                  <Statistic
+                    title="Total Orders Growth"
+                    value={monthlyComparison.growth?.orders || 0}
+                    precision={1}
+                    valueStyle={{ 
+                      color: parseFloat(monthlyComparison.growth?.orders || 0) >= 0 ? '#10B981' : '#EF4444',
+                      fontSize: '28px'
+                    }}
+                    prefix={parseFloat(monthlyComparison.growth?.orders || 0) >= 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
+                    suffix="%"
+                  />
+                </Col>
+                <Col xs={24} md={8}>
+                  <Statistic
+                    title="Customer Growth"
+                    value={monthlyComparison.growth?.customers || 0}
+                    precision={1}
+                    valueStyle={{ 
+                      color: parseFloat(monthlyComparison.growth?.customers || 0) >= 0 ? '#10B981' : '#EF4444',
+                      fontSize: '28px'
+                    }}
+                    prefix={parseFloat(monthlyComparison.growth?.customers || 0) >= 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
+                    suffix="%"
+                  />
+                </Col>
+                <Col xs={24} md={8}>
+                  <Statistic
+                    title="Completion Rate Change"
+                    value={monthlyComparison.growth?.completionRate || 0}
+                    precision={1}
+                    valueStyle={{ 
+                      color: parseFloat(monthlyComparison.growth?.completionRate || 0) >= 0 ? '#10B981' : '#EF4444',
+                      fontSize: '28px'
+                    }}
+                    prefix={parseFloat(monthlyComparison.growth?.completionRate || 0) >= 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
+                    suffix="%"
+                  />
+                </Col>
+              </Row>
+            </div>
           </Card>
         </Col>
       </Row>
-
-    
-
-   
     </div>
   );
 };

@@ -15,6 +15,8 @@ import {
 import ProductCard from "../Component/ProductCard";
 import { CircularPagination } from "../Component/CircularPagination";
 import gif from "../assets/no.gif";
+import { Helmet } from "react-helmet";
+
 
 const ShowroomProductsPage = () => {
   const { showRoomID } = useParams();
@@ -261,9 +263,35 @@ const ShowroomProductsPage = () => {
       </button>
     </div>
   );
+  const showroomStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "Store",
+  "name": selectedShowroom?.showRoomName || "Showroom",
+  "description": `Explore the latest products in ${selectedShowroom?.showRoomName || "our showroom"} with great prices and variety.`,
+  "url": window.location.href,
+  "department": {
+    "@type": "DepartmentStore",
+    "name": selectedShowroom?.showRoomName || "Showroom Department"
+  }
+};
+
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
+    <div className="min-h-screen">
+      <Helmet>
+  <title>{`${selectedShowroom?.showRoomName || 'Showroom'} | Franko Trading`}</title>
+  <meta 
+    name="description" 
+    content={`Explore products in the ${selectedShowroom?.showRoomName || 'selected showroom'} at Franko Trading. Great prices, discounts, and wide variety.`} 
+  />
+  <meta name="keywords" content="smartphones, electronics, showroom, Franko Trading, mobile phones in Ghana" />
+
+  {/* JSON-LD Structured Data */}
+  <script type="application/ld+json">
+    {JSON.stringify(showroomStructuredData)}
+  </script>
+</Helmet>
+
       <div className="p-2 md:px-2 mx-auto">
         {/* Enhanced Mobile Header */}
         <div className="md:hidden space-y-2">

@@ -266,13 +266,13 @@ const FulfilmentHome = ({ children }) => {
                   }}>
                     {fullName}
                   </Text>
-                  <Text style={{ 
-                    color: '#64748b', 
-                    fontSize: '12px',
-                    lineHeight: '1.2'
-                  }}>
-                    Administrator
-                  </Text>
+                    <Text style={{ 
+                        color: '#64748b', 
+                        fontSize: '12px',
+                        lineHeight: '1.2'
+                    }}>
+                        Fulfillment Manager
+                    </Text>
                 </div>
               </Space>
             </Dropdown>

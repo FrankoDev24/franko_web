@@ -51,8 +51,22 @@ import ContentCategory from './Pages/ContentManager/ContentManagerPage/ContentCa
 import ContentBanner from './Pages/ContentManager/ContentManagerPage/ContentBanner'
 import ContentPage from './Pages/ContentManager/ContentPage'
 import NoInternetPage from './Component/NoInternet'
+import UserLogin from './Pages/AdminAuth/UserLogin'
+import UserRegistration from './Pages/AdminAuth/UserRegistration'
+import DevPage from './Pages/Developer/DevPage'
+import DevDashboard from './Pages/Developer/Dev/DevDashboard'
+import DevBrands from './Pages/Developer/Dev/DevBrands'
+import DevCategory from './Pages/Developer/Dev/DevCategory'
+import DevProducts from './Pages/Developer/Dev/DevProducts'
+import DevOrders from './Pages/Developer/Dev/DevOrders'
+import DevShowroom from './Pages/Developer/Dev/DevShowroom'
+import DevBanners from './Pages/Developer/Dev/DevBanners'
+import DevUsers from './Pages/Developer/Dev/DevUsers'
+import DevCustomers from './Pages/Developer/Dev/DevCustomers'
+import Payments from './Pages/Developer/Dev/Payments'
 
 // Utility to fetch customer role
+
 const getUserRole = () => {
   try {
     const customer = JSON.parse(localStorage.getItem("customer"));
@@ -130,6 +144,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   return children;
 };
 
+
 const ConditionalNavbar = () => {
   const location = useLocation();
   const pathname = location.pathname;
@@ -145,12 +160,14 @@ const ConditionalNavbar = () => {
   const isAgentPath = pathname.startsWith("/agent/");
   const isFulfillmentPath = pathname.startsWith("/fulfillment/");
   const isContentPath = pathname.startsWith("/content/");
+  const isDevPath = pathname.startsWith("/dev/");
 
   return !hiddenPaths.includes(pathname) && 
          !isAdminPath && 
          !isAgentPath && 
          !isFulfillmentPath && 
-         !isContentPath && 
+         !isContentPath &&
+          !isDevPath && 
          <Nav />;
 };
 
@@ -207,6 +224,10 @@ function App() {
         <Route path="/account" element={<Account />} />
         <Route path="/shops" element={<Locations />} />
         <Route path="/order-cancelled" element={<Cancellation />} />
+         <Route path="/admin/login" element={< UserLogin/>} />
+          <Route path="/admin/register" element={< UserRegistration/>} />
+
+        
 
         {/* Admin Routes - Protected */}
         <Route 
@@ -437,6 +458,124 @@ function App() {
             </ProtectedRoute>
           } 
         />
+        {/* Developer Routes - Protected */}
+        <Route 
+          path="/dev/*" 
+          element={
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage />       
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/dev/dashboard" 
+          element={
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage>
+                <DevDashboard />
+              </DevPage>
+            </ProtectedRoute>
+          }       
+        />
+        <Route 
+          path="/dev/brands" 
+          element={
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage>
+                <DevBrands />
+              </DevPage>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/dev/categories" 
+          element={
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage>
+                <DevCategory /> 
+              </DevPage>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/dev/products" 
+          element={ 
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage>
+                <DevProducts />
+              </DevPage>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/dev/orders" 
+          element={  
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage>
+                <DevOrders />
+              </DevPage>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/dev/showroom" 
+          element={   
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage>
+                <DevShowroom />
+              </DevPage>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/dev/banner" 
+          element={   
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage>
+                <DevBanners />
+              </DevPage>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/dev/users" 
+          element={
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage>
+                <DevUsers />
+              </DevPage>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/dev/customers" 
+          element={   
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage>
+                <DevCustomers />
+              </DevPage>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/dev/payments" 
+          element={
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage>
+                <Payments />
+              </DevPage>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/dev" 
+          element={
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage />
+            </ProtectedRoute>
+          }
+        />
+
 
         {/* Default route redirects */}
         <Route path="*" element={<Navigate to="/" />} />
