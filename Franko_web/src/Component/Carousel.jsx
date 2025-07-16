@@ -5,7 +5,7 @@ import { getBannerPageAdvertisment } from "../Redux/Slice/advertismentSlice";
 import { Splide, SplideSlide } from "@splidejs/react-splide";
 import "@splidejs/react-splide/css"; // default CSS
 
-import ban from "../assets/ban.jpeg";
+import ban from "../assets/kumasi.jpeg";
 
 const backendBaseURL = "https://smfteapi.salesmate.app";
 

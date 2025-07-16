@@ -1,9 +1,12 @@
-
+import React, { useEffect } from 'react';
 import { Phone, Laptop, Tv, Headphones, MapPin, Users, Award, Heart, Zap, Shield, Truck, RotateCcw, CheckCircle, MessageCircle, ArrowRight, Star } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function AboutUs() {
   const navigate = useNavigate();
+   useEffect(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
 
   const coreValues = [
     { 

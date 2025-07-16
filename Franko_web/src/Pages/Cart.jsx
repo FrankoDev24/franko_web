@@ -16,6 +16,10 @@ const Cart = () => {
   const [selectAll, setSelectAll] = useState(false);
   const [openModal, setOpenModal] = useState(false);
 
+    useEffect(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
+  
 useEffect(() => {
   const storedId = cartId || localStorage.getItem('cartId');
   if (storedId) {

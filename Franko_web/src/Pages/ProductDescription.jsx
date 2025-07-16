@@ -6,20 +6,13 @@ import { fetchProductById, fetchProducts } from "../Redux/Slice/productSlice";
 import { updateCartItem, deleteCartItem, getCartById } from '../Redux/Slice/cartSlice';
 import ProductDetailSkeleton from "../Component/ProductDetailSkeleton";
 import { Button, Tooltip, IconButton, Drawer } from "@material-tailwind/react";
-import { 
-  ShoppingCartIcon, 
-  CheckCircleIcon, 
-  HeartIcon as OutlineHeartIcon,
-  EyeIcon,
-  TruckIcon, 
-  ShieldCheckIcon, 
-  PhoneIcon, 
-  CreditCardIcon,
+import { ShoppingCartIcon, CheckCircleIcon, HeartIcon as OutlineHeartIcon, EyeIcon, TruckIcon, ShieldCheckIcon, PhoneIcon, CreditCardIcon,
   ShareIcon,
   TrashIcon,
   MinusIcon,
   PlusIcon,
-  XMarkIcon
+  XMarkIcon,
+  ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
 import { FaWhatsapp } from "react-icons/fa";
 import ProductCard from "../Component/ProductCard";
@@ -47,15 +40,6 @@ const ProductDescription = () => {
   const { currentProduct, products, loading } = useSelector((state) => state.products);
   const { cart, loading: cartLoadingState, error: cartError, cartId } = useSelector((state) => state.cart);
   const [viewedProducts, setViewedProducts] = useState([]);
-
-  // Helper function to check if product is out of stock
-  const isOutOfStock = (product) => {
-    return (
-      product.brandName === "All brands" ||
-      product.categoryName === "Products out of stock" ||
-      product.showRoomName === "Products out of stock"
-    );
-  };
 
   // Fetch cart data when component mounts or cartId changes
   useEffect(() => {
@@ -113,9 +97,61 @@ const ProductDescription = () => {
     }
   }, [currentProduct]);
 
+  // Enhanced out-of-stock checker function
+  const isOutOfStock = (product) => {
+    if (!product) return false;
+    
+    const outOfStockIndicators = [
+      "all brands",
+      "products out of stock",
+      "out of stock",
+      "unavailable",
+      "not available"
+    ];
+    
+    // Check brandName
+    if (product.brandName && 
+        outOfStockIndicators.some(indicator => 
+          product.brandName.toLowerCase().includes(indicator.toLowerCase())
+        )) {
+      return true;
+    }
+    
+    // Check categoryName
+    if (product.categoryName && 
+        outOfStockIndicators.some(indicator => 
+          product.categoryName.toLowerCase().includes(indicator.toLowerCase())
+        )) {
+      return true;
+    }
+    
+    // Check showRoomName
+    if (product.showRoomName && 
+        outOfStockIndicators.some(indicator => 
+          product.showRoomName.toLowerCase().includes(indicator.toLowerCase())
+        )) {
+      return true;
+    }
+    
+    // Check for explicit stock status if available
+    if (product.stockStatus && 
+        product.stockStatus.toLowerCase() === 'out of stock') {
+      return true;
+    }
+    
+    // Check for quantity if available
+    if (product.quantity !== undefined && product.quantity <= 0) {
+      return true;
+    }
+    
+    return false;
+  };
+
   // Enhanced Add to Cart function that opens sidebar
   const handleAddToCartAndOpenSidebar = async (product) => {
-    if (isOutOfStock(product)) return;
+    if (isOutOfStock(product)) {
+      return; // Don't proceed if out of stock
+    }
     
     setIsAddingToCart(true);
     try {
@@ -134,7 +170,9 @@ const ProductDescription = () => {
 
   // Enhanced Add to Cart function for related products (without opening sidebar)
   const handleAddToCartOnly = async (product) => {
-    if (isOutOfStock(product)) return;
+    if (isOutOfStock(product)) {
+      return; // Don't proceed if out of stock
+    }
     
     setIsAddingToCart(true);
     try {
@@ -166,15 +204,18 @@ const ProductDescription = () => {
   };
 
   // Checkout handler with authentication check
-const handleCheckout = () => {
-  const storedCustomer = JSON.parse(localStorage.getItem("customer"));
+  const handleCheckout = () => {
+    const storedCustomer = JSON.parse(localStorage.getItem("customer"));
 
-  if (!storedCustomer) {
-    setAuthModalOpen(true);
-    return;
-  }
-
-  // GTM event
+    if (!storedCustomer) {
+      // Close sidebar first, then open auth modal
+      setCartSidebarOpen(false);
+      setTimeout(() => {
+        setAuthModalOpen(true);
+      }, 300); // Small delay to ensure sidebar closes first
+      return;
+    }
+    // GTM event tracking
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push({
     event: "proceed_to_checkout",
@@ -186,12 +227,9 @@ const handleCheckout = () => {
       quantity: item.quantity
     }))
   });
-
-  // Save cart and navigate
-  localStorage.setItem("selectedCart", JSON.stringify(cart));
-  navigate("/checkout");
-};
-
+    localStorage.setItem("selectedCart", JSON.stringify(cart));
+    navigate("/checkout");
+  };
 
   const handleShare = (platform) => {
     const url = window.location.href;
@@ -272,14 +310,13 @@ const handleCheckout = () => {
       {line}
     </p>
   ));
-
-  const productUrl = window.location.href;
+   const productUrl = window.location.href;
 
   const related = products.slice(-12);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-10">
-         <Helmet>
+          <Helmet>
         <title>{`${product?.productName || "Product"} - Best Price`}</title>
         <meta name="description" content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}. High-quality and best prices available.`} />
         <meta property="og:title" content={product?.productName || "Product"} />
@@ -378,9 +415,9 @@ const handleCheckout = () => {
             <div className="flex items-center gap-3">
               <Button
                 variant="outlined"
-                className={`border font-semibold shadow-lg flex items-center gap-2 px-4 py-2 transition duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${
+                className={`font-semibold shadow-lg flex items-center gap-2 px-4 py-2 transition duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${
                   outOfStock 
-                    ? 'border-gray-400 bg-gray-100 text-gray-500' 
+                    ? 'border-gray-400 text-gray-500 bg-gray-100' 
                     : 'border-red-600 text-red-600 hover:bg-red-50'
                 }`}
                 onClick={() => handleAddToCartAndOpenSidebar(product)}
@@ -388,13 +425,18 @@ const handleCheckout = () => {
               >
                 {isCartButtonLoading ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
                     Adding to cart...
+                  </>
+                ) : outOfStock ? (
+                  <>
+                    <ExclamationTriangleIcon className="w-4 h-4" />
+                    Out of Stock
                   </>
                 ) : (
                   <>
                     <ShoppingCartIcon className="w-4 h-4" />
-                    {outOfStock ? "Out of Stock" : "Add to Cart"}
+                    Add to Cart
                   </>
                 )}
               </Button>
@@ -465,15 +507,15 @@ const handleCheckout = () => {
             </IconButton>
           </div>
 
-          {/* Updated Stock Status Display */}
-          <div className={`flex items-center gap-2 px-4 py-1 rounded-lg text-sm font-semibold shadow-sm border w-max transition duration-200 ${
+          {/* Enhanced Stock Status Display */}
+          <div className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm border transition duration-200 w-max ${
             outOfStock 
-              ? 'bg-red-50 text-red-800 border-red-200 hover:shadow-md' 
+              ? 'bg-red-50 text-red-800 border-red-200' 
               : 'bg-green-50 text-green-800 border-green-200 hover:shadow-md'
           }`}>
             {outOfStock ? (
               <>
-                <XMarkIcon className="w-4 h-4 text-red-600" />
+                <ExclamationTriangleIcon className="w-4 h-4 text-red-600" />
                 <span>Out of Stock</span>
               </>
             ) : (
@@ -506,9 +548,9 @@ const handleCheckout = () => {
             <div className="hidden md:flex flex-wrap gap-4 items-center">
               <Button
                 variant="outlined"
-                className={`border font-semibold shadow-lg flex items-center gap-2 px-2 py-3 transition duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${
+                className={`font-semibold shadow-lg flex items-center gap-2 px-4 py-3 transition duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${
                   outOfStock 
-                    ? 'border-gray-400 bg-gray-100 text-gray-500' 
+                    ? 'border-gray-400 text-gray-500 bg-gray-100' 
                     : 'border-red-600 text-red-600 hover:bg-red-50'
                 }`}
                 onClick={() => handleAddToCartAndOpenSidebar(product)}
@@ -516,13 +558,18 @@ const handleCheckout = () => {
               >
                 {isCartButtonLoading ? (
                   <>
-                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
                     Adding...
+                  </>
+                ) : outOfStock ? (
+                  <>
+                    <ExclamationTriangleIcon className="w-5 h-5" />
+                    Out of Stock
                   </>
                 ) : (
                   <>
                     <ShoppingCartIcon className="w-5 h-5" />
-                    {outOfStock ? "Out of Stock" : "Add to Cart"}
+                    Add to Cart
                   </>
                 )}
               </Button>
@@ -541,11 +588,11 @@ const handleCheckout = () => {
             </div>
 
             {/* Mobile Bottom Bar */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-2 py-1 shadow-xl z-50 flex items-center justify-between md:hidden">
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 shadow-xl z-50 flex items-center justify-between md:hidden">
               <div className="flex gap-2 w-full">
                 <Button
                   variant="outlined"
-                  className={`border font-semibold rounded-xl flex items-center justify-center gap-2 py-2 transition duration-300 hover:scale-105 shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex-1 ${
+                  className={`font-semibold rounded-xl flex items-center justify-center gap-2 py-3 transition duration-300 hover:scale-105 shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex-1 ${
                     outOfStock 
                       ? 'border-gray-400 bg-gray-100 text-gray-500' 
                       : 'border-red-300 bg-red-100 text-red-600'
@@ -555,13 +602,18 @@ const handleCheckout = () => {
                 >
                   {isCartButtonLoading ? (
                     <>
-                      <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                      <div className="w-5 h-5 border-2 border-red-600 border-t-transparent font-bold rounded-full animate-spin"></div>
                       Adding...
+                    </>
+                  ) : outOfStock ? (
+                    <>
+                      <ExclamationTriangleIcon className="w-5 h-5" />
+                      Out of Stock
                     </>
                   ) : (
                     <>
                       <ShoppingCartIcon className="w-5 h-5" />
-                      {outOfStock ? "Out of Stock" : "Add to Cart"}
+                      Add to Cart
                     </>
                   )}
                 </Button>
@@ -572,7 +624,7 @@ const handleCheckout = () => {
                   )}. Is it currently available, and what's the price?}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="bg-green-500 hover:bg-green-600 text-white  rounded-xl shadow-lg flex items-center justify-center gap-2 px-4 py-3 transition duration-300 hover:scale-105"
+                  className="bg-green-500 hover:bg-green-600 text-white rounded-xl shadow-lg flex items-center justify-center gap-2 px-4 py-3 transition duration-300 hover:scale-105"
                 >
                   <FaWhatsapp className="w-5 h-5" />
                   Whatsapp support
@@ -632,21 +684,28 @@ const handleCheckout = () => {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
             {viewedProducts.map((product, index) => {
+              const productOutOfStock = isOutOfStock(product);
               const discount =
                 product.oldPrice > 0
                   ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
                   : 0;
 
               const imageUrl = getValidImageUrl(product.image);
-              const productOutOfStock = isOutOfStock(product);
 
               return (
                 <div
                   key={product.id || index}
-                  className="group bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden"
+                  className={`group bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden ${
+                    productOutOfStock ? 'opacity-75' : ''
+                  }`}
                 >
                   <div className="relative overflow-hidden">
-                    {discount > 0 && (
+                    {productOutOfStock && (
+                      <span className="absolute top-2 right-2 bg-red-500 text-white text-xs font-semibold px-2 py-1 rounded-full z-10">
+                        Out of Stock
+                      </span>
+                    )}
+                    {discount > 0 && !productOutOfStock && (
                       <span className="absolute top-2 left-2 bg-red-400 text-white text-xs font-semibold px-2 py-1 rounded-full z-10 w-10 h-10 flex items-center justify-center">
                         -{discount}%
                       </span>
@@ -682,20 +741,18 @@ const handleCheckout = () => {
                       </Tooltip>
                       <Tooltip content={productOutOfStock ? "Out of Stock" : "Add to Cart"} placement="top">
                         <button
-                          className={`p-2 rounded-full transition-all ${
-                            productOutOfStock 
-                              ? 'bg-gray-500/20 cursor-not-allowed' 
-                              : 'bg-white/10 hover:bg-white/20'
+                          className={`p-2 bg-white/10 hover:bg-white/20 rounded-full transition-opacity ${
+                            productOutOfStock ? 'opacity-50 cursor-not-allowed' : ''
                           }`}
-                          onClick={() => handleAddToCartOnly(product)}
+                          onClick={() => !productOutOfStock && handleAddToCartOnly(product)}
                           disabled={isCartButtonLoading || productOutOfStock}
                         >
                           {isCartButtonLoading ? (
                             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          ) : productOutOfStock ? (
+                            <ExclamationTriangleIcon className="w-5 h-5 text-white" />
                           ) : (
-                            <ShoppingCartIcon className={`w-5 h-5 ${
-                              productOutOfStock ? 'text-gray-400' : 'text-white hover:text-red-400'
-                            }`} />
+                            <ShoppingCartIcon className="w-5 h-5 text-white hover:text-red-400" />
                           )}
                         </button>
                       </Tooltip>
@@ -716,11 +773,6 @@ const handleCheckout = () => {
                         </span>
                       )}
                     </div>
-                    {productOutOfStock && (
-                      <div className="text-xs text-red-500 font-medium">
-                        Out of Stock
-                      </div>
-                    )}
                   </div>
                 </div>
               );
@@ -742,6 +794,7 @@ const handleCheckout = () => {
           <ProductCard currentProducts={related} navigate={navigate} />
         </section>
       )}
+
 
       {/* Cart Sidebar - IMPROVED VERSION */}
       <Drawer
@@ -791,94 +844,120 @@ const handleCheckout = () => {
                 {cart.map((item, index) => (
                   <div key={`${item.productId}-${index}`} className="bg-white border rounded-lg p-3 shadow-sm">
                     <div className="flex items-center gap-3">
-                      <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden">
+                      <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                         {renderCartImage(item)}
-                     </div>
-                     
-                     <div className="flex-1 min-w-0">
-                       <h4 className="font-medium text-gray-800 text-sm line-clamp-2">
-                         {item.productName || "Product"}
-                       </h4>
-                       <p className="text-red-500 font-semibold text-sm mt-1">
-                         GH₵{formatPrice(item.price)}.00
-                       </p>
-                       
-                       {/* Quantity Controls */}
-                       <div className="flex items-center gap-2 mt-2">
-                         <button
-                           onClick={() => handleQuantityChange(item.productId, item.quantity - 1)}
-                           disabled={item.quantity <= 1}
-                           className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                         >
-                           <MinusIcon className="w-3 h-3" />
-                         </button>
-                         
-                         <span className="w-8 text-center text-sm font-medium">
-                           {item.quantity}
-                         </span>
-                         
-                         <button
-                           onClick={() => handleQuantityChange(item.productId, item.quantity + 1)}
-                           className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100"
-                         >
-                           <PlusIcon className="w-3 h-3" />
-                         </button>
-                       </div>
-                     </div>
-                     
-                     <div className="flex flex-col items-end gap-2">
-                       <p className="font-bold text-gray-800 text-sm">
-                         GH₵{formatPrice(item.price * item.quantity)}.00
-                       </p>
-                       <button
-                         onClick={() => handleRemoveItem(item.productId)}
-                         className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50"
-                       >
-                         <TrashIcon className="w-4 h-4" />
-                       </button>
-                     </div>
-                   </div>
-                 </div>
-               ))}
-             </div>
-           )}
-         </div>
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-gray-800 text-sm line-clamp-2 mb-1">
+                          {item.productName || "Product Name"}
+                        </h4>
+                        <p className="text-red-500 font-bold text-sm">
+                          ₵{formatPrice(item.price || 0)}.00
+                        </p>
+                        
+                        <div className="flex items-center justify-between mt-2">
+                          <div className="flex items-center bg-gray-50 rounded border">
+                            <Button
+                              size="sm"
+                              variant="text"
+                              className="min-w-0 px-2 py-1"
+                              onClick={() => handleQuantityChange(item.productId, item.quantity - 1)}
+                              disabled={item.quantity <= 1}
+                            >
+                              <MinusIcon className="h-3 w-3" />
+                            </Button>
+                            <span className="w-8 text-center text-xs font-semibold">
+                              {item.quantity || 1}
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="text"
+                              className="min-w-0 px-2 py-1"
+                              onClick={() => handleQuantityChange(item.productId, item.quantity + 1)}
+                            >
+                              <PlusIcon className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-700 font-bold text-sm">
+                              ₵{formatPrice((item.price || 0) * (item.quantity || 1))}.00
+                            </span>
+                            <IconButton
+                              size="sm"
+                              variant="text"
+                              color="red"
+                              className="p-1"
+                              onClick={() => handleRemoveItem(item.productId)}
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </IconButton>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-         {/* Cart Footer */}
-         {cart.length > 0 && (
-           <div className="border-t bg-white p-4">
-             <div className="flex items-center justify-between mb-4">
-               <span className="text-lg font-bold text-gray-800">Total:</span>
-               <span className="text-lg font-bold text-red-600">
-                 GH₵{formatPrice(cartTotal)}.00
-               </span>
-             </div>
+          {/* Cart Footer */}
+          {cart.length > 0 && (
+            <div className="border-t bg-white p-4">
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 font-medium">Total:</span>
+                  <span className="text-lg font-bold text-red-600">
+                    ₵{formatPrice(cartTotal)}.00
+                  </span>
+                </div>
+                
+                <p className="text-xs text-center text-gray-500">
+                  * Taxes & shipping calculated at checkout
+                </p>
+                
+                <div className="space-y-2">
+                  
              
-             <Button
-               onClick={handleCheckout}
-               className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-lg transition duration-300 hover:scale-105"
-             >
-               Proceed to Checkout
-             </Button>
-           </div>
-         )}
-       </div>
-     </Drawer>
+                  <Button
+                    fullWidth
+                    className="bg-red-500 hover:bg-red-600 text-white font-semibold py-3 rounded-lg shadow-md transition duration-200"
+                    onClick={handleCheckout}
+                  >
+                    Proceed to Checkout
+                  </Button>
+                  
+                     <Button
+      fullWidth
+      variant="outlined"
+      className="border-gray-300 text-gray-700 py-2 rounded-lg"
+      onClick={() => navigate(`/cart/${cartId}`)}
+      disabled={!cartId} // Optional: disable if cartId doesn't exist
+    >
+      View Cart Page
+    </Button>
 
-     {/* Auth Modal */}
-     <AuthModal
-       isOpen={authModalOpen}
-       onClose={handleAuthModalClose}
-       onSuccess={() => {
-         setAuthModalOpen(false);
-         // After successful auth, proceed to checkout
-         setTimeout(() => {
-           handleCheckout();
-         }, 500);
-       }}
-     />
-   </div>
- );
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </Drawer>
+
+      {/* Auth Modal */}
+      <AuthModal
+        open={authModalOpen}
+        onClose={handleAuthModalClose}
+        onSuccess={() => {
+          setAuthModalOpen(false);
+          setCartSidebarOpen(true);
+        }}
+
+ />
+    </div>
+  );
 };
 
 export default ProductDescription;

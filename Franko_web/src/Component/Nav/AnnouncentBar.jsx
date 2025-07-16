@@ -1,6 +1,6 @@
 import React from "react";
 import { Typography } from "@material-tailwind/react";
-import { PhoneIcon } from "@heroicons/react/24/outline";
+
 import { PhoneOutlined,   WhatsAppOutlined, } from "@ant-design/icons";
 const promoMessages = [
   "🎉 FRANKO TRADING!",

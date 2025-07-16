@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Mail, 
   Phone, 
@@ -27,6 +27,9 @@ const TikTokIcon = () => (
 );
 
 export default function ContactUsPage() {
+   useEffect(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
   const [formData, setFormData] = useState({
     name: '',
     email: '',

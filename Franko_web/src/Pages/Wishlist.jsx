@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState , useEffect} from "react";
 import { useNavigate } from "react-router-dom";
 import { Heart, ShoppingBag, X, Plus, Star, Filter } from "lucide-react";
 import { useSelector, useDispatch } from "react-redux";
@@ -9,6 +9,9 @@ const Wishlist = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [sortBy, setSortBy] = useState("newest");
+   useEffect(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
 
   const getImageUrl = (path) =>
     path?.includes("\\")

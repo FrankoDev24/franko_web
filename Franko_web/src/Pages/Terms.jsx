@@ -1,4 +1,4 @@
-
+import React, { useEffect } from 'react';
 import { 
   Shield, 
 Package, 
@@ -14,6 +14,9 @@ import { useNavigate } from 'react-router-dom';
 
 function Terms() {
       const navigate = useNavigate();
+       useEffect(() => {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, []);
 
   const handleContactSupport = () => {
     navigate('/contact'); // Change '/support' to your desired route

@@ -75,6 +75,10 @@ const Checkout = () => {
   const customerId = customerData?.customerAccountNumber;
   const customerAccountType = customerData?.accountType;
   const selectedAddress = deliveryInfo?.address;
+    useEffect(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
+  
 
   // Initialize customer data
   useEffect(() => {
