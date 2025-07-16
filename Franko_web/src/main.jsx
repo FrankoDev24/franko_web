@@ -1,12 +1,18 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
-import { Provider } from "react-redux";
-import { store, persistor } from "./Redux/store.js";
 import App from './App.jsx';
 import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@material-tailwind/react';
+import { Provider } from "react-redux";
+import { store, persistor } from "./Redux/store.js";
 import { PersistGate } from 'redux-persist/integration/react';
+import { ThemeProvider } from '@material-tailwind/react';
+import TagManager from 'react-gtm-module';
+
+// ✅ Initialize GTM
+TagManager.initialize({
+  gtmId: 'GTM-WKCL4JTV', // Replace with your GTM ID
+});
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

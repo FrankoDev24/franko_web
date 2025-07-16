@@ -2,14 +2,14 @@ import { useRef, useState, useEffect } from "react";
 import { Typography, IconButton } from "@material-tailwind/react";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { useNavigate } from "react-router-dom";
-import phone from "../assets/phone.jpeg";
-import laptop from "../assets/lap.jpeg";
-import fridge from "../assets/fridge.jpeg";
-import tv from "../assets/tv.jpeg";
-import speaker from "../assets/speaker.jpeg";
-import blender from "../assets/blender.jpeg";
-import ac from "../assets/ac.jpeg";
-import combo from "../assets/combo.jpeg";
+import phone from "../assets/phone.jpg";
+import laptop from "../assets/lap.jpg";
+import fridge from "../assets/fridge.jpg";
+import tv from "../assets/tv.jpg";
+import speaker from "../assets/speaker.jpg";
+import blender from "../assets/blender.jpg";
+import ac from "../assets/ac.jpg";
+import combo from "../assets/combo.jpg";
 import accessories from "../assets/acce.png";
 
 const categories = [

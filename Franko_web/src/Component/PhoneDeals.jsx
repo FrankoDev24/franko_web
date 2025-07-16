@@ -253,7 +253,7 @@ const sortedProducts = (Array.isArray(productsByCategory[categoryId]) ? products
                   <img
                     src={getValidImageUrl(product.productImage)}
                     alt={product.productName}
-                    className="h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                    className="h-full object-contain transition-transform duration-300 group-hover:scale-105 "
                   />
                 </div>
 
