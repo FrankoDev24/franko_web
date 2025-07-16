@@ -300,7 +300,7 @@ const Deals = () => {
               return (
                 <div
                   key={productID}
-                  className="group mb-2 rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden min-w-[170px] w-[200px]"
+                  className="group mb-2 rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden min-w-[180px] md:min-w-[240px] w-[250px]"
                 >
                   <div className="relative overflow-hidden">
                     {stock === 0 ? (
@@ -363,7 +363,7 @@ const Deals = () => {
                   </div>
 
                   <div className="p-1 md:p-2 text-center space-y-1">
-                    <h3 className="text-xs md:text-sm text-gray-800 line-clamp-2">{productName}</h3>
+                    <h3 className="text-xs md:text-sm font-medium text-gray-800 line-clamp-2">{productName}</h3>
                     <div className="flex items-center justify-center gap-1 mt-1">
                       <span className="text-red-500 font-medium text-sm">{formatPrice(price)}</span>
                       {oldPrice > 0 && (

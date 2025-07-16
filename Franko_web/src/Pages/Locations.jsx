@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Table, Input } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 
@@ -307,6 +307,9 @@ const columns = [
 
 const ShopsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
+    useEffect(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
 
   const filteredLocations = locations.filter((location) => {
     const term = searchTerm.toLowerCase();

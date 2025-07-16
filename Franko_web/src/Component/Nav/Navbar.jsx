@@ -61,7 +61,11 @@ const Nav = () => {
       return 0;
     }
   };
-
+ // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+ 
   // Function to handle wishlist navigation
   const handleWishlistClick = () => {
     navigate('/wishlist');
