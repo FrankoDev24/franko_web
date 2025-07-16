@@ -15,6 +15,14 @@ const OrderSuccessPage = () => {
   const [showConfetti, setShowConfetti] = useState(true);
 
   useEffect(() => {
+    // GTM page view tracking
+    if (window.gtag) {
+      window.gtag('event', 'page_view', {
+        page_location: window.location.href,
+        page_title: 'Order Success Page'
+      });
+    }
+
     const handleOrderCompletion = async () => {
       try {
         const checkoutDetails = JSON.parse(localStorage.getItem("checkoutDetails"));

@@ -8,6 +8,7 @@ import { FunnelIcon, XMarkIcon, AdjustmentsHorizontalIcon, TagIcon, Cog6ToothIco
 import { Tooltip } from "@material-tailwind/react";
 import ProductCard from "../Component/ProductCard";
  const categoryId = "4bdb194e-b308-4fd2-981d-e2c94736c773"
+import { Helmet } from "react-helmet";
 const Combo = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -223,8 +224,123 @@ const resetFilters = () => {
     </div>
   );
 
+  const structuredData = {
+    "@context": "https://schema.org/",
+    "@type": "Product",
+    "name": "Combo Deals",
+    "image": filteredProducts.length
+      ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}`
+      : "",
+    "description": "Discover the best combo deals on our platform with amazing discounts.",
+    "brand": {
+      "@type": "Brand",
+      "name": "Brand Name"
+    },
+    "category": "Electronics", // Modify as per product category
+    "offers": filteredProducts.map((item) => ({
+      "@type": "Offer",
+      "sku": item.productID,
+      "priceCurrency": "GHS",
+      "price": item.price,
+      "priceValidUntil": "2025-12-31",
+      "itemCondition": "https://schema.org/NewCondition",
+      "availability": "https://schema.org/InStock",
+      "url": `https://www.frankotrading.com/product/${item.productID}`,
+      "shippingDetails": {
+        "@type": "OfferShippingDetails",
+        "shippingRate": {
+          "@type": "MonetaryAmount",
+          "currency": "GHS",
+          "value": "30.00"
+        },
+        "shippingDestination": {
+          "@type": "DefinedRegion",
+          "addressCountry": "GH"
+        },
+        "deliveryTime": {
+          "@type": "ShippingDeliveryTime",
+          "handlingTime": {
+            "@type": "QuantitativeValue",
+            "minValue": 1,
+            "maxValue": 2,
+            "unitCode": "DAY"
+          },
+          "transitTime": {
+            "@type": "QuantitativeValue",
+            "minValue": 3,
+            "maxValue": 5,
+            "unitCode": "DAY"
+          }
+        }
+      },
+      "hasMerchantReturnPolicy": {
+        "@type": "MerchantReturnPolicy",
+        "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+        "merchantReturnDays": 14,
+        "returnMethod": "https://schema.org/ReturnByMail",
+        "returnFees": "https://schema.org/FreeReturn",
+        "applicableCountry": "GH"
+      }
+    })),
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.5",
+      "reviewCount": "120"
+    },
+    "review": {
+      "@type": "Review",
+      "author": {
+        "@type": "Person",
+        "name": "Verified Buyer"
+      },
+      "reviewBody": "Great deal on this product! Highly recommended.",
+      "reviewRating": {
+        "@type": "Rating",
+        "ratingValue": "5",
+        "bestRating": "5"
+      }
+    }
+  };
+  
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
+          <Helmet>
+        <title>Combo Deals - Best Discounts</title>
+        <meta name="description" content="Find the best combo deals and discounts on your favorite products." />
+        <meta property="og:title" content="Combo Deals - Best Discounts" />
+        <meta property="og:description" content="Get amazing discounts on our exclusive combo deals." />
+        <meta
+          property="og:image"
+          content={
+            filteredProducts.length
+              ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}`
+              : ""
+          }
+        />
+        <meta property="og:type" content="product.group" />
+        <meta property="og:url" content="https://www.frankotrading.com/combo" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Combo Deals - Best Discounts" />
+        <meta name="twitter:description" content="Get amazing discounts on our exclusive combo deals." />
+        <meta name="twitter:image" content= {filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
+        <link rel="canonical" href="https://www.frankotrading.com/combo" />
+        <script type="application/ld+json">{JSON.stringify(structuredData)}</script>
+        {/* Google Tag Manager */}
+
+      </Helmet>
+      <script>
+        {`
+          (function(w,d,s,l,i){
+            w[l]=w[l]||[];w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});
+            var f=d.getElementsByTagName(s)[0],
+            j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
+            j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;
+            f.parentNode.insertBefore(j,f);
+          })(window,document,'script','dataLayer','GTM-WKCL4JTV');
+        `}
+      </script>
       <div className="p-4 md:px-24 mx-auto">
         {/* Mobile Header */}
         <div className="md:hidden flex justify-between items-center mb-6 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">

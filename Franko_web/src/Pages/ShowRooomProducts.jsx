@@ -263,34 +263,102 @@ const ShowroomProductsPage = () => {
       </button>
     </div>
   );
-  const showroomStructuredData = {
-  "@context": "https://schema.org",
-  "@type": "Store",
-  "name": selectedShowroom?.showRoomName || "Showroom",
-  "description": `Explore the latest products in ${selectedShowroom?.showRoomName || "our showroom"} with great prices and variety.`,
-  "url": window.location.href,
-  "department": {
-    "@type": "DepartmentStore",
-    "name": selectedShowroom?.showRoomName || "Showroom Department"
-  }
-};
-
-
-  return (
+ return (
     <div className="min-h-screen">
-      <Helmet>
-  <title>{`${selectedShowroom?.showRoomName || 'Showroom'} | Franko Trading`}</title>
-  <meta 
-    name="description" 
-    content={`Explore products in the ${selectedShowroom?.showRoomName || 'selected showroom'} at Franko Trading. Great prices, discounts, and wide variety.`} 
-  />
-  <meta name="keywords" content="smartphones, electronics, showroom, Franko Trading, mobile phones in Ghana" />
+ <Helmet>
+  <title>{`${selectedShowroom?.showRoomName || "Smartphones in Ghana"} | Latest Phones & Great Prices – Franko Trading`}</title>
+  
+  <meta name="description" content={`Explore the newest smartphones in ${selectedShowroom?.showRoomName || "Ghana"} at Franko Trading. From budget to flagship devices, find phones from Samsung, Apple, Infinix, and Tecno — fast shipping and secure checkout.`} />
+  <meta name="keywords" content="mobile phones, smartphones, best phone deals, buy smartphones, latest phones" />
 
-  {/* JSON-LD Structured Data */}
+  {/* Open Graph Tags */}
+  <meta property="og:title" content={`${selectedShowroom?.showRoomName || "Smartphones in Ghana"} | Latest Phones & Great Prices – Franko Trading`} />
+  <meta property="og:description" content={`Explore the newest smartphones in ${selectedShowroom?.showRoomName || "Ghana"} at Franko Trading. From budget to flagship devices, find phones from Samsung, Apple, Infinix, and Tecno — fast shipping and secure checkout.`} />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content={window.location.href} />
+  <meta property="og:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "https://www.frankotrading.com/default-image.jpg"} />
+
+  {/* Twitter Tags */}
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={`${selectedShowroom?.showRoomName || "Smartphones in Ghana"} | Latest Phones & Great Prices – Franko Trading`} />
+  <meta name="twitter:description" content={`Explore the newest smartphones in ${selectedShowroom?.showRoomName || "Ghana"} at Franko Trading. From budget to flagship devices, find phones from Samsung, Apple, Infinix, and Tecno — fast shipping and secure checkout.`} />
+  <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "https://www.frankotrading.com/default-image.jpg"} />
+
+  {/* Canonical URL */}
+  <link rel="canonical" href={`https://www.frankotrading.com/showroom/${showRoomID}`} />
+
+  {/* JSON-LD Structured Data for Schema.org */}
   <script type="application/ld+json">
-    {JSON.stringify(showroomStructuredData)}
+    {JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      "name": `${selectedShowroom?.showRoomName || "Smart Phones"}`,
+      "description": `Explore a variety of electronic products in ${selectedShowroom?.showRoomName || "our showroom"} at the best prices. Find your perfect smartphone today!`,
+      "url": window.location.href,
+      "itemListElement": filteredProducts.map((item, index) => ({
+        "@type": "Product",
+        "position": index + 1,
+        "name": item.productName,
+        "description": item.productDescription,
+        "sku": item.productID,
+        "image": `https://smfteapi.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+        "brand": {
+          "@type": "Brand",
+          "name": item.brandName
+        },
+        "offers": {
+          "@type": "Offer",
+          "priceCurrency": "GHS",
+          "price": item.price,
+          "priceValidUntil": "2025-12-31",
+          "itemCondition": "https://schema.org/NewCondition",
+          "availability": "https://schema.org/InStock",
+          "url": `https://www.frankotrading.com/product/${item.productID}`,
+          "seller": {
+            "@type": "Organization",
+            "name": "Franko Trading"
+          },
+          "shippingDetails": {
+            "@type": "OfferShippingDetails",
+            "shippingRate": {
+              "@type": "MonetaryAmount",
+              "currency": "GHS",
+              "value": "30.00"
+            },
+            "shippingDestination": {
+              "@type": "DefinedRegion",
+              "addressCountry": "GH"
+            },
+            "deliveryTime": {
+              "@type": "ShippingDeliveryTime",
+              "handlingTime": {
+                "@type": "QuantitativeValue",
+                "minValue": 1,
+                "maxValue": 2,
+                "unitCode": "DAY"
+              },
+              "transitTime": {
+                "@type": "QuantitativeValue",
+                "minValue": 3,
+                "maxValue": 5,
+                "unitCode": "DAY"
+              }
+            }
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+            "merchantReturnDays": 14,
+            "returnMethod": "https://schema.org/ReturnByMail",
+            "returnFees": "https://schema.org/FreeReturn",
+            "applicableCountry": "GH"
+          }
+        }
+      }))
+    })}
   </script>
 </Helmet>
+
 
       <div className="p-2 md:px-2 mx-auto">
         {/* Enhanced Mobile Header */}

@@ -4,9 +4,9 @@ import { PhoneIcon } from "@heroicons/react/24/outline";
 import { PhoneOutlined,   WhatsAppOutlined, } from "@ant-design/icons";
 const promoMessages = [
   "🎉 FRANKO TRADING!",
-  "🔥 UP TO -40%",
-  "📻 TUNE IN TO FRANKO RADIO FOR TECH UPDATES!",
-  "🎁 SHOP NOW WHILE STOCK LASTS!",
+  "🔥 UP TO -20% OFF SELECTED PRODUCTS",
+  "📻 TUNE IN TO FRANKO RADIO !",
+  
 ];
 
 const AnnouncementBar = () => {

@@ -7,23 +7,32 @@ const OrderReceived = () => {
   const navigate = useNavigate();
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
 
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      navigate("/");
-    }, 8000);
+useEffect(() => {
+  // Push GTM event
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({
+    event: "order_received",
+    pageType: "OrderConfirmation",
+    timestamp: new Date().toISOString()
+  });
 
-    // Resize listener for confetti
-    const handleResize = () => {
-      setDimensions({ width: window.innerWidth, height: window.innerHeight });
-    };
+  const timeout = setTimeout(() => {
+    navigate("/");
+  }, 8000);
 
-    window.addEventListener("resize", handleResize);
+  const handleResize = () => {
+    setDimensions({ width: window.innerWidth, height: window.innerHeight });
+  };
 
-    return () => {
-      clearTimeout(timeout);
-      window.removeEventListener("resize", handleResize);
-    };
-  }, [navigate]);
+  window.addEventListener("resize", handleResize);
+
+  return () => {
+    clearTimeout(timeout);
+    window.removeEventListener("resize", handleResize);
+  };
+}, [navigate]);
+
+  
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center p-6 relative">

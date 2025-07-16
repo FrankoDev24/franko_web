@@ -14,6 +14,8 @@ import ProductCard from "../Component/ProductCard";
 import { CircularPagination } from "../Component/CircularPagination";
 import gif from "../assets/no.gif";
 import { MdSpeaker } from "react-icons/md";
+import { Helmet } from "react-helmet";
+
 
 const categoryId = "38f7245d-b5f4-408a-9607-c3e3cb410ae4"; // Television category ID"
 
@@ -276,6 +278,115 @@ const currentProducts = filteredProducts.slice(
 
   return (
     <div className="min-h-screen ">
+            <Helmet>
+  {/* Page Title & Meta Tags */}
+  <title>Best Speakers and sound bars for Sale | Affordable Audio Systems</title>
+  <meta name="description" content="Find the best speakers for your home or office. Shop high-quality audio systems at unbeatable prices." />
+  <meta name="keywords" content="speakers, audio systems, Bluetooth speakers, sound systems, home speakers" />
+  <meta name="robots" content="index, follow" />
+
+  {/* Open Graph (Facebook & LinkedIn) */}
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Best Speakers for Sale | Affordable Audio Systems" />
+  <meta property="og:description" content="Shop high-quality speakers for your home or office at unbeatable prices." />
+  <meta property="og:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
+  <meta property="og:url" content="https://www.frankotrading.com/speakers" />
+
+  {/* Twitter Cards */}
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Best Speakers for Sale | Affordable Audio Systems" />
+  <meta name="twitter:description" content="Find top-quality speakers with great sound at affordable prices." />
+  <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
+  <link rel="canonical" href="https://www.frankotrading.com/speakers" />
+  {/* JSON-LD Structured Data for Rich Snippets */}
+  <script type="application/ld+json">
+    {JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      "name": "Speakers",
+      "description": "High-quality audio systems for your home or office.",
+      "url": "https://www.frankotrading.com/speakers",
+      "itemListElement": filteredProducts.map((item, index) => ({
+        "@type": "Product",
+        "position": index + 1,
+        "name": item.productName,
+        "image": `https://smfteapi.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+        "description": item.description,
+        "sku": item.productID,
+        "category": item.categoryName,
+      
+        "brand": {
+          "@type": "Brand",
+          "name": item.brandName
+        },
+    "offers": {
+  "@type": "Offer",
+  "priceCurrency": "GHS",
+  "price": item.price,
+  "priceValidUntil": "2025-12-31",
+  "itemCondition": "https://schema.org/NewCondition",
+  "availability": "https://schema.org/InStock",
+  "url": `https://www.frankotrading.com/product/${item.productID}`,
+  "seller": {
+    "@type": "Organization",
+    "name": "Franko Trading"
+  },
+  "shippingDetails": {
+    "@type": "OfferShippingDetails",
+    "shippingRate": {
+      "@type": "MonetaryAmount",
+      "currency": "GHS",
+      "value": "30.00"
+    },
+    "shippingDestination": {
+      "@type": "DefinedRegion",
+      "addressCountry": "GH"
+    },
+    "deliveryTime": {
+      "@type": "ShippingDeliveryTime",
+      "handlingTime": {
+        "@type": "QuantitativeValue",
+        "minValue": 1,
+        "maxValue": 2,
+        "unitCode": "DAY"
+      },
+      "transitTime": {
+        "@type": "QuantitativeValue",
+        "minValue": 3,
+        "maxValue": 5,
+        "unitCode": "DAY"
+      }
+    }
+  },
+  "hasMerchantReturnPolicy": {
+    "@type": "MerchantReturnPolicy",
+    "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+    "merchantReturnDays": 14,
+    "returnMethod": "https://schema.org/ReturnByMail",
+    "returnFees": "https://schema.org/FreeReturn",
+    "applicableCountry": "GH"
+  }
+}
+
+      }))
+    })}
+  </script>
+
+
+
+</Helmet>
+
+<script>
+        {`
+          (function(w,d,s,l,i){
+            w[l]=w[l]||[];w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});
+            var f=d.getElementsByTagName(s)[0],
+            j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
+            j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;
+            f.parentNode.insertBefore(j,f);
+          })(window,document,'script','dataLayer','GTM-WKCL4JTV');
+        `}
+      </script>
       <div className="p-2 md:px-2 mx-auto">
         {/* Enhanced Mobile Header */}
         <div className="md:hidden space-y-2 ">

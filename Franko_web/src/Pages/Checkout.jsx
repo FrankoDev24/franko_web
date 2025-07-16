@@ -32,8 +32,7 @@ const Checkout = () => {
 
   // Validation states
   const [showValidationAlerts, setShowValidationAlerts] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null);
-  const [confirmationChecked, setConfirmationChecked] = useState(false);
+
 
   // Electronics alert modal
   const [isElectronicsAlertVisible, setIsElectronicsAlertVisible] = useState(false);
@@ -193,8 +192,8 @@ const Checkout = () => {
       totalAmount,
       description: `Payment for ${cartItems.map((item) => item.productName).join(", ")}`,
       callbackUrl: "https://smfteapi.salesmate.app/PaymentSystem/PostHubtelCallBack",
-      returnUrl: `https://frankotrading.com/order-success/${orderId}`,
-      cancellationUrl: "https://frankotrading.com/order-cancelled",
+      returnUrl: `https://www.frankotrading.com/order-success/${orderId}`,
+      cancellationUrl: "https://www.frankotrading.com/order-cancelled",
       merchantAccountNumber: "2020892",
       clientReference: orderId,
     };

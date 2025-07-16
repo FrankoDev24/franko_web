@@ -1,349 +1,144 @@
+// Simplified version of ProductDetailModal with sticky bottom action bar
 import React, { useEffect, useState } from "react";
+import { Modal, InputNumber } from "antd";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
 import { fetchProductById } from "../Redux/Slice/productSlice";
-import { Button, Modal, message, InputNumber } from "antd";
-import { ShoppingBagIcon, ShoppingCartIcon, HeartIcon, ShareIcon, TruckIcon, ShieldCheckIcon, ClockIcon,CheckCircleIcon } from "@heroicons/react/24/outline";
-import { HeartIcon as HeartIconSolid } from "@heroicons/react/24/solid";
+import { CheckCircleIcon, ShoppingCartIcon } from "@heroicons/react/24/outline";
 import { Helmet } from "react-helmet";
-import AuthModal from "../Component/AuthModal"
 import useAddToCart from "./Cart";
+import AuthModal from "../Component/AuthModal";
 
-// Custom Notification Component
-const Notification = ({ message, type, isVisible, onClose }) => {
-  useEffect(() => {
-    if (isVisible) {
-      const timer = setTimeout(() => {
-        onClose();
-      }, 3000); // Auto-hide after 3 seconds
-      return () => clearTimeout(timer);
-    }
-  }, [isVisible, onClose]);
+const formatPrice = (price) => price?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
-  if (!isVisible) return null;
+const Badge = ({ icon: Icon, text }) => (
+  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-green-50 text-green-700 text-sm font-medium border border-green-200">
+    <Icon className="w-4 h-4" />
+    {text}
+  </div>
+);
 
-  const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
-  const Icon = type === 'success' ? CheckCircleIcon : XCircleIcon;
-
-  return (
-    <div className="fixed top-4 right-4 z-50 animate-slide-in">
-      <div className={`${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 min-w-[300px]`}>
-        <Icon className="w-5 h-5 flex-shrink-0" />
-        <span className="text-sm font-medium">{message}</span>
-        <button
-          onClick={onClose}
-          className="ml-auto text-white/80 hover:text-white"
-        >
-          ×
-        </button>
-      </div>
-    </div>
-  );
-};
-
-const formatPrice = (price) => price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+const WhatsAppIcon = ({ className }) => (
+   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.465 3.63z"/>
+  </svg>
+);
 
 const ProductDetailModal = ({ productID, isModalVisible, onClose }) => {
   const dispatch = useDispatch();
-  const navigate = useNavigate();
-
-  const currentProduct = useSelector((state) => state.products.currentProduct || []);
   const { addProductToCart, loading: cartLoading } = useAddToCart();
+  const product = useSelector((state) => state.products.currentProduct?.[0]);
 
-  const [isBuying, setIsBuying] = useState(false);
-  const [authModalOpen, setAuthModalOpen] = useState(false);
   const [quantity, setQuantity] = useState(1);
-  const [isFavorite, setIsFavorite] = useState(false);
-
-  // Notification state
-  const [notification, setNotification] = useState({
-    message: '',
-    type: 'success', // 'success' or 'error'
-    isVisible: false
-  });
-
-  const showNotification = (message, type = 'success') => {
-    setNotification({
-      message,
-      type,
-      isVisible: true
-    });
-  };
-
-  const hideNotification = () => {
-    setNotification(prev => ({ ...prev, isVisible: false }));
-  };
+  const [authModalOpen, setAuthModalOpen] = useState(false);
 
   useEffect(() => {
-    if (isModalVisible && productID) {
+    if (productID && isModalVisible) {
       dispatch(fetchProductById(productID));
     }
   }, [dispatch, productID, isModalVisible]);
+const handleAddToCart = async () => {
+  const customer = JSON.parse(localStorage.getItem("customer"));
+  if (!customer) return setAuthModalOpen(true);
 
-  const handleBuyNow = () => {
-    if (!currentProduct.length) return;
+  try {
+    await addProductToCart({ ...product, quantity });
+    onClose(); // ✅ Close modal after successful add to cart
+  } catch {
+    alert("Failed to add to cart");
+  }
+};
 
-    const storedCustomer = JSON.parse(localStorage.getItem("customer"));
-
-    if (!storedCustomer) {
-      setAuthModalOpen(true);
-      return;
-    }
-
-    setIsBuying(true);
-
-    const product = currentProduct[0];
-    const selectedCart = [{
-      productId: product.productID,
-      productName: product.productName,
-      price: product.price,
-      total: product.price * quantity,
-      quantity: quantity,
-      imagePath: product.productImage || "",
-    }];
-
-    localStorage.setItem("selectedCart", JSON.stringify(selectedCart));
-    
-    onClose();
-    navigate("/checkout");
-    
-    setIsBuying(false);
+  const handleWhatsAppSupport = () => {
+    const message = `Hi! I'm interested in:\n📦 ${product.productName}\n💰 ₵${formatPrice(product.price)} x ${quantity}\n💵 ₵${formatPrice(product.price * quantity)}`;
+    window.open(`https://wa.me/+233246422338?text=${encodeURIComponent(message)}`, "_blank");
   };
 
-  const handleAddToCart = async () => {
-    if (!currentProduct.length) return;
-
-    const storedCustomer = JSON.parse(localStorage.getItem("customer"));
-
-    if (!storedCustomer) {
-      setAuthModalOpen(true);
-      return;
-    }
-
-    try {
-      const product = currentProduct[0];
-      // Use the same cart logic as ProductCard
-      await addProductToCart({
-        ...product,
-        quantity: quantity
-      });
-      
-      // Show success notification
-      showNotification(`${quantity} item(s) added to cart successfully!`, "success");
-    } catch (error) {
-      console.error("Error adding to cart:", error);
-      showNotification("Failed to add item to cart. Please try again.", "error");
-    }
-  };
-
-  const handleFavoriteToggle = () => {
-    setIsFavorite(!isFavorite);
-    message.success(isFavorite ? "Removed from favorites" : "Added to favorites");
-  };
-
-  const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: product.productName,
-        text: `Check out this amazing product: ${product.productName}`,
-        url: window.location.href,
-      });
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      message.success("Product link copied to clipboard!");
-    }
-  };
-
-  if (!currentProduct || !currentProduct.length) {
+  if (!product) {
     return (
-      <Modal
-        visible={isModalVisible}
-        onCancel={onClose}
-        footer={null}
-        width="95%"
-        centered
-        className="rounded-lg"
-      >
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-            <h2 className="text-lg font-semibold text-gray-700">Loading Product...</h2>
-          </div>
+      <Modal open={isModalVisible} onCancel={onClose} footer={null} centered width="90%">
+        <div className="text-center py-10">
+          <div className="animate-spin h-10 w-10 mx-auto border-4 border-emerald-400 border-t-transparent rounded-full mb-4"></div>
+          <p className="text-gray-600">Loading product details...</p>
         </div>
       </Modal>
     );
   }
 
-  const product = currentProduct[0];
-  const backendBaseURL = "https://smfteapi.salesmate.app";
-  const imageUrl = `${backendBaseURL}/Media/Products_Images/${product.productImage?.split("\\").pop()}`;
+  const imageUrl = `https://smfteapi.salesmate.app/Media/Products_Images/${product.productImage?.split("\\").pop()}`;
 
   return (
     <>
-      {/* Notification Component */}
-      <Notification
-        message={notification.message}
-        type={notification.type}
-        isVisible={notification.isVisible}
-        onClose={hideNotification}
-      />
-
       <Modal
-        visible={isModalVisible}
+        open={isModalVisible}
         onCancel={onClose}
         footer={null}
-        width="95%"
         centered
-        bodyStyle={{
-          maxHeight: "90vh",
-          overflow: "hidden",
-          padding: 0,
-        }}
-        className="rounded-lg product-modal"
-        style={{ maxWidth: "1200px" }}
+        width="95%"
+        bodyStyle={{ padding: 0, height: "90vh", display: "flex", flexDirection: "column" }}
+        className="product-modal"
       >
         <Helmet>
-          <meta
-            name="description"
-            content={`Buy ${product.productName} for ₵${formatPrice(product.price)}. Check out this amazing product for the best price!`}
-          />
-          <title>{product.productName} - Best Price Online</title>
+          <title>{product.productName} - ₵{formatPrice(product.price)}</title>
+          <meta name="description" content={`Buy ${product.productName} for ₵${formatPrice(product.price)}.`} />
         </Helmet>
 
-        <div className="bg-white rounded-lg overflow-hidden">
-        
+        <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
+          <div className="flex-1 p-4 bg-gray-50 flex items-center justify-center">
+            <img
+              src={imageUrl}
+              alt={product.productName}
+              className="rounded-2xl max-h-[400px] object-contain"
+            />
+          </div>
 
-          <div className="flex flex-col lg:flex-row max-h-[calc(90vh-140px)] overflow-hidden">
-            {/* Image Section */}
-            <div className="flex-1 p-6flex items-center justify-center">
-              <div className="relative group">
-                <img
-                  src={imageUrl}
-                  alt={product.productName}
-                  className="rounded-xl shadow-xl w-full object-contain max-h-[400px] lg:max-h-[500px] transition-transform duration-300 group-hover:scale-105"
-                />
-                <div className="absolute inset-0  rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          <div className="flex-1 p-2 space-y-2 overflow-y-auto">
+            <h1 className="text-md font-semibold text-gray-800">{product.productName}</h1>
+
+            <div>
+          
+              <div className="text-red-600 text-lg font-bold">
+                ₵{formatPrice(product.price)}
               </div>
             </div>
 
-            {/* Product Info Section */}
-            <div className="flex-1 p-8 overflow-y-auto">
-              <div className="space-y-2">
-                {/* Product Name and Price */}
-                <div>
-                  <h1 className="text-md lg:text-2xl font-bold mb-2 text-gray-900 leading-tight">
-                    {product.productName}
-                  </h1>
-                  <div className="flex items-baseline gap-3 text-red-500 bg-red-50 p-2 rounded-lg shadow-sm">
-                    <span className="text-sm lg:text-xl font-bold">
-                      ₵{formatPrice(product.price)}.00
-                    </span>
-                    <span className="text-xs md:tex-sm text-gray-400 line-through">
-                      ₵{formatPrice(Math.round(product.price * 1.2))}.00
-                    </span>
-                    
-                  </div>
-                </div>
-
-                {/* Stock and Features */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 text-green-800 text-sm font-medium border border-green-200">
-                    <ShieldCheckIcon className="w-4 h-4" />
-                    <span>In Stock</span>
-                  </div>
-                 
-                </div>
-
-                {/* Description */}
-                <div>
-                <h2 className="text-sm md:text-md font-bold text-gray-700 relative whitespace-nowrap mt-4 mb-3">
-                  Product Description
-                  <span className="absolute -bottom-1 left-0 w-16 h-1 bg-red-400 rounded-full "></span>
-                </h2>
-                             <div className="bg-white p-2 max-h-72 overflow-y-auto  transition-all duration-300 scrollbar-thin scrollbar-thumb-blue-400 scrollbar-track-gray-100">
-                    {product.description?.split("\n").map((line, idx) => (
-                      <p key={idx} className="text-gray-700 mb-2 leading-relaxed">
-                        {line}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-
+            <Badge icon={CheckCircleIcon} text="In Stock" />
+            <div>
+              <h3 className="text-sm font-semibold text-gray-800 mb-2">Description</h3>
+              <div className="text-gray-600 text-sm max-h-32 md:max-h-72 overflow-y-auto whitespace-pre-line">
+                {product.description}
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Fixed Bottom Action Bar */}
-          <div className="border-t p-4 shadow-lg">
-            <div className="flex flex-row gap-4 max-w-md mx-auto">
-              <button
-                disabled={cartLoading}
-                onClick={handleAddToCart}
-                className="group flex-1 h-10 md:h-12 px-4 text-sm md:text-md font-semibold border-2 border-red-500 text-red-600 bg-white hover:bg-red-50 hover:border-red-600 hover:text-red-700 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg active:scale-95 flex items-center justify-center   disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-              >
-                {cartLoading ? (
-                  <div className="w-5 h-5 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <ShoppingCartIcon className="w-6 h-6 transition-transform group-hover:scale-110" />
-                )}
-                <span>{cartLoading ? 'Adding...' : 'Add to Cart'}</span>
-              </button>
-              
-              <button
-                disabled={isBuying}
-                onClick={handleBuyNow}
-                className="group flex-1 h-10 md:h-12 px-4 text-sm md:text-md font-semibold text-white bg-gradient-to-r from-green-300 via-green-400 to-green-700 hover:from-green-600 hover:via-green-700 hover:to-green-800 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-xl active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none relative overflow-hidden"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 transform -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-                {isBuying ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <ShoppingBagIcon className="w-6 h-6 transition-transform group-hover:scale-110 relative z-10" />
-                )}
-                <span className="relative z-10">{isBuying ? 'Processing...' : 'Buy Now'}</span>
-              </button>
-            </div>
-          
+        {/* Sticky Bottom Action Bar */}
+        <div className="sticky bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-2 z-10">
+          <div className="flex flex-wrap gap-2 md:gap-4 justify-center max-w-2xl mx-auto">
+            <button
+              onClick={handleAddToCart}
+              disabled={cartLoading}
+              className="flex-1 min-w-[160px] h-12 bg-red-100 text-red-700 border border-red-400 rounded-xl flex items-center justify-center gap-2 font-semibold hover:bg-red-200 transition"
+            >
+              {cartLoading ? (
+                <div className="animate-spin border-2 border-red-500 border-t-transparent rounded-full h-5 w-5" />
+              ) : (
+                <ShoppingCartIcon className="w-5 h-5" />
+              )}
+              Add to Cart
+            </button>
+
+            <button
+              onClick={handleWhatsAppSupport}
+              className="flex-1 min-w-[160px] h-12 bg-green-600 text-white rounded-xl flex items-center justify-center gap-2 font-semibold hover:bg-green-700 transition"
+            >
+              <WhatsAppIcon className="w-5 h-5" />
+              WhatsApp Support
+            </button>
           </div>
         </div>
       </Modal>
 
-      {/* Auth Modal */}
       <AuthModal open={authModalOpen} onClose={() => setAuthModalOpen(false)} />
-
-      <style jsx>{`
-        @keyframes slide-in {
-          from {
-            transform: translateX(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-        .animate-slide-in {
-          animation: slide-in 0.3s ease-out;
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: #f1f1f1;
-          border-radius: 3px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #c1c1c1;
-          border-radius: 3px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #a8a8a8;
-        }
-        .product-modal .ant-modal-content {
-          border-radius: 12px;
-          overflow: hidden;
-        }
-      `}</style>
     </>
   );
 };

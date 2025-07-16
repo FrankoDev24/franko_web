@@ -11,10 +11,10 @@ import {
   ChevronDownIcon,
   Bars3BottomLeftIcon
 } from "@heroicons/react/24/outline";
-import { Tooltip } from "@material-tailwind/react";
 import ProductCard from "../Component/ProductCard";
 import { CircularPagination } from "../Component/CircularPagination";
 import gif from "../assets/no.gif";
+import { Helmet } from "react-helmet";
 
 const Brand = () => {
   const { brandId } = useParams();
@@ -255,8 +255,24 @@ const Brand = () => {
     </div>
   );
 
+  const brandName = selectedBrand?.brandName || 'Featured Brands';
+  const pageTitle = selectedBrand
+    ? `Shop ${brandName} Products Online | Franko Trading`
+    : 'Explore Branded Products | Franko Trading';
+  const description = selectedBrand
+    ? `Buy genuine ${brandName} electronics and accessories at Franko Trading. Fast delivery and best prices guaranteed.`
+    : 'Browse a wide selection of authentic electronics and accessories from top brands.';
+  const imageUrl = `${window.location.origin}/assets/frankoIcon.png`;
+  const pageUrl = `https://www.frankotrading.com/brand/${brandId}`;
+
   return (
     <div className="min-h-screen ">
+        <Helmet>
+        <title>{pageTitle}</title>
+        <meta name="description" content={description} />
+        <link rel="canonical" href={pageUrl} />
+      </Helmet>
+
       <div className="p-2 md:px-2 mx-auto">
         {/* Enhanced Mobile Header */}
         <div className="md:hidden space-y-2 ">

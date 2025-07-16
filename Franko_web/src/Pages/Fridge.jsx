@@ -14,6 +14,7 @@ import ProductCard from "../Component/ProductCard";
 import { CircularPagination } from "../Component/CircularPagination";
 import gif from "../assets/no.gif";
 import { RiFridgeLine } from "react-icons/ri";
+import { Helmet } from "react-helmet";
 
 const categoryId = "4f5076f8-34b6-42b8-a9c5-a1e92e3d08fb"
 
@@ -276,6 +277,114 @@ const currentProducts = filteredProducts.slice(
 
   return (
     <div className="min-h-screen ">
+      <Helmet>
+  {/* Dynamic Page Title */}
+  <title>Shop Refrigerators - Best Prices & Top Brands</title>
+  
+  {/* SEO Meta Description */}
+  <meta name="description" content="Find the best refrigerators from top brands at unbeatable prices. Shop now and enjoy great deals on high-quality fridges!" />
+  
+  {/* Open Graph (OG) Tags for Social Media */}
+  <meta property="og:title" content="Shop Refrigerators - Best Prices & Top Brands" />
+  <meta property="og:description" content="Find the best refrigerators from top brands at unbeatable prices. Shop now and enjoy great deals on high-quality fridges!" />
+  <meta property="og:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
+  <meta property="og:url" content="https://www.frankotrading.com/refrigerator" />
+  <meta property="og:type" content="website" />
+
+  {/* Twitter Card for Better Social Sharing */}
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Shop Refrigerators - Best Prices & Top Brands" />
+  <meta name="twitter:description" content="Find the best refrigerators from top brands at unbeatable prices. Shop now and enjoy great deals on high-quality fridges!" />
+  <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
+
+  {/* Canonical URL to Prevent Duplicate Content Issues */}
+  <link rel="canonical" href="https://www.frankotrading.com/refrigerator" />
+
+  {/* JSON-LD Structured Data */}
+  <script type="application/ld+json">
+    {JSON.stringify({
+      "@context": "https://schema.org/",
+      "@type": "ItemList",
+      "name": "Refrigerators",
+      "description": "Find the best refrigerators from top brands at unbeatable prices.",
+      "url": "https://www.frankotrading.com/refrigerator",
+      "itemListElement": filteredProducts.map((item, index) => ({
+        "@type": "Product",
+        "position": index + 1,
+        "name": item.productName,
+        "image": `https://smfteapi.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+        "description": item.description,
+        "brand": {
+          "@type": "Brand",
+          "name": item.brandName,
+        },
+        "sku": item.productID,
+     "offers": {
+  "@type": "Offer",
+  "priceCurrency": "GHS",
+  "price": item.price,
+  "priceValidUntil": "2025-12-31",
+  "itemCondition": "https://schema.org/NewCondition",
+  "availability": "https://schema.org/InStock",
+  "url": `https://www.frankotrading.com/product/${item.productID}`,
+  "seller": {
+    "@type": "Organization",
+    "name": "Franko Trading"
+  },
+  "shippingDetails": {
+    "@type": "OfferShippingDetails",
+    "shippingRate": {
+      "@type": "MonetaryAmount",
+      "currency": "GHS",
+      "value": "30.00"
+    },
+    "shippingDestination": {
+      "@type": "DefinedRegion",
+      "addressCountry": "GH"
+    },
+    "deliveryTime": {
+      "@type": "ShippingDeliveryTime",
+      "handlingTime": {
+        "@type": "QuantitativeValue",
+        "minValue": 1,
+        "maxValue": 2,
+        "unitCode": "DAY"
+      },
+      "transitTime": {
+        "@type": "QuantitativeValue",
+        "minValue": 3,
+        "maxValue": 5,
+        "unitCode": "DAY"
+      }
+    }
+  },
+  "hasMerchantReturnPolicy": {
+    "@type": "MerchantReturnPolicy",
+    "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+    "merchantReturnDays": 14,
+    "returnMethod": "https://schema.org/ReturnByMail",
+    "returnFees": "https://schema.org/FreeReturn",
+    "applicableCountry": "GH"
+  }
+}
+
+      })),
+    })}
+  </script>
+ 
+</Helmet>
+
+<script>
+        {`
+          (function(w,d,s,l,i){
+            w[l]=w[l]||[];w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});
+            var f=d.getElementsByTagName(s)[0],
+            j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
+            j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;
+            f.parentNode.insertBefore(j,f);
+          })(window,document,'script','dataLayer','GTM-WKCL4JTV);
+        `}
+      </script>
       <div className="p-2 md:px-2 mx-auto">
         {/* Enhanced Mobile Header */}
         <div className="md:hidden space-y-2 ">

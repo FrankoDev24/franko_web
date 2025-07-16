@@ -14,7 +14,7 @@ import ProductCard from "../Component/ProductCard";
 import { CircularPagination } from "../Component/CircularPagination";
 import gif from "../assets/no.gif";
 import { FaTv } from "react-icons/fa";
-
+import { Helmet } from "react-helmet";
 const categoryId = "b51e02c2-540a-484a-9307-392fac7b50ed"; // Television category ID"
 
 const Television = () => {
@@ -273,9 +273,108 @@ const currentProducts = filteredProducts.slice(
       </button>
     </div>
   );
+ const structuredData = {
+    "@context": "https://schema.org/",
+    "@type": "ItemList",
+    "name": "Television Collection",
+    "description": "Browse our latest collection of televisions with high-quality resolution and top brands.",
+    "itemListElement": filteredProducts.map((item, index) => ({
+      "@type": "Product",
+      "position": index + 1,
+      "name": item.productName,
+      "image": `https://smfteapi.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+      "description": item.description,
+      "brand": {
+        "@type": "Brand",
+        "name": item.brandName,
+      },
+   "offers": {
+  "@type": "Offer",
+  "priceCurrency": "GHS",
+  "price": item.price,
+  "priceValidUntil": "2025-12-31",
+  "itemCondition": "https://schema.org/NewCondition",
+  "availability": "https://schema.org/InStock",
+  "url": `https://www.frankotrading.com/product/${item.productID}`,
+  "seller": {
+    "@type": "Organization",
+    "name": "Franko Trading"
+  },
+  "shippingDetails": {
+    "@type": "OfferShippingDetails",
+    "shippingRate": {
+      "@type": "MonetaryAmount",
+      "currency": "GHS",
+      "value": "30.00"
+    },
+    "shippingDestination": {
+      "@type": "DefinedRegion",
+      "addressCountry": "GH"
+    },
+    "deliveryTime": {
+      "@type": "ShippingDeliveryTime",
+      "handlingTime": {
+        "@type": "QuantitativeValue",
+        "minValue": 1,
+        "maxValue": 2,
+        "unitCode": "DAY"
+      },
+      "transitTime": {
+        "@type": "QuantitativeValue",
+        "minValue": 3,
+        "maxValue": 5,
+        "unitCode": "DAY"
+      }
+    }
+  },
+  "hasMerchantReturnPolicy": {
+    "@type": "MerchantReturnPolicy",
+    "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+    "merchantReturnDays": 14,
+    "returnMethod": "https://schema.org/ReturnByMail",
+    "returnFees": "https://schema.org/FreeReturn",
+    "applicableCountry": "GH"
+  }
+}
 
+    })),
+  };
   return (
     <div className="min-h-screen ">
+       <Helmet>
+        <title>Buy the Latest Televisions Online | 4K, Smart TVs & Best Deals</title>
+        <meta name="description" content="Explore our latest televisions with high resolution and best prices. Available from top brands." />
+        <meta name="keywords" content="Television, TV, Smart TV, 4K TV, Best TVs, Buy TV Online" />
+        <link rel="canonical" href="https://www.frankotrading.com/television" />
+
+        {/* Open Graph (OG) meta tags for better social media preview */}
+        <meta property="og:title" content="Buy the Latest Televisions Online | 4K, Smart TVs & Best Deals" />
+        <meta property="og:description" content="Explore our latest televisions with high resolution and best prices. Available from top brands." />
+        <meta property="og:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}/>
+        <meta property="og:url" content="https://www.frankotrading.com/television" />
+        <meta property="og:type" content="website" />
+
+        {/* Twitter Card for better Twitter sharing */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Buy the Latest Televisions Online | 4K, Smart TVs & Best Deals" />
+        <meta name="twitter:description" content="Explore our latest televisions with high resolution and best prices. Available from top brands." />
+        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}/>
+
+        {/* Injecting JSON-LD for structured data */}
+        <script type="application/ld+json">{JSON.stringify(structuredData)}</script>
+
+      </Helmet>
+      <script>
+        {`
+          (function(w,d,s,l,i){
+            w[l]=w[l]||[];w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});
+            var f=d.getElementsByTagName(s)[0],
+            j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
+            j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;
+            f.parentNode.insertBefore(j,f);
+          })(window,document,'script','dataLayer','GTM-WKCL4JTV');
+        `}
+      </script>
       <div className="p-2 md:px-2 mx-auto">
         {/* Enhanced Mobile Header */}
         <div className="md:hidden space-y-2 ">

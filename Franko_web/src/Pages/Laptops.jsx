@@ -14,6 +14,7 @@ import ProductCard from "../Component/ProductCard";
 import { CircularPagination } from "../Component/CircularPagination";
 import gif from "../assets/no.gif";
 import { FaLaptop } from "react-icons/fa";
+import { Helmet } from "react-helmet";
 
 const categoryId = "12f11417-4f9e-4e4a-a18d-f9ff0d4c85a6";
 
@@ -277,6 +278,116 @@ const Laptops = () => {
 
   return (
     <div className="min-h-screen ">
+      <Helmet>
+  <title>Laptops & Computers Ghana | Buy Desktops, Laptops & Accessories
+</title>
+  <meta name="description" content="Shop laptops, desktops, and computer accessories at Franko Trading. Choose top brands like HP, Lenovo, Acer, and Dell — with free shipping and warranty support." />
+  <meta name="keywords" content="computers, laptops, desktops, accessories, buy online" />
+
+  {/* Open Graph (Facebook, LinkedIn) */}
+  <meta property="og:title" content="Laptops - Buy Laptops, Desktops, and Accessories" />
+  <meta property="og:description" content="Shop laptops, desktops, and computer accessories at Franko Trading. Choose top brands like HP, Lenovo, Acer, and Dell — with free shipping and warranty support." />
+  <meta property="og:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+  <meta property="og:url" content="https://www.frankotrading.com/laptops" />
+  <meta property="og:type" content="website" />
+
+  {/* Twitter Card */}
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Computers - Buy Laptops, Desktops, and Accessories" />
+  <meta name="twitter:description" content="Shop laptops, desktops, and computer accessories at Franko Trading. Choose top brands like HP, Lenovo, Acer, and Dell — with free shipping and warranty support." />
+  <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+  <link rel="canonical" href="https://www.frankotrading.com/laptops" />
+  {/* JSON-LD Structured Data */}
+  <script type="application/ld+json">
+    {JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      "name": "Laptops & Computers in Ghana",
+  
+      "description": "Explore our range of laptops, desktops, and computer accessories from top brands like HP, Lenovo, Acer, and Dell. Enjoy free shipping and warranty support on all purchases.",
+      "url": "https://www.frankotrading.com/laptops",
+      "numberOfItems": filteredProducts.length,
+      "itemListElement": filteredProducts.map((item, index) => ({
+        "@type": "Product",
+        "position": index + 1,
+        "name": item.productName,
+        "image": `https://smfteapi.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+        "description": item.description,
+      
+        "brand": {
+          "@type": "Brand",
+          "name": item.brandName,
+     
+        },
+        "sku": item.productID,
+        "productID": item.productID,
+    "offers": {
+  "@type": "Offer",
+  "priceCurrency": "GHS",
+  "price": item.price,
+  "priceValidUntil": "2025-12-31",
+  "itemCondition": "https://schema.org/NewCondition",
+  "availability": "https://schema.org/InStock",
+  "url": `https://www.frankotrading.com/product/${item.productID}`,
+  "seller": {
+    "@type": "Organization",
+    "name": "Franko Trading"
+  },
+  "shippingDetails": {
+    "@type": "OfferShippingDetails",
+    "shippingRate": {
+      "@type": "MonetaryAmount",
+      "currency": "GHS",
+      "value": "30.00"
+    },
+    "shippingDestination": {
+      "@type": "DefinedRegion",
+      "addressCountry": "GH"
+    },
+    "deliveryTime": {
+      "@type": "ShippingDeliveryTime",
+      "handlingTime": {
+        "@type": "QuantitativeValue",
+        "minValue": 1,
+        "maxValue": 2,
+        "unitCode": "DAY"
+      },
+      "transitTime": {
+        "@type": "QuantitativeValue",
+        "minValue": 3,
+        "maxValue": 5,
+        "unitCode": "DAY"
+      }
+    }
+  },
+  "hasMerchantReturnPolicy": {
+    "@type": "MerchantReturnPolicy",
+    "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+    "merchantReturnDays": 14,
+    "returnMethod": "https://schema.org/ReturnByMail",
+    "returnFees": "https://schema.org/FreeReturn",
+    "applicableCountry": "GH"
+  }
+}
+
+      })),
+    })}
+  </script>
+
+ 
+</Helmet>
+
+<script>
+        {`
+          (function(w,d,s,l,i){
+            w[l]=w[l]||[];w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});
+            var f=d.getElementsByTagName(s)[0],
+            j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
+            j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;
+            f.parentNode.insertBefore(j,f);
+          })(window,document,'script','dataLayer','GTM-WKCL4JTV');
+        `}
+      </script>
       <div className="p-2 md:px-2 mx-auto">
         {/* Enhanced Mobile Header */}
         <div className="md:hidden space-y-2 ">

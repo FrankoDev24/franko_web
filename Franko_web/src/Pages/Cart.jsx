@@ -48,18 +48,32 @@ useEffect(() => {
     });
   };
 
-  const handleCheckout = () => {
-    const storedCustomer = JSON.parse(localStorage.getItem("customer"));
-  
-    if (!storedCustomer) {
-      setAuthModalOpen(true);
-      return;
-    }
-  
-    // Send all cart items to checkout, not just selected ones
-    localStorage.setItem("selectedCart", JSON.stringify(cart));
-    navigate("/checkout");
-  };
+ const handleCheckout = () => {
+  const storedCustomer = JSON.parse(localStorage.getItem("customer"));
+
+  if (!storedCustomer) {
+    setAuthModalOpen(true);
+    return;
+  }
+
+  // GTM event
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({
+    event: "proceed_to_checkout",
+    cartValue: cartTotal.toFixed(2),
+    cartItems: cart.map(item => ({
+      productId: item.productId,
+      name: item.productName,
+      price: item.price,
+      quantity: item.quantity
+    }))
+  });
+
+  // Save cart and navigate
+  localStorage.setItem("selectedCart", JSON.stringify(cart));
+  navigate("/checkout");
+};
+
   
   const handleContinueShopping = () => {
     navigate("/products");
