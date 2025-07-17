@@ -157,14 +157,14 @@ const ConditionalNavbar = () => {
   ];
 
   const isAdminPath = pathname.startsWith("/admin/");
-  const isAgentPath = pathname.startsWith("/agent/");
+ 
   const isFulfillmentPath = pathname.startsWith("/fulfillment/");
   const isContentPath = pathname.startsWith("/content/");
   const isDevPath = pathname.startsWith("/dev/");
 
   return !hiddenPaths.includes(pathname) && 
          !isAdminPath && 
-         !isAgentPath && 
+       
          !isFulfillmentPath && 
          !isContentPath &&
           !isDevPath && 

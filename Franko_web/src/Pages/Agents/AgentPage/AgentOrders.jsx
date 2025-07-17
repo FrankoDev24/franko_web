@@ -33,7 +33,7 @@ import {
   ReloadOutlined,
 } from "@ant-design/icons";
 import * as XLSX from "xlsx";
-import moment from "moment";
+import dayjs from "dayjs";
 import OrderModal from "../../../Component/OrderModal";
 
 const { RangePicker } = DatePicker;
@@ -48,8 +48,8 @@ const AgentOrders = () => {
   const error = ordersData.error ?? null;
 
   const [dateRange, setDateRange] = useState([
-    moment("2000-01-01"),
-    moment().add(1, "day"),
+    dayjs("2000-01-01"),
+    dayjs().add(1, "day"),
   ]);
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -133,13 +133,13 @@ const AgentOrders = () => {
         orderId: order?.orderCode || "N/A",
         rawDate: order?.orderDate,
         orderDate: order?.orderDate
-          ? moment(order.orderDate).format("MM/DD/YYYY hh:mm A")
+          ? dayjs(order.orderDate).format("MM/DD/YYYY hh:mm A")
           : "N/A",
         paymentMode: order?.paymentMode || "N/A",
         orderCycle: order?.orderCycle || "N/A",
       }))
       .filter((order) => {
-        const date = moment(order.rawDate);
+        const date = dayjs(order.rawDate);
         const matchesDate =
           date.isAfter(dateRange[0].startOf("day")) &&
           date.isBefore(dateRange[1].endOf("day"));
@@ -153,7 +153,7 @@ const AgentOrders = () => {
         
         return matchesDate && matchesSearch && matchesStatus && matchesPayment;
       })
-      .sort((a, b) => moment(b.rawDate).diff(moment(a.rawDate)));
+      .sort((a, b) => dayjs(b.rawDate).diff(dayjs(a.rawDate)));
   }, [orders, dateRange, searchText, statusFilter, paymentFilter]);
 
   const exportToExcel = () => {
@@ -207,7 +207,7 @@ const AgentOrders = () => {
       dataIndex: "orderId",
       key: "orderId",
       render: (text) => (
-        <Text copyable={{ text }} strong style={{ color: '#1890ff' }}>
+        <Text copyable={{ text }} strong >
           {text}
         </Text>
       ),
@@ -222,7 +222,7 @@ const AgentOrders = () => {
       dataIndex: "orderDate",
       key: "orderDate",
       sorter: (a, b) =>
-        moment(a.rawDate).unix() - moment(b.rawDate).unix(),
+        dayjs(a.rawDate).unix() - dayjs(b.rawDate).unix(),
       render: (text) => (
         <Text style={{ fontSize: '12px' }}>
           {text}
