@@ -152,8 +152,7 @@ const ConditionalNavbar = () => {
   const hiddenPaths = [
     "/admin/login",
     "/admin/register",
-    "/sign-in",
-    "/sign-up",
+    
   ];
 
   const isAdminPath = pathname.startsWith("/admin/");

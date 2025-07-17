@@ -3,7 +3,9 @@ const locations = [
       region: "Greater Accra",
       towns: [
         { name: "Tema", delivery_fee: 45 },
+      
         { name: "Kasoa", delivery_fee: 45 },
+        { name: "Weija", delivery_fee: 40 },
         { name: "Ashaiman", delivery_fee: 45 },
         { name: "Dome", delivery_fee: 35 },
         { name: "Madina", delivery_fee: 45 },

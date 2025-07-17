@@ -107,21 +107,7 @@ const CheckoutForm = ({
         />
       </Form.Item>
 
-      {/* Agent Manual Address Field - Only visible for agents */}
-      {customerAccountType === "agent" && (
-        <Form.Item label="Delivery Address (Manual Entry)">
-          <TextArea
-            rows={3}
-            value={agentManualAddress}
-            onChange={(e) => setAgentManualAddress(e.target.value)}
-            placeholder="Enter the complete delivery address manually"
-            prefix={<EnvironmentOutlined className="text-gray-400" />}
-          />
-          <div className="text-xs text-gray-500 mt-1">
-            As an agent, you can enter the delivery address directly. This will override any location selection below.
-          </div>
-        </Form.Item>
-      )}
+    
 
       {/* Delivery Address - Hidden for agents if manual address is entered */}
       {!(customerAccountType === "agent" && agentManualAddress) && (
@@ -164,7 +150,7 @@ const CheckoutForm = ({
                     setIsManualMode(true);
                     setModalVisible(true);
                   }}
-                  className="bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1.5 rounded-lg shadow-md transition transform hover:scale-105 flex items-center gap-2"
+                  className="bg-red-500 hover:bg-red-600 text-white px-2 py-1.5 rounded-lg shadow-md transition transform hover:scale-105 flex items-center gap-2"
                 >
                   <AimOutlined />
                   <span className="font-medium">Enter Address Manually</span>

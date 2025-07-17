@@ -121,6 +121,8 @@ const AgentOrders = () => {
         return "purple";
       case "Not Answered":
         return "cyan";
+      case "Order Placement":
+        return "gold";
       default:
         return "default";
     }

@@ -33,7 +33,6 @@ const Checkout = () => {
   // Validation states
   const [showValidationAlerts, setShowValidationAlerts] = useState(false);
 
-
   // Electronics alert modal
   const [isElectronicsAlertVisible, setIsElectronicsAlertVisible] = useState(false);
   
@@ -75,10 +74,13 @@ const Checkout = () => {
   const customerId = customerData?.customerAccountNumber;
   const customerAccountType = customerData?.accountType;
   const selectedAddress = deliveryInfo?.address;
-    useEffect(() => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, []);
-  
+
+  // Check if user is an agent
+  const isAgent = customerAccountType === "agent";
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
   // Initialize customer data
   useEffect(() => {
@@ -101,19 +103,21 @@ const Checkout = () => {
     }
   }, [deliveryInfo]);
 
-  // Check for electronics in cart and show alert
+  // Check for electronics in cart and show alert - ONLY for non-agents
   useEffect(() => {
-    const electronicItems = ["fridge", "laptop", "tv", "Air", "Air condition", "condition"];
-    const hasElectronics = cartItems.some((item) =>
-      electronicItems.some((keyword) => 
-        item.productName?.toLowerCase().includes(keyword.toLowerCase())
-      )
-    );
-  
-    if (hasElectronics) {
-      setIsElectronicsAlertVisible(true);
+    if (!isAgent) {
+      const electronicItems = ["fridge", "laptop", "tv", "Air", "Air condition", "condition"];
+      const hasElectronics = cartItems.some((item) =>
+        electronicItems.some((keyword) => 
+          item.productName?.toLowerCase().includes(keyword.toLowerCase())
+        )
+      );
+    
+      if (hasElectronics) {
+        setIsElectronicsAlertVisible(true);
+      }
     }
-  }, [cartItems]);
+  }, [cartItems, isAgent]);
 
   // Monitor cart changes
   useEffect(() => {
@@ -137,8 +141,10 @@ const Checkout = () => {
     };
   }, [cartItems]);
 
-  // Hubtel payment status check
+  // Hubtel payment status check - Only for non-agents
   useEffect(() => {
+    if (isAgent) return; // Skip for agents
+
     let intervalId;
 
     const checkHubtelStatus = async () => {
@@ -164,7 +170,7 @@ const Checkout = () => {
     }
 
     return () => clearInterval(intervalId);
-  }, [paymentMethod, dispatch, navigate]);
+  }, [paymentMethod, dispatch, navigate, isAgent]);
   
   const calculateTotalAmount = () => {
     const subtotal = cartItems.reduce((total, item) => {
@@ -358,8 +364,13 @@ const Checkout = () => {
     try {
       setLoading(true);
       
-      if (["Mobile Money", "Credit Card"].includes(paymentMethod)) {
-        // Store details for payment callback
+      // For agents, only process direct checkout (no Hubtel payments)
+      if (isAgent || !["Mobile Money", "Credit Card"].includes(paymentMethod)) {
+        await processDirectCheckout(orderId, checkoutDetails, addressDetails);
+        message.success("Your order has been placed successfully!");
+        navigate("/order-received");
+      } else {
+        // For non-agents with Mobile Money or Credit Card
         storeCheckoutDetailsInLocalStorage(checkoutDetails, addressDetails);
         dispatch(saveCheckoutDetails(checkoutDetails));
         dispatch(saveAddressDetails(addressDetails));
@@ -369,11 +380,6 @@ const Checkout = () => {
           setPaymentUrl(paymentUrl);
           setIsPaymentModalVisible(true);
         }
-      } else {
-        // Process direct checkout for other payment methods
-        await processDirectCheckout(orderId, checkoutDetails, addressDetails);
-        message.success("Your order has been placed successfully!");
-        navigate("/order-received");
       }
     } catch (error) {
       console.error("Checkout error:", error);
@@ -495,6 +501,7 @@ const Checkout = () => {
               orderNote={orderNote}
               setOrderNote={setOrderNote}
               locations={locations}
+              customerAccountType={customerAccountType}
             />
           </Card>
         </div>
@@ -549,7 +556,9 @@ const Checkout = () => {
               <div className="flex justify-between items-center">
                 <Text>Shipping Fee:</Text>
                 {deliveryFee === 0 ? (
-                  <Text type="warning" className="text-amber-600">Delivery charges apply</Text>
+                  <Text type="warning" className="text-amber-600">
+                    {isAgent ? "Agent delivery" : "Delivery charges apply"}
+                  </Text>
                 ) : (
                   <Text strong>₵{deliveryFee.toFixed(2)}</Text>
                 )}
@@ -578,19 +587,27 @@ const Checkout = () => {
                 onChange={handlePaymentMethodChange}
                 className="flex flex-col gap-3"
               >
-                {(deliveryFee !== 0 || customerAccountType === "agent") && (
+                {/* Cash on Delivery - Available for non-agents with delivery fee or agents */}
+                {(deliveryFee !== 0 || isAgent) && (
                   <Radio value="Cash on Delivery" className="text-sm">
                     Cash on Delivery
                   </Radio>
                 )}
-                <Radio value="Mobile Money" className="text-sm">
-                  Mobile Money
-                </Radio>
-                <Radio value="Credit Card" className="text-sm">
-                  Credit Card
-                </Radio>
+                
+                {/* Mobile Money and Credit Card - ONLY for non-agents */}
+                {!isAgent && (
+                  <>
+                    <Radio value="Mobile Money" className="text-sm">
+                      Mobile Money
+                    </Radio>
+                    <Radio value="Credit Card" className="text-sm">
+                      Credit Card
+                    </Radio>
+                  </>
+                )}
 
-                {customerAccountType === "agent" && (
+                {/* Agent-specific payment methods */}
+                {isAgent && (
                   <>
                     <Radio value="Pick Up" className="text-sm">
                       Pick Up
@@ -695,49 +712,52 @@ const Checkout = () => {
         </div>
       </div>
 
-      {/* Electronics Delivery Alert Modal */}
-      <Modal
-        title={<Title level={4} style={{ margin: 0, color: "#FC5130" }}>📢 Delivery Price Notice</Title>}
-        open={isElectronicsAlertVisible}
-        onCancel={() => setIsElectronicsAlertVisible(false)}
-        centered
-        footer={[
-          <button
-            key="gotIt"
-            onClick={() => setIsElectronicsAlertVisible(false)}
-            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-          >
-            Got It
-          </button>,
-        ]}
-      >
-        <p style={{ marginTop: 10 }}>
-          Delivery charges for electronic items such as <strong>fridges, televisions, and air conditioners</strong> may vary based on location.
-        </p>
-      </Modal>
+      {/* Electronics Delivery Alert Modal - ONLY for non-agents */}
+      {!isAgent && (
+        <Modal
+          title={<Title level={4} style={{ margin: 0, color: "#FC5130" }}>📢 Delivery Price Notice</Title>}
+          open={isElectronicsAlertVisible}
+          onCancel={() => setIsElectronicsAlertVisible(false)}
+          centered
+          footer={[
+            <button
+              key="gotIt"
+              onClick={() => setIsElectronicsAlertVisible(false)}
+              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+            >
+              Got It
+            </button>,
+          ]}
+        >
+          <p style={{ marginTop: 10 }}>
+            Delivery charges for electronic items such as <strong>fridges, televisions, and air conditioners</strong> may vary based on location.
+          </p>
+        </Modal>
+      )}
 
-      {/* Payment Modal */}
-      <Modal
-        open={isPaymentModalVisible}
-        onCancel={() => setIsPaymentModalVisible(false)}
-        footer={null}
-        closable
-        centered
-        width={600}
-      >
-        {paymentUrl ? (
-          <iframe
-            src={paymentUrl}
-            title="Hubtel Payment"
-            width="100%"
-            height="700px"
-            frameBorder="0"
-       
-          />
-        ) : (
-          <p>Loading payment interface...</p>
-        )}
-      </Modal>
+      {/* Payment Modal - ONLY for non-agents */}
+      {!isAgent && (
+        <Modal
+          open={isPaymentModalVisible}
+          onCancel={() => setIsPaymentModalVisible(false)}
+          footer={null}
+          closable
+          centered
+          width={600}
+        >
+          {paymentUrl ? (
+            <iframe
+              src={paymentUrl}
+              title="Hubtel Payment"
+              width="100%"
+              height="700px"
+              frameBorder="0"
+            />
+          ) : (
+            <p>Loading payment interface...</p>
+          )}
+        </Modal>
+      )}
     </div>
   );
 };
