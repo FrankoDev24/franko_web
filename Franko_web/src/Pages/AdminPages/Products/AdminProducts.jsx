@@ -290,32 +290,38 @@ useEffect(() => {
         </div>
       ),
     },
-    {
-      title: "Brand & Category",
-      key: "brandCategory",
-   
-      render: (_, record) => (
-        <div>
-          <Tag color="red" style={{ marginBottom: 4 }}>
-            {record.brandName}
-          </Tag>
-          <br />
-          <Tag color="orange">
-            {record.categoryName}
-          </Tag>
-        </div>
-      ),
-    },
-    {
-      title: "Showroom",
-      dataIndex: 'showRoomName',
-      key: 'showRoomName',
-      render: (showRoomName) => (
-        <Tag color="green" style={{ marginBottom: 4 }}>
-          {showRoomName}
+   {
+  title: "Brand & Category",
+  key: "brandCategory",
+  render: (_, record) => {
+    const isOutOfStock = record.name === "Products out of stock";
+    return (
+      <div>
+        <Tag color={isOutOfStock ? "red" : "red"} style={{ marginBottom: 4 }}>
+          {record.brandName}
         </Tag>
-      ),  
-    },
+        <br />
+        <Tag color={isOutOfStock ? "red" : "orange"}>
+          {record.categoryName}
+        </Tag>
+      </div>
+    );
+  },
+},
+{
+  title: "Showroom",
+  dataIndex: 'showRoomName',
+  key: 'showRoomName',
+  render: (_, record) => {
+    const isOutOfStock = record.showRoomName === "Products out of stock";
+    return (
+      <Tag color={isOutOfStock ? "red" : "green"} style={{ marginBottom: 4 }}>
+        {record.showRoomName}
+      </Tag>
+    );
+  },
+},
+
    
     {
       title: 'Status',

@@ -1,69 +1,45 @@
 import { useState } from 'react';
 import { Form, Input, Button, message } from 'antd';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate, Link } from 'react-router-dom';
-import { loginUser } from '../../Redux/Slice/userSlice';
-import logo from '../../assets/frankoIcon.png';
+import { useNavigate, Link } from 'react-router-dom'; // Import Link for navigation
+import { loginUser } from '../../Redux/Slice/userSlice'; // Adjust the path based on your file structure
+import logo from "../../assets/frankoIcon.png";
 
 const UserLogin = () => {
   const [form] = Form.useForm();
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { loading } = useSelector((state) => state.user);
-
-  const [contact, setContact] = useState('');
+  const { loading } = useSelector((state) => state.user); // To manage the loading state
+  const [contact, setContact] = useState(''); // This will handle the input for contact
   const [password, setPassword] = useState('');
 
-const onFinish = () => {
-  dispatch(loginUser({ contact, password }))
-    .unwrap()
-    .then((user) => {
-      console.log("Logged in user:", user); // Check structure
-      message.success('Login successful!');
-
-      const position = user.position?.toLowerCase(); // Fix: Use `position`
-
-      switch (position) {
-        case 'admin':
-        case 'supervisor':
-          navigate('/admin/dashboard');
-          break;
-        case 'agent':
-          navigate('/agent/dashboard');
-          break;
-        case 'fulfillment':
-          navigate('/fulfillment/dashboard');
-          break;
-        case 'webcontentmanager':
-          navigate('/content/dashboard');
-          break;
-        case 'developer':
-          navigate('/dev/dashboard');
-          break;
-        default:
-          message.warning('Unknown position. Redirecting to home.');
-          navigate('/');
-      }
-    })
-    .catch((error) => {
-      message.error(`Login failed: ${error.message || 'Invalid credentials'}`);
-    });
-};
+  const onFinish = () => {
+    // Modify the dispatch to use 'contact' instead of 'contactNumber'
+    dispatch(loginUser({ contact, password }))
+      .unwrap()
+      .then(() => {
+        message.success('Login successful!');
+        navigate('/admin/dashboard'); // Redirect to dashboard after login
+      })
+      .catch((error) => {
+        message.error(`Login failed: ${error.message}`);
+      });
+  };
 
   const onFinishFailed = (errorInfo) => {
     message.error('Please fill in all required fields!');
-    console.error('Login Form Failed:', errorInfo);
+    console.error('Failed:', errorInfo);
   };
 
   return (
     <div className="max-w-md mx-auto p-6 bg-white shadow-md rounded-lg mt-40">
       {/* Logo */}
       <div className="text-center mb-6">
-        <img src={logo} alt="Logo" className="mx-auto h-16 w-24" />
+        <img src={logo} alt="Logo" className="mx-auto h-16 w-24" /> {/* Adjust logo path */}
       </div>
 
+      {/* Login Form */}
       <h2 className="text-2xl font-bold text-center mb-6">Login</h2>
-
       <Form
         form={form}
         layout="vertical"
@@ -102,7 +78,7 @@ const onFinish = () => {
             type="primary"
             htmlType="submit"
             loading={loading}
-            className="w-full bg-green-700 text-white p-2 rounded-md"
+            className="w-full bg-green-700 text-white p-2 rounded-md "
           >
             Login
           </Button>

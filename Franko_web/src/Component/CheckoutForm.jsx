@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Form, Input, Select, Modal} from "antd";
-import { EnvironmentOutlined, PhoneOutlined,UserOutlined, AimOutlined,PushpinOutlined, SaveOutlined,} from "@ant-design/icons";
+import { Form, Input, Select, Modal, InputNumber} from "antd";
+import { EnvironmentOutlined, PhoneOutlined,UserOutlined, AimOutlined,PushpinOutlined, SaveOutlined, DollarOutlined} from "@ant-design/icons";
 const { TextArea } = Input;
 const { Option } = Select;
 
@@ -21,6 +21,7 @@ const CheckoutForm = ({
   const [fee, setFee] = useState(null);
   const [manualAddress, setManualAddress] = useState(""); // ✅ Manual address input
   const [agentManualAddress, setAgentManualAddress] = useState(""); // ✅ New field for agent manual address
+  const [agentDeliveryFee, setAgentDeliveryFee] = useState(0); // ✅ New field for agent delivery fee
   const [isManualMode, setIsManualMode] = useState(false); // ✅ Toggle manual entry
   const [modalVisible, setModalVisible] = useState(false);
 
@@ -37,13 +38,13 @@ const CheckoutForm = ({
     }
   }, [modalVisible, setDeliveryInfo]);
 
-  // ✅ Update delivery info when agent manual address changes
+  // ✅ Update delivery info when agent manual address or fee changes
   useEffect(() => {
     if (customerAccountType === "agent" && agentManualAddress) {
-      const info = { address: agentManualAddress, fee: 0 };
+      const info = { address: agentManualAddress, fee: agentDeliveryFee };
       setDeliveryInfo(info);
     }
-  }, [agentManualAddress, customerAccountType, setDeliveryInfo]);
+  }, [agentManualAddress, agentDeliveryFee, customerAccountType, setDeliveryInfo]);
 
   const handleRegionChange = (value) => {
     setRegion(value);
@@ -67,6 +68,8 @@ const CheckoutForm = ({
     if (isManualMode) {
       if (!manualAddress) return;
       address = manualAddress;
+      // For agents, use the agent delivery fee, for others use 0
+      finalFee = customerAccountType === "agent" ? agentDeliveryFee : 0;
     } else {
       if (!region || !town || fee === null) return;
       address = `${town} (${region})`;
@@ -79,6 +82,7 @@ const CheckoutForm = ({
     window.dispatchEvent(new Event("storage"));
     setModalVisible(false);
     setManualAddress("");
+    setAgentDeliveryFee(0);
     setIsManualMode(false);
   };
 
@@ -107,59 +111,85 @@ const CheckoutForm = ({
         />
       </Form.Item>
 
-    
-
-      {/* Delivery Address - Hidden for agents if manual address is entered */}
-      {!(customerAccountType === "agent" && agentManualAddress) && (
-        <Form.Item label={<span className=" text-sm text-gray-700">Delivery Address</span>}>
-          <div className="flex flex-col lg:flex-row lg:items-center md:justify-between gap-4 bg-white p-5 rounded-xl border border-gray-200 shadow-sm transition-shadow hover:shadow-md">
-            <div className="flex-1 text-sm text-gray-800">
-              {deliveryInfo?.address ? (
-                <>
-                  <p className="flex items-center gap-2 mb-2 text-gray-700">
-                    <EnvironmentOutlined className="text-green-500 text-lg" />
-                    <span className="font-medium">{deliveryInfo.address}</span>
-                  </p>
-                  <p className="text-green-600 text-sm">
-                    Delivery Fee:&nbsp;
-                    <strong className="text-green-700">{deliveryInfo.fee === 0 ? "N/A" : `₵${deliveryInfo.fee}`}</strong>
-                  </p>
-                </>
-              ) : (
-                <p className="text-gray-500 italic">No address selected</p>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-2 md:items-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsManualMode(false);
-                  setModalVisible(true);
-                }}
-                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-2 py-1.5 rounded-lg shadow-md transition transform hover:scale-105 flex items-center gap-2"
-              >
-                <AimOutlined className="text-md" />
-                <span className="font-medium">Select Location</span>
-              </button>
-
-              {customerAccountType === "agent" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsManualMode(true);
-                    setModalVisible(true);
-                  }}
-                  className="bg-red-500 hover:bg-red-600 text-white px-2 py-1.5 rounded-lg shadow-md transition transform hover:scale-105 flex items-center gap-2"
-                >
-                  <AimOutlined />
-                  <span className="font-medium">Enter Address Manually</span>
-                </button>
-              )}
+      {/* Agent Manual Address Input - Only shown for agents */}
+      {customerAccountType === "agent" && (
+        <Form.Item label={<span className="text-sm text-gray-700">Delivery Address</span>}>
+          <div className="space-y-3">
+            <TextArea
+              rows={3}
+              value={agentManualAddress}
+              onChange={(e) => setAgentManualAddress(e.target.value)}
+              placeholder="Enter delivery address for your customer"
+            />
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">Delivery Fee:</span>
+              <InputNumber
+                prefix={<DollarOutlined className="text-gray-400" />}
+                value={agentDeliveryFee}
+                onChange={(value) => setAgentDeliveryFee(value || 0)}
+                placeholder="0"
+                min={0}
+                step={0.01}
+                className="w-32"
+              />
+              <span className="text-sm text-gray-500">₵</span>
             </div>
           </div>
         </Form.Item>
       )}
+
+      {customerAccountType !== "agent" && (
+  <Form.Item label={<span className=" text-sm text-gray-700">Delivery Address</span>}>
+    <div className="flex flex-col lg:flex-row lg:items-center md:justify-between gap-4 bg-white p-5 rounded-xl border border-gray-200 shadow-sm transition-shadow hover:shadow-md">
+      <div className="flex-1 text-sm text-gray-800">
+        {deliveryInfo?.address ? (
+          <>
+            <p className="flex items-center gap-2 mb-2 text-gray-700">
+              <EnvironmentOutlined className="text-green-500 text-lg" />
+              <span className="font-medium">{deliveryInfo.address}</span>
+            </p>
+            <p className="text-green-600 text-sm">
+              Delivery Fee:&nbsp;
+              <strong className="text-green-700">
+                {deliveryInfo.fee === 0 ? "N/A" : `₵${deliveryInfo.fee}`}
+              </strong>
+            </p>
+          </>
+        ) : (
+          <p className="text-gray-500 italic">No address selected</p>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2 md:items-end">
+        <button
+          type="button"
+          onClick={() => {
+            setIsManualMode(false);
+            setModalVisible(true);
+          }}
+          className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-2 py-1.5 rounded-lg shadow-md transition transform hover:scale-105 flex items-center gap-2"
+        >
+          <AimOutlined className="text-md" />
+          <span className="font-medium">Select Location</span>
+        </button>
+
+        {customerAccountType === "agent" && (
+          <button
+            type="button"
+            onClick={() => {
+              setIsManualMode(true);
+              setModalVisible(true);
+            }}
+            className="bg-red-500 hover:bg-red-600 text-white px-2 py-1.5 rounded-lg shadow-md transition transform hover:scale-105 flex items-center gap-2"
+          >
+            <AimOutlined />
+            <span className="font-medium">Enter Address Manually</span>
+          </button>
+        )}
+      </div>
+    </div>
+  </Form.Item>
+)}
 
       {/* Order Note */}
       <Form.Item label="Order Note (Optional)">
@@ -180,14 +210,32 @@ const CheckoutForm = ({
       >
         <Form layout="vertical" className="space-y-4">
           {isManualMode ? (
-            <Form.Item label="Enter Address">
-              <TextArea
-                rows={3}
-                placeholder="Type full delivery address here"
-                value={manualAddress}
-                onChange={(e) => setManualAddress(e.target.value)}
-              />
-            </Form.Item>
+            <>
+              <Form.Item label="Enter Address">
+                <TextArea
+                  rows={3}
+                  placeholder="Type full delivery address here"
+                  value={manualAddress}
+                  onChange={(e) => setManualAddress(e.target.value)}
+                />
+              </Form.Item>
+              
+              {/* Delivery Fee Input for Agents in Modal */}
+              {customerAccountType === "agent" && (
+                <Form.Item label="Delivery Fee">
+                  <InputNumber
+                    prefix={<DollarOutlined className="text-gray-400" />}
+                    value={agentDeliveryFee}
+                    onChange={(value) => setAgentDeliveryFee(value || 0)}
+                    placeholder="0"
+                    min={0}
+                    step={0.01}
+                    className="w-full"
+                    addonAfter="₵"
+                  />
+                </Form.Item>
+              )}
+            </>
           ) : (
             <>
               {/* Region */}

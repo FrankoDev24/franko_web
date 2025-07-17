@@ -295,10 +295,11 @@ const Checkout = () => {
       return;
     }
 
-    if (paymentMethod === "Cash on Delivery" && deliveryFee === 0) {
-      message.warning("Please select another payment method.");
-      return;
-    }
+  // NEW CODE (fixed):
+if (paymentMethod === "Cash on Delivery" && deliveryFee === 0 && !isAgent) {
+  message.warning("Please select another payment method.");
+  return;
+}
 
     const orderId = generateOrderId();
     const orderDate = new Date().toISOString();
