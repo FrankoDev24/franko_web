@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchOrdersByCustomer } from "../Redux/Slice/orderSlice";
 import { DatePicker, Table, Spin, Tooltip, Button, Card, Input, Select } from "antd";
-import { Eye, ShoppingCart, Calendar, Clock, Search, Filter, Download, Package, TrendingUp, CheckCircle, AlertCircle, XCircle } from "lucide-react";
+import { Eye, ShoppingCart, Calendar, Clock, Search, Filter, Download, Package, TrendingUp, CheckCircle, AlertCircle, XCircle, FileText } from "lucide-react";
 import moment from "moment";
 import OrderModal from "../Component/OrderModal";
 
@@ -28,6 +28,11 @@ const OrderHistoryPage = () => {
 
   const customerObject = JSON.parse(localStorage.getItem("customer"));
   const customerId = customerObject?.customerAccountNumber;
+    // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
 
   useEffect(() => {
     if (customerId) {
@@ -58,12 +63,95 @@ const OrderHistoryPage = () => {
     }
   };
 
+  // PDF Export function
+  const handleExportPDF = () => {
+    if (transformedOrders.length === 0) return;
+
+    // Create a new window for PDF generation
+    const printWindow = window.open('', '_blank');
+    
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Order History Report</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .header h1 { color: #333; margin-bottom: 10px; }
+            .date-range { text-align: center; margin-bottom: 20px; color: #666; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+            th { background-color: #f5f5f5; font-weight: bold; }
+            .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+            .status-pending { background-color: #fef3c7; color: #92400e; }
+            .status-processing { background-color: #dbeafe; color: #1e40af; }
+            .status-delivery { background-color: #d1fae5; color: #065f46; }
+            .status-completed { background-color: #d1fae5; color: #065f46; }
+            .status-cancelled { background-color: #fee2e2; color: #991b1b; }
+            .status-wrong-number { background-color: #e9d5ff; color: #7c3aed; }
+            .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Order History Report</h1>
+            <p>Customer: ${customerObject?.fullName || 'N/A'}</p>
+          </div>
+          
+          <div class="date-range">
+            <strong>Report Period:</strong> ${dateRange[0].format('MM/DD/YYYY')} - ${dateRange[1].format('MM/DD/YYYY')}
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Order Date</th>
+                <th>Status</th>
+                <th>Customer Name</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${transformedOrders.map(order => `
+                <tr>
+                  <td>#${order.orderId}</td>
+                  <td>${order.orderDate}</td>
+                  <td>
+                    <span class="status-badge status-${order.orderCycle.toLowerCase().replace(' ', '-')}">
+                      ${order.orderCycle}
+                    </span>
+                  </td>
+                  <td>${order.customerName}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <div class="footer">
+            <p>Generated on: ${moment().format('MM/DD/YYYY HH:mm:ss')}</p>
+            <p>Total Orders: ${transformedOrders.length}</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    
+    // Wait for content to load, then print
+    printWindow.onload = () => {
+      printWindow.print();
+      printWindow.close();
+    };
+  };
+
   const getStatusConfig = (status) => {
     const statusConfig = {
       'Pending': { color: 'bg-amber-100 text-amber-800 border-amber-200', icon: Clock, iconColor: 'text-amber-600' },
       'Processing': { color: 'bg-blue-100 text-blue-800 border-blue-200', icon: TrendingUp, iconColor: 'text-blue-600' },
       'Wrong Number': { color: 'bg-purple-100 text-purple-800 border-purple-200', icon: XCircle, iconColor: 'text-purple-600' },
-      'Delivered': { color: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircle, iconColor: 'text-green-600' },
+      'Delivery': { color: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircle, iconColor: 'text-green-600' },
       'Completed': { color: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircle, iconColor: 'text-green-600' },
       'Cancelled': { color: 'bg-red-100 text-red-800 border-red-200', icon: XCircle, iconColor: 'text-red-600' },
     };
@@ -168,15 +256,17 @@ const OrderHistoryPage = () => {
       orderDate: moment(order?.orderDate).format("MM/DD/YYYY") || "N/A",
       customerName: order?.fullName || "N/A",
       orderCycle: order?.orderCycle || "N/A",
+      orderDateMoment: moment(order?.orderDate), // Keep moment object for sorting
     }))
     .filter(order => {
       const matchesSearch = order.orderId.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === "all" || order.orderCycle === statusFilter;
       return matchesSearch && matchesStatus;
     })
-    .sort((a, b) =>
-      moment(b.orderDate).isBefore(moment(a.orderDate)) ? 1 : -1
-    );
+    .sort((a, b) => {
+      // Sort by date from newest to oldest (descending order)
+      return b.orderDateMoment.valueOf() - a.orderDateMoment.valueOf();
+    });
 
   const getOrderStats = () => {
     const total = orders.length;
@@ -282,7 +372,7 @@ const OrderHistoryPage = () => {
             <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xl font-bold text-blue-700">{stats.total}</p>
+                  <p className="text-3xl font-bold text-blue-700">{stats.total}</p>
                   <p className="text-blue-600 font-medium">Total Orders</p>
                 </div>
                 <div className="p-3 bg-blue-200 rounded-full">
@@ -396,7 +486,7 @@ const OrderHistoryPage = () => {
 
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-indigo-100 rounded-lg">
-                  <Download className="w-5 h-5 text-indigo-600" />
+                  <FileText className="w-5 h-5 text-indigo-600" />
                 </div>
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -404,10 +494,11 @@ const OrderHistoryPage = () => {
                   </label>
                   <Button
                     className="w-full shadow-sm"
-                    icon={<Download className="w-4 h-4" />}
+                    icon={<FileText className="w-4 h-4" />}
                     disabled={transformedOrders.length === 0}
+                    onClick={handleExportPDF}
                   >
-                    Export CSV
+                    Export PDF
                   </Button>
                 </div>
               </div>

@@ -444,7 +444,7 @@ const ProductDescription = () => {
               <a
                 href={`https://wa.me/233246422338?text=Hi! I'm interested in buying the ${encodeURIComponent(
                   product?.productName
-                )}. Is it currently available, and what's the price?}`}
+                )}. Is it currently available, can i know more about it and what's the price?`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-lg flex items-center gap-2 px-3 py-2 transition duration-300 hover:scale-105"
@@ -577,7 +577,7 @@ const ProductDescription = () => {
               <a
                 href={`https://wa.me/233246422338?text=Hi! I'm interested in buying the ${encodeURIComponent(
                   product?.productName
-                )}. Is it currently available, and what's the price?}`}
+                )}. Is it currently available, can i know more about the product and what's the price?`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-lg flex items-center gap-2 px-4 py-2 transition duration-300 hover:scale-105"
@@ -621,7 +621,7 @@ const ProductDescription = () => {
                 <a
                   href={`https://wa.me/233246422338?text=Hi! I'm interested in buying the ${encodeURIComponent(
                     product?.productName
-                  )}. Is it currently available, and what's the price?}`}
+                  )}. Is it currently available, i want to know more about the product and what's the price?}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="bg-green-500 hover:bg-green-600 text-white rounded-xl shadow-lg flex items-center justify-center gap-2 px-4 py-3 transition duration-300 hover:scale-105"
