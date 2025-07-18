@@ -94,11 +94,11 @@ const CategoryComponent = () => {
       <div className="mx-auto px-4 md:px-8 lg:px-24">
         {/* Header with improved styling */}
         <div className="mb-2">
-          <h2 className="text-md md:text-xl lg:text-2xl font-bold text-gray-900 relative inline-block mt-2">
+          <h2 className="text-md md:text-lg font-bold text-gray-900 relative inline-block mt-2">
             Shop by Category
             <span className="absolute -bottom-2 left-0 w-20 h-1 bg-gradient-to-r from-red-500 to-red-400 rounded-full"></span>
           </h2>
-          <p className="text-xs md:text-sm text-gray-600 mt-3">
+          <p className="text-sm md:text-sm text-gray-700 mt-3">
             Explore our wide range of electronics and appliances
           </p>
         </div>

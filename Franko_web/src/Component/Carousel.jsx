@@ -51,50 +51,41 @@ const Carousel = () => {
                 <a href={ad.adsNote || "#"} className="block w-full h-full">
                   <img
                     src={imageUrl}
-                    alt={`Banner ${index + 1}`}
+                    alt="Franko Trading"
                     className="w-full h-full object-cover rounded-lg shadow-lg transition-transform duration-300 group-hover:scale-105"
                   />
                 </a>
 
                 {/* Buy Now Button */}
-                {ad.adsNote && (
-                  <div className="absolute bottom-6 left-6 z-10">
-                    <a
-                      href={ad.adsNote}
-                      className="group relative inline-block transform transition-all duration-300 hover:scale-105"
-                    >
-                      {/* Pulsing background effect */}
-                      <div className="absolute inset-0 bg-red-500 rounded-full animate-pulse opacity-75 blur-md"></div>
+             {/* Buy Now Button */}
+{ad.adsNote && (
+  <div className="absolute bottom-2 left-2 sm:left-6 z-10">
+    <a
+      href={ad.adsNote}
+      className="group relative inline-block transform transition-all duration-300 hover:scale-105"
+    >
+      {/* Pulsing background effect */}
+      <div className="absolute inset-0 bg-red-500 rounded-full animate-pulse opacity-75 blur-md"></div>
 
-                      {/* Main button */}
-                      <div className="relative bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold text-lg px-8 py-4 rounded-full shadow-2xl border-2 border-red-400 transition-all duration-300 transform hover:shadow-red-500/50 hover:shadow-xl">
-                        {/* Shine effect */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+      {/* Main button */}
+      <div className="relative bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold text-sm sm:text-lg px-4 py-2 sm:px-8 sm:py-4 rounded-full shadow-2xl border-2 border-red-400 transition-all duration-300 transform hover:shadow-red-500/50 hover:shadow-xl">
+        {/* Shine effect */}
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
 
-                        {/* Button content */}
-                        <div className="relative flex items-center space-x-2">
-                          <span className="text-lg font-extrabold tracking-wide">🛒 BUY NOW</span>
-                          <div className="bg-white/20 rounded-full p-1 group-hover:bg-white/30 transition-colors duration-300">
-                            <svg
-                              className="w-5 h-5 transform group-hover:translate-x-1 transition-transform duration-300"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          </div>
-                        </div>
-                      </div>
+        {/* Button content */}
+        <div className="relative flex items-center space-x-1 md:space-x-2">
+          <span className="text-xs sm:text-sm font-bold tracking-wide">🛒 BUY NOW</span>
+          <div className="bg-white/20 rounded-full p-0.5 sm:p-1 group-hover:bg-white/30 transition-colors duration-300">
+           
+          </div>
+        </div>
+      </div>
 
-                      {/* Outer glow */}
-                      <div className="absolute inset-0 bg-red-500/30 rounded-full blur-xl animate-pulse"></div>
-                    </a>
-                  </div>
-                )}
+      {/* Outer glow */}
+      <div className="absolute inset-0 bg-red-500/30 rounded-full blur-xl animate-pulse"></div>
+    </a>
+  </div>
+)}
               </SplideSlide>
             );
           })}
@@ -103,7 +94,7 @@ const Carousel = () => {
   };
 
   return (
-    <div className="mx-auto p-1 md:p-4 bg-gray-100">
+    <div className="mx-auto p-1 md:p-2">
       <div className="flex flex-col md:flex-row relative bg-gray-30">
         {/* Desktop Banner */}
         <div className="hidden md:block w-full">
@@ -111,7 +102,7 @@ const Carousel = () => {
             <div className="w-full h-full flex items-center justify-center">
               <img
                 src={ban}
-                alt="Fallback"
+                alt="Franko Trading"
                 className="w-full h-full object-cover rounded-lg"
               />
             </div>
@@ -126,7 +117,7 @@ const Carousel = () => {
             <div className="w-full h-full flex items-center justify-center">
               <img
                 src={ban}
-                alt="Fallback"
+                alt="Franko Trading"
                 className="w-full h-full object-cover rounded-lg"
               />
             </div>
