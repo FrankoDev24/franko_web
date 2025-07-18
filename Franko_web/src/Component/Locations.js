@@ -3,8 +3,8 @@ const locations = [
       region: "Greater Accra",
       towns: [
         { name: "Tema", delivery_fee: 45 },
-      
         { name: "Kasoa", delivery_fee: 45 },
+        { name: "Airpot", delivery_fee: 40 },
         { name: "Weija", delivery_fee: 40 },
         { name: "Ashaiman", delivery_fee: 45 },
         { name: "Dome", delivery_fee: 35 },
@@ -14,6 +14,7 @@ const locations = [
         { name: "Nungua", delivery_fee: 40 },
         { name: "Teshie", delivery_fee: 40 },
         { name: "Nsakina", delivery_fee: 50 },
+        { name: "Sowtoum", delivery_fee: 40 },
         { name: "Amasaman", delivery_fee: 45 },
         { name: "Ofankor", delivery_fee: 40 },
         { name: "Kwabenya", delivery_fee: 40 },

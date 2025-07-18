@@ -288,7 +288,7 @@ const Laptops = () => {
   <meta property="og:title" content="Laptops - Buy Laptops, Desktops, and Accessories" />
   <meta property="og:description" content="Shop laptops, desktops, and computer accessories at Franko Trading. Choose top brands like HP, Lenovo, Acer, and Dell — with free shipping and warranty support." />
   <meta property="og:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
-  <meta property="og:url" content="https://www.frankotrading.com/laptops" />
+  <meta property="og:url" content="https://www.frankotrading.com/computers"/>
   <meta property="og:type" content="website" />
 
   {/* Twitter Card */}
@@ -296,7 +296,7 @@ const Laptops = () => {
   <meta name="twitter:title" content="Computers - Buy Laptops, Desktops, and Accessories" />
   <meta name="twitter:description" content="Shop laptops, desktops, and computer accessories at Franko Trading. Choose top brands like HP, Lenovo, Acer, and Dell — with free shipping and warranty support." />
   <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
-  <link rel="canonical" href="https://www.frankotrading.com/laptops" />
+  <link rel="canonical" href="https://www.frankotrading.com/computers" />
   {/* JSON-LD Structured Data */}
   <script type="application/ld+json">
     {JSON.stringify({
@@ -305,7 +305,7 @@ const Laptops = () => {
       "name": "Laptops & Computers in Ghana",
   
       "description": "Explore our range of laptops, desktops, and computer accessories from top brands like HP, Lenovo, Acer, and Dell. Enjoy free shipping and warranty support on all purchases.",
-      "url": "https://www.frankotrading.com/laptops",
+      "url": "https://www.frankotrading.com/computers",
       "numberOfItems": filteredProducts.length,
       "itemListElement": filteredProducts.map((item, index) => ({
         "@type": "Product",

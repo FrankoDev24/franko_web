@@ -202,14 +202,14 @@ function App() {
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/phones" element={<Phones ProductCard={ProductCard} />} />
-        <Route path="/laptops" element={<Laptops ProductCard={ProductCard} />} />
+        <Route path="/computers" element={<Laptops ProductCard={ProductCard} />} />
         <Route path="/refrigerator" element={<Fridge ProductCard={ProductCard} />} />
         <Route path="/television" element={<Television ProductCard={ProductCard} />} />
-        <Route path="/Speakers" element={<Speakers ProductCard={ProductCard} />} />
+        <Route path="/speakers" element={<Speakers ProductCard={ProductCard} />} />
         <Route path="/accessories" element={<Accessories ProductCard={ProductCard} />} />
         <Route path="/appliances" element={<Appliances ProductCard={ProductCard} />} />
         <Route path="/combo" element={<Combo ProductCard={ProductCard} />} />
-        <Route path="/air-conditioners" element={<Airconditioners ProductCard={ProductCard} />} />
+        <Route path="/air-condition" element={<Airconditioners ProductCard={ProductCard} />} />
         <Route path="/cart/:cartId" element={<Cart />} />
         <Route path="/product/:productID" element={<ProductDescription />} />
         <Route path="showroom/:showRoomID" element={<ShowroomProductsPage />} />

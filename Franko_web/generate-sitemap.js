@@ -85,10 +85,10 @@ const pages = [
     loc: "https://www.frankotrading.com/phones",
   },
   {
-    url: "/laptops",
+    url: "/computers",
     changefreq: "daily",
     priority: 0.9,
-    loc: "https://www.frankotrading.com/laptops",
+    loc: "https://www.frankotrading.com/computers",
   },
   {
     url: "/combo",
@@ -237,9 +237,10 @@ const productIds = [
 "236d51f6-d044-4dfb-98fb-c37f0fed49b5",
 "c9b7b5a4-3337-4286-b63b-36e324594dda",
 "7b7b4c79-b7d0-4699-9224-76d7f78bc0ac",
-
+"52ee3648-1531-44ba-a43b-87bf44ba3ee9",
+"39f3fbfd-014f-404c-bf88-461c7ffb547f",
+"bdd7b88e-9fdb-4894-8248-b14ecd5836d2",
 "ca811ba5-0203-4998-8527-a7b73294f466",
-
   "a4871155-ff08-435f-b718-bff37b06e217",
   "61d0d4bb-f465-48f2-b45b-070688fe632d",
   "3f17e199-0b75-416d-bc87-ca4ed49e1601",

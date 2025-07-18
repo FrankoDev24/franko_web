@@ -192,7 +192,7 @@ const sortedProducts = (Array.isArray(productsByCategory[categoryId]) ? products
         </h2>
         <div className="flex-grow h-px bg-gray-300" />
         <Link
-          to="/phones"
+          to="/computers"
           className="flex items-center gap-1 text-red-500 hover:text-red-600 transition"
         >
           <span className="text-sm font-medium">View All</span>
