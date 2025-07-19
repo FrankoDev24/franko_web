@@ -69,30 +69,42 @@ export const addToCart = createAsyncThunk(
 
 export const getCartById = createAsyncThunk(
   'cart/getCartById',
-  async (cartId, { rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      const response = await axios.get(`https://smfteapi.salesmate.app/Cart/Cart-GetbyID/${cartId}`);
+      const cartId = localStorage.getItem('cartId');
+      if (!cartId) {
+        throw new Error('Cart ID not found in local storage');
+      }
+
+      const response = await axios.get(`https://smfteapi.salesmate.app/Cart/Cart-GetbyID/${cartId}`); // `cartId` is passed as the `id`
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error.message || 'Failed to fetch cart');
     }
   }
 );
 
 export const updateCartItem = createAsyncThunk(
-    'cart/updateCartItem',
-    async ({ cartId, productId, quantity }, { rejectWithValue }) => {
-      try {
-        await axios.post(
-          `https://smfteapi.salesmate.app/Cart/Cart-Update/${cartId}/${productId}/${quantity}`
-        );
-        // Explicitly return what the reducer needs
-        return { productId, quantity };
-      } catch (error) {
-        return rejectWithValue(error.response?.data || error.message);
+  'cart/updateCartItem',
+  async ({ cartId, productId, quantity }, { rejectWithValue }) => {
+    try {
+      if (!cartId || !productId || quantity == null) {
+        throw new Error('Missing required parameters for update');
       }
+
+      const response = await axios.post(
+        `https://smfteapi.salesmate.app/Cart/Cart-Update/${cartId}/${productId}/${quantity}`
+      );
+
+      // If your API returns updated cart or item, use response.data
+      return { cartId, productId, quantity }; 
+    } catch (error) {
+      console.error("Update cart error:", error);
+      return rejectWithValue(error.response?.data || error.message);
     }
-  );
+  }
+);
+
   
 
 export const deleteCartItem = createAsyncThunk(
@@ -217,7 +229,7 @@ const cartSlice = createSlice({
         state.loading = false;
         state.error = action.error.message;
       })
-      .addCase(deleteCartItem.pending, (state) => {
+   .addCase(deleteCartItem.pending, (state) => {
         state.loading = true;
       })
       .addCase(deleteCartItem.fulfilled, (state, action) => {

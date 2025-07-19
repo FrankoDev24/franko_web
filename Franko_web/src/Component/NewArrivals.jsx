@@ -240,7 +240,7 @@ const NewArrivals = () => {
                 </div>
 
                 {/* Product Info */}
-                <div className="p-3 text-center space-y-1">
+                <div className="p-3 text-center ">
                   <h3 className="text-sm font-medium text-gray-800 line-clamp-2">
                     {productName}
                   </h3>

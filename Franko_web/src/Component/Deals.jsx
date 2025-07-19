@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, Link, } from "react-router-dom";
 import {
@@ -324,46 +324,58 @@ const Deals = () => {
                       />
                     </div>
 
-                    <div className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20 transition-all">
-                      {/* Wishlist Icon */}
-                      <Tooltip content={inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}>
-                        <button 
-                          className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-                          onClick={() => handleWishlistToggle(product)}
-                        >
-                          {inWishlist ? (
-                            <SolidHeartIcon className="w-5 h-5 text-red-500" />
-                          ) : (
-                            <OutlineHeartIcon className="w-5 h-5 text-white hover:text-red-400" />
-                          )}
-                        </button>
-                      </Tooltip>
-
-                      {/* View Details */}
-                      <Tooltip content="View Details">
-                        <button
-                          onClick={() => navigate(`/product/${productID}`)}
-                          className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-                        >
-                          <EyeIcon className="w-5 h-5 text-white hover:text-green-400" />
-                        </button>
-                      </Tooltip>
-
-                      {/* Add to Cart */}
-                      <Tooltip content={stock === 0 ? "Out of Stock" : "Add to Cart"}>
-                        <button
-                          onClick={() => handleAddToCart(product)}
-                          className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={cartLoading || stock === 0}
-                        >
-                          <ShoppingCartIcon className="w-5 h-5 text-white hover:text-red-400" />
-                        </button>
-                      </Tooltip>
-                    </div>
+                                   <div
+                                              className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20 transition-all cursor-pointer"
+                                              onClick={() => navigate(`/product/${product.productID}`)}
+                                            >
+                                              {/* Wishlist Icon */}
+                                              <Tooltip content={inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}>
+                                                <button
+                                                  className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleWishlistToggle(product);
+                                                  }}
+                                                >
+                                                  {inWishlist ? (
+                                                    <SolidHeartIcon className="w-5 h-5 text-red-500" />
+                                                  ) : (
+                                                    <OutlineHeartIcon className="w-5 h-5 text-white hover:text-red-400" />
+                                                  )}
+                                                </button>
+                                              </Tooltip>
+                                            
+                                              {/* View Details */}
+                                              <Tooltip content="View Details">
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigate(`/product/${product.productID}`);
+                                                  }}
+                                                  className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+                                                >
+                                                  <EyeIcon className="w-5 h-5 text-white hover:text-green-400" />
+                                                </button>
+                                              </Tooltip>
+                                            
+                                              {/* Add to Cart */}
+                                              <Tooltip content={product.stock === 0 ? "Out of Stock" : "Add to Cart"}>
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleAddToCart(product);
+                                                  }}
+                                                  className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                  disabled={cartLoading || product.stock === 0}
+                                                >
+                                                  <ShoppingCartIcon className="w-5 h-5 text-white hover:text-red-400" />
+                                                </button>
+                                              </Tooltip>
+                                            </div>
                   </div>
 
                   <div className="p-1 md:p-2 text-center space-y-1">
-                    <h3 className="text-xs md:text-sm font-medium text-gray-800 line-clamp-2">{productName}</h3>
+                    <h3 className="text-sm font-medium text-gray-800 line-clamp-2">{productName}</h3>
                     <div className="flex items-center justify-center gap-1 mt-1">
                       <span className="text-red-500 font-medium text-sm">{formatPrice(price)}</span>
                       {oldPrice > 0 && (

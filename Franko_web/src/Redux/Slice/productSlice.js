@@ -214,6 +214,9 @@ const productSlice = createSlice({
     resetProducts: (state) => {
       state.products = [];
     },
+     clearCurrentProduct: (state) => {
+      state.currentProduct = [];
+    }
   },
   extraReducers: (builder) => {
     builder
@@ -393,5 +396,5 @@ const productSlice = createSlice({
   },
 });
 // Export the reducer and actions
-export const { clearProducts, setFilteredProducts, setProductsCache, setPage, resetProducts } = productSlice.actions;
+export const { clearProducts, setFilteredProducts, setProductsCache, setPage, clearCurrentProduct, resetProducts } = productSlice.actions;
 export default productSlice.reducer;

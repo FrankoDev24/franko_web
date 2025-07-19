@@ -297,11 +297,11 @@ const sortedProducts = (Array.isArray(productsByCategory[categoryId]) ? products
 
               {/* Info */}
               <div className="p-3 text-center space-y-1">
-                <h3 className="text-xs md:text-sm font-medium text-gray-800 line-clamp-2">
+                <h3 className="text-sm font-medium text-gray-800 line-clamp-2">
                   {product.productName}
                 </h3>
                 <div className="flex justify-center items-center gap-2">
-                  <span className="text-red-500 font-medium text-xs md:text-sm">
+                  <span className="text-red-500 font-medium text-sm">
                     {formatPrice(product.price)}
                   </span>
                   {product.oldPrice > 0 && (

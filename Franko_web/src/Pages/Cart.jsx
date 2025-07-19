@@ -83,17 +83,26 @@ useEffect(() => {
     navigate("/products");
   };
 
-  const handleQuantityChange = (productId, quantity) => {
-    if (quantity >= 1) {
-      dispatch(updateCartItem({ cartId, productId, quantity }));
-    }
-  };
+const handleQuantityChange = async (productId, quantity) => {
+  if (quantity >= 1) {
+    await dispatch(updateCartItem({ cartId, productId, quantity }));
+    dispatch(getCartById(cartId)); // 🔁 sync latest state
+  }
+};
 
-  const handleRemoveItem = (productId) => {
-    dispatch(deleteCartItem({ cartId, productId }));
-    // Remove from selection if it was selected
+
+
+const handleRemoveItem = async (productId) => {
+  try {
+    await dispatch(deleteCartItem({ cartId, productId })).unwrap();
     setSelectedItems(prev => prev.filter(id => id !== productId));
-  };
+    message.success('Item removed from cart');
+    // dispatch(getCartById(cartId));
+  } catch (err) {
+    console.error('Delete failed:', err);
+    message.error('Failed to remove item');
+  }
+};
 
   const handleBatchDelete = () => {
     selectedItems.forEach((id) => {

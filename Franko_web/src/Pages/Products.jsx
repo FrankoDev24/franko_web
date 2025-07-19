@@ -303,7 +303,7 @@ const ProductsPage = () => {
 
                   {/* Product Info */}
                   <div className="p-3 text-center space-y-1">
-                    <h3 className="text-xs md:text-sm text-gray-800 line-clamp-2">
+                    <h3 className="text-sm md:text-sm text-gray-900 line-clamp-2">
                       {productName || "Unnamed Product"}
                     </h3>
                      <div className="flex flex-col items-center justify-center gap-1 mt-1 md:flex-row">

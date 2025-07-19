@@ -441,17 +441,7 @@ const ProductDescription = () => {
                 )}
               </Button>
 
-              <a
-                href={`https://wa.me/233246422338?text=Hi! I'm interested in buying the ${encodeURIComponent(
-                  product?.productName
-                )}. Is it currently available, can i know more about it and what's the price?`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-lg flex items-center gap-2 px-3 py-2 transition duration-300 hover:scale-105"
-              >
-                <FaWhatsapp className="w-4 h-4" />
-                Whatsapp support
-              </a>
+             
             </div>
           </div>
         </div>
@@ -470,7 +460,7 @@ const ProductDescription = () => {
         </div>
 
         <div className="space-y-4">
-          <div className="font-bold text-gray-700 text-lg md:text-xl">
+          <div className="font-bold text-gray-900 text-lg md:text-xl">
             {product.productName}
           </div>
           
@@ -545,90 +535,92 @@ const ProductDescription = () => {
 
           <div className="pt-2">
             {/* Desktop Buttons */}
-            <div className="hidden md:flex flex-wrap gap-4 items-center">
-              <Button
-                variant="outlined"
-                className={`font-semibold shadow-lg flex items-center gap-2 px-4 py-3 transition duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${
-                  outOfStock 
-                    ? 'border-gray-400 text-gray-500 bg-gray-100' 
-                    : 'border-red-600 text-red-600 hover:bg-red-50'
-                }`}
-                onClick={() => handleAddToCartAndOpenSidebar(product)}
-                disabled={isCartButtonLoading || outOfStock}
-              >
-                {isCartButtonLoading ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
-                    Adding...
-                  </>
-                ) : outOfStock ? (
-                  <>
-                    <ExclamationTriangleIcon className="w-5 h-5" />
-                    Out of Stock
-                  </>
-                ) : (
-                  <>
-                    <ShoppingCartIcon className="w-5 h-5" />
-                    Add to Cart
-                  </>
-                )}
-              </Button>
-
-              <a
-                href={`https://wa.me/233246422338?text=Hi! I'm interested in buying the ${encodeURIComponent(
-                  product?.productName
-                )}. Is it currently available, can i know more about the product and what's the price?`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-lg flex items-center gap-2 px-4 py-2 transition duration-300 hover:scale-105"
-              >
-                <FaWhatsapp className="w-5 h-5" />
-                Whatsapp support
-              </a>
-            </div>
+ <div className="hidden md:flex flex-wrap gap-4 items-center">
+  <Button
+    variant="outlined"
+    className={`group relative flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl font-semibold text-sm transition-all duration-300 ease-out shadow-lg hover:shadow-xl focus:outline-none focus:ring-3 focus:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:transform-none overflow-hidden ${
+      outOfStock
+        ? 'bg-gray-50 text-gray-400 border-2 border-gray-200 shadow-sm cursor-not-allowed'
+        : isCartButtonLoading
+        ? 'bg-red-500 text-white border-2 border-red-500 shadow-red-200'
+        : 'bg-white text-red-600 border-2 border-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 focus:ring-red-300 hover:shadow-red-200'
+    }`}
+    onClick={() => handleAddToCartAndOpenSidebar(product)}
+    disabled={isCartButtonLoading || outOfStock}
+    aria-label={
+      outOfStock 
+        ? "Product out of stock" 
+        : isCartButtonLoading 
+        ? "Adding product to cart" 
+        : "Add product to cart"
+    }
+  >
+    {/* Background gradient animation */}
+    {!outOfStock && (
+      <div className="absolute inset-0 bg-gradient-to-r from-red-400 to-red-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl" />
+    )}
+    
+    {/* Content */}
+    <div className="relative z-10 flex items-center gap-2.5">
+      {isCartButtonLoading ? (
+        <>
+          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          <span className="font-medium">Adding to Cart...</span>
+        </>
+      ) : outOfStock ? (
+        <>
+          <ExclamationTriangleIcon className="w-5 h-5 text-gray-400 group-hover:scale-110 transition-transform duration-200" />
+          <span className="font-medium">Out of Stock</span>
+        </>
+      ) : (
+        <>
+          <ShoppingCartIcon className="w-5 h-5 transition-all duration-300 group-hover:scale-110 group-hover:text-white" />
+          <span className="font-medium group-hover:text-white transition-colors duration-300">
+            Add to Cart
+          </span>
+        </>
+      )}
+    </div>
+    
+    {/* Success ripple effect (optional enhancement) */}
+    {!outOfStock && !isCartButtonLoading && (
+      <div className="absolute inset-0 bg-green-400 rounded-2xl scale-0 opacity-0 group-active:scale-100 group-active:opacity-30 transition-all duration-150" />
+    )}
+  </Button>
+</div>
 
             {/* Mobile Bottom Bar */}
             <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 shadow-xl z-50 flex items-center justify-between md:hidden">
               <div className="flex gap-2 w-full">
                 <Button
-                  variant="outlined"
-                  className={`font-semibold rounded-xl flex items-center justify-center gap-2 py-3 transition duration-300 hover:scale-105 shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex-1 ${
-                    outOfStock 
-                      ? 'border-gray-400 bg-gray-100 text-gray-500' 
-                      : 'border-red-300 bg-red-100 text-red-600'
-                  }`}
-                  onClick={() => handleAddToCartAndOpenSidebar(product)}
-                  disabled={isCartButtonLoading || outOfStock}
-                >
-                  {isCartButtonLoading ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-red-600 border-t-transparent font-bold rounded-full animate-spin"></div>
-                      Adding...
-                    </>
-                  ) : outOfStock ? (
-                    <>
-                      <ExclamationTriangleIcon className="w-5 h-5" />
-                      Out of Stock
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingCartIcon className="w-5 h-5" />
-                      Add to Cart
-                    </>
-                  )}
-                </Button>
+  variant="outlined"
+  className={`flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-2xl transition-all duration-300 ease-in-out shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex-1 ${
+    outOfStock
+      ? 'bg-gray-100 text-gray-500 border border-gray-300'
+      : 'bg-red-100 text-red-600 border border-red-300 hover:bg-red-200 hover:border-red-400'
+  }`}
+  onClick={() => handleAddToCartAndOpenSidebar(product)}
+  disabled={isCartButtonLoading || outOfStock}
+>
+  {isCartButtonLoading ? (
+    <>
+      <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+      <span className="text-sm">Adding...</span>
+    </>
+  ) : outOfStock ? (
+    <>
+      <ExclamationTriangleIcon className="w-5 h-5" />
+      <span className="text-sm">Out of Stock</span>
+    </>
+  ) : (
+    <>
+      <ShoppingCartIcon className="w-5 h-5" />
+      <span className="text-sm">Add to Cart</span>
+    </>
+  )}
+</Button>
 
-                <a
-                  href={`https://wa.me/233246422338?text=Hi! I'm interested in buying the ${encodeURIComponent(
-                    product?.productName
-                  )}. Is it currently available, i want to know more about the product and what's the price?}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-green-500 hover:bg-green-600 text-white rounded-xl shadow-lg flex items-center justify-center gap-2 px-4 py-3 transition duration-300 hover:scale-105"
-                >
-                  <FaWhatsapp className="w-5 h-5" />
-                  Whatsapp support
-                </a>
+               
               </div>
             </div>
           </div>
