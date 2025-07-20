@@ -535,15 +535,15 @@ const ProductDescription = () => {
 
           <div className="pt-2">
             {/* Desktop Buttons */}
- <div className="hidden md:flex flex-wrap gap-4 items-center">
+<div className="hidden md:flex flex-wrap gap-4 items-center">
   <Button
     variant="outlined"
-    className={`group relative flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl font-semibold text-sm transition-all duration-300 ease-out shadow-lg hover:shadow-xl focus:outline-none focus:ring-3 focus:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:transform-none overflow-hidden ${
+    className={`group relative flex items-center justify-center gap-2.5 px-6 py-3.5 w-full rounded-2xl font-semibold text-sm transition-all duration-300 ease-out shadow-xl shadow-red-200 hover:shadow-2xl hover:shadow-red-300 focus:outline-none focus:ring-3 focus:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:transform-none overflow-hidden ${
       outOfStock
-        ? 'bg-gray-50 text-gray-400 border-2 border-gray-200 shadow-sm cursor-not-allowed'
+        ? 'bg-gray-50 text-gray-400 border-2 border-gray-200 shadow-sm shadow-gray-200 cursor-not-allowed'
         : isCartButtonLoading
-        ? 'bg-red-500 text-white border-2 border-red-500 shadow-red-200'
-        : 'bg-white text-red-600 border-2 border-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 focus:ring-red-300 hover:shadow-red-200'
+        ? 'bg-red-500 text-white border-2 border-red-500 shadow-red-300'
+        : 'bg-red-500 text-white border-2 border-red-500 hover:bg-red-600 hover:border-red-600 focus:ring-red-300'
     }`}
     onClick={() => handleAddToCartAndOpenSidebar(product)}
     disabled={isCartButtonLoading || outOfStock}
@@ -557,7 +557,7 @@ const ProductDescription = () => {
   >
     {/* Background gradient animation */}
     {!outOfStock && (
-      <div className="absolute inset-0 bg-gradient-to-r from-red-400 to-red-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl" />
+      <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-red-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl" />
     )}
     
     {/* Content */}
@@ -574,8 +574,8 @@ const ProductDescription = () => {
         </>
       ) : (
         <>
-          <ShoppingCartIcon className="w-5 h-5 transition-all duration-300 group-hover:scale-110 group-hover:text-white" />
-          <span className="font-medium group-hover:text-white transition-colors duration-300">
+          <ShoppingCartIcon className="w-5 h-5 transition-all duration-300 group-hover:scale-110 text-white" />
+          <span className="font-medium text-white transition-colors duration-300">
             Add to Cart
           </span>
         </>

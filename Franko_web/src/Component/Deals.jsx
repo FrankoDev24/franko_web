@@ -376,14 +376,15 @@ const Deals = () => {
 
                   <div className="p-1 md:p-2 text-center space-y-1">
                     <h3 className="text-sm font-medium text-gray-800 line-clamp-2">{productName}</h3>
-                    <div className="flex items-center justify-center gap-1 mt-1">
-                      <span className="text-red-500 font-medium text-sm">{formatPrice(price)}</span>
-                      {oldPrice > 0 && (
-                        <span className="text-xs line-through text-gray-400">
-                          {formatPrice(oldPrice)}
-                        </span>
-                      )}
-                    </div>
+                    <div className="flex flex-col md:flex-row items-center justify-center gap-1 mt-1">
+
+            <span className="text-red-500 font-medium text-sm">{formatPrice(price)}</span>
+            {oldPrice > 0 && (
+              <span className="text-xs line-through text-gray-400">
+                {formatPrice(oldPrice)}
+              </span>
+            )}
+          </div>
                   </div>
                 </div>
               );

@@ -34,7 +34,7 @@ const rootReducer = combineReducers({
 const persistConfig = {
   key: 'root',
   storage, // Use localStorage as the storage engine
-  whitelist: ['categories', 'brands', 'products', 'showrooms', 'orders', "cart", "advertisment"], // Specify slices to persist
+  whitelist: ['categories', 'brands', 'products', 'showrooms', "advertisment"], // Specify slices to persist
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

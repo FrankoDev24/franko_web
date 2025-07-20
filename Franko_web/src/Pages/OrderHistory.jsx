@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchOrdersByCustomer } from "../Redux/Slice/orderSlice";
 import { DatePicker, Table, Spin, Tooltip, Button, Card, Input, Select } from "antd";
-import { Eye, ShoppingCart, Calendar, Clock, Search, Filter, Download, Package, TrendingUp, CheckCircle, AlertCircle, XCircle, FileText } from "lucide-react";
+import { Eye, ShoppingCart, Calendar, Clock, Search, Filter, Download, Package, TrendingUp, CheckCircle, AlertCircle, XCircle, FileText, UserX } from "lucide-react";
 import moment from "moment";
 import OrderModal from "../Component/OrderModal";
+import AuthModal from "../Component/AuthModal";
 
 const OrderHistoryPage = () => {
   const dispatch = useDispatch();
@@ -20,26 +21,29 @@ const OrderHistoryPage = () => {
   const defaultToDate = today.clone().add(1, "days");
 
   const [dateRange, setDateRange] = useState([defaultFromDate, defaultToDate]);
-  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isOrderModalVisible, setIsOrderModalVisible] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [viewMode, setViewMode] = useState("table");
+  const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
 
-  const customerObject = JSON.parse(localStorage.getItem("customer"));
+  // Check if customer exists in localStorage
+  const customerObject = JSON.parse(localStorage.getItem("customer") || "null");
   const customerId = customerObject?.customerAccountNumber;
-    // Scroll to top when component mounts
+  const hasValidCustomer = customerObject && customerId;
+
+  // Scroll to top when component mounts
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-
   useEffect(() => {
-    if (customerId) {
+    // Only fetch orders if we have a valid customer
+    if (hasValidCustomer) {
       const [from, to] = dateRange.map((date) => date.format("MM/DD/YYYY"));
       dispatch(fetchOrdersByCustomer({ from, to, customerId }));
     }
-  }, [dateRange, customerId, dispatch]);
+  }, [dateRange, customerId, dispatch, hasValidCustomer]);
 
   const handleDateChange = (dates) => {
     if (dates) {
@@ -49,19 +53,48 @@ const OrderHistoryPage = () => {
 
   const handleViewOrder = (orderId) => {
     setSelectedOrderId(orderId);
-    setIsModalVisible(true);
+    setIsOrderModalVisible(true);
   };
 
-  const handleModalClose = () => {
-    setIsModalVisible(false);
+  const handleOrderModalClose = () => {
+    setIsOrderModalVisible(false);
+    setSelectedOrderId(null);
+  };
+
+  const handleAuthModalClose = () => {
+    setIsAuthModalVisible(false);
+  };
+
+  const handleSignInClick = () => {
+    setIsAuthModalVisible(true);
   };
 
   const handleRefresh = () => {
-    if (customerId) {
+    if (hasValidCustomer) {
       const [from, to] = dateRange.map((date) => date.format("MM/DD/YYYY"));
       dispatch(fetchOrdersByCustomer({ from, to, customerId }));
     }
   };
+
+  // Transform orders for display
+  const transformedOrders = (orders || [])
+    .map((order, index) => ({
+      key: index,
+      orderId: order?.orderCode || "N/A",
+      orderDate: moment(order?.orderDate).format("MM/DD/YYYY") || "N/A",
+      customerName: order?.fullName || "N/A",
+      orderCycle: order?.orderCycle || "N/A",
+      orderDateMoment: moment(order?.orderDate), // Keep moment object for sorting
+    }))
+    .filter(order => {
+      const matchesSearch = order.orderId.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === "all" || order.orderCycle === statusFilter;
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      // Sort by date from newest to oldest (descending order)
+      return b.orderDateMoment.valueOf() - a.orderDateMoment.valueOf();
+    });
 
   // PDF Export function
   const handleExportPDF = () => {
@@ -81,7 +114,7 @@ const OrderHistoryPage = () => {
             .header h1 { color: #333; margin-bottom: 10px; }
             .date-range { text-align: center; margin-bottom: 20px; color: #666; }
             table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-            th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+            th, td { border: 1px solid #ddd; padding: 12px; text-left; }
             th { background-color: #f5f5f5; font-weight: bold; }
             .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; }
             .status-pending { background-color: #fef3c7; color: #92400e; }
@@ -154,6 +187,8 @@ const OrderHistoryPage = () => {
       'Delivery': { color: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircle, iconColor: 'text-green-600' },
       'Completed': { color: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircle, iconColor: 'text-green-600' },
       'Cancelled': { color: 'bg-red-100 text-red-800 border-red-200', icon: XCircle, iconColor: 'text-red-600' },
+      'Unreachable': { color: 'bg-gray-100 text-gray-800 border-gray-200', icon: AlertCircle, iconColor: 'text-gray-600' },
+      'Not Answered': { color: 'bg-orange-100 text-orange-800 border-orange-200', icon: AlertCircle, iconColor: 'text-orange-600' },
     };
     return statusConfig[status] || { color: 'bg-gray-100 text-gray-800 border-gray-200', icon: AlertCircle, iconColor: 'text-gray-600' };
   };
@@ -218,9 +253,11 @@ const OrderHistoryPage = () => {
         { text: 'Pending', value: 'Pending' },
         { text: 'Processing', value: 'Processing' },
         { text: 'Wrong Number', value: 'Wrong Number' },
-        { text: 'Delivered', value: 'Delivered' },
+        { text: 'Delivered', value: 'Delivery' },
         { text: 'Completed', value: 'Completed' },
         { text: 'Cancelled', value: 'Cancelled' },
+        { text: 'Unreachable', value: 'Unreachable' },
+        { text: 'Not Answered', value: 'Not Answered' },
       ],
       onFilter: (value, record) => record.orderCycle === value,
     },
@@ -249,28 +286,9 @@ const OrderHistoryPage = () => {
     },
   ];
 
-  const transformedOrders = (orders || [])
-    .map((order, index) => ({
-      key: index,
-      orderId: order?.orderCode || "N/A",
-      orderDate: moment(order?.orderDate).format("MM/DD/YYYY") || "N/A",
-      customerName: order?.fullName || "N/A",
-      orderCycle: order?.orderCycle || "N/A",
-      orderDateMoment: moment(order?.orderDate), // Keep moment object for sorting
-    }))
-    .filter(order => {
-      const matchesSearch = order.orderId.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = statusFilter === "all" || order.orderCycle === statusFilter;
-      return matchesSearch && matchesStatus;
-    })
-    .sort((a, b) => {
-      // Sort by date from newest to oldest (descending order)
-      return b.orderDateMoment.valueOf() - a.orderDateMoment.valueOf();
-    });
-
   const getOrderStats = () => {
     const total = orders.length;
-    const completed = orders.filter(order => ['Delivered', 'Completed'].includes(order.orderCycle)).length;
+    const completed = orders.filter(order => ['Delivery', 'Completed'].includes(order.orderCycle)).length;
     const inProgress = orders.filter(order => ['Processing', 'Pending', 'Wrong Number'].includes(order.orderCycle)).length;
     const cancelled = orders.filter(order => order.orderCycle === 'Cancelled').length;
     
@@ -278,6 +296,31 @@ const OrderHistoryPage = () => {
   };
 
   const stats = getOrderStats();
+
+  // No Customer State - Component for when customer is not found
+  const NoCustomerState = () => (
+    <div className="text-center py-16 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl border-2 border-dashed border-gray-300">
+      <div className="relative">
+        <div className="absolute inset-0 bg-gradient-to-r from-red-400/20 to-orange-600/20 rounded-full blur-3xl scale-150"></div>
+        <div className="relative bg-white p-8 rounded-2xl shadow-lg inline-block">
+          <UserX className="w-20 h-20 mx-auto text-gray-400 mb-6" />
+          <h3 className="text-2xl font-bold text-gray-900 mb-3">Customer Not Found</h3>
+          <p className="text-gray-600 mb-6 max-w-md">
+            Please log in to view your order history. You need to be signed in to access your orders.
+          </p>
+          <Button
+            type="primary"
+            size="large"
+            className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 border-0 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+            onClick={handleSignInClick}
+            icon={<UserX className="w-5 h-5" />}
+          >
+            Sign In
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 
   const EmptyState = () => (
     <div className="text-center py-16 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl border-2 border-dashed border-gray-300">
@@ -311,7 +354,6 @@ const OrderHistoryPage = () => {
   const LoadingState = () => (
     <div className="text-center py-16 rounded-2xl">
       <div className="relative">
-      
         <div className="relative">
           <Spin size="large" className="mb-6" />
           <h3 className="text-lg font-semibold text-gray-800 mb-2">Loading Your Orders</h3>
@@ -322,7 +364,7 @@ const OrderHistoryPage = () => {
   );
 
   const ErrorState = () => (
-    <div className="text-center py-16 ">
+    <div className="text-center py-16">
       <div className="relative">
         <div className="bg-white p-8 rounded-2xl shadow-lg inline-block">
           <div className="text-red-500 mb-6">
@@ -336,7 +378,6 @@ const OrderHistoryPage = () => {
             size="large"
             className="shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
             onClick={handleRefresh}
-         
           >
             Try Again
           </Button>
@@ -344,6 +385,43 @@ const OrderHistoryPage = () => {
       </div>
     </div>
   );
+
+  // If no valid customer, show the no customer state immediately
+  if (!hasValidCustomer) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          {/* Header Section */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <div className="p-2 bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-lg">
+                  <Package className="w-4 h-4 md:w-6 md:h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                    Order History
+                  </h1>
+                  <p className="text-gray-600 text-xs">Track and manage all your previous orders</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* No Customer Content */}
+          <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl rounded-2xl overflow-hidden">
+            <NoCustomerState />
+          </Card>
+
+          {/* Auth Modal - Fixed prop name */}
+          <AuthModal
+            open={isAuthModalVisible}
+            onClose={handleAuthModalClose}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
@@ -362,7 +440,6 @@ const OrderHistoryPage = () => {
                 <p className="text-gray-600 text-xs">Track and manage all your previous orders</p>
               </div>
             </div>
-           
           </div>
         </div>
 
@@ -477,9 +554,11 @@ const OrderHistoryPage = () => {
                     <Select.Option value="Pending">Pending</Select.Option>
                     <Select.Option value="Processing">Processing</Select.Option>
                     <Select.Option value="Wrong Number">Wrong Number</Select.Option>
-                    <Select.Option value="Delivered">Delivered</Select.Option>
+                    <Select.Option value="Delivery">Delivery</Select.Option>
                     <Select.Option value="Completed">Completed</Select.Option>
                     <Select.Option value="Cancelled">Cancelled</Select.Option>
+                    <Select.Option value="Unreachable">Unreachable</Select.Option>
+                    <Select.Option value="Not Answered">Not Answered</Select.Option>
                   </Select>
                 </div>
               </div>
@@ -540,8 +619,14 @@ const OrderHistoryPage = () => {
         {/* Order Modal */}
         <OrderModal
           orderId={selectedOrderId}
-          isModalVisible={isModalVisible}
-          onClose={handleModalClose}
+          isModalVisible={isOrderModalVisible}
+          onClose={handleOrderModalClose}
+        />
+
+        {/* Auth Modal - Fixed prop name */}
+        <AuthModal
+          open={isAuthModalVisible}
+          onClose={handleAuthModalClose}
         />
       </div>
 
@@ -570,6 +655,9 @@ const OrderHistoryPage = () => {
         .custom-table .ant-pagination-item {
           border-radius: 8px;
         }
+
+ 
+      
 
         .custom-table .ant-pagination-item-active {
           background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);

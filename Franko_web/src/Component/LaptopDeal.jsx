@@ -256,43 +256,54 @@ const sortedProducts = (Array.isArray(productsByCategory[categoryId]) ? products
                   />
                 </div>
 
-                {/* Hover Actions */}
-                <div className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20 transition-all">
-                  {/* Wishlist Icon */}
-                  <Tooltip content={inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}>
-                    <button 
-                      className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-                      onClick={() => handleWishlistToggle(product)}
-                    >
-                      {inWishlist ? (
-                        <SolidHeartIcon className="w-5 h-5 text-red-500" />
-                      ) : (
-                        <OutlineHeartIcon className="w-5 h-5 text-white hover:text-red-400" />
-                      )}
-                    </button>
-                  </Tooltip>
-
-                  {/* View Details */}
-                  <Tooltip content="View Details">
-                    <button
-                      onClick={() => navigate(`/product/${product.productID}`)}
-                      className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-                    >
-                      <EyeIcon className="w-5 h-5 text-white hover:text-green-400" />
-                    </button>
-                  </Tooltip>
-
-                  {/* Add to Cart */}
-                  <Tooltip content={product.stock === 0 ? "Out of Stock" : "Add to Cart"}>
-                    <button
-                      onClick={() => handleAddToCart(product)}
-                      className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={cartLoading || product.stock === 0}
-                    >
-                      <ShoppingCartIcon className="w-5 h-5 text-white hover:text-red-400" />
-                    </button>
-                  </Tooltip>
-                </div>
+                              <div
+                                 className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20 transition-all cursor-pointer"
+                                 onClick={() => navigate(`/product/${product.productID}`)}
+                               >
+                                 {/* Wishlist Icon */}
+                                 <Tooltip content={inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}>
+                                   <button
+                                     className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+                                     onClick={(e) => {
+                                       e.stopPropagation();
+                                       handleWishlistToggle(product);
+                                     }}
+                                   >
+                                     {inWishlist ? (
+                                       <SolidHeartIcon className="w-5 h-5 text-red-500" />
+                                     ) : (
+                                       <OutlineHeartIcon className="w-5 h-5 text-white hover:text-red-400" />
+                                     )}
+                                   </button>
+                                 </Tooltip>
+                               
+                                 {/* View Details */}
+                                 <Tooltip content="View Details">
+                                   <button
+                                     onClick={(e) => {
+                                       e.stopPropagation();
+                                       navigate(`/product/${product.productID}`);
+                                     }}
+                                     className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+                                   >
+                                     <EyeIcon className="w-5 h-5 text-white hover:text-green-400" />
+                                   </button>
+                                 </Tooltip>
+                               
+                                 {/* Add to Cart */}
+                                 <Tooltip content={product.stock === 0 ? "Out of Stock" : "Add to Cart"}>
+                                   <button
+                                     onClick={(e) => {
+                                       e.stopPropagation();
+                                       handleAddToCart(product);
+                                     }}
+                                     className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                     disabled={cartLoading || product.stock === 0}
+                                   >
+                                     <ShoppingCartIcon className="w-5 h-5 text-white hover:text-red-400" />
+                                   </button>
+                                 </Tooltip>
+                               </div>
               </div>
 
               {/* Info */}
@@ -300,7 +311,7 @@ const sortedProducts = (Array.isArray(productsByCategory[categoryId]) ? products
                 <h3 className="text-sm font-medium text-gray-800 line-clamp-2">
                   {product.productName}
                 </h3>
-                <div className="flex justify-center items-center gap-2">
+                <div className="flex flex-col md:flex-row items-center justify-center gap-1 mt-1">
                   <span className="text-red-500 font-medium text-sm">
                     {formatPrice(product.price)}
                   </span>

@@ -213,7 +213,7 @@ const BestSellers = () => {
         onClose={hideNotification}
       />
      {/* Showroom Tabs */}
-     <div className="mb-6">
+     <div className="mb-4">
   <div className="flex items-center gap-4 flex-wrap md:flex-nowrap">
     <h2 className="text-sm md:text-lg font-bold text-gray-900 relative whitespace-nowrap">
       Trending Products
