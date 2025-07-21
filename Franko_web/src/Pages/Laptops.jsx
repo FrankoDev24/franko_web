@@ -281,7 +281,7 @@ const Laptops = () => {
       <Helmet>
   <title>Laptops & Computers Ghana | Buy Desktops, Laptops & Accessories
 </title>
-  <meta name="description" content="Shop laptops, desktops, and computer accessories at Franko Trading. Choose top brands like HP, Lenovo, Acer, and Dell — with free shipping and warranty support." />
+  <meta name="description" content="Buy laptops, desktops, and computer accessories at Franko Trading. Choose top brands like HP, Lenovo, Acer, and Dell — with free shipping and warranty support." />
   <meta name="keywords" content="computers, laptops, desktops, accessories, buy online" />
 
   {/* Open Graph (Facebook, LinkedIn) */}

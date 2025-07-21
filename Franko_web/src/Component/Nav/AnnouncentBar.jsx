@@ -1,6 +1,5 @@
-import React from "react";
-import { Typography } from "@material-tailwind/react";
 
+import { Typography } from "@material-tailwind/react";
 import { PhoneOutlined,   WhatsAppOutlined, } from "@ant-design/icons";
 const promoMessages = [
   "🎉 FRANKO TRADING!",
@@ -20,12 +19,12 @@ const AnnouncementBar = () => {
       `}</style>
       <div className="bg-gradient-to-r from-red-500 to-red-400 text-white overflow-hidden">
       {/* Desktop Layout - Side by side */}
-      <div className="hidden md:flex items-center justify-between px-2 ">
+      <div className="hidden md:flex items-center justify-between ">
         {/* Marquee Section */}
         <div className="flex-1 overflow-hidden">
           <div className="flex animate-marquee whitespace-nowrap" style={{animation: 'marquee 65s linear infinite'}}>
             {[...promoMessages, ...promoMessages].map((msg, index) => (
-              <span key={index} className="mx-5 text-sm font-medium">
+              <span key={index} className="mx-2 text-sm font-medium">
                 {msg}
               </span>
             ))}
@@ -68,8 +67,8 @@ const AnnouncementBar = () => {
       {/* Mobile Layout - Stacked */}
       <div className="md:hidden">
         {/* Marquee Section */}
-        <div className="overflow-hidden py-2">
-          <div className="flex animate-marquee whitespace-nowrap" style={{animation: 'marquee 15s linear infinite'}}>
+        <div className="overflow-hidden py-1">
+          <div className="flex animate-marquee whitespace-nowrap" style={{animation: 'marquee 50s linear infinite'}}>
             {[...promoMessages, ...promoMessages].map((msg, index) => (
               <span key={index} className="mx-6 text-sm font-medium">
                 {msg}
@@ -80,9 +79,9 @@ const AnnouncementBar = () => {
         
         {/* Contact Section Below Marquee */}
       {/* Contact Section Below Marquee */}
-<div className="px-4 py-2 border-t border-white/20">
+<div className="px-4 py-1 border-t border-white/20">
   {/* Contact Us Heading */}
-  <Typography variant="small" className="text-center mb-2 font-semibold">
+  <Typography variant="small" className="text-center font-semibold">
     Need help? Contact us!
   </Typography>
   

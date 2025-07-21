@@ -257,12 +257,13 @@ const Brand = () => {
 
   const brandName = selectedBrand?.brandName || 'Featured Brands';
   const pageTitle = selectedBrand
-    ? `Shop ${brandName} Products Online | Franko Trading`
+    ? `Buy ${brandName} Products in Ghana| Franko Trading`
     : 'Explore Branded Products | Franko Trading';
   const description = selectedBrand
     ? `Buy genuine ${brandName} electronics and accessories at Franko Trading. Fast delivery and best prices guaranteed.`
     : 'Browse a wide selection of authentic electronics and accessories from top brands.';
-  const imageUrl = `${window.location.origin}/assets/frankoIcon.png`;
+  const imageUrl = "https://www.frankotrading.com/frankoIcon.png"; // Default image URL
+  const canonicalUrl = `https://www.frankotrading.com/brand/${brandId}`;
   const pageUrl = `https://www.frankotrading.com/brand/${brandId}`;
 
   return (

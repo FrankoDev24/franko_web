@@ -40,7 +40,7 @@ function Home() {
         />
         <meta
           property="og:image"
-          content={`${window.location.origin}/assets/frankoIcon.png`}
+          content={`${window.location.origin}/frankoIcon.png`}
         />
         <meta property="og:url" content="https://www.frankotrading.com" />
         <meta property="og:type" content="website" />
@@ -52,7 +52,7 @@ function Home() {
         />
         <meta
           name="twitter:image"
-          content="https://www.frankotrading.com/assets/frankoIcon.png"
+          content="https://www.frankotrading.com/frankoIcon.png"
         />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       </Helmet>

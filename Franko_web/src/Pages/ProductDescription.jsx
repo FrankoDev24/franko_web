@@ -6,7 +6,7 @@ import { fetchProductById, fetchProducts } from "../Redux/Slice/productSlice";
 import { updateCartItem, deleteCartItem, getCartById } from '../Redux/Slice/cartSlice';
 import ProductDetailSkeleton from "../Component/ProductDetailSkeleton";
 import { Button, Tooltip, IconButton, Drawer } from "@material-tailwind/react";
-import { ShoppingCartIcon, CheckCircleIcon, HeartIcon as OutlineHeartIcon, EyeIcon, TruckIcon, ShieldCheckIcon, PhoneIcon, CreditCardIcon,
+import { ShoppingCartIcon, CheckCircleIcon, HeartIcon as SolidHeartIcon, EyeIcon, TruckIcon, ShieldCheckIcon, PhoneIcon, CreditCardIcon,
   ShareIcon,
   TrashIcon,
   MinusIcon,
@@ -14,7 +14,6 @@ import { ShoppingCartIcon, CheckCircleIcon, HeartIcon as OutlineHeartIcon, EyeIc
   XMarkIcon,
   ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
-import { FaWhatsapp } from "react-icons/fa";
 import ProductCard from "../Component/ProductCard";
 import useAddToCart from "../Component/Cart";
 import AuthModal from "../Component/AuthModal";
@@ -717,10 +716,13 @@ const ProductDescription = () => {
                       />
                     </div>
 
-                    <div className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20 transition-all">
+                   <div
+  className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20 transition-all cursor-pointer"
+  onClick={() => navigate(`/product/${product.id}`)}
+>
                       <Tooltip content="Add to Wishlist" placement="top">
                         <button className="p-2 bg-white/10 hover:bg-white/20 rounded-full">
-                          <OutlineHeartIcon className="w-5 h-5 text-white hover:text-red-400" />
+                          <SolidHeartIcon className="w-5 h-5 text-white hover:text-red-400" />
                         </button>
                       </Tooltip>
                       <Tooltip content="View Details" placement="top">
@@ -728,26 +730,10 @@ const ProductDescription = () => {
                           className="p-2 bg-white/10 hover:bg-white/20 rounded-full"
                           onClick={() => navigate(`/product/${product.id}`)}
                         >
-                          <EyeIcon className="w-5 h-5 text-white hover:text-yellow-400" />
+                            <EyeIcon className="w-5 h-5 text-white hover:text-green-400" /> 
                         </button>
                       </Tooltip>
-                      <Tooltip content={productOutOfStock ? "Out of Stock" : "Add to Cart"} placement="top">
-                        <button
-                          className={`p-2 bg-white/10 hover:bg-white/20 rounded-full transition-opacity ${
-                            productOutOfStock ? 'opacity-50 cursor-not-allowed' : ''
-                          }`}
-                          onClick={() => !productOutOfStock && handleAddToCartOnly(product)}
-                          disabled={isCartButtonLoading || productOutOfStock}
-                        >
-                          {isCartButtonLoading ? (
-                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          ) : productOutOfStock ? (
-                            <ExclamationTriangleIcon className="w-5 h-5 text-white" />
-                          ) : (
-                            <ShoppingCartIcon className="w-5 h-5 text-white hover:text-red-400" />
-                          )}
-                        </button>
-                      </Tooltip>
+                    
                     </div>
                   </div>
 

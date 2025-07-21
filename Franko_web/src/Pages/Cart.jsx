@@ -11,10 +11,18 @@ const Cart = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  
   const { cart, loading, error, cartId } = useSelector((state) => state.cart);
   const [selectedItems, setSelectedItems] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [openModal, setOpenModal] = useState(false);
+  
+  // New state for individual delete confirmation
+  const [deleteModal, setDeleteModal] = useState({
+    open: false,
+    productId: null,
+    productName: ''
+  });
 
     useEffect(() => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -90,17 +98,36 @@ const handleQuantityChange = async (productId, quantity) => {
   }
 };
 
+// Updated function to show confirmation modal instead of direct deletion
+const handleRemoveItemClick = (productId, productName) => {
+  setDeleteModal({
+    open: true,
+    productId,
+    productName
+  });
+};
 
-
-const handleRemoveItem = async (productId) => {
+// Function to handle confirmed individual deletion
+const handleConfirmRemoveItem = async () => {
   try {
-    await dispatch(deleteCartItem({ cartId, productId })).unwrap();
-    setSelectedItems(prev => prev.filter(id => id !== productId));
-    message.success('Item removed from cart');
+    await dispatch(deleteCartItem({ cartId, productId: deleteModal.productId })).unwrap();
+    setSelectedItems(prev => prev.filter(id => id !== deleteModal.productId));
+    // Assuming you have message imported from antd
+    // message.success('Item removed from cart');
+    console.log('Item removed from cart');
+    
+    // Close the modal
+    setDeleteModal({
+      open: false,
+      productId: null,
+      productName: ''
+    });
+    
     // dispatch(getCartById(cartId));
   } catch (err) {
     console.error('Delete failed:', err);
-    message.error('Failed to remove item');
+    // message.error('Failed to remove item');
+    console.log('Failed to remove item');
   }
 };
 
@@ -312,13 +339,13 @@ const handleRemoveItem = async (productId) => {
                               </div>
                             </div>
 
-                            {/* Remove Button */}
+                            {/* Remove Button - Updated to show confirmation modal */}
                             <Button
                               size="sm"
                               variant="text"
                               color="red"
                               className="min-w-0 p-2 hover:bg-red-50"
-                              onClick={() => handleRemoveItem(item.productId)}
+                              onClick={() => handleRemoveItemClick(item.productId, item.productName)}
                             >
                               <TrashIcon className="h-5 w-5" />
                             </Button>
@@ -398,7 +425,7 @@ const handleRemoveItem = async (productId) => {
         </div>
       )}
 
-      {/* Confirm Delete Modal */}
+      {/* Batch Delete Confirmation Modal */}
       <Dialog open={openModal} handler={setOpenModal} className="bg-white rounded-2xl">
         <DialogHeader className="text-gray-800">
           <div className="flex items-center gap-2">
@@ -423,6 +450,39 @@ const handleRemoveItem = async (productId) => {
             className="bg-red-500 hover:bg-red-600"
           >
             Remove Items
+          </Button>
+        </DialogFooter>
+      </Dialog>
+
+      {/* Individual Delete Confirmation Modal */}
+      <Dialog 
+        open={deleteModal.open} 
+        handler={() => setDeleteModal({ open: false, productId: null, productName: '' })} 
+        className="bg-white rounded-2xl"
+      >
+        <DialogHeader className="text-gray-800">
+          <div className="flex items-center gap-2">
+            <TrashIcon className="w-6 h-6 text-red-500" />
+            Remove Item
+          </div>
+        </DialogHeader>
+        <DialogBody className="text-gray-600">
+          Are you sure you want to remove "{deleteModal.productName}" from your cart? This action cannot be undone.
+        </DialogBody>
+        <DialogFooter className="space-x-2">
+          <Button 
+            variant="text" 
+            onClick={() => setDeleteModal({ open: false, productId: null, productName: '' })}
+            className="text-gray-600 hover:bg-gray-100"
+          >
+            Cancel
+          </Button>
+          <Button 
+            color="red" 
+            onClick={handleConfirmRemoveItem}
+            className="bg-red-500 hover:bg-red-600"
+          >
+            Remove Item
           </Button>
         </DialogFooter>
       </Dialog>
