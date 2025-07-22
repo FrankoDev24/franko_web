@@ -25,7 +25,7 @@ const Checkout = () => {
   const [loading, setLoading] = useState(false);
   const [orderNote, setOrderNote] = useState("");
   const [paymentMethod, setPaymentMethod] = useState(null);
-  const [recipientName, setRecipientName] = useState("");
+
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [deliveryInfo, setDeliveryInfo] = useState(() => {
     const saved = localStorage.getItem("deliveryInfo");
@@ -298,11 +298,7 @@ const Checkout = () => {
       message.warning("Please enter your delivery address to proceed.");
       return;
     }
-    if (!recipientName) {
-      message.warning("Please enter the recipient's name.");
-      return;
-    }
-
+ 
     
   // NEW CODE (fixed):
 if (paymentMethod === "Cash on Delivery" && deliveryFee === 0 && !isAgent) {
@@ -646,7 +642,7 @@ if (paymentMethod === "Cash on Delivery" && deliveryFee === 0 && !isAgent) {
                    
                     {!paymentMethod && <li>• Select payment method</li>}
                     {!selectedAddress && <li>• Select delivery address</li>}
-                    {!recipientName && <li>• Enter recipient name</li>}
+
            
                   </ul>
                 </div>
