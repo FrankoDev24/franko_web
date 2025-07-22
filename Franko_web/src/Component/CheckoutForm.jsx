@@ -6,7 +6,6 @@ const { Option } = Select;
 
 const CheckoutForm = ({
   customerName,
-  firstName,
   setCustomerName,
   customerNumber,
   setCustomerNumber,
@@ -20,7 +19,6 @@ const CheckoutForm = ({
   const [region, setRegion] = useState(null);
   const [town, setTown] = useState(null);
   const [fee, setFee] = useState(null);
-  
   const [manualAddress, setManualAddress] = useState(""); // ✅ Manual address input
   const [agentManualAddress, setAgentManualAddress] = useState(""); // ✅ New field for agent manual address
   const [agentDeliveryFee, setAgentDeliveryFee] = useState(0); // ✅ New field for agent delivery fee
@@ -44,13 +42,13 @@ const CheckoutForm = ({
 
   // ✅ Don't load customer name from localStorage for guest users
   useEffect(() => {
-    if (firstName !== "Guest") {
+    if (customerAccountType !== "guest") {
       const savedName = localStorage.getItem("customerName");
       if (savedName && !customerName) {
         setCustomerName(savedName);
       }
     }
-  }, [customerAccountType, customerName, setCustomerName, firstName]);
+  }, [customerAccountType, customerName, setCustomerName]);
 
   // ✅ Update delivery info when agent manual address or fee changes
   useEffect(() => {
@@ -67,31 +65,35 @@ const CheckoutForm = ({
   };
 
   const handleTownChange = (value) => {
-    const currentRegion = locations.find((r) => r.region === region);
-    const townData = currentRegion?.towns.find((t) => t.name === value);
+    const currentRegion = locations?.find((r) => r.region === region);
+    const townData = currentRegion?.towns?.find((t) => t.name === value);
     if (townData) {
       setTown(value);
       setFee(townData.delivery_fee);
     }
   };
 
-  // ✅ Filter locations based on search text
+  // ✅ Filter locations based on search text - FIXED: Added null checking
   const getFilteredLocations = () => {
+    // Add null/undefined check for locations
+    if (!locations || !Array.isArray(locations)) return [];
     if (!searchText) return locations;
     
     return locations.map(region => ({
       ...region,
-      towns: region.towns.filter(town => 
-        town.name.toLowerCase().includes(searchText.toLowerCase()) ||
-        region.region.toLowerCase().includes(searchText.toLowerCase())
-      )
+      towns: region.towns?.filter(town => 
+        town.name?.toLowerCase().includes(searchText.toLowerCase()) ||
+        region.region?.toLowerCase().includes(searchText.toLowerCase())
+      ) || []
     })).filter(region => region.towns.length > 0);
   };
 
   // ✅ Handle direct town selection from search
   const handleTownSelect = (townName, regionName) => {
+    if (!locations || !Array.isArray(locations)) return;
+    
     const selectedRegion = locations.find(r => r.region === regionName);
-    const selectedTown = selectedRegion?.towns.find(t => t.name === townName);
+    const selectedTown = selectedRegion?.towns?.find(t => t.name === townName);
     
     if (selectedTown) {
       setRegion(regionName);
@@ -158,16 +160,15 @@ const CheckoutForm = ({
     <Form layout="vertical" className="p-2 rounded-2xl max-w-2xl mx-auto space-y-6">
 
       {/* Full Name */}
-     <Form.Item label="Recipient Name" required>
-  <Input
-    prefix={<UserOutlined className="text-gray-400" />}
-    value={firstName === "Guest" ? "" : customerName}
-    onChange={(e) => setCustomerName(e.target.value)}
-    placeholder="Enter your full name"
-    allowClear
-  />
-</Form.Item>
-
+      <Form.Item label="Recipient Name" required>
+        <Input
+          prefix={<UserOutlined className="text-gray-400" />}
+          value={customerName}
+          onChange={(e) => setCustomerName(e.target.value)}
+          placeholder="Enter your full name"
+          allowClear
+        />
+      </Form.Item>
 
       {/* Phone Number */}
       <Form.Item label="Recipient contact" required>
@@ -208,7 +209,7 @@ const CheckoutForm = ({
       )}
 
       {customerAccountType !== "agent" && (
-        <Form.Item label={<span className=" text-sm text-gray-700">Delivery Address</span>} required>
+        <Form.Item label={<span className=" text-sm text-gray-700">Delivery Address</span>}>
           <div className="flex flex-col lg:flex-row lg:items-center md:justify-between gap-4 bg-white p-5 rounded-xl border border-gray-200 shadow-sm transition-shadow hover:shadow-md">
             <div className="flex-1 text-sm text-gray-800">
               {deliveryInfo?.address ? (
@@ -288,7 +289,7 @@ const CheckoutForm = ({
                     <h4 className="text-sm font-medium text-gray-600 mb-2">Search Results:</h4>
                     {getFilteredLocations().length > 0 ? (
                       getFilteredLocations().map(region => 
-                        region.towns.map(town => (
+                        region.towns?.map(town => (
                           <div
                             key={`${region.region}-${town.name}`}
                             className="flex justify-between items-center p-2 hover:bg-gray-50 cursor-pointer rounded"
@@ -301,7 +302,7 @@ const CheckoutForm = ({
                               {town.delivery_fee === 0 ? "N/A" : `₵${town.delivery_fee}`}
                             </span>
                           </div>
-                        ))
+                        )) || []
                       )
                     ) : (
                       <p className="text-sm text-gray-500 p-2">No locations found matching your search.</p>
@@ -322,7 +323,7 @@ const CheckoutForm = ({
                         (option?.children || option?.label || '').toString().toLowerCase().includes(input.toLowerCase())
                       }
                     >
-                      {locations.map((loc) => (
+                      {locations && Array.isArray(locations) && locations.map((loc) => (
                         <Option key={loc.region} value={loc.region}>
                           {loc.region}
                         </Option>
@@ -344,12 +345,12 @@ const CheckoutForm = ({
                         }
                       >
                         {locations
-                          .find((loc) => loc.region === region)
-                          ?.towns.map((t) => (
+                          ?.find((loc) => loc.region === region)
+                          ?.towns?.map((t) => (
                             <Option key={t.name} value={t.name}>
                               {t.name} ({t.delivery_fee === 0 ? "N/A" : `₵${t.delivery_fee}`})
                             </Option>
-                          ))}
+                          )) || []}
                       </Select>
                     </Form.Item>
                   )}
@@ -371,7 +372,7 @@ const CheckoutForm = ({
                   }}
                   className="text-sm"
                 >
-                  My location is not in the list.
+                  My location is not in the list (Enter manually)
                 </Checkbox>
               </div>
             </>
@@ -380,7 +381,7 @@ const CheckoutForm = ({
           {/* Manual Address Input */}
           {locationNotFound && (
             <>
-              <Form.Item label="Enter your location">
+              <Form.Item label="Enter your location manually">
                 <TextArea
                   rows={3}
                   placeholder="Type your full delivery address here"
@@ -391,7 +392,7 @@ const CheckoutForm = ({
               
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                 <p className="text-sm text-yellow-800">
-                  <strong>Note:</strong>
+                  <strong>Note:</strong> Delivery fee for manual addresses is N/A. 
                   Our delivery team will contact you to confirm delivery charges.
                 </p>
               </div>

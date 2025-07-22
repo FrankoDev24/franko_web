@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -422,9 +423,8 @@ if (paymentMethod === "Cash on Delivery" && deliveryFee === 0 && !isAgent) {
   };
 
   // Check if form is ready for submission
-  const isFormValid = paymentMethod && selectedAddress && recipientName;
-const hasValidationErrors = !paymentMethod || !selectedAddress || !recipientName;
-
+  const isFormValid = paymentMethod && selectedAddress;
+  const hasValidationErrors = !paymentMethod || !selectedAddress;
 
   // Show empty state if no items
   if (!cartItems || cartItems.length === 0) {
