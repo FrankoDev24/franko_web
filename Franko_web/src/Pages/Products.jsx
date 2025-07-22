@@ -254,7 +254,11 @@ const ProductsPage = () => {
                       />
                     </div>
 
-                    <div className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20">
+                    <div className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20 cursor-pointer"
+                   onClick={(e) => {
+                            e.stopPropagation();
+                            handleProductClick(productID);
+                          }}  >
                       {/* Wishlist */}
                       <Tooltip content={inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}>
                         <button

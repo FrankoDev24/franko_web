@@ -336,15 +336,14 @@ const ShopsPage = () => {
       </div>
 
       {/* Table for larger screens */}
-      <div className="hidden sm:block">
-        <Table
-          dataSource={filteredLocations}
-          columns={columns}
-          rowKey={(record, index) => index}
-          pagination={{ pageSize: 10 }}
-        />
-      </div>
-
+ <div className="hidden sm:block [&_.ant-pagination]:justify-center [&_.ant-pagination]:flex">
+  <Table
+    dataSource={filteredLocations}
+    columns={columns}
+    rowKey={(record, index) => index}
+    pagination={{ pageSize: 10 }}
+  />
+</div>
       {/* Cards for small screens */}
       <div className="grid grid-cols-1 gap-4 sm:hidden">
         {filteredLocations.map((shop, index) => (

@@ -24,6 +24,7 @@ const Checkout = () => {
   const [loading, setLoading] = useState(false);
   const [orderNote, setOrderNote] = useState("");
   const [paymentMethod, setPaymentMethod] = useState(null);
+  const [recipientName, setRecipientName] = useState("");
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [deliveryInfo, setDeliveryInfo] = useState(() => {
     const saved = localStorage.getItem("deliveryInfo");
@@ -277,6 +278,8 @@ const Checkout = () => {
       setShowValidationAlerts(false);
     }
   };
+
+  
   
   const handleCheckout = async () => {
     // Validation
@@ -294,7 +297,12 @@ const Checkout = () => {
       message.warning("Please enter your delivery address to proceed.");
       return;
     }
+    if (!recipientName) {
+      message.warning("Please enter the recipient's name.");
+      return;
+    }
 
+    
   // NEW CODE (fixed):
 if (paymentMethod === "Cash on Delivery" && deliveryFee === 0 && !isAgent) {
   message.warning("Please select another payment method.");
@@ -414,8 +422,9 @@ if (paymentMethod === "Cash on Delivery" && deliveryFee === 0 && !isAgent) {
   };
 
   // Check if form is ready for submission
-  const isFormValid = paymentMethod && selectedAddress;
-  const hasValidationErrors = !paymentMethod || !selectedAddress;
+  const isFormValid = paymentMethod && selectedAddress && recipientName;
+const hasValidationErrors = !paymentMethod || !selectedAddress || !recipientName;
+
 
   // Show empty state if no items
   if (!cartItems || cartItems.length === 0) {
@@ -503,6 +512,7 @@ if (paymentMethod === "Cash on Delivery" && deliveryFee === 0 && !isAgent) {
               setOrderNote={setOrderNote}
               locations={locations}
               customerAccountType={customerAccountType}
+              firstName={customerData?.firstName || "Guest"}
             />
           </Card>
         </div>
@@ -633,8 +643,11 @@ if (paymentMethod === "Cash on Delivery" && deliveryFee === 0 && !isAgent) {
                     </span>
                   </div>
                   <ul className="text-xs text-amber-600 mt-1 ml-6 space-y-1">
+                   
                     {!paymentMethod && <li>• Select payment method</li>}
                     {!selectedAddress && <li>• Select delivery address</li>}
+                    {!recipientName && <li>• Enter recipient name</li>}
+           
                   </ul>
                 </div>
               )}
