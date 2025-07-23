@@ -204,7 +204,7 @@ const Checkout = () => {
       totalAmount,
       description: `Payment for ${cartItems.map((item) => item.productName).join(", ")}`,
       callbackUrl: "https://smfteapi.salesmate.app/PaymentSystem/PostHubtelCallBack",
-      returnUrl: `https://www.frankotrading.com/order-success/${orderId}`,
+      returnUrl: `https://www.frankotrading.com/${orderId}`,
       cancellationUrl: "https://www.frankotrading.com/order-cancelled",
       merchantAccountNumber: "2020892",
       clientReference: orderId,
@@ -740,7 +740,7 @@ if (paymentMethod === "Cash on Delivery" && deliveryFee === 0 && !isAgent) {
           ]}
         >
           <p style={{ marginTop: 10 }}>
-            Delivery charges for electronic items such as <strong>fridges, televisions, and air conditioners</strong> may vary based on location.
+            Delivery charges for electronic items such as <strong>fridges, televisions, and air conditioners</strong> ranges from Ghc 100.00 and above depending on your location.
           </p>
         </Modal>
       )}

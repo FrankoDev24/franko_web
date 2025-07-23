@@ -64,6 +64,7 @@ import DevBanners from './Pages/Developer/Dev/DevBanners'
 import DevUsers from './Pages/Developer/Dev/DevUsers'
 import DevCustomers from './Pages/Developer/Dev/DevCustomers'
 import Payments from './Pages/Developer/Dev/Payments'
+import OrderSuccessPage from './Pages/OrderSucess'
 
 // Utility to fetch customer role
 
@@ -220,6 +221,7 @@ function App() {
         <Route path="/products" element={<Products />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/order-received" element={<OrderReceived />} />
+        <Route path="/order-success/:orderId" element={<OrderSuccessPage />} />
         <Route path="/account" element={<Account />} />
         <Route path="/shops" element={<Locations />} />
         <Route path="/order-cancelled" element={<Cancellation />} />

@@ -78,12 +78,12 @@ const OrderSuccessPage = () => {
   }, [dispatch, orderId]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-green-50 to-blue-100 flex items-center justify-center px-6 py-12 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-r from-red-50 to-green-100 flex items-center justify-center px-6 py-12 relative overflow-hidden">
       {showConfetti && <Confetti width={width} height={height} />}
       <div className="bg-white rounded-3xl shadow-2xl max-w-xl w-full p-8 sm:p-10 text-center transition-all duration-300 ease-in-out">
-        <h1 className="text-4xl font-extrabold text-green-600 mb-3">Payment !</h1>
+        <h1 className="text-4xl font-extrabold text-green-600 mb-3">Payment Received !</h1>
         <p className="text-lg text-gray-700 mb-6">
-          Thank you for your purchase. We’ve received your order and will begin processing it shortly.
+          Thank you for your purchase. We have received your order and will begin processing it shortly.
         </p>
 
         <div className="bg-gray-100 p-4 rounded-md shadow-inner text-left mb-6">
