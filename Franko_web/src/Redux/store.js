@@ -14,6 +14,7 @@ import advertismentReducer from './Slice/advertismentSlice';
 import wishlistReducer from './Slice/wishlistSlice';
 import paymentReducer from './Slice/paymentSlice'; // Assuming you have a payment slice
 
+
 // Combine reducers
 const rootReducer = combineReducers({
   categories: categoryReducer,

@@ -68,32 +68,17 @@ import OrderSuccessPage from './Pages/OrderSucess'
 
 // Utility to fetch customer role
 
+
 const getUserRole = () => {
   try {
     const customer = JSON.parse(localStorage.getItem("customer"));
     const user = JSON.parse(localStorage.getItem("user"));
-    if (!customer && !user) {
-      return null;
-    }
-    // First, check user position from the user object, if exists
-    if (user && user.position) {
-      return user.position; // e.g., 'Supervisor', 'Webcontentmanager', 'Fulfillment'
-    }
-    
-    // If the user object doesn't have a position, fallback to the customer object
-    return customer?.accountType || null; // 'customer', 'agent', or 'admin'
-  } catch (error) {
-    console.error("Error parsing customer or user data from localStorage:", error);
-    return null;
-  }
-};
+    if (!customer && !user) return null;
 
-const getUserPosition = () => {
-  try {
-    const user = JSON.parse(localStorage.getItem("user"));
-    return user?.position || null; // e.g., 'Supervisor', 'Webcontentmanager', 'Fulfillment'
-  } catch (error) {
-    console.error("Error parsing user data from localStorage:", error);
+    if (user?.position) return user.position; // Supervisor, Developer, etc.
+    return customer?.accountType || null; // customer, agent, admin
+  } catch (err) {
+    console.error("Error reading user role from localStorage", err);
     return null;
   }
 };
@@ -103,41 +88,22 @@ const isWebBrowser = () => {
   return !ua.includes("Electron") && /Mozilla|Chrome|Safari|Firefox/i.test(ua);
 };
 
-const isElectron = () => {
-  return navigator.userAgent.includes("Electron");
-};
+const isElectron = () => navigator.userAgent.includes("Electron");
 
-const ProtectedRoute = ({ children, allowedRoles }) => {
+const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const userRole = getUserRole();
-  const userPosition = getUserPosition();
 
-  // ✅ Restrict web browser access to only Developer and agent
+  // ✅ Web-only restriction: allow only Developer and agent
   if (isWebBrowser() && userRole && !["Developer", "agent"].includes(userRole)) {
     return <Navigate to="/" replace />;
   }
 
-  // ✅ If in Electron app, allow access regardless of role
+  // ✅ Electron allows all roles (you can modify this as needed)
   if (isElectron()) {
     return children;
   }
 
-  // Redirect based on user position if available
-  if (userPosition) {
-    switch (userPosition) {
-      case "Supervisor":
-        return <AdminPage />;
-      case "Webcontentmanager":
-        return <ContentPage />;
-      case "Fulfillment":
-        return <FulfillmentPage />;
-      case "Developer":
-        return <DevPage />;
-      default:
-        break;
-    }
-  }
-
-  // If role isn't allowed
+  // ✅ Check if user's role is in the allowed roles
   if (!userRole || !allowedRoles.includes(userRole)) {
     return <Navigate to="/" replace />;
   }

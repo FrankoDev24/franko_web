@@ -368,8 +368,8 @@ useEffect(() => {
   ];
 
   return (
-    <div style={{ minHeight: '100vh' }}>
-      {/* Header */}
+    <div style={{ minHeight: '100vh' }}  className="min-h-screen overflow-y-auto px-4 py-6 bg-white">
+    {/* Header */}
       <div style={{ marginBottom: '24px' }}>
         <h1 style={{ 
           fontSize: '20px', 
@@ -539,7 +539,8 @@ useEffect(() => {
           columns={columns}
           rowKey="productID"
           loading={isLoading}
-          scroll={{ x: 1200 }}
+          scroll={{ x: 'max-content' }}
+
           pagination={{
             pageSize: 10,
             showSizeChanger: true,

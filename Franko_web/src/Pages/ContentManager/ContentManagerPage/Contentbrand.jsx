@@ -1,4 +1,4 @@
-import React from 'react'
+
 import Adminbrands from '../../AdminPages/Adminbrands'
 
 function Contentbrand() {

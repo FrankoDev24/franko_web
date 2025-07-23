@@ -15,15 +15,32 @@ const UserLogin = () => {
 
   const onFinish = () => {
     // Modify the dispatch to use 'contact' instead of 'contactNumber'
-    dispatch(loginUser({ contact, password }))
-      .unwrap()
-      .then(() => {
-        message.success('Login successful!');
-        navigate('/admin/dashboard'); // Redirect to dashboard after login
-      })
-      .catch((error) => {
-        message.error(`Login failed: ${error.message}`);
-      });
+   dispatch(loginUser({ contact, password }))
+  .unwrap()
+  .then((userData) => {
+    message.success('Login successful!');
+    const position = userData?.position;
+
+    switch (position) {
+      case 'Supervisor':
+        navigate('/admin/dashboard');
+        break;
+      case 'Webcontentmanager':
+        navigate('/content/dashboard');
+        break;
+      case 'Fulfillment':
+        navigate('/fulfillment/dashboard');
+        break;
+      case 'Developer':
+        navigate('/dev/dashboard');
+        break;
+      default:
+        navigate('/');
+    }
+  })
+  .catch((error) => {
+    message.error(`Login failed: ${error}`);
+  });
   };
 
   const onFinishFailed = (errorInfo) => {

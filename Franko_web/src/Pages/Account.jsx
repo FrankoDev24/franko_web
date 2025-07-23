@@ -28,6 +28,9 @@ const Account = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [wishlist, setWishlist] = useState([]);
+    useEffect(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
 
   useEffect(() => {
     const storedCustomer = localStorage.getItem("customer");

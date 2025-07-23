@@ -6,6 +6,9 @@ import { useWindowSize } from "@react-hook/window-size";
 function Cancellation() {
   const navigate = useNavigate();
   const [width, height] = useWindowSize();
+    useEffect(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 px-4 sm:px-6 lg:px-8 relative">

@@ -21,7 +21,7 @@
 /* Prevent horizontal scrolling and make app sticky on mobile */
 @layer base {
   html, body {
-    overflow-x: hidden; /* Prevent horizontal scroll */
+
     position: fixed; /* Fix the entire page */
     width: 100%; /* Ensure full width */
     height: 100%; /* Ensure full height */
@@ -33,7 +33,7 @@
   #root, .app-container {
     width: 100vw;
     height: 100vh;
-    overflow-x: hidden;
+
     overflow-y: auto; /* Allow vertical scrolling if needed */
     position: fixed;
     top: 0;
@@ -45,9 +45,11 @@
 @layer utilities {
   .mobile-fixed {
     @apply fixed inset-0 w-screen h-screen overflow-x-hidden overflow-y-auto;
+
+  }
+  .mobile-scroll {
+    @apply overflow-y-auto;
   }
   
-  .prevent-horizontal-scroll {
-    @apply overflow-x-hidden max-w-full;
-  }
+ 
 }

@@ -7,6 +7,9 @@ import Confetti from "react-confetti";
 const OrderReceived = () => {
   const navigate = useNavigate();
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
+    useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
 useEffect(() => {
   // Push GTM event

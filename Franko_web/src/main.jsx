@@ -8,11 +8,14 @@ import { store, persistor } from "./Redux/store.js";
 import { PersistGate } from 'redux-persist/integration/react';
 import { ThemeProvider } from '@material-tailwind/react';
 import TagManager from 'react-gtm-module';
+import { startAutoLogoutCheck } from './Redux/Slice/userSlice';
 
 // ✅ Initialize GTM
 TagManager.initialize({
   gtmId: 'GTM-WKCL4JTV', // Replace with your GTM ID
 });
+startAutoLogoutCheck(store.dispatch);
+
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

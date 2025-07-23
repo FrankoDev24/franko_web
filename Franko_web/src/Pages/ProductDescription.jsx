@@ -40,6 +40,9 @@ const ProductDescription = () => {
   const { cart, loading: cartLoadingState, error: cartError, cartId } = useSelector((state) => state.cart);
   const [viewedProducts, setViewedProducts] = useState([]);
 
+    useEffect(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
   // Fetch cart data when component mounts or cartId changes
   useEffect(() => {
     if (cartId) {

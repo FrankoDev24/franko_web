@@ -14,9 +14,12 @@ const checkAutoLogout = (dispatch) => {
     dispatch(logoutUser());}
 };
 
-const startAutoLogoutCheck = (dispatch) => {
+export const startAutoLogoutCheck = (dispatch) => {
   setInterval(() => {
-    checkAutoLogout(dispatch);
+    const loginTime = localStorage.getItem('loginTime');
+    if (loginTime && Date.now() - loginTime > AUTO_LOGOUT_INTERVAL) {
+      dispatch(logoutUser());
+    }
   }, 60000); // Check every minute
 };
 
@@ -151,12 +154,13 @@ const userSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(loginUser.fulfilled, (state, action) => {
-        state.loading = false;
-        state.currentUser = action.payload;
-        state.currentUserDetails = action.payload;
-      
-      })
+    .addCase(loginUser.fulfilled, (state, action) => {
+  state.loading = false;
+  state.currentUser = action.payload;
+  state.currentUserDetails = action.payload;
+  localStorage.setItem('user', JSON.stringify(action.payload));
+})
+
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || 'Login failed.';

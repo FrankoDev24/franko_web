@@ -22,6 +22,9 @@ const Combo = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
+    useEffect(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
 
   useEffect(() => {
     dispatch(fetchProductsByCategory(categoryId));
