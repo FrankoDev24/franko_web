@@ -7,13 +7,12 @@ import { dirname } from "path";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-
 const pages = [
   {
     url: "/",
     changefreq: "daily",
     priority: 1.0,
-    loc: "https://www.frankotrading.com", 
+    loc: "https://www.frankotrading.com",
   },
   {
     url: "/about",
@@ -21,7 +20,7 @@ const pages = [
     priority: 0.8,
     loc: "https://www.frankotrading.com/about",
   },
-  
+
   {
     url: "/products",
     changefreq: "daily",
@@ -34,7 +33,6 @@ const pages = [
     priority: 0.7,
     loc: "https://www.frankotrading.com/contact",
   },
-
 
   {
     url: "/accessories",
@@ -181,7 +179,7 @@ const pages = [
     priority: 0.9,
     loc: "https://www.frankotrading.com/brand/aa5e3a3-679c-4c79-a43b-3698ec47609f",
   },
-    {
+  {
     url: "/brand/967637d5-feee-4c8c-8b28-709297dde50c",
     changefreq: "hourly",
     priority: 0.9,
@@ -192,7 +190,8 @@ const pages = [
     changefreq: "hourly",
     priority: 0.9,
     loc: "https://www.frankotrading.com/brand/f50ff82d-b975-47b1-b1da-10900516f898",
-  },  {
+  },
+  {
     url: "/brand/5b86f3fc-07f0-4efc-a930-21c86a92bbaa",
     changefreq: "hourly",
     priority: 0.9,
@@ -227,22 +226,22 @@ const pages = [
 const productIds = [
   "3f4114d2-5bf5-4478-b5cc-7c1527a8f4a2",
   "e75ffe02-c74a-4d6f-8668-219d905c1642",
-"c38904d6-9640-403e-a0df-9dc3efea6520",
-"fe0659e7-c0dc-4bc0-8f78-7edf4e2b3b3b",
-"470998f3-d83b-47b5-a75f-302bf23d5bf7",
-"a05867db-8f09-4df5-b252-51f92243a5fe",
-"1bcf82a4-5779-478f-88f7-297950795c0b",
-"6b006fec-80de-485a-abe3-f182035e31e1",
-"7571620a-21e3-4ee4-b791-edaf9964deba",
-"236d51f6-d044-4dfb-98fb-c37f0fed49b5",
-"c9b7b5a4-3337-4286-b63b-36e324594dda",
-"7b7b4c79-b7d0-4699-9224-76d7f78bc0ac",
-"52ee3648-1531-44ba-a43b-87bf44ba3ee9",
-"39f3fbfd-014f-404c-bf88-461c7ffb547f",
-"bdd7b88e-9fdb-4894-8248-b14ecd5836d2",
-"ca811ba5-0203-4998-8527-a7b73294f466",
-"5ed799ea-5a04-4474-9ddf-d7d6c92d7faf",
-"5cd94de5-5957-48e9-ad9a-ec5908b489ad",
+  "c38904d6-9640-403e-a0df-9dc3efea6520",
+  "fe0659e7-c0dc-4bc0-8f78-7edf4e2b3b3b",
+  "470998f3-d83b-47b5-a75f-302bf23d5bf7",
+  "a05867db-8f09-4df5-b252-51f92243a5fe",
+  "1bcf82a4-5779-478f-88f7-297950795c0b",
+  "6b006fec-80de-485a-abe3-f182035e31e1",
+  "7571620a-21e3-4ee4-b791-edaf9964deba",
+  "236d51f6-d044-4dfb-98fb-c37f0fed49b5",
+  "c9b7b5a4-3337-4286-b63b-36e324594dda",
+  "7b7b4c79-b7d0-4699-9224-76d7f78bc0ac",
+  "52ee3648-1531-44ba-a43b-87bf44ba3ee9",
+  "39f3fbfd-014f-404c-bf88-461c7ffb547f",
+  "bdd7b88e-9fdb-4894-8248-b14ecd5836d2",
+  "ca811ba5-0203-4998-8527-a7b73294f466",
+  "5ed799ea-5a04-4474-9ddf-d7d6c92d7faf",
+  "5cd94de5-5957-48e9-ad9a-ec5908b489ad",
   "a4871155-ff08-435f-b718-bff37b06e217",
   "61d0d4bb-f465-48f2-b45b-070688fe632d",
   "3f17e199-0b75-416d-bc87-ca4ed49e1601",
@@ -280,6 +279,26 @@ const productIds = [
   "984f63c3-e811-4a55-a79d-7bd5924eb4dc",
   "0d78a9c6-9142-4a5f-846d-fb70b5461e10",
   "e3d792af-cc33-4ef3-ab56-dc39e829bfff",
+  " 5cd94de5-5957-48e9-ad9a-ec5908b489ad",
+  " 5ed799ea-5a04-4474-9ddf-d7d6c92d7faf",
+  " 4a77d2b7-344f-4682-85a9-4ed6afb605e3",
+  "54a7d49e-d586-4567-9f98-da7535016b8e",
+  " e424f8c1-101a-4c42-97a2-27da3dbf1c0d",
+  " fe9e71d6-62fa-475d-9ec6-e22ae73885db",
+  " 471d6015-2951-427f-92a3-8623ec552085",
+  " 58bd20bf-9140-4dd3-9776-d23c73ffb61f",
+  " 9da66374-9269-4ca1-ad0b-8cf0da7b6ed0",
+  "b30df1b7-a81a-4c55-bbe9-176e79a91be2",
+  "9bff3c18-27e4-412f-9e9e-b209da3b1496",
+  " 6e90236c-dddc-4713-bc4a-d48d100b6c5f",
+  " c64cb5a3-1394-45f1-af36-c37dbe41cc73",
+  " e9205c6a-1cca-4195-bd3e-bdfb95f0cb25",
+  "5a877f27-9305-421b-b27d-d6d3bf53c24b",
+  "5bdf28dc-6f6a-4f75-afa8-8ad0cf9db56e",
+  " 8dbcbe9a-ff89-4ade-b39e-8a59041cc0c7",
+  "e8a5045b-c3c9-4c88-9603-23a588786262",
+
+  "4cc75a07-a8d9-46f5-be8c-014330e254c3",
 
   "010b2569-245d-470c-8f11-8e96e8cf2703",
   "4293cc67-9011-4d12-8843-cfeb560123ee",
@@ -347,12 +366,12 @@ const productIds = [
   "071005da-8e74-4824-974a-cfd98965e7de",
   "c7da1e01-193c-4e87-b942-10a4056aa4a9",
   "7cffc3ae-9480-4508-840b-bd6c3a06ceee",
-"7d091bba-6be3-4dbe-bb99-bd11c0055c21",
-"317d93fa-e2cb-474a-a19c-43df8ba9103d",
-"e9528158-a025-41f0-846f-3692fce8a16c",
-"ac7c6345-8a62-44e2-8b6f-1d2a43d70646",
-"3ea4762f-9f0c-45e6-9afb-8c1c744e4164",
-"3b80a94e-d7d9-4ba0-b5bb-5fad1f7cd042",
+  "7d091bba-6be3-4dbe-bb99-bd11c0055c21",
+  "317d93fa-e2cb-474a-a19c-43df8ba9103d",
+  "e9528158-a025-41f0-846f-3692fce8a16c",
+  "ac7c6345-8a62-44e2-8b6f-1d2a43d70646",
+  "3ea4762f-9f0c-45e6-9afb-8c1c744e4164",
+  "3b80a94e-d7d9-4ba0-b5bb-5fad1f7cd042",
 
   "6076a068-79cc-4723-b879-516e719db298",
   "eee791d3-b998-4797-b0ea-982aee030c3c",
@@ -629,7 +648,7 @@ const productIds = [
   "a863107f-acd3-4a35-b16f-ec91510c2f94",
   "6c8f2c64-a710-410c-bd81-c8e831b08081",
   "86aed796-8e61-4a55-91cb-2fcd55c573e9",
-   "6b006fec-80de-485a-abe3-f182035e31e1",
+  "6b006fec-80de-485a-abe3-f182035e31e1",
   "1bcf82a4-5779-478f-88f7-297950795c0b",
   "a05867db-8f09-4df5-b252-51f92243a5fe",
   "470998f3-d83b-47b5-a75f-302bf23d5bf7",
@@ -658,12 +677,12 @@ const productIds = [
   "4735b7a5-e8af-447d-8e2a-73443b786470",
   "4ece8736-033e-47fb-b996-1df9381be679",
   "4f2da2eb-efbb-4939-8ddc-9276e4085bcd",
- "056b9ae1-d695-44c5-81ba-5c98177d4059",
- "056b9ae1-d695-44c5-81ba-5c98177d4059",
- "62838a48-b497-473b-882a-5d2830d6d4bb",
- "8f53c850-2a72-48c3-965a-956ae4b408b8",
-  "dce1ab0b-05c0-474e-a56d-2be8eb491f72", 
-  "69844bfc-07cb-4c9c-9424-15c0138a29b3"
+  "056b9ae1-d695-44c5-81ba-5c98177d4059",
+  "056b9ae1-d695-44c5-81ba-5c98177d4059",
+  "62838a48-b497-473b-882a-5d2830d6d4bb",
+  "8f53c850-2a72-48c3-965a-956ae4b408b8",
+  "dce1ab0b-05c0-474e-a56d-2be8eb491f72",
+  "69844bfc-07cb-4c9c-9424-15c0138a29b3",
 ];
 
 productIds.forEach((id) => {

@@ -34,15 +34,27 @@ const ProductDescription = () => {
   const [showStickyHeader, setShowStickyHeader] = useState(false);
   const [cartSidebarOpen, setCartSidebarOpen] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [shouldReopenCart, setShouldReopenCart] = useState(false); // New state for cart reopening
 
   // Redux selectors
   const { currentProduct, products, loading } = useSelector((state) => state.products);
   const { cart, loading: cartLoadingState, error: cartError, cartId } = useSelector((state) => state.cart);
   const [viewedProducts, setViewedProducts] = useState([]);
 
-    useEffect(() => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, []);
+  // Enhanced scroll to top effect - runs on component mount and productID change
+  useEffect(() => {
+    // Smooth scroll to top when component mounts or product changes
+    window.scrollTo({ 
+      top: 0, 
+      behavior: 'smooth' 
+    });
+    
+    // Also ensure scroll position is at top immediately (fallback)
+    setTimeout(() => {
+      window.scrollTo(0, 0);
+    }, 100);
+  }, [productID]); // Dependency on productID to scroll when product changes
+
   // Fetch cart data when component mounts or cartId changes
   useEffect(() => {
     if (cartId) {
@@ -53,7 +65,6 @@ const ProductDescription = () => {
   useEffect(() => {
     dispatch(fetchProducts());
     dispatch(fetchProductById(productID));
-    window.scrollTo(0, 0);
   }, [dispatch, productID]);
 
   useEffect(() => {
@@ -61,19 +72,26 @@ const ProductDescription = () => {
     setViewedProducts(stored);
   }, []);
 
-  // Sticky header scroll handler
+  // Enhanced sticky header scroll handler
   useEffect(() => {
     const handleScroll = () => {
       const productDetailsSection = document.getElementById('product-details-section');
       if (productDetailsSection) {
         const rect = productDetailsSection.getBoundingClientRect();
-        setShowStickyHeader(rect.bottom < 100);
+        // Show sticky header when product details section goes above viewport
+        setShowStickyHeader(rect.bottom < 200); // Increased threshold for better UX
       }
     };
 
-    window.addEventListener('scroll', handleScroll);
+    // Add scroll event listener
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    // Initial check
+    handleScroll();
+    
+    // Cleanup
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [currentProduct]); // Re-run when product data changes
 
   useEffect(() => {
     if (currentProduct?.length > 0) {
@@ -98,6 +116,19 @@ const ProductDescription = () => {
       setViewedProducts(updated);
     }
   }, [currentProduct]);
+
+  // Enhanced authentication success handler
+  useEffect(() => {
+    const storedCustomer = JSON.parse(localStorage.getItem("customer"));
+    
+    // If user just signed in and we should reopen cart
+    if (storedCustomer && shouldReopenCart) {
+      setTimeout(() => {
+        setCartSidebarOpen(true);
+        setShouldReopenCart(false); // Reset the flag
+      }, 300); // Small delay for smooth transition
+    }
+  }, [shouldReopenCart]);
 
   // Enhanced out-of-stock checker function
   const isOutOfStock = (product) => {
@@ -205,30 +236,33 @@ const ProductDescription = () => {
     dispatch(getCartById(cartId));
   };
 
-  // Checkout handler with authentication check
+  // Enhanced checkout handler with authentication check
   const handleCheckout = () => {
     const storedCustomer = JSON.parse(localStorage.getItem("customer"));
 
     if (!storedCustomer) {
-      // Close sidebar first, then open auth modal
+      // Close sidebar first, then open auth modal and set flag to reopen cart
       setCartSidebarOpen(false);
+      setShouldReopenCart(true); // Set flag to reopen cart after login
       setTimeout(() => {
         setAuthModalOpen(true);
       }, 300); // Small delay to ensure sidebar closes first
       return;
     }
+    
     // GTM event tracking
-  window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push({
-    event: "proceed_to_checkout",
-    cartValue: cartTotal.toFixed(2),
-    cartItems: cart.map(item => ({
-      productId: item.productId,
-      name: item.productName,
-      price: item.price,
-      quantity: item.quantity
-    }))
-  });
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      event: "proceed_to_checkout",
+      cartValue: cartTotal.toFixed(2),
+      cartItems: cart.map(item => ({
+        productId: item.productId,
+        name: item.productName,
+        price: item.price,
+        quantity: item.quantity
+      }))
+    });
+    
     localStorage.setItem("selectedCart", JSON.stringify(cart));
     navigate("/checkout");
   };
@@ -293,9 +327,16 @@ const ProductDescription = () => {
   // Combined loading state for cart buttons
   const isCartButtonLoading = cartLoading || isAddingToCart;
 
-  // Handle auth modal close and potentially reopen sidebar
+  // Enhanced auth modal close handler
   const handleAuthModalClose = () => {
     setAuthModalOpen(false);
+    setShouldReopenCart(false); // Reset flag if modal is closed without login
+  };
+
+  // Enhanced auth success handler
+  const handleAuthSuccess = () => {
+    setAuthModalOpen(false);
+    // Cart will reopen automatically via useEffect when shouldReopenCart is true
   };
 
   if (loading || !currentProduct?.length) {
@@ -312,13 +353,12 @@ const ProductDescription = () => {
       {line}
     </p>
   ));
-   const productUrl = window.location.href;
-
+  const productUrl = window.location.href;
   const related = products.slice(-12);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-10">
-          <Helmet>
+      <Helmet>
         <title>{`${product?.productName || "Product"} - Best Price`}</title>
         <meta name="description" content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}. High-quality and best prices available.`} />
         <meta property="og:title" content={product?.productName || "Product"} />
@@ -341,60 +381,60 @@ const ProductDescription = () => {
             "@type": "Brand",
             "name": product.brandName
           },
-         "offers": {
-  "@type": "Offer",
-  "priceCurrency": "GHS",
-  "price": product.price,
-  "priceValidUntil": "2025-12-31",
-  "itemCondition": "https://schema.org/NewCondition",
-  "availability": "https://schema.org/InStock",
-  "url": `https://www.frankotrading.com/product/${product.productID}`,
-  "seller": {
-    "@type": "Organization",
-    "name": "Franko Trading"
-  },
-  "shippingDetails": {
-    "@type": "OfferShippingDetails",
-    "shippingRate": {
-      "@type": "MonetaryAmount",
-      "currency": "GHS",
-      "value": "30.00"
-    },
-    "shippingDestination": {
-      "@type": "DefinedRegion",
-      "addressCountry": "GH"
-    },
-    "deliveryTime": {
-      "@type": "ShippingDeliveryTime",
-      "handlingTime": {
-        "@type": "QuantitativeValue",
-        "minValue": 1,
-        "maxValue": 2,
-        "unitCode": "DAY"
-      },
-      "transitTime": {
-        "@type": "QuantitativeValue",
-        "minValue": 3,
-        "maxValue": 5,
-        "unitCode": "DAY"
-      }
-    }
-  },
-  "hasMerchantReturnPolicy": {
-    "@type": "MerchantReturnPolicy",
-    "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
-    "merchantReturnDays": 14,
-    "returnMethod": "https://schema.org/ReturnByMail",
-    "returnFees": "https://schema.org/FreeReturn",
-    "applicableCountry": "GH"
-  }
-}
-
+          "offers": {
+            "@type": "Offer",
+            "priceCurrency": "GHS",
+            "price": product.price,
+            "priceValidUntil": "2025-12-31",
+            "itemCondition": "https://schema.org/NewCondition",
+            "availability": "https://schema.org/InStock",
+            "url": `https://www.frankotrading.com/product/${product.productID}`,
+            "seller": {
+              "@type": "Organization",
+              "name": "Franko Trading"
+            },
+            "shippingDetails": {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "currency": "GHS",
+                "value": "30.00"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "GH"
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 2,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 3,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            },
+            "hasMerchantReturnPolicy": {
+              "@type": "MerchantReturnPolicy",
+              "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+              "merchantReturnDays": 14,
+              "returnMethod": "https://schema.org/ReturnByMail",
+              "returnFees": "https://schema.org/FreeReturn",
+              "applicableCountry": "GH"
+            }
+          }
         })}
       </script>
-      {/* Sticky Header for Large Screens */}
-      <div className={`fixed top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-lg z-50 transition-transform duration-300 hidden lg:block ${
-        showStickyHeader ? 'translate-y-0' : '-translate-y-full'
+
+      {/* Enhanced Sticky Header for Large Screens */}
+      <div className={`fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-lg z-50 transition-all duration-300 hidden lg:block ${
+        showStickyHeader ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
       }`}>
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
@@ -402,7 +442,10 @@ const ProductDescription = () => {
               <img
                 src={imageUrl}
                 alt={product.productName}
-                className="w-12 h-12 object-cover rounded-lg"
+                className="w-12 h-12 object-cover rounded-lg shadow-sm"
+                onError={(e) => {
+                  e.target.src = "https://via.placeholder.com/150";
+                }}
               />
               <div>
                 <h3 className="font-semibold text-gray-800 text-sm line-clamp-1">
@@ -442,8 +485,6 @@ const ProductDescription = () => {
                   </>
                 )}
               </Button>
-
-             
             </div>
           </div>
         </div>
@@ -537,92 +578,90 @@ const ProductDescription = () => {
 
           <div className="pt-2">
             {/* Desktop Buttons */}
-<div className="hidden md:flex flex-wrap gap-4 items-center">
-  <Button
-    variant="outlined"
-    className={`group relative flex items-center justify-center gap-2.5 px-6 py-3.5 w-full rounded-2xl font-semibold text-sm transition-all duration-300 ease-out shadow-xl shadow-red-200 hover:shadow-2xl hover:shadow-red-300 focus:outline-none focus:ring-3 focus:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:transform-none overflow-hidden ${
-      outOfStock
-        ? 'bg-gray-50 text-gray-400 border-2 border-gray-200 shadow-sm shadow-gray-200 cursor-not-allowed'
-        : isCartButtonLoading
-        ? 'bg-red-500 text-white border-2 border-red-500 shadow-red-300'
-        : 'bg-red-500 text-white border-2 border-red-500 hover:bg-red-600 hover:border-red-600 focus:ring-red-300'
-    }`}
-    onClick={() => handleAddToCartAndOpenSidebar(product)}
-    disabled={isCartButtonLoading || outOfStock}
-    aria-label={
-      outOfStock 
-        ? "Product out of stock" 
-        : isCartButtonLoading 
-        ? "Adding product to cart" 
-        : "Add product to cart"
-    }
-  >
-    {/* Background gradient animation */}
-    {!outOfStock && (
-      <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-red-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl" />
-    )}
-    
-    {/* Content */}
-    <div className="relative z-10 flex items-center gap-2.5">
-      {isCartButtonLoading ? (
-        <>
-          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          <span className="font-medium">Adding to Cart...</span>
-        </>
-      ) : outOfStock ? (
-        <>
-          <ExclamationTriangleIcon className="w-5 h-5 text-gray-400 group-hover:scale-110 transition-transform duration-200" />
-          <span className="font-medium">Out of Stock</span>
-        </>
-      ) : (
-        <>
-          <ShoppingCartIcon className="w-5 h-5 transition-all duration-300 group-hover:scale-110 text-white" />
-          <span className="font-medium text-white transition-colors duration-300">
-            Add to Cart
-          </span>
-        </>
-      )}
-    </div>
-    
-    {/* Success ripple effect (optional enhancement) */}
-    {!outOfStock && !isCartButtonLoading && (
-      <div className="absolute inset-0 bg-green-400 rounded-2xl scale-0 opacity-0 group-active:scale-100 group-active:opacity-30 transition-all duration-150" />
-    )}
-  </Button>
-</div>
+            <div className="hidden md:flex flex-wrap gap-4 items-center">
+              <Button
+                variant="outlined"
+                className={`group relative flex items-center justify-center gap-2.5 px-6 py-3.5 w-full rounded-2xl font-semibold text-sm transition-all duration-300 ease-out shadow-xl shadow-red-200 hover:shadow-2xl hover:shadow-red-300 focus:outline-none focus:ring-3 focus:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:transform-none overflow-hidden ${
+                  outOfStock
+                    ? 'bg-gray-50 text-gray-400 border-2 border-gray-200 shadow-sm shadow-gray-200 cursor-not-allowed'
+                    : isCartButtonLoading
+                    ? 'bg-red-500 text-white border-2 border-red-500 shadow-red-300'
+                    : 'bg-red-500 text-white border-2 border-red-500 hover:bg-red-600 hover:border-red-600 focus:ring-red-300'
+                }`}
+                onClick={() => handleAddToCartAndOpenSidebar(product)}
+                disabled={isCartButtonLoading || outOfStock}
+                aria-label={
+                  outOfStock 
+                    ? "Product out of stock" 
+                    : isCartButtonLoading 
+                    ? "Adding product to cart" 
+                    : "Add product to cart"
+                }
+              >
+                {/* Background gradient animation */}
+                {!outOfStock && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-red-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl" />
+                )}
+                
+                {/* Content */}
+                <div className="relative z-10 flex items-center gap-2.5">
+                  {isCartButtonLoading ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span className="font-medium">Adding to Cart...</span>
+                    </>
+                  ) : outOfStock ? (
+                    <>
+                      <ExclamationTriangleIcon className="w-5 h-5 text-gray-400 group-hover:scale-110 transition-transform duration-200" />
+                      <span className="font-medium">Out of Stock</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCartIcon className="w-5 h-5 transition-all duration-300 group-hover:scale-110 text-white" />
+                      <span className="font-medium text-white transition-colors duration-300">
+                        Add to Cart
+                      </span>
+                    </>
+                  )}
+                </div>
+                
+                {/* Success ripple effect (optional enhancement) */}
+                {!outOfStock && !isCartButtonLoading && (
+                  <div className="absolute inset-0 bg-green-400 rounded-2xl scale-0 opacity-0 group-active:scale-100 group-active:opacity-30 transition-all duration-150" />
+                )}
+              </Button>
+            </div>
 
             {/* Mobile Bottom Bar */}
             <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 shadow-xl z-50 flex items-center justify-between md:hidden">
               <div className="flex gap-2 w-full">
                 <Button
-  variant="outlined"
-  className={`flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-2xl transition-all duration-300 ease-in-out shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex-1 ${
-    outOfStock
-      ? 'bg-gray-100 text-gray-500 border border-gray-300'
-      : 'bg-red-100 text-red-600 border border-red-300 hover:bg-red-200 hover:border-red-400'
-  }`}
-  onClick={() => handleAddToCartAndOpenSidebar(product)}
-  disabled={isCartButtonLoading || outOfStock}
->
-  {isCartButtonLoading ? (
-    <>
-      <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-      <span className="text-sm">Adding...</span>
-    </>
-  ) : outOfStock ? (
-    <>
-      <ExclamationTriangleIcon className="w-5 h-5" />
-      <span className="text-sm">Out of Stock</span>
-    </>
-  ) : (
-    <>
-      <ShoppingCartIcon className="w-5 h-5" />
-      <span className="text-sm">Add to Cart</span>
-    </>
-  )}
-</Button>
-
-               
+                  variant="outlined"
+                  className={`flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-2xl transition-all duration-300 ease-in-out shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex-1 ${
+                    outOfStock
+                      ? 'bg-gray-100 text-gray-500 border border-gray-300'
+                      : 'bg-red-100 text-red-600 border border-red-300 hover:bg-red-200 hover:border-red-400'
+                  }`}
+                  onClick={() => handleAddToCartAndOpenSidebar(product)}
+                  disabled={isCartButtonLoading || outOfStock}
+                >
+                  {isCartButtonLoading ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-sm">Adding...</span>
+                    </>
+                  ) : outOfStock ? (
+                    <>
+                      <ExclamationTriangleIcon className="w-5 h-5" />
+                      <span className="text-sm">Out of Stock</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCartIcon className="w-5 h-5" />
+                      <span className="text-sm">Add to Cart</span>
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           </div>
@@ -719,10 +758,10 @@ const ProductDescription = () => {
                       />
                     </div>
 
-                   <div
-  className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20 transition-all cursor-pointer"
-  onClick={() => navigate(`/product/${product.id}`)}
->
+                    <div
+                      className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20 transition-all cursor-pointer"
+                      onClick={() => navigate(`/product/${product.id}`)}
+                    >
                       <Tooltip content="Add to Wishlist" placement="top">
                         <button className="p-2 bg-white/10 hover:bg-white/20 rounded-full">
                           <SolidHeartIcon className="w-5 h-5 text-white hover:text-red-400" />
@@ -733,10 +772,9 @@ const ProductDescription = () => {
                           className="p-2 bg-white/10 hover:bg-white/20 rounded-full"
                           onClick={() => navigate(`/product/${product.id}`)}
                         >
-                            <EyeIcon className="w-5 h-5 text-white hover:text-green-400" /> 
+                          <EyeIcon className="w-5 h-5 text-white hover:text-green-400" /> 
                         </button>
                       </Tooltip>
-                    
                     </div>
                   </div>
 
@@ -775,7 +813,6 @@ const ProductDescription = () => {
           <ProductCard currentProducts={related} navigate={navigate} />
         </section>
       )}
-
 
       {/* Cart Sidebar - IMPROVED VERSION */}
       <Drawer
@@ -900,8 +937,6 @@ const ProductDescription = () => {
                 </p>
                 
                 <div className="space-y-2">
-                  
-             
                   <Button
                     fullWidth
                     className="bg-red-500 hover:bg-red-600 text-white font-semibold py-3 rounded-lg shadow-md transition duration-200"
@@ -910,16 +945,15 @@ const ProductDescription = () => {
                     Proceed to Checkout
                   </Button>
                   
-                     <Button
-      fullWidth
-      variant="outlined"
-      className="border-gray-300 text-gray-700 py-2 rounded-lg"
-      onClick={() => navigate(`/cart/${cartId}`)}
-      disabled={!cartId} // Optional: disable if cartId doesn't exist
-    >
-      View Cart Page
-    </Button>
-
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    className="border-gray-300 text-gray-700 py-2 rounded-lg"
+                    onClick={() => navigate(`/cart/${cartId}`)}
+                    disabled={!cartId}
+                  >
+                    View Cart Page
+                  </Button>
                 </div>
               </div>
             </div>
@@ -931,12 +965,8 @@ const ProductDescription = () => {
       <AuthModal
         open={authModalOpen}
         onClose={handleAuthModalClose}
-        onSuccess={() => {
-          setAuthModalOpen(false);
-          setCartSidebarOpen(true);
-        }}
-
- />
+        onSuccess={handleAuthSuccess}
+      />
     </div>
   );
 };

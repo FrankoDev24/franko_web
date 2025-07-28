@@ -13,10 +13,7 @@ import { fetchProductByShowroomAndRecord } from "../Redux/Slice/productSlice";
 import { fetchHomePageShowrooms } from "../Redux/Slice/showRoomSlice";
 import useAddToCart from "./Cart";
 import {  Tooltip } from "@material-tailwind/react";
-import {
-  addToWishlist,
-  removeFromWishlist,
-} from "../Redux/Slice/wishlistSlice";
+import {addToWishlist, removeFromWishlist,} from "../Redux/Slice/wishlistSlice";
 
 const Notification = ({ message, type, isVisible, onClose }) => {
   const timeoutRef = useRef(null);
