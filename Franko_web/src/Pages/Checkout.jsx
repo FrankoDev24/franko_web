@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -13,7 +12,7 @@ import { clearCart } from "../Redux/Slice/cartSlice";
 import { message, Card, Typography, Radio, Divider, Modal, Alert } from "antd";
 import CheckoutForm from "../Component/CheckoutForm";
 import locations from "../Component/Locations";
-import { ShoppingBagIcon, ExclamationTriangleIcon, CreditCardIcon, MapPinIcon } from "@heroicons/react/24/outline";
+import { ShoppingBagIcon, ExclamationTriangleIcon, CreditCardIcon, MapPinIcon, UserIcon, PhoneIcon } from "@heroicons/react/24/outline";
 import TagManager from "react-gtm-module";
 
 const { Text, Title } = Typography;
@@ -280,31 +279,50 @@ const Checkout = () => {
     }
   };
 
-  
+  // Updated validation function to include all required fields
+  const validateRequiredFields = () => {
+    const errors = [];
+    
+    if (!customerName?.trim()) {
+      errors.push({ field: 'name', message: 'Recipient name is required' });
+    }
+    
+    if (!customerNumber?.trim()) {
+      errors.push({ field: 'phone', message: 'Recipient contact number is required' });
+    }
+    
+    if (!selectedAddress?.trim()) {
+      errors.push({ field: 'address', message: 'Delivery address is required' });
+    }
+    
+    if (!paymentMethod) {
+      errors.push({ field: 'payment', message: 'Payment method is required' });
+    }
+    
+    return errors;
+  };
   
   const handleCheckout = async () => {
-    // Validation
+    // Comprehensive validation
     if (cartItems.length === 0) {
       message.warning("Your cart is empty. Please add items before checkout.");
       return;
     }
 
-    if (!paymentMethod) {
-      message.warning("Please select a payment method to proceed.");
+    // Validate all required fields
+    const validationErrors = validateRequiredFields();
+    
+    if (validationErrors.length > 0) {
+      setShowValidationAlerts(true);
+      message.warning("Please fill in all required fields to proceed.");
       return;
     }
 
-    if (!selectedAddress) {
-      message.warning("Please enter your delivery address to proceed.");
+    // Additional validation for Cash on Delivery
+    if (paymentMethod === "Cash on Delivery" && deliveryFee === 0 && !isAgent) {
+      message.warning("Please select another payment method.");
       return;
     }
- 
-    
-  // NEW CODE (fixed):
-if (paymentMethod === "Cash on Delivery" && deliveryFee === 0 && !isAgent) {
-  message.warning("Please select another payment method.");
-  return;
-}
 
     const orderId = generateOrderId();
     const orderDate = new Date().toISOString();
@@ -418,9 +436,10 @@ if (paymentMethod === "Cash on Delivery" && deliveryFee === 0 && !isAgent) {
     );
   };
 
-  // Check if form is ready for submission
-  const isFormValid = paymentMethod && selectedAddress;
-  const hasValidationErrors = !paymentMethod || !selectedAddress;
+  // Check if form is ready for submission - Updated to include all fields
+  const isFormValid = paymentMethod && selectedAddress && customerName?.trim() && customerNumber?.trim();
+  const validationErrors = validateRequiredFields();
+  const hasValidationErrors = validationErrors.length > 0;
 
   // Show empty state if no items
   if (!cartItems || cartItems.length === 0) {
@@ -460,29 +479,35 @@ if (paymentMethod === "Cash on Delivery" && deliveryFee === 0 && !isAgent) {
         <div className="flex-grow border-t border-gray-300 mx-4"></div>
       </div>
 
-      {/* Validation Alerts */}
+      {/* Enhanced Validation Alerts */}
       {showValidationAlerts && hasValidationErrors && (
         <div className="mb-6 space-y-3">
-          {!paymentMethod && (
-            <Alert
-              message="Payment Method Required"
-              description="Please select a payment method to continue with your order."
-              type="error"
-              icon={<CreditCardIcon className="w-4 h-4" />}
-              showIcon
-              className="border-red-300"
-            />
-          )}
-          {!selectedAddress && (
-            <Alert
-              message="Delivery Address Required"
-              description="Please select a delivery address to continue with your order."
-              type="error"
-              icon={<MapPinIcon className="w-4 h-4" />}
-              showIcon
-              className="border-red-300"
-            />
-          )}
+          {validationErrors.map((error, index) => {
+            const getIcon = (field) => {
+              switch (field) {
+                case 'name': return <UserIcon className="w-4 h-4" />;
+                case 'phone': return <PhoneIcon className="w-4 h-4" />;
+                case 'address': return <MapPinIcon className="w-4 h-4" />;
+                case 'payment': return <CreditCardIcon className="w-4 h-4" />;
+                default: return <ExclamationTriangleIcon className="w-4 h-4" />;
+              }
+            };
+
+            return (
+              <Alert
+                key={index}
+                message={`${error.field === 'name' ? 'Recipient Name' : 
+                          error.field === 'phone' ? 'Contact Number' : 
+                          error.field === 'address' ? 'Delivery Address' : 
+                          'Payment Method'} Required`}
+                description={error.message}
+                type="error"
+                icon={getIcon(error.field)}
+                showIcon
+                className="border-red-300"
+              />
+            );
+          })}
         </div>
       )}
 
@@ -639,11 +664,10 @@ if (paymentMethod === "Cash on Delivery" && deliveryFee === 0 && !isAgent) {
                     </span>
                   </div>
                   <ul className="text-xs text-amber-600 mt-1 ml-6 space-y-1">
-                   
-                    {!paymentMethod && <li>• Select payment method</li>}
+                    {!customerName?.trim() && <li>• Enter recipient name</li>}
+                    {!customerNumber?.trim() && <li>• Enter contact number</li>}
                     {!selectedAddress && <li>• Select delivery address</li>}
-
-           
+                    {!paymentMethod && <li>• Select payment method</li>}
                   </ul>
                 </div>
               )}
