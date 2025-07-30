@@ -34,9 +34,6 @@ const Brand = () => {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
   const itemsPerPage = 8;
-    useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
 
   useEffect(() => {
     window.scrollTo(0, 0);

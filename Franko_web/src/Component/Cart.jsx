@@ -16,7 +16,7 @@ const useAddToCart = () => {
 
     if (isProductInCart) {
       throw new Error("Product is already in the cart");
-    }
+    } 
 
     setLoading(true);
 

@@ -83,6 +83,7 @@ const UpdateProduct = ({ visible, onClose, product }) => {
         ProductName: product.productName,
         price: product.price,
         oldPrice: product.oldPrice,
+        ProductDiscount: product.ProductDiscount ?? 0, // 👈 Add this line
         Description: product.description,
         BrandId: product.brandId,
         ShowRoomId: product.showRoomId,
@@ -115,6 +116,7 @@ const UpdateProduct = ({ visible, onClose, product }) => {
       description: values.Description,
       price: parseFloat(values.price),
       oldPrice: values.oldPrice ? parseFloat(values.oldPrice) : 0,
+       ProductDiscount: values.ProductDiscount ? parseFloat(values.ProductDiscount) : 0, // 👈 Add this
       brandId: values.BrandId,
       showRoomId: values.ShowRoomId,
       categoryId: values.CategoryId,
@@ -209,6 +211,18 @@ const UpdateProduct = ({ visible, onClose, product }) => {
             </Form.Item>
           </Col>
         </Row>
+        <Col span={4}>
+  <Form.Item
+    label="Discount (₵)"
+    name="ProductDiscount"
+    rules={[
+      { pattern: /^\d+(\.\d{1,2})?$/, message: "Please enter a valid discount." }
+    ]}
+  >
+    <Input type="number" prefix="₵" placeholder="0.00" min="0" step="0.01" />
+  </Form.Item>
+</Col>
+
 
         <Row gutter={16}>
           <Col span={8}>

@@ -84,12 +84,14 @@ const AddProduct = ({ visible, onClose }) => {
     formData.append('productID', uuidv4());
     formData.append('dateCreated', new Date().toISOString());
 
-    const finalValues = {
-      ...values,
-      oldPrice: values.oldPrice || '0',
-      ProductId2: values.ProductId2 || generateRandomId(),
-      ProductId3: values.ProductId3 || generateRandomId(),
-    };
+   const finalValues = {
+  ...values,
+  oldPrice: values.oldPrice || '0',
+  ProductDiscount: values.ProductDiscount || '0', // default to 0 if empty
+  ProductId2: values.ProductId2 || generateRandomId(),
+  ProductId3: values.ProductId3 || generateRandomId(),
+};
+
 
     Object.entries(finalValues).forEach(([key, value]) => {
       formData.append(key, value);
@@ -220,6 +222,24 @@ const AddProduct = ({ visible, onClose }) => {
               <Input type="number" prefix="₵" placeholder="0.00 (optional)" min="0" step="0.01" />
             </Form.Item>
           </Col>
+          <Col span={4}>
+  <Form.Item
+    name="ProductDiscount"
+    label="Discount (₵)"
+    rules={[
+      { pattern: /^\d+(\.\d{1,2})?$/, message: 'Enter a valid discount amount.' }
+    ]}
+  >
+    <Input
+      type="number"
+      prefix="₵"
+      placeholder="0.00"
+      min="0"
+      step="0.01"
+    />
+  </Form.Item>
+</Col>
+
 
           <Col span={8}>
             <Form.Item 

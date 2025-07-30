@@ -20,6 +20,12 @@ const pages = [
     priority: 0.8,
     loc: "https://www.frankotrading.com/about",
   },
+  {
+    url: "/cashback-deals",
+    changefreq: "hourly",
+    priority: 0.9,
+    loc: "https://www.frankotrading.com/cashback-deals",
+  },
 
   {
     url: "/products",
