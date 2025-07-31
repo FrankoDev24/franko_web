@@ -21,6 +21,7 @@ import {
 import useAddToCart from "../Component/Cart";
 import { CircularPagination } from "../Component/CircularPagination";
 import gif from "../assets/no.gif";
+import { Helmet } from "react-helmet";
 
 const { Title, Text } = Typography;
 
@@ -338,9 +339,42 @@ const Cashback = () => {
       </div>
     </div>
   );
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Offer",
+    "name": "Cashback Deals – Save Up to ₵2000",
+    "description": "Flash Sale! Save up to ₵2000 instantly at checkout. No coupon code required. Offer valid for 24 hours only on Sales Mate.",
+    "url": "https://www.frankotrading.com/cashback-deals",  // Replace with actual URL
+    "priceCurrency": "GHS",
+    "availability": "https://schema.org/InStock",
+    "price": "0",
+    "eligibleRegion": {
+      "@type": "Country",
+      "name": "Ghana"
+    },
+    "seller": {
+      "@type": "Organization",
+      "name": "Franko Trading Enterprise",
+      "url": "https://www.frankotrading.com",  // Replace with actual site URL
+      "logo": "https://www.frankotrading.com/frankoIcon.png"  // Replace with your logo
+    },
+    "validFrom": "2025-07-31T00:00:00+00:00",
+    "validThrough": "2025-08-01T00:00:00+00:00"
+  };
+
+
 
   return (
     <div className="min-h-screen">
+ <Helmet>
+        <title>Cashback Deals: Save Up to ₵2000 – 24 Hours Only | Sales Mate</title>
+        <meta
+          name="description"
+          content="Flash Sale Alert! Enjoy massive cashback savings up to ₵2000 at checkout – no coupon needed. 24 hours only. Shop now on Sales Mate and grab the best deals before they’re gone!"
+        />
+        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
+      </Helmet>
+
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-10 left-10 w-32 h-32 bg-gradient-to-r from-orange-400 to-yellow-400 rounded-full opacity-10 animate-pulse"></div>
@@ -728,7 +762,7 @@ const Cashback = () => {
 
                 {/* Enhanced Pagination */}
                 {totalPages > 1 && !loading && (
-                  <div className="flex justify-center mt-8">
+                  <div className="flex justify-center ">
                     <div >
                       <CircularPagination
                         currentPage={currentPage}
