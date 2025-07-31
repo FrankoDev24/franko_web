@@ -620,11 +620,11 @@ const Checkout = () => {
                 className="flex flex-col gap-3"
               >
                 {/* Cash on Delivery - Available for non-agents with delivery fee or agents */}
-                {(deliveryFee !== 0 || isAgent) && (
+                {/* {(deliveryFee !== 0 || isAgent) && (
                   <Radio value="Cash on Delivery" className="text-sm">
                     Cash on Delivery
                   </Radio>
-                )}
+                )} */}
                 
                 {/* Mobile Money and Credit Card - ONLY for non-agents */}
                 {!isAgent && (

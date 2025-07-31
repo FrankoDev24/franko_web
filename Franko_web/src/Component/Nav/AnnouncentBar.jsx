@@ -76,7 +76,7 @@ const AnnouncementBar = () => {
         <div className="mx-auto">
           
           {/* Mobile Layout - Flex and Compact */}
-          <div className="block md:hidden py-1">
+          <div className="block md:hidden">
             <div className="flex  gap-2">
               {/* Left: Cashback Title */}
               <div className="flex items-center">
@@ -128,8 +128,8 @@ const AnnouncementBar = () => {
                   </div>
                 )}
                 {isPromoActive && (
-                  <div className="bg-gradient-to-r from-green-500 to-yellow-500 text-black font-black text-xs px-2 py-1 rounded-lg animate-bounce shadow-xl">
-                    🎉 ACTIVE! 🎉
+                  <div className="bg-gradient-to-r from-green-500 to-yellow-500 text-black font-black text-xs px-1 mt-2 rounded-lg animate-bounce shadow-xl">
+                     PAYMENT VALIDATES ORDER! 
                   </div>
                 )}
               </div>
@@ -141,7 +141,7 @@ const AnnouncementBar = () => {
                   className="bg-gradient-to-r from-red-500 to-red-600 text-white font-black text-xs uppercase tracking-wide px-3 py-2 rounded-full border-2 border-white shadow-xl transform hover:scale-105 transition-all duration-300 animate-pulse flex items-center space-x-1"
                 >
                   <ShoppingCart className="w-3 h-3 animate-bounce" />
-                  <span>SHOP</span>
+                  <span>SHOP NOW</span>
                 </button>
               </div>
             </div>
@@ -265,7 +265,7 @@ const AnnouncementBar = () => {
                 )}
                 {isPromoActive && (
                   <div className="bg-gradient-to-r from-green-500 to-yellow-500 text-black font-black text-xl px-6 py-3 rounded-xl animate-bounce shadow-2xl">
-                    🎉 CASHBACK NOW ACTIVE! 🎉
+                    🎉 PAYMENT VALIDATES ORDER! 🎉
                   </div>
                 )}
               </div>

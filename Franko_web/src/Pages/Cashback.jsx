@@ -729,7 +729,7 @@ const Cashback = () => {
                 {/* Enhanced Pagination */}
                 {totalPages > 1 && !loading && (
                   <div className="flex justify-center mt-8">
-                    <div className="bg-white rounded-2xl shadow-lg border-2 border-orange-200 p-4">
+                    <div >
                       <CircularPagination
                         currentPage={currentPage}
                         totalPages={totalPages}

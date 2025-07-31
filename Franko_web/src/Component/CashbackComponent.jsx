@@ -253,8 +253,8 @@ const CashbackComponent = ({ showInHomePage = false, maxItems = 10 }) => {
                   </div>
                 </div>
                 
-                <p className="text-sm md:text-base text-yellow-100 opacity-90">
-                  Limited time offer • While stocks last • Premium quality guaranteed
+                <p className="text-sm md:text-base text-black opacity-90">
+                  Limited time offer • While stocks last 
                 </p>
               </div>
             </div>
@@ -311,7 +311,7 @@ const CashbackComponent = ({ showInHomePage = false, maxItems = 10 }) => {
           return (
             <div
               key={product.productID}
-              className="group bg-white rounded-2xl shadow-lg overflow-hidden relative transition-all duration-300 border-2 border-yellow-200 hover:border-orange-400 hover:shadow-2xl transform hover:-translate-y-3 cursor-pointer hover:bg-gradient-to-br hover:from-yellow-50 hover:to-red-50"
+              className="group bg-white rounded-2xl shadow-lg overflow-hidden relative transition-all duration-300 border-2 border-yellow-200 "
               onClick={() => handleProductClick(product.productID, false)}
             >
               {/* Enhanced Badges */}
@@ -356,7 +356,7 @@ const CashbackComponent = ({ showInHomePage = false, maxItems = 10 }) => {
                 {/* Enhanced Price Section */}
                 <div className="space-y-2">
                   <div className="flex justify-center items-center gap-2">
-                    <span className="font-black text-lg md:text-xl text-orange-600 group-hover:text-red-600 transition-colors">
+                    <span className="font-black text-md md:text-xl text-orange-600 group-hover:text-red-600 transition-colors">
                       {formatPrice(product.price)}
                     </span>
                     {product.oldPrice > 0 && (
