@@ -65,8 +65,6 @@ import DevUsers from './Pages/Developer/Dev/DevUsers'
 import DevCustomers from './Pages/Developer/Dev/DevCustomers'
 import Payments from './Pages/Developer/Dev/Payments'
 import OrderSuccessPage from './Pages/OrderSucess'
-import CrazyPriceDrop from './Pages/Cashback'
-import Cashback from './Pages/Cashback'
 
 // Utility to fetch customer role
 
@@ -171,7 +169,7 @@ function App() {
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/phones" element={<Phones ProductCard={ProductCard} />} />
-        <Route path="/cashback-deals" element= {<Cashback/>} />
+ 
         <Route path="/computers" element={<Laptops ProductCard={ProductCard} />} />
         <Route path="/refrigerator" element={<Fridge ProductCard={ProductCard} />} />
         <Route path="/television" element={<Television ProductCard={ProductCard} />} />

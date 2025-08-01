@@ -12,7 +12,7 @@ import PhoneDeals from '../Component/PhoneDeals';
 import TeleDeals from '../Component/TeleDeals';
 import NewArrivals from '../Component/NewArrivals';
 import Footer from '../Component/Footer';
-import CashbackComponent from '../Component/CashbackComponent';
+
 
 function Home() {
   // Scroll to top when component mounts
@@ -59,7 +59,7 @@ function Home() {
       </Helmet>
 
       <Carousel />
-      <CashbackComponent/>
+   
       <CategoryComponent />
       <Deals />
       <BestSellers />
