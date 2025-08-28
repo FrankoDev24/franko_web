@@ -26,17 +26,20 @@ const Customers = () => {
     }
   }, [customerList]);
 
-  const handleSearch = (value) => {
-    setSearchText(value);
-    const lowercasedValue = value.toLowerCase();
-    const filtered = customerList.filter((customer) =>
-      customer.firstName.toLowerCase().includes(lowercasedValue) ||
-      customer.address.toLowerCase().includes(lowercasedValue) ||
-      customer.contactNumber.toLowerCase().includes(lowercasedValue) ||
-      customer.accountType.toLowerCase().includes(lowercasedValue)
-    );
-    setFilteredData(filtered);
-  };
+const handleSearch = (value) => {
+  setSearchText(value);
+  const lowercasedValue = value.toLowerCase().trim();
+
+  const filtered = customerList.filter((customer) =>
+    customer.firstName.toLowerCase().includes(lowercasedValue) ||
+    customer.address.toLowerCase().includes(lowercasedValue) ||
+    customer.contactNumber.toLowerCase().includes(lowercasedValue) ||
+    customer.accountType.toLowerCase().includes(lowercasedValue) ||
+    customer.customerAccountNumber.toString().toLowerCase().includes(lowercasedValue) // ← handles string/number mismatch
+  );
+
+  setFilteredData(filtered);
+};
 
   const downloadPDF = () => {
     const doc = new jsPDF();

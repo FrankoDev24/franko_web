@@ -27,6 +27,30 @@ const CheckoutForm = ({
   const [searchText, setSearchText] = useState(""); // ✅ Search functionality
   const [locationNotFound, setLocationNotFound] = useState(false); // ✅ Toggle for location not found
 
+  // ✅ Helper function to check if delivery is explicitly free
+  const isDeliveryFree = (deliveryFee) => {
+    return deliveryFee === "Free delivery";
+  };
+
+  // ✅ Helper function to format delivery fee display
+  const formatDeliveryFee = (deliveryFee) => {
+    if (deliveryFee === "Free delivery") {
+      return "Free delivery";
+    }
+    if (deliveryFee === 0) {
+      return "N/A";
+    }
+    return typeof deliveryFee === 'number' ? `₵${deliveryFee}` : deliveryFee;
+  };
+
+  // ✅ Helper function to get numeric fee value for calculations
+  const getNumericFee = (deliveryFee) => {
+    if (deliveryFee === "Free delivery") {
+      return 0; // Free delivery counts as 0 for calculations
+    }
+    return typeof deliveryFee === 'number' ? deliveryFee : 0;
+  };
+
   useEffect(() => {
     if (!modalVisible) {
       const saved = localStorage.getItem("deliveryInfo");
@@ -34,7 +58,7 @@ const CheckoutForm = ({
         const parsed = JSON.parse(saved);
         if (parsed?.address && parsed?.fee !== undefined) {
           setDeliveryInfo(parsed);
-          setFee(Number(parsed.fee));
+          setFee(parsed.fee);
         }
       }
     }
@@ -106,6 +130,7 @@ const CheckoutForm = ({
   const handleSave = () => {
     let address = "";
     let finalFee = 0;
+    let feeDisplay = "";
 
     if (isManualMode || locationNotFound) {
       const addressToUse = locationNotFound ? manualAddress : 
@@ -114,18 +139,36 @@ const CheckoutForm = ({
       if (!addressToUse) return;
       
       address = addressToUse;
-      // For manual addresses, fee is N/A (0) unless it's an agent setting their own fee
+      // For manual addresses, fee is 0 unless it's an agent setting their own fee
       finalFee = (customerAccountType === "agent" && !locationNotFound) ? agentDeliveryFee : 0;
+      
+      // Set display for manual addresses
+      if (customerAccountType === "agent" && !locationNotFound) {
+        feeDisplay = finalFee === 0 ? "N/A" : `₵${finalFee}`;
+      } else {
+        feeDisplay = "N/A"; // Manual addresses default to N/A
+      }
     } else {
       if (!region || !town || fee === null) return;
       address = `${town} (${region})`;
-      finalFee = fee;
+      // ✅ Convert delivery fee to numeric value for storage
+      finalFee = getNumericFee(fee);
+      
+      // Set display based on original fee value
+      if (fee === "Free delivery") {
+        feeDisplay = "Free delivery";
+      } else if (fee === 0) {
+        feeDisplay = "N/A";
+      } else {
+        feeDisplay = `₵${finalFee}`;
+      }
     }
 
     const info = { 
       address, 
       fee: finalFee,
-      isManual: isManualMode || locationNotFound 
+      isManual: isManualMode || locationNotFound,
+      feeDisplay: feeDisplay // ✅ Store proper display format
     };
     
     setDeliveryInfo(info);
@@ -203,6 +246,9 @@ const CheckoutForm = ({
                 className="w-32"
               />
               <span className="text-sm text-gray-500">₵</span>
+              <span className="text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded">
+                Set to 0 for N/A
+              </span>
             </div>
           </div>
         </Form.Item>
@@ -218,11 +264,17 @@ const CheckoutForm = ({
                     <EnvironmentOutlined className="text-green-500 text-lg" />
                     <span className="font-medium">{deliveryInfo.address}</span>
                   </p>
-                  <p className="text-green-600 text-sm">
+                  <p className="text-green-600 text-sm flex items-center gap-2">
                     Delivery Fee:&nbsp;
                     <strong className="text-green-700">
-                      {deliveryInfo.fee === 0 ? "N/A" : `₵${deliveryInfo.fee}`}
+                      {deliveryInfo.feeDisplay || formatDeliveryFee(deliveryInfo.fee)}
                     </strong>
+                    {/* ✅ Free delivery badge - only show for explicitly free delivery */}
+                    {deliveryInfo.feeDisplay === "Free delivery" && (
+                      <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                        🎉 FREE
+                      </span>
+                    )}
                   </p>
                 </>
               ) : (
@@ -268,6 +320,8 @@ const CheckoutForm = ({
       >
         <Form layout="vertical" className="space-y-4">
           
+        
+          
           {!locationNotFound && (
             <>
               {/* Search Input */}
@@ -298,8 +352,14 @@ const CheckoutForm = ({
                             <span className="text-sm">
                               <strong>{town.name}</strong> ({region.region})
                             </span>
-                            <span className="text-sm text-green-600">
-                              {town.delivery_fee === 0 ? "N/A" : `₵${town.delivery_fee}`}
+                            <span className={`text-sm font-medium px-2 py-1 rounded ${
+                              town.delivery_fee === "Free delivery" 
+                                ? "text-green-600 bg-green-100"
+                                : town.delivery_fee === 0
+                                ? "text-gray-600 bg-gray-100"  
+                                : "text-blue-600 bg-blue-100"
+                            }`}>
+                              {formatDeliveryFee(town.delivery_fee)}
                             </span>
                           </div>
                         )) || []
@@ -348,7 +408,18 @@ const CheckoutForm = ({
                           ?.find((loc) => loc.region === region)
                           ?.towns?.map((t) => (
                             <Option key={t.name} value={t.name}>
-                              {t.name} ({t.delivery_fee === 0 ? "N/A" : `₵${t.delivery_fee}`})
+                              <div className="flex justify-between items-center">
+                                <span>{t.name}</span>
+                                <span className={`font-medium ${
+                                  t.delivery_fee === "Free delivery" 
+                                    ? "text-green-600"
+                                    : t.delivery_fee === 0
+                                    ? "text-gray-600"
+                                    : "text-blue-600"
+                                }`}>
+                                  {formatDeliveryFee(t.delivery_fee)}
+                                </span>
+                              </div>
                             </Option>
                           )) || []}
                       </Select>
@@ -390,10 +461,10 @@ const CheckoutForm = ({
                 />
               </Form.Item>
               
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                <p className="text-sm text-yellow-800">
-                  <strong>Note:</strong> Delivery fee for manual addresses is N/A. 
-                  Our delivery team will contact you to confirm delivery charges.
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                <p className="text-sm text-gray-800">
+                  <strong>Note:</strong> For manual addresses, delivery fee will be marked as N/A. 
+                  Our delivery team will contact you to confirm pricing and location.
                 </p>
               </div>
 

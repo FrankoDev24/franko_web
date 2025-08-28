@@ -67,19 +67,7 @@ const Carousel = () => {
       {/* Pulsing background effect */}
       <div className="absolute inset-0 bg-red-500 rounded-full animate-pulse opacity-75 blur-md"></div>
 
-      {/* Main button */}
-      <div className="relative bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold text-sm sm:text-lg px-4 py-2 sm:px-8 sm:py-4 rounded-full shadow-2xl border-2 border-red-400 transition-all duration-300 transform hover:shadow-red-500/50 hover:shadow-xl">
-        {/* Shine effect */}
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-
-        {/* Button content */}
-        <div className="relative flex items-center space-x-1 md:space-x-2">
-          <span className="text-xs sm:text-sm font-bold tracking-wide">🛒 BUY NOW</span>
-          <div className="bg-white/20 rounded-full p-0.5 sm:p-1 group-hover:bg-white/30 transition-colors duration-300">
-           
-          </div>
-        </div>
-      </div>
+     
 
       {/* Outer glow */}
       <div className="absolute inset-0 bg-red-500/30 rounded-full blur-xl animate-pulse"></div>

@@ -65,6 +65,7 @@ import DevUsers from './Pages/Developer/Dev/DevUsers'
 import DevCustomers from './Pages/Developer/Dev/DevCustomers'
 import Payments from './Pages/Developer/Dev/Payments'
 import OrderSuccessPage from './Pages/OrderSucess'
+import ScrollToTop from './Pages/ScrollToTop'
 
 // Utility to fetch customer role
 
@@ -163,6 +164,8 @@ function App() {
     <>
       <ConditionalNavbar />
 
+      <ScrollToTop >
+
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
@@ -194,6 +197,7 @@ function App() {
         <Route path="/order-cancelled" element={<Cancellation />} />
          <Route path="/admin/login" element={< UserLogin/>} />
           <Route path="/admin/register" element={< UserRegistration/>} />
+          
 
         
 
@@ -548,6 +552,7 @@ function App() {
         {/* Default route redirects */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
+      </ScrollToTop>
     </>
   )
 }

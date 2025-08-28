@@ -183,6 +183,7 @@ const OrderHistoryPage = () => {
     const statusConfig = {
       'Pending': { color: 'bg-amber-100 text-amber-800 border-amber-200', icon: Clock, iconColor: 'text-amber-600' },
       'Processing': { color: 'bg-blue-100 text-blue-800 border-blue-200', icon: TrendingUp, iconColor: 'text-blue-600' },
+      'Order Placement': { color: 'bg-blue-100 text-blue-800 border-blue-200', icon: FileText, iconColor: 'text-blue-600' },
       'Wrong Number': { color: 'bg-purple-100 text-purple-800 border-purple-200', icon: XCircle, iconColor: 'text-purple-600' },
       'Delivery': { color: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircle, iconColor: 'text-green-600' },
       'Completed': { color: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircle, iconColor: 'text-green-600' },
@@ -252,6 +253,7 @@ const OrderHistoryPage = () => {
       filters: [
         { text: 'Pending', value: 'Pending' },
         { text: 'Processing', value: 'Processing' },
+           { text: 'Order Placement', value: 'Order Placement' },
         { text: 'Wrong Number', value: 'Wrong Number' },
         { text: 'Delivered', value: 'Delivery' },
         { text: 'Completed', value: 'Completed' },

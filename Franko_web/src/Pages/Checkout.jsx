@@ -12,7 +12,7 @@ import { clearCart } from "../Redux/Slice/cartSlice";
 import { message, Card, Typography, Radio, Divider, Modal, Alert } from "antd";
 import CheckoutForm from "../Component/CheckoutForm";
 import locations from "../Component/Locations";
-import { ShoppingBagIcon, ExclamationTriangleIcon, CreditCardIcon, MapPinIcon, UserIcon, PhoneIcon } from "@heroicons/react/24/outline";
+import { ShoppingBagIcon, ExclamationTriangleIcon, CreditCardIcon, MapPinIcon, UserIcon, PhoneIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import TagManager from "react-gtm-module";
 
 const { Text, Title } = Typography;
@@ -31,15 +31,17 @@ const Checkout = () => {
     return saved ? JSON.parse(saved) : { address: "", fee: null };
   });
 
-  // Validation states
-  const [showValidationAlerts, setShowValidationAlerts] = useState(false);
+  // Validation modal states
+  const [isValidationModalVisible, setIsValidationModalVisible] = useState(false);
 
   // Electronics alert modal
   const [isElectronicsAlertVisible, setIsElectronicsAlertVisible] = useState(false);
   
-  // Payment modal states
+  // Payment iframe modal states
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [currentOrderId, setCurrentOrderId] = useState(null);
 
   // Get cart items from localStorage
   const getCartItems = () => {
@@ -79,11 +81,20 @@ const Checkout = () => {
   // Check if user is an agent
   const isAgent = customerAccountType === "agent";
 
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+  // Check if delivery is free (case-insensitive check for "free")
+  const isFreeDelivery = deliveryInfo?.fee === 0 && 
+    (typeof deliveryInfo?.feeDisplay === 'string' && 
+     deliveryInfo.feeDisplay.toLowerCase().includes('free'));
 
-  // Initialize customer data
+  // Also update the isNADelivery check
+  const isNADelivery = deliveryInfo?.fee === 0 && 
+    (!deliveryInfo?.feeDisplay || 
+     deliveryInfo?.feeDisplay === 'N/A' || 
+     deliveryInfo?.feeDisplay === '' ||
+     (typeof deliveryInfo?.feeDisplay === 'string' && 
+      deliveryInfo.feeDisplay.toLowerCase() === 'n/a'));
+
+  // Update delivery info initialization
   useEffect(() => {
     if (customerData) {
       setCustomerName(`${customerData.firstName || ""} ${customerData.lastName || ""}`.trim());
@@ -92,7 +103,8 @@ const Checkout = () => {
       const storedInfo = JSON.parse(localStorage.getItem("deliveryInfo") || "{}");
       const address = storedInfo?.address || customerData.address || "";
       const fee = storedInfo?.fee || 0;
-      setDeliveryInfo({ address, fee });
+      const feeDisplay = storedInfo?.feeDisplay || storedInfo?.feeText || "";
+      setDeliveryInfo({ address, fee, feeDisplay });
       setDeliveryFee(Number(fee));
     }
   }, []);
@@ -104,9 +116,9 @@ const Checkout = () => {
     }
   }, [deliveryInfo]);
 
-  // Check for electronics in cart and show alert - ONLY for non-agents
+  // Check for electronics in cart and show alert - ONLY for non-agents and non-free delivery
   useEffect(() => {
-    if (!isAgent) {
+    if (!isAgent && !isFreeDelivery) {
       const electronicItems = ["fridge", "laptop", "tv", "Air", "Air condition", "condition"];
       const hasElectronics = cartItems.some((item) =>
         electronicItems.some((keyword) => 
@@ -118,7 +130,7 @@ const Checkout = () => {
         setIsElectronicsAlertVisible(true);
       }
     }
-  }, [cartItems, isAgent]);
+  }, [cartItems, isAgent, isFreeDelivery]);
 
   // Monitor cart changes
   useEffect(() => {
@@ -142,36 +154,77 @@ const Checkout = () => {
     };
   }, [cartItems]);
 
-  // Hubtel payment status check - Only for non-agents
+  // Enhanced Hubtel payment status check with iframe communication
   useEffect(() => {
-    if (isAgent) return; // Skip for agents
+    if (isAgent || !currentOrderId) return;
 
     let intervalId;
+    
+    // Listen for messages from the iframe
+    const handleIframeMessage = (event) => {
+      // Ensure we're listening to the right origin (Hubtel payment gateway)
+      if (!event.origin.includes('hubtel.com') && !event.origin.includes('payproxyapi.hubtel.com')) {
+        return;
+      }
 
-    const checkHubtelStatus = async () => {
-      const orderId = localStorage.getItem("pendingOrderId");
-      if (!orderId) return;
-
-      const action = await dispatch(getHubtelCallbackById(orderId));
-      const response = action?.payload;
-
-      if (response?.responseCode === "0000") {
+      const { type, data } = event.data || {};
+      
+      if (type === 'PAYMENT_SUCCESS') {
         clearInterval(intervalId);
+        setIsPaymentModalVisible(false);
+        setPaymentUrl(null);
         localStorage.removeItem("pendingOrderId");
-        navigate(`/order-success/${orderId}`);
-      } else if (response?.responseCode === "2001") {
+        message.success("Payment completed successfully!");
+        navigate(`/order-success/${currentOrderId}`);
+      } else if (type === 'PAYMENT_CANCELLED' || type === 'PAYMENT_FAILED') {
         clearInterval(intervalId);
+        setIsPaymentModalVisible(false);
+        setPaymentUrl(null);
         localStorage.removeItem("pendingOrderId");
-        navigate("/order-cancelled");
+        message.error("Payment was cancelled or failed. Please try again.");
       }
     };
 
-    if (["Mobile Money", "Credit Card"].includes(paymentMethod)) {
+    const checkHubtelStatus = async () => {
+      if (!currentOrderId) return;
+
+      try {
+        const action = await dispatch(getHubtelCallbackById(currentOrderId));
+        const response = action?.payload;
+
+        if (response?.responseCode === "0000") {
+          clearInterval(intervalId);
+          setIsPaymentModalVisible(false);
+          setPaymentUrl(null);
+          localStorage.removeItem("pendingOrderId");
+          message.success("Payment completed successfully!");
+          navigate(`/order-success/${currentOrderId}`);
+        } else if (response?.responseCode === "2001") {
+          clearInterval(intervalId);
+          setIsPaymentModalVisible(false);
+          setPaymentUrl(null);
+          localStorage.removeItem("pendingOrderId");
+          message.error("Payment was cancelled.");
+          navigate("/order-cancelled");
+        }
+      } catch (error) {
+        console.error("Error checking payment status:", error);
+      }
+    };
+
+    if (["Mobile Money", "Credit Card"].includes(paymentMethod) && isPaymentModalVisible) {
+      // Add iframe message listener
+      window.addEventListener('message', handleIframeMessage);
+      
+      // Start polling for payment status
       intervalId = setInterval(checkHubtelStatus, 3000);
     }
 
-    return () => clearInterval(intervalId);
-  }, [paymentMethod, dispatch, navigate, isAgent]);
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      window.removeEventListener('message', handleIframeMessage);
+    };
+  }, [paymentMethod, dispatch, navigate, isAgent, currentOrderId, isPaymentModalVisible]);
   
   const calculateTotalAmount = () => {
     const subtotal = cartItems.reduce((total, item) => {
@@ -199,12 +252,13 @@ const Checkout = () => {
     const password = "3c42a596cd044fed81b492e74da4ae30";
     const encodedCredentials = btoa(`${username}:${password}`);
 
+    // Updated callback URLs to handle iframe communication
     const payload = {
       totalAmount,
       description: `Payment for ${cartItems.map((item) => item.productName).join(", ")}`,
       callbackUrl: "https://smfteapi.salesmate.app/PaymentSystem/PostHubtelCallBack",
-      returnUrl: `https://www.frankotrading.com/${orderId}`,
-      cancellationUrl: "https://www.frankotrading.com/order-cancelled",
+      returnUrl: `https://www.frankotrading.com/payment-success/${orderId}`, // This can be a success page that posts message to parent
+      cancellationUrl: "https://www.frankotrading.com/order-cancelled", // This can be a cancellation page that posts message to parent
       merchantAccountNumber: "2020892",
       clientReference: orderId,
     };
@@ -272,14 +326,9 @@ const Checkout = () => {
   const handlePaymentMethodChange = (e) => {
     const selectedMethod = e.target.value;
     setPaymentMethod(selectedMethod);
-
-    // Hide validation alerts when user makes selection
-    if (showValidationAlerts) {
-      setShowValidationAlerts(false);
-    }
   };
 
-  // Updated validation function to include all required fields
+  // Validation function to check required fields
   const validateRequiredFields = () => {
     const errors = [];
     
@@ -303,7 +352,7 @@ const Checkout = () => {
   };
   
   const handleCheckout = async () => {
-    // Comprehensive validation
+    // Check if cart is empty
     if (cartItems.length === 0) {
       message.warning("Your cart is empty. Please add items before checkout.");
       return;
@@ -313,18 +362,12 @@ const Checkout = () => {
     const validationErrors = validateRequiredFields();
     
     if (validationErrors.length > 0) {
-      setShowValidationAlerts(true);
-      message.warning("Please fill in all required fields to proceed.");
-      return;
-    }
-
-    // Additional validation for Cash on Delivery
-    if (paymentMethod === "Cash on Delivery" && deliveryFee === 0 && !isAgent) {
-      message.warning("Please select another payment method.");
+      setIsValidationModalVisible(true);
       return;
     }
 
     const orderId = generateOrderId();
+    setCurrentOrderId(orderId);
     const orderDate = new Date().toISOString();
     const totalAmount = calculateTotalAmount();
     const cartId = getCartId();
@@ -399,11 +442,13 @@ const Checkout = () => {
         dispatch(saveCheckoutDetails(checkoutDetails));
         dispatch(saveAddressDetails(addressDetails));
         
+        setPaymentLoading(true);
         const paymentUrl = await initiatePayment(totalAmount, cartItems, orderId);
         if (paymentUrl) {
           setPaymentUrl(paymentUrl);
           setIsPaymentModalVisible(true);
         }
+        setPaymentLoading(false);
       }
     } catch (error) {
       console.error("Checkout error:", error);
@@ -411,6 +456,15 @@ const Checkout = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle payment modal close
+  const handlePaymentModalClose = () => {
+    setIsPaymentModalVisible(false);
+    setPaymentUrl(null);
+    setPaymentLoading(false);
+    setCurrentOrderId(null);
+    localStorage.removeItem("pendingOrderId");
   };
 
   const renderImage = (imagePath) => {
@@ -435,11 +489,6 @@ const Checkout = () => {
       />
     );
   };
-
-  // Check if form is ready for submission - Updated to include all fields
-  const isFormValid = paymentMethod && selectedAddress && customerName?.trim() && customerNumber?.trim();
-  const validationErrors = validateRequiredFields();
-  const hasValidationErrors = validationErrors.length > 0;
 
   // Show empty state if no items
   if (!cartItems || cartItems.length === 0) {
@@ -478,38 +527,6 @@ const Checkout = () => {
         </h2>
         <div className="flex-grow border-t border-gray-300 mx-4"></div>
       </div>
-
-      {/* Enhanced Validation Alerts */}
-      {showValidationAlerts && hasValidationErrors && (
-        <div className="mb-6 space-y-3">
-          {validationErrors.map((error, index) => {
-            const getIcon = (field) => {
-              switch (field) {
-                case 'name': return <UserIcon className="w-4 h-4" />;
-                case 'phone': return <PhoneIcon className="w-4 h-4" />;
-                case 'address': return <MapPinIcon className="w-4 h-4" />;
-                case 'payment': return <CreditCardIcon className="w-4 h-4" />;
-                default: return <ExclamationTriangleIcon className="w-4 h-4" />;
-              }
-            };
-
-            return (
-              <Alert
-                key={index}
-                message={`${error.field === 'name' ? 'Recipient Name' : 
-                          error.field === 'phone' ? 'Contact Number' : 
-                          error.field === 'address' ? 'Delivery Address' : 
-                          'Payment Method'} Required`}
-                description={error.message}
-                type="error"
-                icon={getIcon(error.field)}
-                showIcon
-                className="border-red-300"
-              />
-            );
-          })}
-        </div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Customer Details Form */}
@@ -587,12 +604,18 @@ const Checkout = () => {
             <div className="mt-4 space-y-2 text-sm">
               <div className="flex justify-between items-center">
                 <Text>Shipping Fee:</Text>
-                {deliveryFee === 0 ? (
+                {isFreeDelivery ? (
+                  <Text className="text-green-600 font-semibold">FREE DELIVERY</Text>
+                ) : isNADelivery ? (
                   <Text type="warning" className="text-amber-600">
                     {isAgent ? "Agent delivery" : "Delivery charges apply"}
                   </Text>
-                ) : (
+                ) : deliveryFee > 0 ? (
                   <Text strong>₵{deliveryFee.toFixed(2)}</Text>
+                ) : (
+                  <Text type="warning" className="text-amber-600">
+                    Select location for delivery fee
+                  </Text>
                 )}
               </div>
 
@@ -607,22 +630,25 @@ const Checkout = () => {
             <Divider className="my-6"/>
 
             {/* Payment Method Selection */}
-            <div className={`transition-all duration-300 ${!paymentMethod && showValidationAlerts ? 'ring-2 ring-red-200 bg-red-50 p-4 rounded-lg' : ''}`}>
+            <div>
               <Text strong className="text-sm block mb-3">
                 Payment Method
-                {!paymentMethod && showValidationAlerts && (
-                  <span className="text-red-500 ml-1">*</span>
-                )}
               </Text>
               <Radio.Group
                 value={paymentMethod}
                 onChange={handlePaymentMethodChange}
                 className="flex flex-col gap-3"
               >
-                {/* Cash on Delivery - Available for non-agents with delivery fee or agents */}
-              {/* Cash on Delivery - Available for non-agents with delivery fee or agents */} 
-              {(deliveryFee !== 0 || isAgent) && ( <Radio value="Cash on Delivery" className="text-sm"> Cash on Delivery </Radio> )}
-
+                {/* Cash on Delivery - Available for:
+                    - Agents (always)
+                    - Non-agents with free delivery
+                    - Non-agents with paid delivery (not N/A)
+                */}
+                {(isAgent || isFreeDelivery || (deliveryFee > 0 && !isNADelivery)) && (
+                  <Radio value="Cash on Delivery" className="text-sm">
+                    Cash on Delivery
+                  </Radio>
+                )}
                 
                 {/* Mobile Money and Credit Card - ONLY for non-agents */}
                 {!isAgent && (
@@ -650,26 +676,8 @@ const Checkout = () => {
               </Radio.Group>
             </div>
             
-            {/* Enhanced Place Order Button */}
+            {/* Place Order Button - Always enabled */}
             <div className="mt-6 space-y-3">
-              {/* Status indicator when form is incomplete */}
-              {!isFormValid && !loading && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                  <div className="flex items-center gap-2 text-amber-700">
-                    <ExclamationTriangleIcon className="w-4 h-4" />
-                    <span className="text-sm font-medium">
-                      Complete required fields to place order
-                    </span>
-                  </div>
-                  <ul className="text-xs text-amber-600 mt-1 ml-6 space-y-1">
-                    {!customerName?.trim() && <li>• Enter recipient name</li>}
-                    {!customerNumber?.trim() && <li>• Enter contact number</li>}
-                    {!selectedAddress && <li>• Select delivery address</li>}
-                    {!paymentMethod && <li>• Select payment method</li>}
-                  </ul>
-                </div>
-              )}
-
               <button
                 type="button"
                 onClick={handleCheckout}
@@ -680,9 +688,7 @@ const Checkout = () => {
                   shadow-lg focus:outline-none focus:ring-4 focus:ring-opacity-50
                   ${loading 
                     ? 'bg-gray-400 cursor-wait' 
-                    : isFormValid
-                      ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 hover:scale-[1.02] hover:shadow-xl focus:ring-green-300 active:scale-[0.98]'
-                      : 'bg-gradient-to-r from-gray-400 to-gray-500 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 hover:scale-[1.02] hover:shadow-xl focus:ring-green-300 active:scale-[0.98]'
                   }
                 `}
               >
@@ -722,30 +728,76 @@ const Checkout = () => {
                   ) : (
                     <>
                       <ShoppingBagIcon className="w-5 h-5" />
-                      <span>
-                        {isFormValid ? 'Place Order' : 'Complete Required Fields'}
-                      </span>
+                      <span>Place Order</span>
                     </>
                   )}
                 </div>
               </button>
 
-              {/* Security badge */}
-              {isFormValid && (
-                <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                  </svg>
-                  <span>Secure checkout protected by SSL encryption</span>
-                </div>
-              )}
+            
             </div>
           </Card>
         </div>
       </div>
 
-      {/* Electronics Delivery Alert Modal - ONLY for non-agents */}
-      {!isAgent && (
+      {/* Validation Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2 text-red-600">
+            <ExclamationTriangleIcon className="w-5 h-5" />
+            <span>Complete Required Fields</span>
+          </div>
+        }
+        open={isValidationModalVisible}
+        onCancel={() => setIsValidationModalVisible(false)}
+        centered
+        footer={[
+          <button
+            key="ok"
+            onClick={() => setIsValidationModalVisible(false)}
+            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+          >
+            Got It
+          </button>,
+        ]}
+      >
+        <div className="space-y-3 mt-4">
+          <p className="text-gray-600 mb-4">Please fill in the following required fields to place your order:</p>
+          {validateRequiredFields().map((error, index) => {
+            const getIcon = (field) => {
+              switch (field) {
+                case 'name': return <UserIcon className="w-4 h-4 text-red-500" />;
+                case 'phone': return <PhoneIcon className="w-4 h-4 text-red-500" />;
+                case 'address': return <MapPinIcon className="w-4 h-4 text-red-500" />;
+                case 'payment': return <CreditCardIcon className="w-4 h-4 text-red-500" />;
+                default: return <ExclamationTriangleIcon className="w-4 h-4 text-red-500" />;
+              }
+            };
+
+            const getFieldName = (field) => {
+              switch (field) {
+                case 'name': return 'Recipient Name';
+                case 'phone': return 'Contact Number';
+                case 'address': return 'Delivery Address';
+                case 'payment': return 'Payment Method';
+                default: return 'Required Field';
+              }
+            };
+
+            return (
+              <div key={index} className="flex items-center gap-3 p-2 bg-red-50 rounded-lg border border-red-200">
+                {getIcon(error.field)}
+                <span className="text-sm font-medium text-red-700">
+                  {getFieldName(error.field)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </Modal>
+
+      {/* Electronics Delivery Alert Modal - ONLY for non-agents and non-free delivery */}
+      {!isAgent && !isFreeDelivery && (
         <Modal
           title={<Title level={4} style={{ margin: 0, color: "#FC5130" }}>📢 Delivery Price Notice</Title>}
           open={isElectronicsAlertVisible}
@@ -762,11 +814,18 @@ const Checkout = () => {
           ]}
         >
           <p style={{ marginTop: 10 }}>
-            Delivery charges for electronic items such as <strong>fridges, televisions, and air conditioners</strong> ranges from Ghc 100.00 and above depending on your location.
-          </p>
+            Delivery charges for electronic items such as <strong>fridges, televisions, and air conditioners</strong> ranges from Ghc 100.00 and above depending on your location.</p>
+          <Alert
+            message="Important: Delivery Fee Information"
+            description="Please contact our customer service team at +233 24 123 4567 for exact delivery charges to your location before placing your order."
+            type="warning"
+            showIcon
+            style={{ marginTop: 16 }}
+          />
         </Modal>
       )}
 
+      {/* Payment Iframe Modal */}
       {/* Payment Modal - ONLY for non-agents */}
       {!isAgent && (
         <Modal

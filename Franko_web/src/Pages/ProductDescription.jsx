@@ -12,8 +12,7 @@ import { ShoppingCartIcon, CheckCircleIcon, HeartIcon as SolidHeartIcon, EyeIcon
   MinusIcon,
   PlusIcon,
   XMarkIcon,
-  ExclamationTriangleIcon
-} from "@heroicons/react/24/outline";
+  ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import ProductCard from "../Component/ProductCard";
 import useAddToCart from "../Component/Cart";
 import AuthModal from "../Component/AuthModal";
@@ -53,7 +52,7 @@ const ProductDescription = () => {
   useEffect(() => {
     dispatch(fetchProducts());
     dispatch(fetchProductById(productID));
-    window.scrollTo(0, 0);
+
   }, [dispatch, productID]);
 
   useEffect(() => {
