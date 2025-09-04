@@ -21,10 +21,10 @@ const pages = [
     loc: "https://www.frankotrading.com/about",
   },
   {
-    url: "/cashback-deals",
+    url: "/back-to-school",
     changefreq: "hourly",
     priority: 0.9,
-    loc: "https://www.frankotrading.com/cashback-deals",
+    loc: "https://www.frankotrading.com/back-to-school",
   },
 
   {
