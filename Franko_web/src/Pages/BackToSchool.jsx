@@ -431,11 +431,11 @@ const BackToSchool = () => {
         <div className="md:hidden space-y-3">
           {/* Promo Banner Mobile */}
           <div className="text-white rounded-2xl p-4 shadow-2xl border-2" style={{
-            background: `linear-gradient(135deg, ${BRAND_COLORS.red} 0%, ${BRAND_COLORS.green} 100%)`,
+            background: `linear-gradient(135deg, ${BRAND_COLORS.darkGreen} 0%, ${BRAND_COLORS.green} 100%)`,
             borderColor: BRAND_COLORS.white
           }}>
             <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-2">
+              <div className="flex items-center justify-center gap-2 ">
                 <AcademicCapIcon className="w-6 h-6 animate-bounce" />
                 <h2 className="text-xl font-black">BACK TO SCHOOL!</h2>
                 <BookOpenIcon className="w-6 h-6 animate-bounce" />
@@ -515,7 +515,7 @@ const BackToSchool = () => {
             
             {/* Drawer content - FIXED: Made responsive for mobile */}
             <div className="relative w-full max-w-sm h-full bg-white shadow-2xl overflow-auto transform transition-transform duration-300 ease-out">
-              <div className="sticky top-0 border-b px-4 py-4 z-10" style={{
+              <div className="sticky top-0 border-b px-4 py-2 z-10" style={{
                 background: `linear-gradient(135deg, ${BRAND_COLORS.red} 0%, ${BRAND_COLORS.green} 100%)`,
                 borderBottomColor: BRAND_COLORS.mediumGray
               }}>
@@ -536,7 +536,7 @@ const BackToSchool = () => {
                 </div>
               </div>
               
-              <div className="p-4">
+              <div className="p-2">
                 {renderFilterContent()}
               </div>
             </div>
@@ -554,7 +554,7 @@ const BackToSchool = () => {
                 borderColor: BRAND_COLORS.white
               }}>
                 <div className="text-center">
-                  <div className="flex items-center justify-center gap-3 mb-3">
+                  <div className="flex items-center justify-center gap-3 mb-1">
                     <AcademicCapIcon className="w-8 h-8 animate-bounce" />
                     <h2 className="text-xl font-black">BACK TO SCHOOL PROMO!</h2>
                     <BookOpenIcon className="w-8 h-8 animate-bounce" />
@@ -572,7 +572,7 @@ const BackToSchool = () => {
             {currentProducts.length > 0 ? (
               <div className="space-y-4">
                 {/* Desktop Header with Sort */}
-                <div className="hidden md:block bg-white p-6 rounded-2xl shadow-lg border-2" style={{borderColor: BRAND_COLORS.mediumGray}}>
+                <div className="hidden md:block bg-white p-2 rounded-2xl shadow-lg border-2" style={{borderColor: BRAND_COLORS.mediumGray}}>
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-3 mb-2">
@@ -763,14 +763,14 @@ const BackToSchool = () => {
                               {/* Enhanced Price Section */}
                               <div className="space-y-2">
                                 <div className="flex justify-center items-center gap-2">
-                                  <span className={`font-black text-lg md:text-xl ${
+                                  <span className={`font-black text-sm md:text-xl ${
                                     isUnavailable ? 'text-gray-500' : ''
                                   }`}
                                   style={{color: isUnavailable ? BRAND_COLORS.mediumGray : BRAND_COLORS.red}}>
                                     {formatPrice(product.price)}
                                   </span>
                                   {product.oldPrice > 0 && (
-                                    <span className="text-sm line-through font-medium" style={{color: BRAND_COLORS.mediumGray}}>
+                                    <span className="text-xs line-through font-medium" style={{color: BRAND_COLORS.mediumGray}}>
                                       {formatPrice(product.oldPrice)}
                                     </span>
                                   )}
