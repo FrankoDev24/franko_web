@@ -70,7 +70,7 @@ const AnnouncementBar = () => {
             <div className="relative flex items-center space-x-2">
               <span className="text-lg">📚</span>
               <div className="text-left">
-                <div className="text-xl font-bold leading-tight">BACK TO SCHOO PROMO</div>
+                <div className="text-xl font-bold leading-tight">BACK TO SCHOOL PROMO</div>
                 <div className="text-sm opacity-90">Shop Now!</div>
               </div>
             </div>
@@ -118,7 +118,7 @@ const AnnouncementBar = () => {
               href="tel:+233302225651"
               className="flex items-center text-white transition-all duration-200 hover:scale-105 rounded px-2 py-1"
               style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
-              onMouseEnter={(e) => e.target.style.color = '#FFD700'}
+              onMouseEnter={(e) => e.target.style.color = 'white'}
               onMouseLeave={(e) => e.target.style.color = 'white'}
             >
               <PhoneIcon />
@@ -133,7 +133,7 @@ const AnnouncementBar = () => {
               style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
               target="_blank"
               rel="noopener noreferrer"
-              onMouseEnter={(e) => e.target.style.color = '#25D366'}
+              onMouseEnter={(e) => e.target.style.color = 'white'}
               onMouseLeave={(e) => e.target.style.color = 'white'}
             >
               <WhatsAppIcon />

@@ -71,6 +71,7 @@ const BackToSchool = () => {
     minutes: 0,
     seconds: 0
   });
+  
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -574,7 +575,7 @@ const BackToSchool = () => {
                 {/* Desktop Header with Sort */}
                 <div className="hidden md:block bg-white p-2 rounded-2xl shadow-lg border-2" style={{borderColor: BRAND_COLORS.mediumGray}}>
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
+                    <div className="px-6">
                       <div className="flex items-center gap-3 mb-2">
                         <div className="p-2 rounded-lg" style={{backgroundColor: BRAND_COLORS.red}}>
                           <AcademicCapIcon className="w-6 h-6 text-white" />
