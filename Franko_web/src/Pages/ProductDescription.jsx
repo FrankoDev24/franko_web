@@ -18,8 +18,10 @@ import useAddToCart from "../Component/Cart";
 import AuthModal from "../Component/AuthModal";
 import { Helmet } from "react-helmet";
 
-const formatPrice = (price) =>
-  price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+const formatPrice = (price) => {
+  if (!price || isNaN(price)) return "0";
+  return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+};
 
 const ProductDescription = () => {
   const { productID } = useParams();
@@ -27,21 +29,23 @@ const ProductDescription = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  
   // State management
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [showStickyHeader, setShowStickyHeader] = useState(false);
   const [cartSidebarOpen, setCartSidebarOpen] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [updatingQuantity, setUpdatingQuantity] = useState({});
+  const [removingItem, setRemovingItem] = useState({});
 
   // Redux selectors
   const { currentProduct, products, loading } = useSelector((state) => state.products);
   const { cart, loading: cartLoadingState, error: cartError, cartId } = useSelector((state) => state.cart);
   const [viewedProducts, setViewedProducts] = useState([]);
 
-    useEffect(() => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, []);
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
   // Fetch cart data when component mounts or cartId changes
   useEffect(() => {
     if (cartId) {
@@ -52,7 +56,6 @@ const ProductDescription = () => {
   useEffect(() => {
     dispatch(fetchProducts());
     dispatch(fetchProductById(productID));
-
   }, [dispatch, productID]);
 
   useEffect(() => {
@@ -189,19 +192,54 @@ const ProductDescription = () => {
     }
   };
 
-  // Cart quantity handlers
-  const handleQuantityChange = async (productId, quantity) => {
-    if (quantity >= 1) {
-      await dispatch(updateCartItem({ cartId, productId, quantity }));
-      // Refresh cart data after update
-      dispatch(getCartById(cartId));
+  // FIXED: Cart quantity handlers with proper error handling and loading states
+  const handleQuantityChange = async (productId, newQuantity) => {
+    if (newQuantity < 1 || !cartId) return;
+    
+    setUpdatingQuantity(prev => ({ ...prev, [productId]: true }));
+    
+    try {
+      const result = await dispatch(updateCartItem({ 
+        cartId, 
+        productId, 
+        quantity: newQuantity 
+      }));
+      
+      // Check if the update was successful
+      if (updateCartItem.fulfilled.match(result)) {
+        // Refresh cart data after successful update
+        await dispatch(getCartById(cartId));
+      } else {
+        console.error('Failed to update cart item:', result.error);
+      }
+    } catch (error) {
+      console.error('Error updating cart quantity:', error);
+    } finally {
+      setUpdatingQuantity(prev => ({ ...prev, [productId]: false }));
     }
   };
 
+  // FIXED: Remove item handler with proper error handling
   const handleRemoveItem = async (productId) => {
-    await dispatch(deleteCartItem({ cartId, productId }));
-    // Refresh cart data after removal
-    dispatch(getCartById(cartId));
+    if (!cartId) return;
+    
+    setRemovingItem(prev => ({ ...prev, [productId]: true }));
+    
+    try {
+      const result = await dispatch(deleteCartItem({ cartId, productId }));
+      
+      // Check if the deletion was successful
+      if (deleteCartItem.fulfilled.match(result)) {
+        // Refresh cart data after successful removal
+        await dispatch(getCartById(cartId));
+      } else {
+        console.error('Failed to remove cart item:', result.error);
+      }
+    } catch (error) {
+      console.error('Error removing cart item:', error);
+    } finally {
+      setRemovingItem(prev => ({ ...prev, [productId]: false }));
+    }
   };
 
   // Checkout handler with authentication check
@@ -216,18 +254,20 @@ const ProductDescription = () => {
       }, 300); // Small delay to ensure sidebar closes first
       return;
     }
+    
     // GTM event tracking
-  window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push({
-    event: "proceed_to_checkout",
-    cartValue: cartTotal.toFixed(2),
-    cartItems: cart.map(item => ({
-      productId: item.productId,
-      name: item.productName,
-      price: item.price,
-      quantity: item.quantity
-    }))
-  });
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      event: "proceed_to_checkout",
+      cartValue: cartTotal.toFixed(2),
+      cartItems: cart.map(item => ({
+        productId: item.productId,
+        name: item.productName,
+        price: item.price,
+        quantity: item.quantity
+      }))
+    });
+    
     localStorage.setItem("selectedCart", JSON.stringify(cart));
     navigate("/checkout");
   };
@@ -256,7 +296,7 @@ const ProductDescription = () => {
     }
   };
 
-  // Render cart item image - IMPROVED VERSION
+  // FIXED: Render cart item image with better error handling
   const renderCartImage = (item) => {
     // Try multiple image path sources
     let imagePath = item.imagePath || item.productImage || item.image;
@@ -285,14 +325,22 @@ const ProductDescription = () => {
     );
   };
 
-  // Calculate cart totals
-  const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const totalCartItems = cart.reduce((acc, item) => acc + item.quantity, 0);
+  // FIXED: Calculate cart totals with proper error handling
+  const cartTotal = Array.isArray(cart) ? cart.reduce((acc, item) => {
+    const price = parseFloat(item.price) || 0;
+    const quantity = parseInt(item.quantity) || 0;
+    return acc + (price * quantity);
+  }, 0) : 0;
+
+  const totalCartItems = Array.isArray(cart) ? cart.reduce((acc, item) => {
+    const quantity = parseInt(item.quantity) || 0;
+    return acc + quantity;
+  }, 0) : 0;
 
   // Combined loading state for cart buttons
   const isCartButtonLoading = cartLoading || isAddingToCart;
 
-  // Handle auth modal close and potentially reopen sidebar
+  // Handle auth modal close
   const handleAuthModalClose = () => {
     setAuthModalOpen(false);
   };
@@ -311,13 +359,14 @@ const ProductDescription = () => {
       {line}
     </p>
   ));
-   const productUrl = window.location.href;
+     const productUrl = window.location.href;
 
   const related = products.slice(-12);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-10">
-          <Helmet>
+      {/* Helmet for SEO */}
+             <Helmet>
         <title>{`${product?.productName || "Product"} - Best Price`}</title>
         <meta name="description" content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}. High-quality and best prices available.`} />
         <meta property="og:title" content={product?.productName || "Product"} />
@@ -391,6 +440,8 @@ const ProductDescription = () => {
 
         })}
       </script>
+
+
       {/* Sticky Header for Large Screens */}
       <div className={`fixed top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-lg z-50 transition-transform duration-300 hidden lg:block ${
         showStickyHeader ? 'translate-y-0' : '-translate-y-full'
@@ -441,8 +492,6 @@ const ProductDescription = () => {
                   </>
                 )}
               </Button>
-
-             
             </div>
           </div>
         </div>
@@ -536,92 +585,90 @@ const ProductDescription = () => {
 
           <div className="pt-2">
             {/* Desktop Buttons */}
-<div className="hidden md:flex flex-wrap gap-4 items-center">
-  <Button
-    variant="outlined"
-    className={`group relative flex items-center justify-center gap-2.5 px-6 py-3.5 w-full rounded-2xl font-semibold text-sm transition-all duration-300 ease-out shadow-xl shadow-red-200 hover:shadow-2xl hover:shadow-red-300 focus:outline-none focus:ring-3 focus:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:transform-none overflow-hidden ${
-      outOfStock
-        ? 'bg-gray-50 text-gray-400 border-2 border-gray-200 shadow-sm shadow-gray-200 cursor-not-allowed'
-        : isCartButtonLoading
-        ? 'bg-red-500 text-white border-2 border-red-500 shadow-red-300'
-        : 'bg-red-500 text-white border-2 border-red-500 hover:bg-red-600 hover:border-red-600 focus:ring-red-300'
-    }`}
-    onClick={() => handleAddToCartAndOpenSidebar(product)}
-    disabled={isCartButtonLoading || outOfStock}
-    aria-label={
-      outOfStock 
-        ? "Product out of stock" 
-        : isCartButtonLoading 
-        ? "Adding product to cart" 
-        : "Add product to cart"
-    }
-  >
-    {/* Background gradient animation */}
-    {!outOfStock && (
-      <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-red-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl" />
-    )}
-    
-    {/* Content */}
-    <div className="relative z-10 flex items-center gap-2.5">
-      {isCartButtonLoading ? (
-        <>
-          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          <span className="font-medium">Adding to Cart...</span>
-        </>
-      ) : outOfStock ? (
-        <>
-          <ExclamationTriangleIcon className="w-5 h-5 text-gray-400 group-hover:scale-110 transition-transform duration-200" />
-          <span className="font-medium">Out of Stock</span>
-        </>
-      ) : (
-        <>
-          <ShoppingCartIcon className="w-5 h-5 transition-all duration-300 group-hover:scale-110 text-white" />
-          <span className="font-medium text-white transition-colors duration-300">
-            Add to Cart
-          </span>
-        </>
-      )}
-    </div>
-    
-    {/* Success ripple effect (optional enhancement) */}
-    {!outOfStock && !isCartButtonLoading && (
-      <div className="absolute inset-0 bg-green-400 rounded-2xl scale-0 opacity-0 group-active:scale-100 group-active:opacity-30 transition-all duration-150" />
-    )}
-  </Button>
-</div>
+            <div className="hidden md:flex flex-wrap gap-4 items-center">
+              <Button
+                variant="outlined"
+                className={`group relative flex items-center justify-center gap-2.5 px-6 py-3.5 w-full rounded-2xl font-semibold text-sm transition-all duration-300 ease-out shadow-xl shadow-red-200 hover:shadow-2xl hover:shadow-red-300 focus:outline-none focus:ring-3 focus:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:transform-none overflow-hidden ${
+                  outOfStock
+                    ? 'bg-gray-50 text-gray-400 border-2 border-gray-200 shadow-sm shadow-gray-200 cursor-not-allowed'
+                    : isCartButtonLoading
+                    ? 'bg-red-300 text-white border-2 border-red-500 shadow-red-300'
+                    : 'bg-red-500 text-white border-2 border-red-500 hover:bg-red-600 hover:border-red-600 focus:ring-red-300'
+                }`}
+                onClick={() => handleAddToCartAndOpenSidebar(product)}
+                disabled={isCartButtonLoading || outOfStock}
+                aria-label={
+                  outOfStock 
+                    ? "Product out of stock" 
+                    : isCartButtonLoading 
+                    ? "Adding product to cart" 
+                    : "Add product to cart"
+                }
+              >
+                {/* Background gradient animation */}
+                {!outOfStock && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-red-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl" />
+                )}
+                
+                {/* Content */}
+                <div className="relative z-10 flex items-center gap-2.5">
+                  {isCartButtonLoading ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span className="font-medium">Adding to Cart...</span>
+                    </>
+                  ) : outOfStock ? (
+                    <>
+                      <ExclamationTriangleIcon className="w-5 h-5 text-gray-400 group-hover:scale-110 transition-transform duration-200" />
+                      <span className="font-medium">Out of Stock</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCartIcon className="w-5 h-5 transition-all duration-300 group-hover:scale-110 text-white" />
+                      <span className="font-medium text-white transition-colors duration-300">
+                        Add to Cart
+                      </span>
+                    </>
+                  )}
+                </div>
+                
+                {/* Success ripple effect */}
+                {!outOfStock && !isCartButtonLoading && (
+                  <div className="absolute inset-0 bg-green-400 rounded-2xl scale-0 opacity-0 group-active:scale-100 group-active:opacity-30 transition-all duration-150" />
+                )}
+              </Button>
+            </div>
 
             {/* Mobile Bottom Bar */}
             <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 shadow-xl z-50 flex items-center justify-between md:hidden">
               <div className="flex gap-2 w-full">
                 <Button
-  variant="outlined"
-  className={`flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-2xl transition-all duration-300 ease-in-out shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex-1 ${
-    outOfStock
-      ? 'bg-gray-100 text-gray-500 border border-gray-300'
-      : 'bg-red-100 text-red-600 border border-red-300 hover:bg-red-200 hover:border-red-400'
-  }`}
-  onClick={() => handleAddToCartAndOpenSidebar(product)}
-  disabled={isCartButtonLoading || outOfStock}
->
-  {isCartButtonLoading ? (
-    <>
-      <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-      <span className="text-sm">Adding...</span>
-    </>
-  ) : outOfStock ? (
-    <>
-      <ExclamationTriangleIcon className="w-5 h-5" />
-      <span className="text-sm">Out of Stock</span>
-    </>
-  ) : (
-    <>
-      <ShoppingCartIcon className="w-5 h-5" />
-      <span className="text-sm">Add to Cart</span>
-    </>
-  )}
-</Button>
-
-               
+                  variant="outlined"
+                  className={`flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-2xl transition-all duration-300 ease-in-out shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex-1 ${
+                    outOfStock
+                      ? 'bg-gray-100 text-gray-500 border border-gray-300'
+                      : 'bg-red-100 text-red-600 border border-red-300 hover:bg-red-200 hover:border-red-400'
+                  }`}
+                  onClick={() => handleAddToCartAndOpenSidebar(product)}
+                  disabled={isCartButtonLoading || outOfStock}
+                >
+                  {isCartButtonLoading ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-sm">Adding...</span>
+                    </>
+                  ) : outOfStock ? (
+                    <>
+                      <ExclamationTriangleIcon className="w-5 h-5" />
+                      <span className="text-sm">Out of Stock</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCartIcon className="w-5 h-5" />
+                      <span className="text-sm">Add to Cart</span>
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           </div>
@@ -718,10 +765,10 @@ const ProductDescription = () => {
                       />
                     </div>
 
-                   <div
-  className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20 transition-all cursor-pointer"
-  onClick={() => navigate(`/product/${product.id}`)}
->
+                    <div
+                      className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20 transition-all cursor-pointer"
+                      onClick={() => navigate(`/product/${product.id}`)}
+                    >
                       <Tooltip content="Add to Wishlist" placement="top">
                         <button className="p-2 bg-white/10 hover:bg-white/20 rounded-full">
                           <SolidHeartIcon className="w-5 h-5 text-white hover:text-red-400" />
@@ -732,10 +779,9 @@ const ProductDescription = () => {
                           className="p-2 bg-white/10 hover:bg-white/20 rounded-full"
                           onClick={() => navigate(`/product/${product.id}`)}
                         >
-                            <EyeIcon className="w-5 h-5 text-white hover:text-green-400" /> 
+                          <EyeIcon className="w-5 h-5 text-white hover:text-green-400" /> 
                         </button>
                       </Tooltip>
-                    
                     </div>
                   </div>
 
@@ -775,8 +821,7 @@ const ProductDescription = () => {
         </section>
       )}
 
-
-      {/* Cart Sidebar - IMPROVED VERSION */}
+      {/* FIXED: Cart Sidebar with improved functionality */}
       <Drawer
         placement="right"
         open={cartSidebarOpen}
@@ -813,7 +858,7 @@ const ProductDescription = () => {
               <div className="flex items-center justify-center h-40">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
               </div>
-            ) : cart.length === 0 ? (
+            ) : !Array.isArray(cart) || cart.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full p-6 text-center">
                 <ShoppingCartIcon className="w-16 h-16 text-gray-300 mb-4" />
                 <h3 className="text-lg font-semibold text-gray-600 mb-2">Your cart is empty</h3>
@@ -821,70 +866,90 @@ const ProductDescription = () => {
               </div>
             ) : (
               <div className="p-4 space-y-4">
-                {cart.map((item, index) => (
-                  <div key={`${item.productId}-${index}`} className="bg-white border rounded-lg p-3 shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                        {renderCartImage(item)}
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-gray-800 text-sm line-clamp-2 mb-1">
-                          {item.productName || "Product Name"}
-                        </h4>
-                        <p className="text-red-500 font-bold text-sm">
-                          ₵{formatPrice(item.price || 0)}.00
-                        </p>
+                {cart.map((item, index) => {
+                  const isUpdating = updatingQuantity[item.productId];
+                  const isRemoving = removingItem[item.productId];
+                  
+                  return (
+                    <div key={`${item.productId}-${index}`} className="bg-white border rounded-lg p-3 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                          {renderCartImage(item)}
+                        </div>
                         
-                        <div className="flex items-center justify-between mt-2">
-                          <div className="flex items-center bg-gray-50 rounded border">
-                            <Button
-                              size="sm"
-                              variant="text"
-                              className="min-w-0 px-2 py-1"
-                              onClick={() => handleQuantityChange(item.productId, item.quantity - 1)}
-                              disabled={item.quantity <= 1}
-                            >
-                              <MinusIcon className="h-3 w-3" />
-                            </Button>
-                            <span className="w-8 text-center text-xs font-semibold">
-                              {item.quantity || 1}
-                            </span>
-                            <Button
-                              size="sm"
-                              variant="text"
-                              className="min-w-0 px-2 py-1"
-                              onClick={() => handleQuantityChange(item.productId, item.quantity + 1)}
-                            >
-                              <PlusIcon className="h-3 w-3" />
-                            </Button>
-                          </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-gray-800 text-sm line-clamp-2 mb-1">
+                            {item.productName || "Product Name"}
+                          </h4>
+                          <p className="text-red-500 font-bold text-sm">
+                            ₵{formatPrice(item.price || 0)}.00
+                          </p>
                           
-                          <div className="flex items-center gap-2">
-                            <span className="text-gray-700 font-bold text-sm">
-                              ₵{formatPrice((item.price || 0) * (item.quantity || 1))}.00
-                            </span>
-                            <IconButton
-                              size="sm"
-                              variant="text"
-                              color="red"
-                              className="p-1"
-                              onClick={() => handleRemoveItem(item.productId)}
-                            >
-                              <TrashIcon className="h-4 w-4" />
-                            </IconButton>
+                          <div className="flex items-center justify-between mt-2">
+                            {/* Quantity Controls */}
+                            <div className="flex items-center bg-gray-50 rounded border">
+                              <Button
+                                size="sm"
+                                variant="text"
+                                className="min-w-0 px-2 py-1"
+                                onClick={() => handleQuantityChange(item.productId, (item.quantity || 1) - 1)}
+                                disabled={isUpdating || isRemoving || (item.quantity || 1) <= 1}
+                              >
+                                {isUpdating ? (
+                                  <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <MinusIcon className="h-3 w-3" />
+                                )}
+                              </Button>
+                              <span className="w-8 text-center text-xs font-semibold">
+                                {item.quantity || 1}
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="text"
+                                className="min-w-0 px-2 py-1"
+                                onClick={() => handleQuantityChange(item.productId, (item.quantity || 1) + 1)}
+                                disabled={isUpdating || isRemoving}
+                              >
+                                {isUpdating ? (
+                                  <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <PlusIcon className="h-3 w-3" />
+                                )}
+                              </Button>
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-700 font-bold text-sm">
+                                ₵{formatPrice((item.price || 0) * (item.quantity || 1))}.00
+                              </span>
+                              <IconButton
+                                size="sm"
+                                variant="text"
+                                color="red"
+                                className="p-1"
+                                onClick={() => handleRemoveItem(item.productId)}
+                                disabled={isUpdating || isRemoving}
+                              >
+                                {isRemoving ? (
+                                  <div className="w-4 h-4 border border-red-500 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <TrashIcon className="h-4 w-4" />
+                                )}
+                              </IconButton>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
 
           {/* Cart Footer */}
-          {cart.length > 0 && (
+          {Array.isArray(cart) && cart.length > 0 && (
             <div className="border-t bg-white p-4">
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
@@ -899,26 +964,31 @@ const ProductDescription = () => {
                 </p>
                 
                 <div className="space-y-2">
-                  
-             
                   <Button
                     fullWidth
                     className="bg-red-500 hover:bg-red-600 text-white font-semibold py-3 rounded-lg shadow-md transition duration-200"
                     onClick={handleCheckout}
+                    disabled={cartLoadingState}
                   >
-                    Proceed to Checkout
+                    {cartLoadingState ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Processing...
+                      </div>
+                    ) : (
+                      'Proceed to Checkout'
+                    )}
                   </Button>
                   
-                     <Button
-      fullWidth
-      variant="outlined"
-      className="border-gray-300 text-gray-700 py-2 rounded-lg"
-      onClick={() => navigate(`/cart/${cartId}`)}
-      disabled={!cartId} // Optional: disable if cartId doesn't exist
-    >
-      View Cart Page
-    </Button>
-
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    className="border-gray-300 text-gray-700 py-2 rounded-lg"
+                    onClick={() => navigate(`/cart/${cartId}`)}
+                    disabled={!cartId}
+                  >
+                    View Cart Page
+                  </Button>
                 </div>
               </div>
             </div>
@@ -934,8 +1004,7 @@ const ProductDescription = () => {
           setAuthModalOpen(false);
           setCartSidebarOpen(true);
         }}
-
- />
+      />
     </div>
   );
 };
