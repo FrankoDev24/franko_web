@@ -287,39 +287,104 @@ const Checkout = () => {
     }
   };
 
+  // ENHANCED: More robust direct checkout processing with better error handling and retry mechanism
   const processDirectCheckout = async (orderId, checkoutDetails, addressDetails) => {
+    console.log("Starting direct checkout process for order:", orderId);
+    
     try {
-      await dispatchOrderCheckout(orderId, checkoutDetails);
-      await dispatchOrderAddress(orderId, addressDetails);
+      // Step 1: Dispatch checkout order with retry mechanism
+      console.log("Dispatching checkout order...");
+      await dispatchOrderCheckoutWithRetry(orderId, checkoutDetails);
+      console.log("✓ Checkout order dispatched successfully");
+      
+      // Step 2: Dispatch order address with retry mechanism  
+      console.log("Dispatching order address...");
+      await dispatchOrderAddressWithRetry(orderId, addressDetails);
+      console.log("✓ Order address dispatched successfully");
+      
+      console.log("Direct checkout process completed successfully");
+      
     } catch (error) {
-      throw new Error("An error occurred during checkout.");
+      console.error("Direct checkout process failed:", error);
+      throw new Error(`Checkout failed: ${error.message}`);
     }
   };
 
-  const dispatchOrderCheckout = async (orderId, checkoutDetails) => {
-    try {
-      const checkoutPayload = {
-        cartId: getCartId(),
-        ...checkoutDetails,
-      };
+  // ENHANCED: Checkout order dispatch with retry mechanism and better error handling
+  const dispatchOrderCheckoutWithRetry = async (orderId, checkoutDetails, maxRetries = 3) => {
+    let lastError;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Checkout attempt ${attempt}/${maxRetries}`);
+        
+        const checkoutPayload = {
+          cartId: getCartId(),
+          ...checkoutDetails,
+        };
 
-      await dispatch(checkOutOrder(checkoutPayload)).unwrap();
-    } catch (error) {
-      console.error("Checkout Error:", error);
-      throw new Error("An error occurred during order checkout.");
+        console.log("Checkout payload:", checkoutPayload);
+        
+        const result = await dispatch(checkOutOrder(checkoutPayload)).unwrap();
+        console.log("Checkout result:", result);
+        
+        // If we get here, the dispatch was successful
+        return result;
+        
+      } catch (error) {
+        console.error(`Checkout attempt ${attempt} failed:`, error);
+        lastError = error;
+        
+        // If it's the last attempt, don't wait
+        if (attempt < maxRetries) {
+          // Wait before retrying (exponential backoff)
+          const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+          console.log(`Waiting ${waitTime}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+      }
     }
+    
+    // If we get here, all attempts failed
+    throw new Error(`Checkout failed after ${maxRetries} attempts: ${lastError?.message || 'Unknown error'}`);
   };
 
-  const dispatchOrderAddress = async (orderId, addressDetails) => {
-    try {
-      await dispatch(updateOrderDelivery(addressDetails)).unwrap();
-      dispatch(clearCart());
-      localStorage.removeItem("cart");
-      localStorage.removeItem("cartId");
-    } catch (error) {
-      console.error("Address Update Error:", error);
-      throw new Error("An error occurred while updating the order address.");
+  // ENHANCED: Address dispatch with retry mechanism and better error handling
+  const dispatchOrderAddressWithRetry = async (orderId, addressDetails, maxRetries = 3) => {
+    let lastError;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Address update attempt ${attempt}/${maxRetries}`);
+        console.log("Address payload:", addressDetails);
+        
+        const result = await dispatch(updateOrderDelivery(addressDetails)).unwrap();
+        console.log("Address update result:", result);
+        
+        // If successful, clear cart and local storage
+        dispatch(clearCart());
+        localStorage.removeItem("cart");
+        localStorage.removeItem("cartId");
+        console.log("✓ Cart cleared successfully");
+        
+        return result;
+        
+      } catch (error) {
+        console.error(`Address update attempt ${attempt} failed:`, error);
+        lastError = error;
+        
+        // If it's the last attempt, don't wait
+        if (attempt < maxRetries) {
+          // Wait before retrying (exponential backoff)
+          const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+          console.log(`Waiting ${waitTime}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+      }
     }
+    
+    // If we get here, all attempts failed
+    throw new Error(`Address update failed after ${maxRetries} attempts: ${lastError?.message || 'Unknown error'}`);
   };
 
   // Handle payment method selection
@@ -351,7 +416,10 @@ const Checkout = () => {
     return errors;
   };
   
+  // ENHANCED: Main checkout handler with better error handling and logging
   const handleCheckout = async () => {
+    console.log("=== CHECKOUT PROCESS STARTED ===");
+    
     // Check if cart is empty
     if (cartItems.length === 0) {
       message.warning("Your cart is empty. Please add items before checkout.");
@@ -362,6 +430,7 @@ const Checkout = () => {
     const validationErrors = validateRequiredFields();
     
     if (validationErrors.length > 0) {
+      console.log("Validation errors:", validationErrors);
       setIsValidationModalVisible(true);
       return;
     }
@@ -371,6 +440,18 @@ const Checkout = () => {
     const orderDate = new Date().toISOString();
     const totalAmount = calculateTotalAmount();
     const cartId = getCartId();
+
+    console.log("Order details:", {
+      orderId,
+      totalAmount,
+      cartId,
+      paymentMethod,
+      isAgent,
+      customerId,
+      customerName,
+      customerNumber,
+      selectedAddress
+    });
 
     // Meta Pixel Event
     if (typeof window.fbq === 'function') {
@@ -428,16 +509,27 @@ const Checkout = () => {
       geoLocation: "N/A",
     };
 
+    console.log("Checkout details:", checkoutDetails);
+    console.log("Address details:", addressDetails);
+
     try {
       setLoading(true);
       
-      // For agents, only process direct checkout (no Hubtel payments)
+      // For agents or non-Hubtel payment methods, process direct checkout
       if (isAgent || !["Mobile Money", "Credit Card"].includes(paymentMethod)) {
+        console.log("Processing direct checkout (Agent or non-Hubtel payment)");
+        
         await processDirectCheckout(orderId, checkoutDetails, addressDetails);
+        
+        console.log("✓ Direct checkout completed successfully");
         message.success("Your order has been placed successfully!");
         navigate("/order-received");
+        
       } else {
         // For non-agents with Mobile Money or Credit Card
+        console.log("Processing Hubtel payment checkout");
+        
+        // Store details for later processing after payment
         storeCheckoutDetailsInLocalStorage(checkoutDetails, addressDetails);
         dispatch(saveCheckoutDetails(checkoutDetails));
         dispatch(saveAddressDetails(addressDetails));
@@ -445,26 +537,34 @@ const Checkout = () => {
         setPaymentLoading(true);
         const paymentUrl = await initiatePayment(totalAmount, cartItems, orderId);
         if (paymentUrl) {
+          console.log("✓ Payment URL generated, opening payment modal");
           setPaymentUrl(paymentUrl);
           setIsPaymentModalVisible(true);
         }
         setPaymentLoading(false);
       }
+      
     } catch (error) {
-      console.error("Checkout error:", error);
-      message.error("An error occurred during checkout.");
+      console.error("=== CHECKOUT ERROR ===", error);
+      
+      // Show specific error message if available
+      const errorMessage = error.message || "An error occurred during checkout.";
+      message.error(errorMessage);
+      
+      // Log additional error details for debugging
+      console.error("Error details:", {
+        error,
+        orderId,
+        paymentMethod,
+        isAgent,
+        checkoutDetails,
+        addressDetails
+      });
+      
     } finally {
       setLoading(false);
+      console.log("=== CHECKOUT PROCESS ENDED ===");
     }
-  };
-
-  // Handle payment modal close
-  const handlePaymentModalClose = () => {
-    setIsPaymentModalVisible(false);
-    setPaymentUrl(null);
-    setPaymentLoading(false);
-    setCurrentOrderId(null);
-    localStorage.removeItem("pendingOrderId");
   };
 
   const renderImage = (imagePath) => {
