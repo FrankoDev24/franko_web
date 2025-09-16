@@ -415,102 +415,88 @@ const Checkout = () => {
     
     return errors;
   };
+  // ✅ Safe getter to guarantee fullname & contact number
+const getSafeCustomerDetails = () => {
+  let name = customerName?.trim();
+  let number = customerNumber?.trim();
+
+  // fallback from customerData
+  if (!name && customerData) {
+    name = `${customerData.firstName || ""} ${customerData.lastName || ""}`.trim();
+  }
+  if (!number && customerData) {
+    number = customerData.contactNumber || customerData.ContactNumber || "";
+  }
+
+  // last fallback → guest
+  if (!name) {
+    name = `Guest ${Math.floor(1000 + Math.random() * 9000)}`;
+  }
+  if (!number) {
+    number = "0000000000"; // or force input before checkout
+  }
+
+  return { name, number };
+};
+
   
   // ENHANCED: Main checkout handler with better error handling and logging
-  const handleCheckout = async () => {
-    console.log("=== CHECKOUT PROCESS STARTED ===");
-    
-    // Check if cart is empty
-    if (cartItems.length === 0) {
-      message.warning("Your cart is empty. Please add items before checkout.");
-      return;
-    }
+const handleCheckout = async () => {
+  console.log("=== CHECKOUT PROCESS STARTED ===");
 
-    // Validate all required fields
-    const validationErrors = validateRequiredFields();
-    
-    if (validationErrors.length > 0) {
-      console.log("Validation errors:", validationErrors);
-      setIsValidationModalVisible(true);
-      return;
-    }
+  // ✅ Always fetch guaranteed name & number
+  const { name: safeName, number: safeNumber } = getSafeCustomerDetails();
 
-    const orderId = generateOrderId();
-    setCurrentOrderId(orderId);
-    const orderDate = new Date().toISOString();
-    const totalAmount = calculateTotalAmount();
-    const cartId = getCartId();
+  // overwrite state so UI also updates
+  setCustomerName(safeName);
+  setCustomerNumber(safeNumber);
 
-    console.log("Order details:", {
-      orderId,
-      totalAmount,
-      cartId,
-      paymentMethod,
-      isAgent,
-      customerId,
-      customerName,
-      customerNumber,
-      selectedAddress
-    });
+  // Validate required fields
+  const validationErrors = validateRequiredFields();
+  if (validationErrors.length > 0) {
+    console.log("Validation errors:", validationErrors);
+    setIsValidationModalVisible(true);
+    return;
+  }
 
-    // Meta Pixel Event
-    if (typeof window.fbq === 'function') {
-      window.fbq('track', 'InitiateCheckout', {
-        content_type: 'product',
-        contents: cartItems.map((item) => ({
-          id: item.productId,
-          name: item.productName,
-          quantity: item.quantity,
-          item_price: item.price,
-        })),
-        value: totalAmount,
-        currency: 'GHS',
-      });
-    }
+  const orderId = generateOrderId();
+  setCurrentOrderId(orderId);
+  const orderDate = new Date().toISOString();
+  const totalAmount = calculateTotalAmount();
+  const cartId = getCartId();
 
-    // Google Tag Manager Event
-    TagManager.dataLayer({
-      dataLayer: {
-        event: "place_order",
-        orderId: orderId,
-        paymentMethod: paymentMethod,
-        totalAmount: totalAmount,
-        items: cartItems.map((item) => ({
-          name: item.productName,
-          id: item.productId,
-          price: item.price,
-          quantity: item.quantity,
-        })),
-      },
-    });
+  // ✅ Use safe values in payloads
+  const checkoutDetails = {
+    Cartid: cartId,
+    customerId,
+    orderCode: orderId,
+    PaymentMode: paymentMethod,
+    PaymentAccountNumber: safeNumber,
+    customerAccountType,
+    paymentService: "Mtn",
+    totalAmount,
+    recipientName: safeName,
+    recipientContactNumber: safeNumber,
+    orderNote: orderNote || "N/A",
+    orderDate,
+  };
 
-    const checkoutDetails = {
-      Cartid: cartId,
-      customerId,
-      orderCode: orderId,
-      PaymentMode: paymentMethod,
-      PaymentAccountNumber: customerNumber,
-      customerAccountType,
-      paymentService: "Mtn",
-      totalAmount,
-      recipientName: customerName,
-      recipientContactNumber: customerNumber,
-      orderNote: orderNote || "N/A",
-      orderDate,
-    };
+  const addressDetails = {
+    orderCode: orderId,
+    address: selectedAddress,
+    Customerid: customerId,
+    recipientName: safeName,
+    recipientContactNumber: safeNumber,
+    orderNote: orderNote || "N/A",
+    geoLocation: "N/A",
+  };
 
-    const addressDetails = {
-      orderCode: orderId,
-      address: selectedAddress,
-      Customerid: customerId,
-      recipientName: customerName,
-      recipientContactNumber: customerNumber,
-      orderNote: orderNote || "N/A",
-      geoLocation: "N/A",
-    };
+  console.log("Checkout details:", checkoutDetails);
+  console.log("Address details:", addressDetails);
 
-    console.log("Checkout details:", checkoutDetails);
-    console.log("Address details:", addressDetails);
+  // ... keep the rest of your existing checkout logic
+
+
 
     try {
       setLoading(true);

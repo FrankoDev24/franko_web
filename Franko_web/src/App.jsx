@@ -203,7 +203,7 @@ function App() {
 
         
 
-        {/* Admin Routes - Protected */}
+        {/* Admin - Protected */}
         <Route 
           path="/admin/*" 
           element={

@@ -269,12 +269,8 @@ const CheckoutForm = ({
                     <strong className="text-green-700">
                       {deliveryInfo.feeDisplay || formatDeliveryFee(deliveryInfo.fee)}
                     </strong>
-                    {/* ✅ Free delivery badge - only show for explicitly free delivery */}
-                    {deliveryInfo.feeDisplay === "Free delivery" && (
-                      <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-full">
-                        🎉 FREE
-                      </span>
-                    )}
+                  
+                   
                   </p>
                 </>
               ) : (
