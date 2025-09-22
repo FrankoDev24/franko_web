@@ -9,7 +9,7 @@ import useWindowSize from "react-use/lib/useWindowSize";
 
 const OrderSuccessPage = () => {
   const dispatch = useDispatch();
-  const { orderId } = useParams();
+  const { orderId } = useParams(); 
   const navigate = useNavigate();
   const { width, height } = useWindowSize();
   const [showConfetti, setShowConfetti] = useState(true);
@@ -45,10 +45,10 @@ const OrderSuccessPage = () => {
           Cartid: localStorage.getItem("cartId"),
           customerId: checkoutDetails.customerId,
           orderCode: checkoutDetails.orderCode,
-          address: checkoutDetails.address,
+          address: checkoutDetails.address || "N/A",
           PaymentMode: checkoutDetails.PaymentMode,
-          PaymentAccountNumber: checkoutDetails.PaymentAccountNumber,
-          customerAccountType: "Customer",
+          PaymentAccountNumber: checkoutDetails.PaymentAccountNumber || "0000000000",
+          customerAccountType: "Customer" || checkoutDetails.customerAccountType,
           paymentService: "Mtn",
           totalAmount: checkoutDetails.totalAmount,
         };
@@ -57,8 +57,8 @@ const OrderSuccessPage = () => {
           Customerid: addressDetails.Customerid,
           orderCode: addressDetails.orderCode,
           address: addressDetails.address,
-          recipientName: addressDetails.recipientName,
-          recipientContactNumber: addressDetails.recipientContactNumber,
+          recipientName: addressDetails.recipientName || `Guest ${Math.floor(1000 + Math.random() * 9000)}`,
+          recipientContactNumber: addressDetails.recipientContactNumber || "0000000000",
           orderNote: addressDetails.orderNote || "N/A",
           geoLocation: addressDetails.geoLocation,
         };

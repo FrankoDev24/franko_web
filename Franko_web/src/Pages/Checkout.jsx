@@ -289,23 +289,17 @@ const Checkout = () => {
 
   // ENHANCED: More robust direct checkout processing with better error handling and retry mechanism
   const processDirectCheckout = async (orderId, checkoutDetails, addressDetails) => {
-    console.log("Starting direct checkout process for order:", orderId);
+
     
     try {
-      // Step 1: Dispatch checkout order with retry mechanism
-      console.log("Dispatching checkout order...");
+
       await dispatchOrderCheckoutWithRetry(orderId, checkoutDetails);
-      console.log("✓ Checkout order dispatched successfully");
-      
-      // Step 2: Dispatch order address with retry mechanism  
-      console.log("Dispatching order address...");
+   
       await dispatchOrderAddressWithRetry(orderId, addressDetails);
-      console.log("✓ Order address dispatched successfully");
-      
-      console.log("Direct checkout process completed successfully");
+
       
     } catch (error) {
-      console.error("Direct checkout process failed:", error);
+
       throw new Error(`Checkout failed: ${error.message}`);
     }
   };
@@ -316,30 +310,29 @@ const Checkout = () => {
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`Checkout attempt ${attempt}/${maxRetries}`);
-        
+     
         const checkoutPayload = {
           cartId: getCartId(),
           ...checkoutDetails,
         };
 
-        console.log("Checkout payload:", checkoutPayload);
+     
         
         const result = await dispatch(checkOutOrder(checkoutPayload)).unwrap();
-        console.log("Checkout result:", result);
+ 
         
         // If we get here, the dispatch was successful
         return result;
         
       } catch (error) {
-        console.error(`Checkout attempt ${attempt} failed:`, error);
+        
         lastError = error;
         
         // If it's the last attempt, don't wait
         if (attempt < maxRetries) {
           // Wait before retrying (exponential backoff)
           const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
-          console.log(`Waiting ${waitTime}ms before retry...`);
+          
           await new Promise(resolve => setTimeout(resolve, waitTime));
         }
       }
@@ -355,17 +348,15 @@ const Checkout = () => {
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`Address update attempt ${attempt}/${maxRetries}`);
-        console.log("Address payload:", addressDetails);
         
         const result = await dispatch(updateOrderDelivery(addressDetails)).unwrap();
-        console.log("Address update result:", result);
+  
         
         // If successful, clear cart and local storage
         dispatch(clearCart());
         localStorage.removeItem("cart");
         localStorage.removeItem("cartId");
-        console.log("✓ Cart cleared successfully");
+       
         
         return result;
         
@@ -377,7 +368,7 @@ const Checkout = () => {
         if (attempt < maxRetries) {
           // Wait before retrying (exponential backoff)
           const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
-          console.log(`Waiting ${waitTime}ms before retry...`);
+        
           await new Promise(resolve => setTimeout(resolve, waitTime));
         }
       }
@@ -442,7 +433,7 @@ const getSafeCustomerDetails = () => {
   
   // ENHANCED: Main checkout handler with better error handling and logging
 const handleCheckout = async () => {
-  console.log("=== CHECKOUT PROCESS STARTED ===");
+
 
   // ✅ Always fetch guaranteed name & number
   const { name: safeName, number: safeNumber } = getSafeCustomerDetails();
@@ -454,7 +445,7 @@ const handleCheckout = async () => {
   // Validate required fields
   const validationErrors = validateRequiredFields();
   if (validationErrors.length > 0) {
-    console.log("Validation errors:", validationErrors);
+   
     setIsValidationModalVisible(true);
     return;
   }
@@ -471,12 +462,12 @@ const handleCheckout = async () => {
     customerId,
     orderCode: orderId,
     PaymentMode: paymentMethod,
-    PaymentAccountNumber: safeNumber,
+    PaymentAccountNumber: safeNumber || "0000000000",
     customerAccountType,
     paymentService: "Mtn",
     totalAmount,
-    recipientName: safeName,
-    recipientContactNumber: safeNumber,
+    recipientName: safeName || `Guest ${Math.floor(1000 + Math.random() * 9000)}`,
+    recipientContactNumber: safeNumber || "0000000000", 
     orderNote: orderNote || "N/A",
     orderDate,
   };
@@ -491,13 +482,6 @@ const handleCheckout = async () => {
     geoLocation: "N/A",
   };
 
-  console.log("Checkout details:", checkoutDetails);
-  console.log("Address details:", addressDetails);
-
-  // ... keep the rest of your existing checkout logic
-
-
-
     try {
       setLoading(true);
       
@@ -506,14 +490,12 @@ const handleCheckout = async () => {
         console.log("Processing direct checkout (Agent or non-Hubtel payment)");
         
         await processDirectCheckout(orderId, checkoutDetails, addressDetails);
-        
-        console.log("✓ Direct checkout completed successfully");
+   
         message.success("Your order has been placed successfully!");
         navigate("/order-received");
         
       } else {
-        // For non-agents with Mobile Money or Credit Card
-        console.log("Processing Hubtel payment checkout");
+     
         
         // Store details for later processing after payment
         storeCheckoutDetailsInLocalStorage(checkoutDetails, addressDetails);
@@ -523,7 +505,7 @@ const handleCheckout = async () => {
         setPaymentLoading(true);
         const paymentUrl = await initiatePayment(totalAmount, cartItems, orderId);
         if (paymentUrl) {
-          console.log("✓ Payment URL generated, opening payment modal");
+         
           setPaymentUrl(paymentUrl);
           setIsPaymentModalVisible(true);
         }
@@ -549,7 +531,7 @@ const handleCheckout = async () => {
       
     } finally {
       setLoading(false);
-      console.log("=== CHECKOUT PROCESS ENDED ===");
+   
     }
   };
 
@@ -587,7 +569,7 @@ const handleCheckout = async () => {
         <p className="text-gray-500 mb-6">Add some items to your cart to proceed with checkout.</p>
         <div className="flex gap-4 justify-center">
           <button 
-            onClick={() => navigate("/shop")}
+            onClick={() => navigate("/")}
             className="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors duration-200 font-medium"
           >
             Continue Shopping

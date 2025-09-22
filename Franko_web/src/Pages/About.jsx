@@ -274,7 +274,7 @@ className="bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-semibold px-8 py
         
         <div className="relative max-w-4xl mx-auto text-center text-white">
           <h2 className="text-3xl md:text-5xl font-bold mb-6 leading-tight">
-            Ready to Experience the Best in Technology?
+            Ready to Experience the Best in Electronic Products?
           </h2>
           <p className="text-xl mb-8 text-green-100 max-w-2xl mx-auto">
             Discover our latest collection of smartphones, laptops, TVs, and accessories. Quality guaranteed, prices you'll love.
@@ -291,7 +291,7 @@ className="bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-semibold px-8 py
           
           <div className="mt-12 inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-6 py-3">
             <MapPin className="w-5 h-5 text-yellow-300" />
-            <span className="font-medium">Visit us at Adabraka, Opposite Roxy Cinema, Accra</span>
+            <span className="font-medium">Visit us at Accra, Kingsway, Opposite GCB (Former UT Bank Building)</span>
           </div>
         </div>
       </section>
