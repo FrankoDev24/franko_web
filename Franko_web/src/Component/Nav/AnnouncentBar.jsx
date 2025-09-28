@@ -12,7 +12,6 @@ const BRAND_COLORS = {
   mediumGray: '#E2E8F0',
   orange: '#ED8936',
   darkOrange: '#DD6B20',
-
 };
 
 const promoMessages = [
@@ -54,31 +53,10 @@ const AnnouncementBar = () => {
   return (
     <>
       {/* Desktop Layout */}
-      <div className="hidden md:flex text-white py-1 px-4 items-center justify-between shadow-lg" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.red} 0%, ${BRAND_COLORS.darkRed} 50%, ${BRAND_COLORS.red} 100%)` }}>
+      <div className="hidden md:flex text-white px-4 items-center justify-between shadow-lg" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.green} 0%, ${BRAND_COLORS.darkGreen} 100%)` }}>
         
-        {/* Back to School Promo Button */}
-        <div className="flex-shrink-0 mr-4">
-          <button 
-            onClick={() => window.location.href = '/back-to-school'}
-            className="group relative overflow-hidden rounded-lg px-12 py-2 font-bold text-white transition-all duration-300 transform hover:scale-105 shadow-lg cursor-pointer"
-            style={{ 
-              background: `linear-gradient(135deg, ${BRAND_COLORS.green} 0%, ${BRAND_COLORS.darkGreen} 100%)`,
-              boxShadow: `0 4px 15px rgba(56, 161, 105, 0.3)`
-            }}
-          >
-            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.darkGreen} 0%, ${BRAND_COLORS.green} 100%)` }}></div>
-            <div className="relative flex items-center space-x-2">
-              <span className="text-lg">📚</span>
-              <div className="text-left">
-                <div className="text-xl font-bold leading-tight">BACK TO SCHOOL PROMO</div>
-                <div className="text-sm opacity-90">Shop Now!</div>
-              </div>
-            </div>
-          </button>
-        </div>
-
         {/* Main Promo Animation Section */}
-        <div className="flex-1 relative h-12 overflow-hidden rounded-lg shadow-inner mx-4" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.darkOrange} 0%, #FF6B35 50%, ${BRAND_COLORS.orange} 100%)` }}>
+        <div className="flex-1 relative h-10 overflow-hidden rounded-lg shadow-inner mx-4" style={{ background: `linear-gradient(135deg, #68D391 0%, #48BB78 50%, #38A169 100%)` }}>
           <div className="absolute inset-0 opacity-30">
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"></div>
           </div>
@@ -109,7 +87,7 @@ const AnnouncementBar = () => {
         </div>
 
         {/* Contact Section */}
-        <div className="flex-shrink-0 ml-4 rounded-lg px-4 py-2 backdrop-blur-sm" style={{ backgroundColor: 'rgba(255, 255, 255, 0.15)' }}>
+        <div className="flex-shrink-0 ml-4 rounded-lg px-4 py-1 backdrop-blur-sm" style={{ backgroundColor: 'rgba(255, 255, 255, 0.15)' }}>
           <div className="text-white font-medium text-xs mb-1 text-center">
            Need Help? Contact Us:
           </div>
@@ -146,31 +124,10 @@ const AnnouncementBar = () => {
       </div>
 
       {/* Mobile Layout */}
-      <div className="md:hidden text-white  shadow-lg" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.red} 0%, ${BRAND_COLORS.darkRed} 50%, ${BRAND_COLORS.red} 100%)` }}>
+      <div className="md:hidden text-white py-1 px-2 shadow-lg" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.green} 0%, ${BRAND_COLORS.darkGreen} 100%)` }}>
         
-        {/* Back to School Button - Mobile */}
-        <div className="">
-          <button 
-            onClick={() => window.location.href = '/back-to-school'}
-            className="w-full group relative overflow-hidden rounded-lg px-2 py-1 font-bold text-white transition-all duration-300 transform active:scale-95 shadow-lg cursor-pointer"
-            style={{ 
-              background: `linear-gradient(135deg, ${BRAND_COLORS.green} 0%, ${BRAND_COLORS.darkGreen} 100%)`,
-              boxShadow: `0 4px 15px rgba(56, 161, 105, 0.3)`
-            }}
-          >
-            <div className="absolute inset-0 opacity-0 group-active:opacity-100 transition-opacity duration-300" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.darkGreen} 0%, ${BRAND_COLORS.green} 100%)` }}></div>
-            <div className="relative flex items-center justify-center space-x-2">
-              <span className="text-lg">📚</span>
-              <div>
-                <div className="text-sm font-bold">BACK TO SCHOOL PROMO</div>
-                <div className="text-xs opacity-90">Shop Now & Save Big!</div>
-              </div>
-            </div>
-          </button>
-        </div>
-
         {/* Mobile Promo Animation Section */}
-        <div className="relative h-8 overflow-hidden rounded-lg shadow-inner mb-2" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.darkRed} 0%, #FF6B35 50%, ${BRAND_COLORS.red} 100%)` }}>
+        <div className="relative h-10 overflow-hidden rounded-lg shadow-inner mb-2" style={{ background: `linear-gradient(135deg, #68D391 0%, #48BB78 50%, #38A169 100%)` }}>
           <div className="absolute inset-0 opacity-30">
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"></div>
           </div>
@@ -250,20 +207,6 @@ const AnnouncementBar = () => {
 
         .transition-all {
           will-change: transform, opacity;
-        }
-
-        /* Pulse animation for back to school button */
-        @keyframes pulse-glow {
-          0%, 100% {
-            box-shadow: 0 4px 15px rgba(56, 161, 105, 0.3);
-          }
-          50% {
-            box-shadow: 0 4px 25px rgba(56, 161, 105, 0.5);
-          }
-        }
-
-        button:hover {
-          animation: pulse-glow 2s infinite;
         }
       `}</style>
     </>

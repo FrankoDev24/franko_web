@@ -13,7 +13,7 @@ import { message, Card, Typography, Radio, Divider, Modal, Alert } from "antd";
 import CheckoutForm from "../Component/CheckoutForm";
 import locations from "../Component/Locations";
 import { ShoppingBagIcon, ExclamationTriangleIcon, CreditCardIcon, MapPinIcon, UserIcon, PhoneIcon, XMarkIcon } from "@heroicons/react/24/outline";
-import TagManager from "react-gtm-module";
+
 
 const { Text, Title } = Typography;
 
