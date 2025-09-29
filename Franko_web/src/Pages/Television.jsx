@@ -386,7 +386,7 @@ const currentProducts = filteredProducts.slice(
             <div className="flex items-center gap-2 mb-1">
               <FaTv className="w-5 h-5 text-red-300" />
               <h2 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                {selectedBrand ? `${selectedBrand}` : "Fridge"}
+                {selectedBrand ? `${selectedBrand}` : "Televisions"}
               </h2>
             </div>
             <p className="text-sm text-gray-500 mt-1">
