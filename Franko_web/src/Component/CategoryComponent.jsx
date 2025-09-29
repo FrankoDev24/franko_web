@@ -9,7 +9,7 @@ import tv from "../assets/tv.jpg";
 import speaker from "../assets/speaker.jpg";
 import blender from "../assets/blender.jpg";
 import ac from "../assets/ac.jpg";
-import combo from "../assets/machine.jpeg";
+import combo from "../assets/machine.jpg";
 import accessories from "../assets/acce.png";
 
 const categories = [
