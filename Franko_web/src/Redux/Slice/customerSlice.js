@@ -54,6 +54,7 @@ export const loginCustomer = createAsyncThunk(
     }
   }
 );
+
 export const updateAccountStatus = createAsyncThunk(
   "customers/updateAccountStatus",
   async (_, { rejectWithValue }) => {
@@ -69,7 +70,7 @@ export const updateAccountStatus = createAsyncThunk(
       const parsedCustomer = JSON.parse(customer);
       console.log("Customer details:", parsedCustomer);
 
-      const { customerAccountNumber } = parsedCustomer; // Fix here
+      const { customerAccountNumber } = parsedCustomer;
       console.log("Customer account number:", customerAccountNumber);
 
       if (!customerAccountNumber) {
@@ -78,7 +79,7 @@ export const updateAccountStatus = createAsyncThunk(
       }
 
       const response = await axios.post(`${API_BASE_URL}/Users/Customer-Status`, {
-        accountNumber: customerAccountNumber, // Fix here
+        accountNumber: customerAccountNumber,
         accountStatus: "0",
       });
 
@@ -95,8 +96,6 @@ export const updateAccountStatus = createAsyncThunk(
     }
   }
 );
-
-
 
 // Initial state
 const initialState = {
@@ -115,7 +114,7 @@ const customerSlice = createSlice({
     logoutCustomer: (state) => {
       state.currentCustomer = null;
       state.currentCustomerDetails = null;
-      localStorage.removeItem('customer'); // Clear from localStorage on logout
+      localStorage.removeItem('customer');
     },
     
     clearCustomers: (state) => {
@@ -128,11 +127,9 @@ const customerSlice = createSlice({
       state.selectedCustomer = null;
     },
     
-    // New action to manually set current customer (useful for guest accounts)
     setCurrentCustomer: (state, action) => {
       state.currentCustomer = action.payload;
       state.currentCustomerDetails = action.payload;
-      // Also update localStorage
       if (action.payload) {
         localStorage.setItem('customer', JSON.stringify(action.payload));
       }
@@ -147,34 +144,36 @@ const customerSlice = createSlice({
       .addCase(createCustomer.fulfilled, (state, action) => {
         state.loading = false;
 
-        // Handle successful customer creation (including guests)
-        if (action.payload && (action.payload.ResponseCode === '1' || action.payload.ResponseCode === '0')) {
-          const newCustomer = {
-            ...action.meta.arg, // Original customer data sent to API
-            ...action.payload,  // Response data from API
-          };
-          state.currentCustomer = newCustomer;
-          state.currentCustomerDetails = newCustomer;
-          localStorage.setItem('customer', JSON.stringify(newCustomer));
-        } 
-        // Handle guest accounts specifically - even if no specific response code
-        else if (action.meta.arg.isGuest) {
-          // For guest accounts, use the original data we sent since it contains all the info
-          const guestCustomer = {
-            ...action.meta.arg,
-            ...action.payload, // Include any response data from server
-          };
-          state.currentCustomer = guestCustomer;
-          state.currentCustomerDetails = guestCustomer;
-          localStorage.setItem('customer', JSON.stringify(guestCustomer));
-        } 
-        else {
-          state.error = action.payload?.ResponseMessage || "Failed to create customer.";
+        // STRICT: Only process if response code is '1'
+        if (action.payload?.ResponseCode === '1') {
+          // Check if this is a guest account
+          if (action.meta.arg.isGuest) {
+            // Guest account creation - only with response code '1'
+            const guestCustomer = {
+              ...action.meta.arg,
+              ...action.payload,
+            };
+            state.currentCustomer = guestCustomer;
+            state.currentCustomerDetails = guestCustomer;
+            localStorage.setItem('customer', JSON.stringify(guestCustomer));
+          } else {
+            // Regular account creation - only with response code '1'
+            const newCustomer = {
+              ...action.meta.arg,
+              ...action.payload,
+            };
+            state.currentCustomer = newCustomer;
+            state.currentCustomerDetails = newCustomer;
+            localStorage.setItem('customer', JSON.stringify(newCustomer));
+          }
+        } else {
+          // Any other response code is treated as failure
+          state.error = action.payload?.ResponseMessage || "Account creation failed. Invalid response from server.";
         }
       })
       .addCase(createCustomer.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error?.message || "An unknown error occurred.";
+        state.error = action.payload || action.error?.message || "An unknown error occurred.";
       })
       .addCase(fetchCustomers.pending, (state) => {
         state.loading = true;
@@ -186,7 +185,7 @@ const customerSlice = createSlice({
       })
       .addCase(fetchCustomers.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error?.message || "An unknown error occurred.";
+        state.error = action.payload || action.error?.message || "An unknown error occurred.";
       })
       .addCase(loginCustomer.pending, (state) => {
         state.loading = true;
@@ -201,19 +200,18 @@ const customerSlice = createSlice({
         state.loading = false;
         state.error = action.payload || "Login failed.";
       })
-       .addCase(updateAccountStatus.pending, (state) => {
+      .addCase(updateAccountStatus.pending, (state) => {
         state.status = "loading";
         state.error = null;
       })
       .addCase(updateAccountStatus.fulfilled, (state) => {
         state.status = "succeeded";
-        state.customerData = null; // Clear customer data from Redux
+        state.customerData = null;
       })
       .addCase(updateAccountStatus.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload || "Failed to update account status.";
       });
-
   },
 });
 

@@ -165,7 +165,7 @@ function App() {
     <>
       <ConditionalNavbar />
 
-      <ScrollToTop >
+   <ScrollToTop/>
 
       <Routes>
         {/* Public Routes */}
@@ -554,7 +554,7 @@ function App() {
         {/* Default route redirects */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
-      </ScrollToTop>
+  
     </>
   )
 }

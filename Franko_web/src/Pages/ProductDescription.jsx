@@ -344,6 +344,31 @@ const ProductDescription = () => {
   const handleAuthModalClose = () => {
     setAuthModalOpen(false);
   };
+  // Add a new handler for successful authentication
+const handleAuthSuccess = () => {
+  setAuthModalOpen(false);
+  
+  // Store cart data before navigating
+  if (cart && cart.length > 0) {
+    localStorage.setItem("selectedCart", JSON.stringify(cart));
+  }
+  
+  // GTM event tracking for authenticated checkout
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({
+    event: "authenticated_checkout",
+    cartValue: cartTotal.toFixed(2),
+    cartItems: cart.map(item => ({
+      productId: item.productId,
+      name: item.productName,
+      price: item.price,
+      quantity: item.quantity
+    }))
+  });
+  
+  // Navigate to checkout page
+  navigate("/checkout");
+};
 
   if (loading || !currentProduct?.length) {
     return <ProductDetailSkeleton />;
@@ -1000,10 +1025,7 @@ const ProductDescription = () => {
       <AuthModal
         open={authModalOpen}
         onClose={handleAuthModalClose}
-        onSuccess={() => {
-          setAuthModalOpen(false);
-          setCartSidebarOpen(true);
-        }}
+       onSuccess={handleAuthSuccess}
       />
     </div>
   );

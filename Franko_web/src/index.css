@@ -22,7 +22,7 @@
 @layer base {
   html, body {
 
-    position: fixed; /* Fix the entire page */
+ 
     width: 100%; /* Ensure full width */
     height: 100%; /* Ensure full height */
     margin: 0;
@@ -35,7 +35,7 @@
     height: 100vh;
 
     overflow-y: auto; /* Allow vertical scrolling if needed */
-    position: fixed;
+
     top: 0;
     left: 0;
   }

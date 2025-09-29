@@ -104,9 +104,10 @@ const AuthModal = ({ open, onClose }) => {
   });
 
   // Generate customer account number for signup and guest
- const generateCustomerAccountNumber = () => {
-  return uuidv4(); // No prefix, no uppercase
-};
+  const generateCustomerAccountNumber = () => {
+    return uuidv4();
+  };
+
   // Notification handlers
   const hideNotification = useCallback(() => {
     setNotification(prev => ({ 
@@ -225,120 +226,111 @@ const AuthModal = ({ open, onClose }) => {
     return true;
   };
 
-const handleSignup = async () => {
-  if (!validateSignupForm()) return;
-  
-  setLoading(true);
-  try {
-    const result = await dispatch(createCustomer(signupData)).unwrap();
+  const handleSignup = async () => {
+    if (!validateSignupForm()) return;
     
-    // Check if account already exists (ResponseCode: '2')
-    if (result?.ResponseCode === '2') {
-      // Account already exists, show message and redirect to login
-      const message = result.ResponseMessage || 'Account already exists';
-      showNotification(`${message}. Please login with your existing account.`, "error");
-      
-      // Switch to login mode after a short delay
-      setTimeout(() => {
-        setAuthMode('login');
-        // Pre-fill the contact number in login form
-        setLoginData(prev => ({
-          ...prev,
-          contactNumber: signupData.contactNumber
-        }));
-      }, 2500);
-      
-      return; // Exit the function early
-    }
-
-    // Check for other error response codes
-    if (result?.ResponseCode && result.ResponseCode !== '1' && result.ResponseCode !== '0') {
-      // Handle other error response codes
-      const errorMessage = result.ResponseMessage || 'Registration failed';
-      showNotification(errorMessage, "error");
-      return;
-    }
-
-    // Success case - store the complete customer details in localStorage under 'customer' key
+    setLoading(true);
     try {
-      // For successful registration, store the complete signup data
-      const customerDataForStorage = {
-        ...signupData,
-        // Add any additional info from database response if needed
-        ...(result && typeof result === 'object' ? result : {}),
-        // Ensure these key fields are always present
-        isGuest: false,
-        customerAccountNumber: signupData.customerAccountNumber,
-        contactNumber: signupData.contactNumber,
-        firstName: signupData.firstName,
-        lastName: signupData.lastName,
-        email: signupData.email,
-        accountType: "customer",
-        accountStatus: "1",
-        createdAt: new Date().toISOString(),
-        registeredAt: new Date().toISOString(),
-      };
+      const result = await dispatch(createCustomer(signupData)).unwrap();
       
-      localStorage.setItem('customer', JSON.stringify(customerDataForStorage));
-      console.log('Customer registration data stored in localStorage under "customer" key:', customerDataForStorage);
-    } catch (storageError) {
-      console.warn('Failed to store registration data in localStorage:', storageError);
-      // Continue even if localStorage fails
-    }
-    
-    // Track Facebook Pixel event
-    if (typeof window.fbq === "function") {
-      window.fbq("track", "CompleteRegistration", {
-        content_name: "Customer Registration",
-        status: "success",
-        currency: "GHS",
-        email: signupData.email,
-        customer_type: "registered",
-        contact_number: signupData.contactNumber,
-      });
-    }
+      // Check if account already exists (ResponseCode: '2')
+      if (result?.ResponseCode === '2') {
+        const message = result.ResponseMessage || 'Account already exists';
+        showNotification(`${message}. Please login with your existing account.`, "error");
+        
+        setTimeout(() => {
+          setAuthMode('login');
+          setLoginData(prev => ({
+            ...prev,
+            contactNumber: signupData.contactNumber
+          }));
+        }, 2500);
+        
+        return;
+      }
 
-    // Also track with Google Analytics if available
-    if (typeof window.gtag === "function") {
-      window.gtag('event', 'sign_up', {
-        method: 'email',
-        customer_type: 'registered',
-        contact_number: signupData.contactNumber,
+      // Check for other error response codes
+      if (result?.ResponseCode && result.ResponseCode !== '1' && result.ResponseCode !== '0') {
+        const errorMessage = result.ResponseMessage || 'Registration failed';
+        showNotification(errorMessage, "error");
+        return;
+      }
+
+      // Success case - ResponseCode is '1' or '0'
+      try {
+        const customerDataForStorage = {
+          ...signupData,
+          ...(result && typeof result === 'object' ? result : {}),
+          isGuest: false,
+          customerAccountNumber: signupData.customerAccountNumber,
+          contactNumber: signupData.contactNumber,
+          firstName: signupData.firstName,
+          lastName: signupData.lastName,
+          email: signupData.email,
+          accountType: "customer",
+          accountStatus: "1",
+          createdAt: new Date().toISOString(),
+          registeredAt: new Date().toISOString(),
+        };
+        
+        localStorage.setItem('customer', JSON.stringify(customerDataForStorage));
+        console.log('Customer registration data stored in localStorage under "customer" key:', customerDataForStorage);
+      } catch (storageError) {
+        console.warn('Failed to store registration data in localStorage:', storageError);
+      }
+      
+      // Track Facebook Pixel event
+      if (typeof window.fbq === "function") {
+        window.fbq("track", "CompleteRegistration", {
+          content_name: "Customer Registration",
+          status: "success",
+          currency: "GHS",
+          email: signupData.email,
+          customer_type: "registered",
+          contact_number: signupData.contactNumber,
+        });
+      }
+
+      // Track with Google Analytics
+      if (typeof window.gtag === "function") {
+        window.gtag('event', 'sign_up', {
+          method: 'email',
+          customer_type: 'registered',
+          contact_number: signupData.contactNumber,
+        });
+      }
+      
+      showNotification("Registration successful! Welcome aboard!", "success");
+      setTimeout(() => {
+        onClose();
+      }, 2000);
+    } catch (error) {
+      console.error("Registration error:", error);
+      
+      let errorMessage = "Registration failed. Please try again.";
+      
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      }
+      
+      showNotification(errorMessage, "error");
+      
+      console.error("Detailed error info:", {
+        message: error?.message,
+        response: error?.response?.data,
+        stack: error?.stack,
+        signupData: signupData
       });
+      
+    } finally {
+      setLoading(false);
     }
-    
-    showNotification("Registration successful! Welcome aboard!", "success");
-    setTimeout(() => {
-      onClose();
-    }, 2000);
-  } catch (error) {
-    console.error("Registration error:", error);
-    
-    // More detailed error handling
-    let errorMessage = "Registration failed. Please try again.";
-    
-    if (error?.message) {
-      errorMessage = error.message;
-    } else if (error?.response?.data?.message) {
-      errorMessage = error.response.data.message;
-    } else if (error?.response?.data?.error) {
-      errorMessage = error.response.data.error;
-    }
-    
-    showNotification(errorMessage, "error");
-    
-    // Log detailed error for debugging
-    console.error("Detailed error info:", {
-      message: error?.message,
-      response: error?.response?.data,
-      stack: error?.stack,
-      signupData: signupData
-    });
-    
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+
   const handleLogin = async () => {
     if (!validateLoginForm()) return;
     
@@ -346,12 +338,10 @@ const handleSignup = async () => {
     try {
       const result = await dispatch(loginCustomer(loginData)).unwrap();
       
-      // Store login result in localStorage under 'customer' key
       try {
         localStorage.setItem('customer', JSON.stringify(result));
-       
       } catch (storageError) {
-        
+        console.warn('Failed to store login data in localStorage:', storageError);
       }
       
       showNotification("Login successful! Welcome back!", "success");
@@ -365,42 +355,74 @@ const handleSignup = async () => {
       setLoading(false);
     }
   };
-const handleGuestContinue = async () => {
-  if (!validateGuestForm()) return;
-  
-  setLoading(true);
-  try {
-    // Create guest customer account with generated data
+
+  const handleGuestContinue = async () => {
+    if (!validateGuestForm()) return;
+    
+    setLoading(true);
+    
+    // Create guest customer account data
     const guestCustomerData = {
       customerAccountNumber: generateCustomerAccountNumber(),
-      firstName: "Guest", // Better to use "Guest" as first name
-      lastName: guestData.contactNumber.slice(-4), // Use last 4 digits as identifier
+      firstName: "Guest",
+      lastName: guestData.contactNumber.slice(-4),
       contactNumber: guestData.contactNumber,
-      address: "Guest Address", // Generic address for guests
-      password: guestData.contactNumber, // Use contact number as default password
+      address: "Guest Address",
+      password: guestData.contactNumber,
       accountType: "customer",
-      email: `guest${guestData.contactNumber}@franko.com`, // Generate unique email
+      email: `guest${guestData.contactNumber}@franko.com`,
       accountStatus: "1",
-      isGuest: true, // Flag to identify guest accounts
+      isGuest: true,
       createdAt: new Date().toISOString(),
       guestCreatedAt: new Date().toISOString(),
     };
 
-    console.log('Creating guest customer with data:', guestCustomerData);
+    let dbResult = null;
 
-    // First, save to database via Redux action
-    const dbResult = await dispatch(createCustomer(guestCustomerData)).unwrap();
-    console.log('Guest customer saved to database:', dbResult);
+    try {
+      // Attempt to create guest account in database
+      dbResult = await dispatch(createCustomer(guestCustomerData)).unwrap();
 
-    // Check if account already exists (ResponseCode: '2')
+      console.log('Guest creation API response:', dbResult);
+
+    } catch (error) {
+      console.error("Guest registration error:", error);
+      setLoading(false);
+      
+      let errorMessage = "Failed to create guest account. Please try again.";
+      
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      }
+      
+      showNotification(errorMessage, "error");
+      
+      console.error("Detailed error info:", {
+        message: error?.message,
+        response: error?.response?.data,
+        stack: error?.stack,
+        guestData: guestCustomerData
+      });
+      
+      return; // Exit on error
+    }
+
+    // CRITICAL: Check response code AFTER API call completes
+    // CRITICAL: Check if account already exists (ResponseCode: '2')
     if (dbResult?.ResponseCode === '2') {
-      // Account already exists, show message and redirect to login
+      // Account already exists - DO NOT create guest account
+      // DO NOT store in localStorage
+      setLoading(false);
       const message = dbResult.ResponseMessage || 'Account already exists';
       showNotification(`${message}. Please login with your existing account.`, "error");
       
-      // Switch to login mode after a short delay
+      // Switch to login mode after delay
       setTimeout(() => {
-        setAuthMode('signup');
+        setAuthMode('login');
         // Pre-fill the contact number in login form
         setLoginData(prev => ({
           ...prev,
@@ -408,26 +430,24 @@ const handleGuestContinue = async () => {
         }));
       }, 2500);
       
-      return; // Exit the function early
+      return; // Exit immediately without storing anything
     }
 
-    // Check for other error response codes
-    if (dbResult?.ResponseCode && dbResult.ResponseCode !== '1' && dbResult.ResponseCode !== '0') {
-      // Handle other error response codes
-      const errorMessage = dbResult.ResponseMessage || 'Failed to create guest account';
+    // Check for other error response codes (not success)
+    // ONLY create guest account when ResponseCode is exactly '1'
+    if (dbResult?.ResponseCode !== '1') {
+      setLoading(false);
+      const errorMessage = dbResult?.ResponseMessage || 'Failed to create guest account';
       showNotification(errorMessage, "error");
-      return;
+      return; // Exit without storing anything
     }
 
-    // Success case - store the guest customer details in localStorage under 'customer' key
+    // SUCCESS: Only proceed if ResponseCode is exactly '1'
+    // NOW and ONLY NOW do we store in localStorage
     try {
-      // For successful guest registration, store the guest customer data
-      // Use the original guest data we created since it contains all necessary info
       const guestCustomerForStorage = {
         ...guestCustomerData,
-        // Add any additional info from database response if needed
         ...(dbResult && typeof dbResult === 'object' ? dbResult : {}),
-        // Ensure these key fields are always present
         isGuest: true,
         customerAccountNumber: guestCustomerData.customerAccountNumber,
         contactNumber: guestData.contactNumber,
@@ -439,68 +459,43 @@ const handleGuestContinue = async () => {
       };
       
       localStorage.setItem('customer', JSON.stringify(guestCustomerForStorage));
-      console.log('Guest customer details saved to localStorage under "customer" key:', guestCustomerForStorage);
+      console.log('✅ Guest customer details saved to localStorage under "customer" key:', guestCustomerForStorage);
     } catch (storageError) {
-      console.warn('Failed to store guest data in localStorage:', storageError);
-      // Continue even if localStorage fails
+      console.error('Failed to save to localStorage:', storageError);
     }
 
-    // Track the event for analytics
-    if (typeof window.fbq === "function") {
-      window.fbq("track", "CompleteRegistration", {
-        content_name: "Guest Registration",
-        status: "success",
-        currency: "GHS",
-        email: guestCustomerData.email,
-        customer_type: "guest",
-        contact_number: guestCustomerData.contactNumber,
-      });
-    }
+    // Track analytics events only on success
+    try {
+      if (typeof window.fbq === "function") {
+        window.fbq("track", "CompleteRegistration", {
+          content_name: "Guest Registration",
+          status: "success",
+          currency: "GHS",
+          email: guestCustomerData.email,
+          customer_type: "guest",
+          contact_number: guestCustomerData.contactNumber,
+        });
+      }
 
-    // Also track with Google Analytics if available
-    if (typeof window.gtag === "function") {
-      window.gtag('event', 'sign_up', {
-        method: 'guest',
-        customer_type: 'guest',
-        contact_number: guestCustomerData.contactNumber,
-      });
+      if (typeof window.gtag === "function") {
+        window.gtag('event', 'sign_up', {
+          method: 'guest',
+          customer_type: 'guest',
+          contact_number: guestCustomerData.contactNumber,
+        });
+      }
+    } catch (analyticsError) {
+      console.warn('Analytics tracking failed:', analyticsError);
     }
     
+    setLoading(false);
     showNotification("Guest account created successfully! Welcome!", "success");
     
-    // Close modal after successful creation
     setTimeout(() => {
       onClose();
     }, 2000);
-    
-  } catch (error) {
-    console.error("Guest registration error:", error);
-    
-    // More detailed error handling
-    let errorMessage = "Failed to create guest account. Please try again.";
-    
-    if (error?.message) {
-      errorMessage = error.message;
-    } else if (error?.response?.data?.message) {
-      errorMessage = error.response.data.message;
-    } else if (error?.response?.data?.error) {
-      errorMessage = error.response.data.error;
-    }
-    
-    showNotification(errorMessage, "error");
-    
-    // Log detailed error for debugging
-    console.error("Detailed error info:", {
-      message: error?.message,
-      response: error?.response?.data,
-      stack: error?.stack,
-      guestData: guestCustomerData
-    });
-    
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+
   // Reset notification when switching between modes
   useEffect(() => {
     hideNotification();
@@ -510,7 +505,7 @@ const handleGuestContinue = async () => {
   useEffect(() => {
     if (!open) {
       hideNotification();
-      setAuthMode('signup'); // Reset to login mode when modal closes
+      setAuthMode('signup');
     }
   }, [open, hideNotification]);
 
@@ -764,7 +759,7 @@ const handleGuestContinue = async () => {
             </>
           ) : (
             <>
-          Need a customer account?{" "}
+              Need a customer account?{" "}
               <button
                 type="button"
                 onClick={() => setAuthMode('signup')}
