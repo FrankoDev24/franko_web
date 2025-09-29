@@ -9,7 +9,7 @@ import tv from "../assets/tv.jpg";
 import speaker from "../assets/speaker.jpg";
 import blender from "../assets/blender.jpg";
 import ac from "../assets/ac.jpg";
-import combo from "../assets/combo.jpg";
+import combo from "../assets/machine.jpeg";
 import accessories from "../assets/acce.png";
 
 const categories = [
@@ -20,7 +20,7 @@ const categories = [
   { name: "Speakers", img: speaker, route: "/speakers" },
   { name: "Appliances", img: blender, route: "/appliances" },
   { name: "Air-conditioners", img: ac, route: "/air-condition" },
-  { name: "Combo", img: combo, route: "/combo" },
+  { name: "Washing Machine", img: combo, route: "/washing-machine" },
   { name: "Accessories", img: accessories, route: "/accessories" },
 ];
 

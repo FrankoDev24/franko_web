@@ -7,7 +7,7 @@ import { CircularPagination } from "../Component/CircularPagination";
 import { FunnelIcon, XMarkIcon, AdjustmentsHorizontalIcon, TagIcon, Cog6ToothIcon  } from "@heroicons/react/24/outline";
 import { Tooltip } from "@material-tailwind/react";
 import ProductCard from "../Component/ProductCard";
- const categoryId = "4bdb194e-b308-4fd2-981d-e2c94736c773"
+ const categoryId = "2cf502a2-e621-4ed1-9bd5-6cebc165d6fe"
 import { Helmet } from "react-helmet";
 const Combo = () => {
   const dispatch = useDispatch();
@@ -311,9 +311,9 @@ const resetFilters = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
           <Helmet>
         <title>Combo Deals - Best Discounts</title>
-        <meta name="description" content="Find the best combo deals and discounts on your favorite products." />
-        <meta property="og:title" content="Combo Deals - Best Discounts" />
-        <meta property="og:description" content="Get amazing discounts on our exclusive combo deals." />
+        <meta name="description" content="Find the best Washing Machine deals and discounts on your favorite products." />
+        <meta property="og:title" content="Washing Machine Deals - Best Discounts" />
+        <meta property="og:description" content="Get amazing discounts on our exclusive Washing Machine deals." />
         <meta
           property="og:image"
           content={
@@ -323,12 +323,12 @@ const resetFilters = () => {
           }
         />
         <meta property="og:type" content="product.group" />
-        <meta property="og:url" content="https://www.frankotrading.com/combo" />
+        <meta property="og:url" content="https://www.frankotrading.com/washing-machine" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Combo Deals - Best Discounts" />
-        <meta name="twitter:description" content="Get amazing discounts on our exclusive combo deals." />
+        <meta name="twitter:title" content="Washing Machine Deals - Best Discounts" />
+        <meta name="twitter:description" content="Get amazing discounts on our washing machines." />
         <meta name="twitter:image" content= {filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
-        <link rel="canonical" href="https://www.frankotrading.com/combo" />
+        <link rel="canonical" href="https://www.frankotrading.com/washing-machine" />
         <script type="application/ld+json">{JSON.stringify(structuredData)}</script>
         {/* Google Tag Manager */}
 
@@ -353,7 +353,7 @@ const resetFilters = () => {
       <Cog6ToothIcon   className="w-6 h-6 text-red-300" />
     </div>
     <h6 className="text-md font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-      {filters.selectedBrand || "Combo Deals"}
+      {filters.selectedBrand || "Washing Machine Deals"}
     </h6>
    
   </div>
@@ -571,13 +571,13 @@ const resetFilters = () => {
                         <Cog6ToothIcon   className="w-6 h-6 text-red-300" />
                         </div>
                         <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                        {(filters.selectedBrand ? `${filters.selectedBrand} ` : "Combo Deals")}
+                        {(filters.selectedBrand ? `${filters.selectedBrand} ` : "Washing Machine Deals")}
 
                         </h2>
                      
                       </div>
                       <p className="text-sm text-gray-500">
-  Discover the best electronic device bundles and combo deals at unbeatable prices
+  Discover the best electronic device bundles and Washing Machine deals at unbeatable prices
 </p>
                     </div>
                     
@@ -622,9 +622,9 @@ const resetFilters = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <h3 className="text-xl font-semibold text-gray-800">No Phones Found</h3>
+                    <h3 className="text-xl font-semibold text-gray-800">No Washing Machine Found</h3>
                     <p className="text-gray-600 max-w-md">
-                      We couldn't find any phones matching your current filters. 
+                      We couldn't find any Washing Machine matching your current filters. 
                       Try adjusting your search criteria or browse other categories.
                     </p>
                   </div>
