@@ -63,13 +63,13 @@ const ProductDescription = () => {
     setViewedProducts(stored);
   }, []);
 
-  // Sticky header scroll handler
+  // Simple and reliable sticky header implementation
   useEffect(() => {
     const handleScroll = () => {
-      const productDetailsSection = document.getElementById('product-details-section');
-      if (productDetailsSection) {
-        const rect = productDetailsSection.getBoundingClientRect();
-        setShowStickyHeader(rect.bottom < 100);
+      if (window.scrollY > 500) {
+        setShowStickyHeader(true);
+      } else {
+        setShowStickyHeader(false);
       }
     };
 
@@ -113,7 +113,6 @@ const ProductDescription = () => {
       "not available"
     ];
     
-    // Check brandName
     if (product.brandName && 
         outOfStockIndicators.some(indicator => 
           product.brandName.toLowerCase().includes(indicator.toLowerCase())
@@ -121,7 +120,6 @@ const ProductDescription = () => {
       return true;
     }
     
-    // Check categoryName
     if (product.categoryName && 
         outOfStockIndicators.some(indicator => 
           product.categoryName.toLowerCase().includes(indicator.toLowerCase())
@@ -129,7 +127,6 @@ const ProductDescription = () => {
       return true;
     }
     
-    // Check showRoomName
     if (product.showRoomName && 
         outOfStockIndicators.some(indicator => 
           product.showRoomName.toLowerCase().includes(indicator.toLowerCase())
@@ -137,13 +134,11 @@ const ProductDescription = () => {
       return true;
     }
     
-    // Check for explicit stock status if available
     if (product.stockStatus && 
         product.stockStatus.toLowerCase() === 'out of stock') {
       return true;
     }
     
-    // Check for quantity if available
     if (product.quantity !== undefined && product.quantity <= 0) {
       return true;
     }
@@ -154,13 +149,12 @@ const ProductDescription = () => {
   // Enhanced Add to Cart function that opens sidebar
   const handleAddToCartAndOpenSidebar = async (product) => {
     if (isOutOfStock(product)) {
-      return; // Don't proceed if out of stock
+      return;
     }
     
     setIsAddingToCart(true);
     try {
       await addProductToCart(product);
-      // Refresh cart data after adding
       if (cartId) {
         await dispatch(getCartById(cartId));
       }
@@ -172,27 +166,6 @@ const ProductDescription = () => {
     }
   };
 
-  // Enhanced Add to Cart function for related products (without opening sidebar)
-  const handleAddToCartOnly = async (product) => {
-    if (isOutOfStock(product)) {
-      return; // Don't proceed if out of stock
-    }
-    
-    setIsAddingToCart(true);
-    try {
-      await addProductToCart(product);
-      // Refresh cart data after adding
-      if (cartId) {
-        await dispatch(getCartById(cartId));
-      }
-    } catch (error) {
-      console.error('Error adding to cart:', error);
-    } finally {
-      setIsAddingToCart(false);
-    }
-  };
-
-  // FIXED: Cart quantity handlers with proper error handling and loading states
   const handleQuantityChange = async (productId, newQuantity) => {
     if (newQuantity < 1 || !cartId) return;
     
@@ -205,9 +178,7 @@ const ProductDescription = () => {
         quantity: newQuantity 
       }));
       
-      // Check if the update was successful
       if (updateCartItem.fulfilled.match(result)) {
-        // Refresh cart data after successful update
         await dispatch(getCartById(cartId));
       } else {
         console.error('Failed to update cart item:', result.error);
@@ -219,7 +190,6 @@ const ProductDescription = () => {
     }
   };
 
-  // FIXED: Remove item handler with proper error handling
   const handleRemoveItem = async (productId) => {
     if (!cartId) return;
     
@@ -228,9 +198,7 @@ const ProductDescription = () => {
     try {
       const result = await dispatch(deleteCartItem({ cartId, productId }));
       
-      // Check if the deletion was successful
       if (deleteCartItem.fulfilled.match(result)) {
-        // Refresh cart data after successful removal
         await dispatch(getCartById(cartId));
       } else {
         console.error('Failed to remove cart item:', result.error);
@@ -242,20 +210,17 @@ const ProductDescription = () => {
     }
   };
 
-  // Checkout handler with authentication check
   const handleCheckout = () => {
     const storedCustomer = JSON.parse(localStorage.getItem("customer"));
 
     if (!storedCustomer) {
-      // Close sidebar first, then open auth modal
       setCartSidebarOpen(false);
       setTimeout(() => {
         setAuthModalOpen(true);
-      }, 300); // Small delay to ensure sidebar closes first
+      }, 300);
       return;
     }
     
-    // GTM event tracking
     window.dataLayer = window.dataLayer || [];
     window.dataLayer.push({
       event: "proceed_to_checkout",
@@ -281,24 +246,19 @@ const ProductDescription = () => {
     window.open(shareUrl, "_blank");
   };
 
-  // Helper: Get valid image URL - FIXED VERSION
   const getValidImageUrl = (imagePath) => {
     if (!imagePath) return "https://via.placeholder.com/150";
     
-    // Handle different image path formats
     if (imagePath.includes("\\")) {
       return `https://smfteapi.salesmate.app/Media/Products_Images/${imagePath.split("\\").pop()}`;
     } else if (imagePath.includes("/")) {
       return `https://smfteapi.salesmate.app/Media/Products_Images/${imagePath.split("/").pop()}`;
     } else {
-      // If it's just a filename
       return `https://smfteapi.salesmate.app/Media/Products_Images/${imagePath}`;
     }
   };
 
-  // FIXED: Render cart item image with better error handling
   const renderCartImage = (item) => {
-    // Try multiple image path sources
     let imagePath = item.imagePath || item.productImage || item.image;
     
     if (!imagePath) {
@@ -325,7 +285,6 @@ const ProductDescription = () => {
     );
   };
 
-  // FIXED: Calculate cart totals with proper error handling
   const cartTotal = Array.isArray(cart) ? cart.reduce((acc, item) => {
     const price = parseFloat(item.price) || 0;
     const quantity = parseInt(item.quantity) || 0;
@@ -337,38 +296,33 @@ const ProductDescription = () => {
     return acc + quantity;
   }, 0) : 0;
 
-  // Combined loading state for cart buttons
   const isCartButtonLoading = cartLoading || isAddingToCart;
 
-  // Handle auth modal close
   const handleAuthModalClose = () => {
     setAuthModalOpen(false);
   };
-  // Add a new handler for successful authentication
-const handleAuthSuccess = () => {
-  setAuthModalOpen(false);
-  
-  // Store cart data before navigating
-  if (cart && cart.length > 0) {
-    localStorage.setItem("selectedCart", JSON.stringify(cart));
-  }
-  
-  // GTM event tracking for authenticated checkout
-  window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push({
-    event: "authenticated_checkout",
-    cartValue: cartTotal.toFixed(2),
-    cartItems: cart.map(item => ({
-      productId: item.productId,
-      name: item.productName,
-      price: item.price,
-      quantity: item.quantity
-    }))
-  });
-  
-  // Navigate to checkout page
-  navigate("/checkout");
-};
+
+  const handleAuthSuccess = () => {
+    setAuthModalOpen(false);
+    
+    if (cart && cart.length > 0) {
+      localStorage.setItem("selectedCart", JSON.stringify(cart));
+    }
+    
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      event: "authenticated_checkout",
+      cartValue: cartTotal.toFixed(2),
+      cartItems: cart.map(item => ({
+        productId: item.productId,
+        name: item.productName,
+        price: item.price,
+        quantity: item.quantity
+      }))
+    });
+    
+    navigate("/checkout");
+  };
 
   if (loading || !currentProduct?.length) {
     return <ProductDetailSkeleton />;
@@ -384,14 +338,13 @@ const handleAuthSuccess = () => {
       {line}
     </p>
   ));
-     const productUrl = window.location.href;
+  const productUrl = window.location.href;
 
   const related = products.slice(-12);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-10">
-      {/* Helmet for SEO */}
-             <Helmet>
+      <Helmet>
         <title>{`${product?.productName || "Product"} - Best Price`}</title>
         <meta name="description" content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}. High-quality and best prices available.`} />
         <meta property="og:title" content={product?.productName || "Product"} />
@@ -402,121 +355,111 @@ const handleAuthSuccess = () => {
         <link rel="canonical" href={`https://www.frankotrading.com/product/${product?.productID || "defaultID"}`} />
       </Helmet>
 
-      <script type="application/ld+json">
-        {JSON.stringify({
-          "@context": "https://schema.org/",
-          "@type": "Product",
-          "name": product.productName,
-          "image": imageUrl,
-          "description": product.description,
-          "sku": product.productID,
-          "brand": {
-            "@type": "Brand",
-            "name": product.brandName
-          },
-         "offers": {
-  "@type": "Offer",
-  "priceCurrency": "GHS",
-  "price": product.price,
-  "priceValidUntil": "2025-12-31",
-  "itemCondition": "https://schema.org/NewCondition",
-  "availability": "https://schema.org/InStock",
-  "url": `https://www.frankotrading.com/product/${product.productID}`,
-  "seller": {
-    "@type": "Organization",
-    "name": "Franko Trading"
-  },
-  "shippingDetails": {
-    "@type": "OfferShippingDetails",
-    "shippingRate": {
-      "@type": "MonetaryAmount",
-      "currency": "GHS",
-      "value": "30.00"
-    },
-    "shippingDestination": {
-      "@type": "DefinedRegion",
-      "addressCountry": "GH"
-    },
-    "deliveryTime": {
-      "@type": "ShippingDeliveryTime",
-      "handlingTime": {
-        "@type": "QuantitativeValue",
-        "minValue": 1,
-        "maxValue": 2,
-        "unitCode": "DAY"
-      },
-      "transitTime": {
-        "@type": "QuantitativeValue",
-        "minValue": 3,
-        "maxValue": 5,
-        "unitCode": "DAY"
-      }
-    }
-  },
-  "hasMerchantReturnPolicy": {
-    "@type": "MerchantReturnPolicy",
-    "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
-    "merchantReturnDays": 14,
-    "returnMethod": "https://schema.org/ReturnByMail",
-    "returnFees": "https://schema.org/FreeReturn",
-    "applicableCountry": "GH"
-  }
-}
-
-        })}
-      </script>
-
-
-      {/* Sticky Header for Large Screens */}
-      <div className={`fixed top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-lg z-50 transition-transform duration-300 hidden lg:block ${
-        showStickyHeader ? 'translate-y-0' : '-translate-y-full'
-      }`}>
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <img
-                src={imageUrl}
-                alt={product.productName}
-                className="w-12 h-12 object-cover rounded-lg"
-              />
-              <div>
-                <h3 className="font-semibold text-gray-800 text-sm line-clamp-1">
+      {/* Sticky Header - Simplified with inline styles for reliability */}
+      <div 
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 9999,
+          transform: showStickyHeader ? 'translateY(0)' : 'translateY(-100%)',
+          opacity: showStickyHeader ? 1 : 0,
+          transition: 'transform 0.3s ease-in-out, opacity 0.3s ease-in-out',
+          backgroundColor: 'white',
+          borderBottom: '1px solid #e5e7eb',
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+          pointerEvents: showStickyHeader ? 'auto' : 'none'
+        }}
+        className="hidden md:block"
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between py-3 gap-4">
+            <div className="flex items-center gap-4 flex-1 min-w-0">
+              <div className="flex-shrink-0">
+                <img
+                  src={imageUrl}
+                  alt={product.productName}
+                  className="w-16 h-16 object-contain rounded-lg border border-gray-200"
+                  onError={(e) => {
+                    e.target.src = "https://via.placeholder.com/150";
+                  }}
+                />
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-gray-900 text-sm line-clamp-1 mb-1">
                   {product.productName}
                 </h3>
-                <p className="text-red-500 font-bold text-sm">
-                  GH₵{formatPrice(product.price)}.00
-                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-lg font-bold text-red-600">
+                    GH₵{formatPrice(product.price)}.00
+                  </span>
+                  {product.oldPrice > 0 && (
+                    <span className="text-sm text-gray-400 line-through">
+                      GH₵{formatPrice(product.oldPrice)}.00
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 mt-1">
+                  {outOfStock ? (
+                    <>
+                      <ExclamationTriangleIcon className="w-3.5 h-3.5 text-red-500" />
+                      <span className="text-xs text-red-600 font-medium">Out of Stock</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircleIcon className="w-3.5 h-3.5 text-green-500" />
+                      <span className="text-xs text-green-600 font-medium">In Stock</span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-shrink-0">
               <Button
-                variant="outlined"
-                className={`font-semibold shadow-lg flex items-center gap-2 px-4 py-2 transition duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${
+                size="sm"
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 ${
                   outOfStock 
-                    ? 'border-gray-400 text-gray-500 bg-gray-100' 
-                    : 'border-red-600 text-red-600 hover:bg-red-50'
+                    ? 'bg-gray-100 text-gray-400 border border-gray-300 cursor-not-allowed' 
+                    : isCartButtonLoading
+                    ? 'bg-red-400 text-white'
+                    : 'bg-red-500 text-white hover:bg-red-600 shadow-sm'
                 }`}
                 onClick={() => handleAddToCartAndOpenSidebar(product)}
                 disabled={isCartButtonLoading || outOfStock}
               >
                 {isCartButtonLoading ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
-                    Adding to cart...
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span className="hidden lg:inline text-sm">Adding...</span>
                   </>
                 ) : outOfStock ? (
                   <>
                     <ExclamationTriangleIcon className="w-4 h-4" />
-                    Out of Stock
+                    <span className="hidden lg:inline text-sm">Out of Stock</span>
                   </>
                 ) : (
                   <>
                     <ShoppingCartIcon className="w-4 h-4" />
-                    Add to Cart
+                    <span className="hidden lg:inline text-sm">Add to Cart</span>
                   </>
                 )}
               </Button>
+              
+              <button
+                onClick={() => setCartSidebarOpen(true)}
+                className="relative bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg p-2.5 transition-colors duration-200"
+                disabled={!cart || cart.length === 0}
+              >
+                <ShoppingCartIcon className="w-5 h-5" />
+                {totalCartItems > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                    {totalCartItems}
+                  </span>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -572,7 +515,6 @@ const handleAuthSuccess = () => {
             </IconButton>
           </div>
 
-          {/* Enhanced Stock Status Display */}
           <div className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm border transition duration-200 w-max ${
             outOfStock 
               ? 'bg-red-50 text-red-800 border-red-200' 
@@ -609,7 +551,6 @@ const handleAuthSuccess = () => {
           </div>
 
           <div className="pt-2">
-            {/* Desktop Buttons */}
             <div className="hidden md:flex flex-wrap gap-4 items-center">
               <Button
                 variant="outlined"
@@ -622,20 +563,11 @@ const handleAuthSuccess = () => {
                 }`}
                 onClick={() => handleAddToCartAndOpenSidebar(product)}
                 disabled={isCartButtonLoading || outOfStock}
-                aria-label={
-                  outOfStock 
-                    ? "Product out of stock" 
-                    : isCartButtonLoading 
-                    ? "Adding product to cart" 
-                    : "Add product to cart"
-                }
               >
-                {/* Background gradient animation */}
                 {!outOfStock && (
                   <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-red-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl" />
                 )}
                 
-                {/* Content */}
                 <div className="relative z-10 flex items-center gap-2.5">
                   {isCartButtonLoading ? (
                     <>
@@ -657,14 +589,12 @@ const handleAuthSuccess = () => {
                   )}
                 </div>
                 
-                {/* Success ripple effect */}
                 {!outOfStock && !isCartButtonLoading && (
                   <div className="absolute inset-0 bg-green-400 rounded-2xl scale-0 opacity-0 group-active:scale-100 group-active:opacity-30 transition-all duration-150" />
                 )}
               </Button>
             </div>
 
-            {/* Mobile Bottom Bar */}
             <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 shadow-xl z-50 flex items-center justify-between md:hidden">
               <div className="flex gap-2 w-full">
                 <Button
@@ -703,37 +633,22 @@ const handleAuthSuccess = () => {
       {/* Service Features */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-sm text-gray-700 mt-2 md:mt-6">
         {[
-          "Fast Shipping",
-          "Quality Assurance",
-          "Customer Support",
-          "Secure Payment",
-        ].map((title, idx) => {
-          const icon = [
-            <TruckIcon className="w-5 h-5 text-red-600" />,
-            <ShieldCheckIcon className="w-5 h-5 text-green-600" />,
-            <PhoneIcon className="w-5 h-5 text-red-400" />,
-            <CreditCardIcon className="w-5 h-5 text-teal-500" />,
-          ];
-          const subtitle = [
-            "All over Ghana",
-            "certified products",
-            "Dedicated support team",
-            "Safe Payment Processing",
-          ];
-
-          return (
-            <div
-              key={idx}
-              className="flex items-start gap-2 hover:bg-gray-50 p-2 rounded-lg transition"
-            >
-              {icon[idx]}
-              <div>
-                <p className="font-semibold">{title}</p>
-                <p className="text-xs text-gray-500">{subtitle[idx]}</p>
-              </div>
+          { title: "Fast Shipping", subtitle: "All over Ghana", icon: <TruckIcon className="w-5 h-5 text-red-600" /> },
+          { title: "Quality Assurance", subtitle: "certified products", icon: <ShieldCheckIcon className="w-5 h-5 text-green-600" /> },
+          { title: "Customer Support", subtitle: "Dedicated support team", icon: <PhoneIcon className="w-5 h-5 text-red-400" /> },
+          { title: "Secure Payment", subtitle: "Safe Payment Processing", icon: <CreditCardIcon className="w-5 h-5 text-teal-500" /> }
+        ].map((item, idx) => (
+          <div
+            key={idx}
+            className="flex items-start gap-2 hover:bg-gray-50 p-2 rounded-lg transition"
+          >
+            {item.icon}
+            <div>
+              <p className="font-semibold">{item.title}</p>
+              <p className="text-xs text-gray-500">{item.subtitle}</p>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
 
       {/* Recently Viewed Products */}
@@ -1025,7 +940,7 @@ const handleAuthSuccess = () => {
       <AuthModal
         open={authModalOpen}
         onClose={handleAuthModalClose}
-       onSuccess={handleAuthSuccess}
+        onSuccess={handleAuthSuccess}
       />
     </div>
   );

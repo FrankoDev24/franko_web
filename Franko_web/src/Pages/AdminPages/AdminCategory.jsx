@@ -75,30 +75,22 @@ const AdminCategory = () => {
     const currentCategories = filteredAndSortedCategories.slice(startIndex, startIndex + itemsPerPage);
 
     // Form validation
-    const validateForm = useCallback(() => {
-        const errors = {};
-        
-        if (!categoryName.trim()) {
-            errors.categoryName = 'Category name is required';
-        } else if (categoryName.trim().length < 2) {
-            errors.categoryName = 'Category name must be at least 2 characters';
-        } else if (categoryName.trim().length > 50) {
-            errors.categoryName = 'Category name must be less than 50 characters';
-        }
-        
-        // Check for duplicate names (excluding current category when editing)
-        const isDuplicate = categories.some(cat => 
-            cat.categoryName.toLowerCase() === categoryName.trim().toLowerCase() && 
-            cat.categoryId !== categoryId
-        );
-        
-        if (isDuplicate) {
-            errors.categoryName = 'Category name already exists';
-        }
-        
-        setFormErrors(errors);
-        return Object.keys(errors).length === 0;
-    }, [categoryName, categories, categoryId]);
+   // Form validation
+const validateForm = useCallback(() => {
+    const errors = {};
+    
+    if (!categoryName.trim()) {
+        errors.categoryName = 'Category name is required';
+    } else if (categoryName.trim().length < 2) {
+        errors.categoryName = 'Category name must be at least 2 characters';
+    } else if (categoryName.trim().length > 50) {
+        errors.categoryName = 'Category name must be less than 50 characters';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+}, [categoryName]);
+
 
     // Modal handlers
     const showModal = useCallback((category = null) => {
