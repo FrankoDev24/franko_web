@@ -48,11 +48,14 @@ const Notification = ({ message, type, isVisible, onClose }) => {
 };
 
 // Format price
+// Format price with ₵
 const formatPrice = (price) =>
   new Intl.NumberFormat("en-GH", {
     style: "currency",
     currency: "GHS",
+    currencyDisplay: "symbol", // Force symbol instead of code
   }).format(price || 0);
+
 
 // Image formatter
 const getValidImageUrl = (imagePath) => {
