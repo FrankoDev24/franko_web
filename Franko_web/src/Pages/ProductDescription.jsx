@@ -58,11 +58,15 @@ const ProductDescription = () => {
     dispatch(fetchProductById(productID));
   }, [dispatch, productID]);
 
-  useEffect(() => {
-    const stored = (localStorage.getItem("viewedProducts")) || [];
-    setViewedProducts(stored);
+ useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("viewedProducts")) || [];
+      setViewedProducts(Array.isArray(stored) ? stored : []);
+    } catch (error) {
+      console.error("Error parsing viewedProducts:", error);
+      setViewedProducts([]);
+    }
   }, []);
-
   // Simple and reliable sticky header implementation
   useEffect(() => {
     const handleScroll = () => {
