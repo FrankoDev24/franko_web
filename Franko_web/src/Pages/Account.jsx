@@ -35,11 +35,11 @@ const Account = () => {
   useEffect(() => {
     const storedCustomer = localStorage.getItem("customer");
     if (storedCustomer) {
-      setCustomer(JSON.parse(storedCustomer));
+      setCustomer((storedCustomer));
     }
   }, []);
   useEffect(() => {
-  const storedWishlist = JSON.parse(localStorage.getItem("wishlist")) || [];
+  const storedWishlist = (localStorage.getItem("wishlist")) || [];
   setWishlist(storedWishlist);
 }, []);
 

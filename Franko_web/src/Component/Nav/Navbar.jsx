@@ -96,15 +96,28 @@ const Nav = () => {
     }
   }, [dispatch, products.length]);
 
-  useEffect(() => {
-    const userId = localStorage.getItem('userId');
-    if (userId) {
-      const cartId = localStorage.getItem('cartId');
+useEffect(() => {
+  try {
+    // Retrieve decrypted customer object (monkey patch handles decryption)
+    const storedCustomer = localStorage.getItem("customer");
+
+    // Some setups may return a string — ensure it’s parsed
+    const parsedCustomer =
+      typeof storedCustomer === "string"
+        ? JSON.parse(storedCustomer)
+        : storedCustomer;
+
+    if (parsedCustomer && parsedCustomer.customerAccountNumber) {
+      const cartId = localStorage.getItem("cartId");
       if (cartId) {
         dispatch(getCartById(cartId));
       }
     }
-  }, [dispatch]);
+  } catch (error) {
+    console.error("Error reading encrypted customer data:", error);
+  }
+}, [dispatch]);
+
 
   // Update wishlist count on component mount and when localStorage changes
   useEffect(() => {

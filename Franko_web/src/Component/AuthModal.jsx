@@ -273,7 +273,7 @@ const AuthModal = ({ open, onClose }) => {
           registeredAt: new Date().toISOString(),
         };
         
-        localStorage.setItem('customer', JSON.stringify(customerDataForStorage));
+        localStorage.setItem('customer', (customerDataForStorage));
         console.log('Customer registration data stored in localStorage under "customer" key:', customerDataForStorage);
       } catch (storageError) {
         console.warn('Failed to store registration data in localStorage:', storageError);
@@ -339,7 +339,7 @@ const AuthModal = ({ open, onClose }) => {
       const result = await dispatch(loginCustomer(loginData)).unwrap();
       
       try {
-        localStorage.setItem('customer', JSON.stringify(result));
+        localStorage.setItem('customer', (result));
       } catch (storageError) {
         console.warn('Failed to store login data in localStorage:', storageError);
       }
@@ -458,7 +458,7 @@ const AuthModal = ({ open, onClose }) => {
         accountStatus: "1"
       };
       
-      localStorage.setItem('customer', JSON.stringify(guestCustomerForStorage));
+      localStorage.setItem('customer',(guestCustomerForStorage));
       console.log('✅ Guest customer details saved to localStorage under "customer" key:', guestCustomerForStorage);
     } catch (storageError) {
       console.error('Failed to save to localStorage:', storageError);
