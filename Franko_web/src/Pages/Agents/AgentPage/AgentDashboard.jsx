@@ -44,7 +44,10 @@ const AgentDashboard = () => {
     'Delivery': '#B6EEA6',
     'Cancelled': '#DD1C1A',
     'Unreachable': "#ff4d4f",
-    'Multiple Orders': '#004E64'
+    'Multiple Orders': '#004E64',
+    'Confirmed': '#52c41a',
+    'Processing': '#722ed1',
+ 
   };
 
   useEffect(() => {
