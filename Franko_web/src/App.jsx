@@ -1,3 +1,5 @@
+
+
 import { useState, useEffect } from 'react'
 import {Routes, Route, useLocation, Navigate } from 'react-router-dom'
 import Nav from './Component/Nav/Navbar'
@@ -74,8 +76,8 @@ import ClearanceSale from './Pages/ClearanceSale'
 
 const getUserRole = () => {
   try {
-    const customer = JSON.parse(localStorage.getItem("customer"));
-    const user = JSON.parse(localStorage.getItem("user"));
+    const customer = (localStorage.getItem("customer"));
+    const user = (localStorage.getItem("user"));
     if (!customer && !user) return null;
 
     if (user?.position) return user.position; // Supervisor, Developer, etc.

@@ -55,7 +55,7 @@ const CheckoutForm = ({
     if (!modalVisible) {
       const saved = localStorage.getItem("deliveryInfo");
       if (saved) {
-        const parsed = JSON.parse(saved);
+        const parsed = (saved);
         if (parsed?.address && parsed?.fee !== undefined) {
           setDeliveryInfo(parsed);
           setFee(parsed.fee);
@@ -172,7 +172,7 @@ const CheckoutForm = ({
     };
     
     setDeliveryInfo(info);
-    localStorage.setItem("deliveryInfo", JSON.stringify(info));
+    localStorage.setItem("deliveryInfo", (info));
     window.dispatchEvent(new Event("storage"));
     
     // Reset modal state

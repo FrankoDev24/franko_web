@@ -29,7 +29,7 @@ const AdminLayout = ({ children }) => {
   const location = useLocation();
 
   const currentPath = location.pathname;
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const user = (localStorage.getItem('user') || '{}');
   const userName = user ? user.fullName : 'Admin';
   const userPosition = user ? user.position : '';
 

@@ -28,7 +28,7 @@ const Checkout = () => {
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [deliveryInfo, setDeliveryInfo] = useState(() => {
     const saved = localStorage.getItem("deliveryInfo");
-    return saved ? JSON.parse(saved) : { address: "", fee: null };
+    return saved ? (saved) : { address: "", fee: null };
   });
 
   // Validation modal states
@@ -44,15 +44,26 @@ const Checkout = () => {
   const [currentOrderId, setCurrentOrderId] = useState(null);
 
   // Get cart items from localStorage
-  const getCartItems = () => {
-    try {
-      const cartData = localStorage.getItem("cart");
-      return cartData ? JSON.parse(cartData) : [];
-    } catch (error) {
-      console.error("Error parsing cart data:", error);
-      return [];
+const getCartItems = () => {
+  try {
+    let cartData = localStorage.getItem("cart");
+
+    // Handle legacy (unencrypted or plain stringified) values
+    if (typeof cartData === "string") {
+      try {
+        cartData = JSON.parse(cartData);
+      } catch {
+        // If it's not valid JSON, just leave it as is
+      }
     }
-  };
+
+    return Array.isArray(cartData) ? cartData : [];
+  } catch (error) {
+    console.error("Error parsing cart data:", error);
+    return [];
+  }
+};
+
 
   const [cartItems, setCartItems] = useState(getCartItems());
 
@@ -65,7 +76,7 @@ const Checkout = () => {
   const customerData = (() => {
     try {
       const data = localStorage.getItem("customer");
-      return data ? JSON.parse(data) : null;
+      return data ? (data) : null;
     } catch (error) {
       console.error("Error parsing customer data:", error);
       return null;
@@ -242,10 +253,15 @@ const Checkout = () => {
     return `${prefix}-${timestamp}-${randomNum}`;
   };
 
-  const storeCheckoutDetailsInLocalStorage = (checkoutDetails, addressDetails) => {
-    localStorage.setItem("checkoutDetails", JSON.stringify(checkoutDetails));
-    localStorage.setItem("orderAddressDetails", JSON.stringify(addressDetails));
-  };
+const storeCheckoutDetailsInLocalStorage = (checkoutDetails, addressDetails) => {
+  try {
+    localStorage.setItem("checkoutDetails", checkoutDetails);
+    localStorage.setItem("orderAddressDetails", addressDetails);
+    console.log("%c✅ Checkout details securely encrypted", "color: limegreen");
+  } catch (error) {
+    console.error("Error saving encrypted checkout details:", error);
+  }
+};
 
   const initiatePayment = async (totalAmount, cartItems, orderId) => {
     const username = "RMWBWl0";

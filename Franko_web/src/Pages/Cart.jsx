@@ -61,7 +61,7 @@ useEffect(() => {
   };
 
  const handleCheckout = () => {
-  const storedCustomer = JSON.parse(localStorage.getItem("customer"));
+  const storedCustomer = (localStorage.getItem("customer"));
 
   if (!storedCustomer) {
     setAuthModalOpen(true);

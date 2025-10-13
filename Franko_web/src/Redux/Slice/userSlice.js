@@ -69,7 +69,7 @@ export const loginUser = createAsyncThunk(
 
       if (matchingUser) {
         const loginTime = Date.now();
-        localStorage.setItem('user', JSON.stringify(matchingUser));
+        localStorage.setItem('user', (matchingUser));
         localStorage.setItem('loginTime', loginTime);
         return matchingUser;
       } else {
@@ -83,7 +83,7 @@ export const loginUser = createAsyncThunk(
 
 // Initial state
 const initialState = {
-  currentUser: JSON.parse(localStorage.getItem('user')) || null,
+  currentUser: (localStorage.getItem('user')) || null,
   currentUserDetails: null,
   userList: [],
   loading: false,
@@ -106,7 +106,7 @@ const userSlice = createSlice({
     },
     setUser: (state, action) => {
       state.currentUser = action.payload;
-      localStorage.setItem('user', JSON.stringify(action.payload));
+      localStorage.setItem('user', (action.payload));
       updateLastActivityTime();
     },
     clearSelectedUser: (state) => {
@@ -127,7 +127,7 @@ const userSlice = createSlice({
             ...action.payload,
           };
           state.currentUser = newUser;
-          localStorage.setItem('user', JSON.stringify(newUser));
+          localStorage.setItem('user', (newUser));
         } else {
           state.error = 'Failed to create user.';
         }
@@ -158,7 +158,7 @@ const userSlice = createSlice({
   state.loading = false;
   state.currentUser = action.payload;
   state.currentUserDetails = action.payload;
-  localStorage.setItem('user', JSON.stringify(action.payload));
+  localStorage.setItem('user', (action.payload));
 })
 
       .addCase(loginUser.rejected, (state, action) => {

@@ -2,19 +2,23 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 
-// --- Utils ---
 const CART_KEY = 'cart';
 const CART_ID_KEY = 'cartId';
 
+// --- Load from secure localStorage ---
 const loadCartFromLocalStorage = () => {
   const savedCart = localStorage.getItem(CART_KEY);
-  return savedCart ? JSON.parse(savedCart) : [];
+  // ⚠️ no JSON.parse needed — it's already decrypted and parsed
+  return Array.isArray(savedCart) ? savedCart : [];
 };
 
+// --- Save to secure localStorage ---
 const saveCartToLocalStorage = (cart) => {
-  localStorage.setItem(CART_KEY, JSON.stringify(cart));
+  // ⚠️ no JSON.stringify — encryption handles it
+  localStorage.setItem(CART_KEY, cart);
 };
 
+// --- Get or create encrypted Cart ID ---
 const getOrCreateCartId = () => {
   let cartId = localStorage.getItem(CART_ID_KEY);
   if (!cartId) {
@@ -32,6 +36,9 @@ const initialState = {
   loading: false,
   error: null,
 };
+
+// ...rest of your slice logic (reducers, thunks, etc.)
+
 
 // --- Thunks ---
 

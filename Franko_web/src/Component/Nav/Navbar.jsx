@@ -13,6 +13,8 @@ import { getCartById } from '../../Redux/Slice/cartSlice';
 import AuthModal from "../AuthModal";
 import { debounce } from 'lodash';
 
+
+
 const Nav = () => {
   const [openDrawer, setOpenDrawer] = useState(false);
   const [isRadioOpen, setIsRadioOpen] = useState(false);
@@ -54,7 +56,7 @@ const Nav = () => {
   // Function to get wishlist count from localStorage
   const getWishlistCount = () => {
     try {
-      const wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
+      const wishlist = localStorage.getItem('wishlist') || [];
       return Array.isArray(wishlist) ? wishlist.length : 0;
     } catch (error) {
       console.error('Error parsing wishlist from localStorage:', error);
@@ -251,7 +253,7 @@ const Nav = () => {
      <AnnouncementBar />
 
       {/* Top Navbar */}
-      <Navbar className="mx-auto max-w-full px-4 py-1 rounded-none shadow-md bg-white s">
+      <Navbar className="mx-auto max-w-full px-2 rounded-none shadow-md bg-white s">
      
         <div className="flex items-center justify-between text-blue-gray-900">
           <div className="flex items-center gap-2 lg:hidden">

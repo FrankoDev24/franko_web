@@ -1,53 +1,72 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import axios from "axios";
 
-// Define the API base URL
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-// Async thunk for creating a new customer
+// -------------------------
+// ✅ Secure LocalStorage Helper
+// -------------------------
+const secureStorage = {
+  get: (key) => localStorage.getItem(key), // already decrypted by your patch
+  set: (key, value) => localStorage.setItem(key, value),
+  remove: (key) => localStorage.removeItem(key),
+};
+
+// -------------------------
+// 🔹 Async Thunks
+// -------------------------
+
+// Create a new customer
 export const createCustomer = createAsyncThunk(
-  'customers/createCustomer',
+  "customers/createCustomer",
   async (customerData, { rejectWithValue }) => {
     try {
-      const response = await axios.post(`${API_BASE_URL}/Users/Customer-Post`, customerData);
+      const response = await axios.post(
+        `${API_BASE_URL}/Users/Customer-Post`,
+        customerData
+      );
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data || "An unknown error occurred.");
+      return rejectWithValue(
+        error.response?.data || "An unknown error occurred."
+      );
     }
   }
 );
 
-// Async thunk for fetching all customers
+// Fetch all customers
 export const fetchCustomers = createAsyncThunk(
-  'customers/fetchCustomers',
+  "customers/fetchCustomers",
   async (_, { rejectWithValue }) => {
     try {
       const response = await axios.get(`${API_BASE_URL}/Users/Customer-Get`);
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data || "An unknown error occurred.");
+      return rejectWithValue(
+        error.response?.data || "An unknown error occurred."
+      );
     }
   }
 );
 
-// Async thunk for login
+// Customer login
 export const loginCustomer = createAsyncThunk(
-  'customers/loginCustomer',
+  "customers/loginCustomer",
   async ({ contactNumber, password }, { dispatch, rejectWithValue }) => {
     try {
-      const fetchCustomersResult = await dispatch(fetchCustomers()).unwrap();
+      const customers = await dispatch(fetchCustomers()).unwrap();
 
-      const matchingCustomer = fetchCustomersResult.find(
-        (customer) =>
-          customer.contactNumber === contactNumber && customer.password === password
+      const matchingCustomer = customers.find(
+        (c) => c.contactNumber === contactNumber && c.password === password
       );
 
       if (matchingCustomer) {
-        // Save customer to localStorage
-        localStorage.setItem('customer', JSON.stringify(matchingCustomer));
+        secureStorage.set("customer", matchingCustomer);
         return matchingCustomer;
       } else {
-        return rejectWithValue("No customer found with the provided credentials.");
+        return rejectWithValue(
+          "No customer found with the provided credentials."
+        );
       }
     } catch (error) {
       return rejectWithValue(error.message || "An unknown error occurred.");
@@ -55,26 +74,21 @@ export const loginCustomer = createAsyncThunk(
   }
 );
 
+// Update account status (e.g. deactivate)
 export const updateAccountStatus = createAsyncThunk(
   "customers/updateAccountStatus",
   async (_, { rejectWithValue }) => {
     try {
-      console.log("Fetching customer details from localStorage...");
-      const customer = await localStorage.getItem("customer");
+      console.log("Fetching customer details from secure localStorage...");
+      const customer = secureStorage.get("customer");
 
       if (!customer) {
         console.error("No customer found in localStorage.");
         return rejectWithValue("No customer found.");
       }
 
-      const parsedCustomer = JSON.parse(customer);
-      console.log("Customer details:", parsedCustomer);
-
-      const { customerAccountNumber } = parsedCustomer;
-      console.log("Customer account number:", customerAccountNumber);
-
+      const { customerAccountNumber } = customer;
       if (!customerAccountNumber) {
-        console.error("Missing customerAccountNumber.");
         return rejectWithValue("Invalid customer data.");
       }
 
@@ -84,97 +98,93 @@ export const updateAccountStatus = createAsyncThunk(
       });
 
       console.log("Response from server:", response.data);
-
-      // Remove customer from localStorage
-      await localStorage.removeItem("customer");
-      console.log("Customer data removed from localStorage.");
+      secureStorage.remove("customer");
+      console.log("Customer removed from localStorage.");
 
       return response.data;
     } catch (error) {
-      console.error("Error updating account status:", error.response?.data || error.message);
-      return rejectWithValue(error.response?.data || "Failed to update account status.");
+      console.error("Error updating account status:", error);
+      return rejectWithValue(
+        error.response?.data || "Failed to update account status."
+      );
     }
   }
 );
 
-// Initial state
+// -------------------------
+// 🔹 Initial State
+// -------------------------
 const initialState = {
-  currentCustomer: JSON.parse(localStorage.getItem('customer')) || null,
-  currentCustomerDetails: null,
+  currentCustomer: secureStorage.get("customer") || null,
+  currentCustomerDetails: secureStorage.get("customer") || null,
   customerList: [],
   loading: false,
   error: null,
 };
 
-// Create the customer slice
+// -------------------------
+// 🔹 Slice Definition
+// -------------------------
 const customerSlice = createSlice({
-  name: 'customer',
+  name: "customer",
   initialState,
   reducers: {
     logoutCustomer: (state) => {
       state.currentCustomer = null;
       state.currentCustomerDetails = null;
-      localStorage.removeItem('customer');
+      secureStorage.remove("customer");
     },
-    
+
     clearCustomers: (state) => {
       state.customerList = [];
     },
+
     setCustomer: (state, action) => {
       state.selectedCustomer = action.payload;
     },
+
     clearSelectedCustomer: (state) => {
       state.selectedCustomer = null;
     },
-    
+
     setCurrentCustomer: (state, action) => {
       state.currentCustomer = action.payload;
       state.currentCustomerDetails = action.payload;
       if (action.payload) {
-        localStorage.setItem('customer', JSON.stringify(action.payload));
+        secureStorage.set("customer", action.payload);
       }
     },
   },
+
   extraReducers: (builder) => {
     builder
+      // CREATE
       .addCase(createCustomer.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(createCustomer.fulfilled, (state, action) => {
         state.loading = false;
+        const { ResponseCode } = action.payload || {};
 
-        // STRICT: Only process if response code is '1'
-        if (action.payload?.ResponseCode === '1') {
-          // Check if this is a guest account
-          if (action.meta.arg.isGuest) {
-            // Guest account creation - only with response code '1'
-            const guestCustomer = {
-              ...action.meta.arg,
-              ...action.payload,
-            };
-            state.currentCustomer = guestCustomer;
-            state.currentCustomerDetails = guestCustomer;
-            localStorage.setItem('customer', JSON.stringify(guestCustomer));
-          } else {
-            // Regular account creation - only with response code '1'
-            const newCustomer = {
-              ...action.meta.arg,
-              ...action.payload,
-            };
-            state.currentCustomer = newCustomer;
-            state.currentCustomerDetails = newCustomer;
-            localStorage.setItem('customer', JSON.stringify(newCustomer));
-          }
+        if (ResponseCode === "1") {
+          const customer = { ...action.meta.arg, ...action.payload };
+          state.currentCustomer = customer;
+          state.currentCustomerDetails = customer;
+          secureStorage.set("customer", customer);
         } else {
-          // Any other response code is treated as failure
-          state.error = action.payload?.ResponseMessage || "Account creation failed. Invalid response from server.";
+          state.error =
+            action.payload?.ResponseMessage ||
+            "Account creation failed. Invalid server response.";
         }
       })
       .addCase(createCustomer.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || action.error?.message || "An unknown error occurred.";
+        state.error =
+          action.payload || action.error?.message || "An unknown error occurred.";
       })
+
+      // FETCH
       .addCase(fetchCustomers.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -185,8 +195,11 @@ const customerSlice = createSlice({
       })
       .addCase(fetchCustomers.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || action.error?.message || "An unknown error occurred.";
+        state.error =
+          action.payload || action.error?.message || "An unknown error occurred.";
       })
+
+      // LOGIN
       .addCase(loginCustomer.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -200,29 +213,33 @@ const customerSlice = createSlice({
         state.loading = false;
         state.error = action.payload || "Login failed.";
       })
+
+      // UPDATE STATUS
       .addCase(updateAccountStatus.pending, (state) => {
         state.status = "loading";
         state.error = null;
       })
       .addCase(updateAccountStatus.fulfilled, (state) => {
         state.status = "succeeded";
-        state.customerData = null;
+        state.currentCustomer = null;
       })
       .addCase(updateAccountStatus.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.payload || "Failed to update account status.";
+        state.error =
+          action.payload || "Failed to update account status.";
       });
   },
 });
 
-// Export the actions
-export const { 
-  logoutCustomer, 
-  clearCustomers, 
-  setCustomer, 
-  clearSelectedCustomer, 
-  setCurrentCustomer 
+// -------------------------
+// 🔹 Exports
+// -------------------------
+export const {
+  logoutCustomer,
+  clearCustomers,
+  setCustomer,
+  clearSelectedCustomer,
+  setCurrentCustomer,
 } = customerSlice.actions;
 
-// Export the reducer
 export default customerSlice.reducer;

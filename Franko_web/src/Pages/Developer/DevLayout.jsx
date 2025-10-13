@@ -29,7 +29,7 @@ const DevLayout = ({ children }) => {
   const location = useLocation();
 
   const currentPath = location.pathname;
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const user = (localStorage.getItem('user') || '{}');
   const userName = user ? user.fullName : 'dev';
   const userPosition = user ? user.position : '';
 

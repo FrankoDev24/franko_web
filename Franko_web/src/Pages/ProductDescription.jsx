@@ -59,7 +59,7 @@ const ProductDescription = () => {
   }, [dispatch, productID]);
 
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("viewedProducts")) || [];
+    const stored = (localStorage.getItem("viewedProducts")) || [];
     setViewedProducts(stored);
   }, []);
 
@@ -90,13 +90,13 @@ const ProductDescription = () => {
         image,
       };
 
-      const stored = JSON.parse(localStorage.getItem("viewedProducts")) || [];
+      const stored =(localStorage.getItem("viewedProducts")) || [];
       const updated = [
         viewedItem,
         ...stored.filter((item) => item.id !== viewedItem.id),
       ].slice(0, 4);
 
-      localStorage.setItem("viewedProducts", JSON.stringify(updated));
+      localStorage.setItem("viewedProducts", (updated));
       setViewedProducts(updated);
     }
   }, [currentProduct]);
@@ -211,7 +211,7 @@ const ProductDescription = () => {
   };
 
   const handleCheckout = () => {
-    const storedCustomer = JSON.parse(localStorage.getItem("customer"));
+    const storedCustomer = (localStorage.getItem("customer"));
 
     if (!storedCustomer) {
       setCartSidebarOpen(false);
@@ -233,7 +233,7 @@ const ProductDescription = () => {
       }))
     });
     
-    localStorage.setItem("selectedCart", JSON.stringify(cart));
+    localStorage.setItem("selectedCart", (cart));
     navigate("/checkout");
   };
 
@@ -306,7 +306,7 @@ const ProductDescription = () => {
     setAuthModalOpen(false);
     
     if (cart && cart.length > 0) {
-      localStorage.setItem("selectedCart", JSON.stringify(cart));
+      localStorage.setItem("selectedCart", (cart));
     }
     
     window.dataLayer = window.dataLayer || [];

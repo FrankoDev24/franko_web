@@ -246,8 +246,8 @@ const orderSlice = createSlice({
   deliveryUpdate: null,
   lifeCycle: null,
    
-    checkoutDetails: JSON.parse(localStorage.getItem("checkoutDetails")) || {},
-    orderAddressDetails: JSON.parse(localStorage.getItem("orderAddressDetails")) || {},
+    checkoutDetails: (localStorage.getItem("checkoutDetails")) || {},
+    orderAddressDetails: (localStorage.getItem("orderAddressDetails")) || {},
     loading: {
       orders: false,
     deliveryAddress: false,
@@ -278,7 +278,7 @@ const orderSlice = createSlice({
       state.checkoutDetails = checkoutDetails;
 
       // Persist in localStorage
-      localStorage.setItem("checkoutDetails", JSON.stringify(checkoutDetails));
+      localStorage.setItem("checkoutDetails", (checkoutDetails));
     },
 
     // Save order address details
@@ -287,7 +287,7 @@ const orderSlice = createSlice({
       state.orderAddressDetails = orderAddressDetails;
 
       // Persist in localStorage
-      localStorage.setItem("orderAddressDetails", JSON.stringify(orderAddressDetails));
+      localStorage.setItem("orderAddressDetails", (orderAddressDetails));
     },
     updateOrder: (state, action) => {
       const updated = action.payload;
@@ -315,7 +315,7 @@ const orderSlice = createSlice({
 
       // Update state and persist to localStorage
       state.orders = storedOrders;
-      localStorage.setItem("userOrders", JSON.stringify(storedOrders));
+      localStorage.setItem("userOrders", (storedOrders));
     },
 
     // Fetch orders by user
