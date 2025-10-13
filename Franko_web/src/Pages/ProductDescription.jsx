@@ -58,15 +58,37 @@ const ProductDescription = () => {
     dispatch(fetchProductById(productID));
   }, [dispatch, productID]);
 
- useEffect(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem("viewedProducts")) || [];
-      setViewedProducts(Array.isArray(stored) ? stored : []);
-    } catch (error) {
-      console.error("Error parsing viewedProducts:", error);
-      setViewedProducts([]);
-    }
-  }, []);
+useEffect(() => {
+  if (currentProduct?.length > 0) {
+    const prod = currentProduct[0];
+    const image = `https://smfteapi.salesmate.app/Media/Products_Images/${prod.productImage
+      .split("\\")
+      .pop()}`;
+
+    const viewedItem = {
+      id: prod.productID,
+      name: prod.productName,
+      price: prod.price,
+      image,
+    };
+
+    // ✅ Safely get decrypted data (thanks to your monkey patch)
+    const stored = localStorage.getItem("viewedProducts") || [];
+    const parsed = Array.isArray(stored) ? stored : [];
+
+    // ✅ Update viewed products (avoid duplicates)
+    const updated = [
+      viewedItem,
+      ...parsed.filter((item) => item.id !== viewedItem.id),
+    ].slice(0, 4);
+
+    // ✅ Store securely — encryption happens automatically
+    localStorage.setItem("viewedProducts", JSON.stringify(updated));
+
+    setViewedProducts(updated);
+  }
+}, [currentProduct]);
+
   // Simple and reliable sticky header implementation
   useEffect(() => {
     const handleScroll = () => {
