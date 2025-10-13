@@ -28,8 +28,8 @@ const OrderSuccessPage = () => {
 
     const handleOrderCompletion = async () => {
       try {
-        const checkoutDetails = JSON.parse(localStorage.getItem("checkoutDetails"));
-        const addressDetails = JSON.parse(localStorage.getItem("orderAddressDetails"));
+        const checkoutDetails = (localStorage.getItem("checkoutDetails"));
+        const addressDetails = (localStorage.getItem("orderAddressDetails"));
 
         if (!checkoutDetails || !addressDetails) {
           message.warning("Order details are missing.");

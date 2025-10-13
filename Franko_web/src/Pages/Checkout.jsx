@@ -51,7 +51,7 @@ const getCartItems = () => {
     // Handle legacy (unencrypted or plain stringified) values
     if (typeof cartData === "string") {
       try {
-        cartData = JSON.parse(cartData);
+        cartData = (cartData);
       } catch {
         // If it's not valid JSON, just leave it as is
       }
@@ -111,7 +111,7 @@ const getCartItems = () => {
       setCustomerName(`${customerData.firstName || ""} ${customerData.lastName || ""}`.trim());
       setCustomerNumber(customerData.contactNumber || customerData.ContactNumber || "");
 
-      const storedInfo = JSON.parse(localStorage.getItem("deliveryInfo") || "{}");
+      const storedInfo = (localStorage.getItem("deliveryInfo") || "{}");
       const address = storedInfo?.address || customerData.address || "";
       const fee = storedInfo?.fee || 0;
       const feeDisplay = storedInfo?.feeDisplay || storedInfo?.feeText || "";
@@ -154,7 +154,7 @@ const getCartItems = () => {
     
     const interval = setInterval(() => {
       const newItems = getCartItems();
-      if (JSON.stringify(newItems) !== JSON.stringify(cartItems)) {
+      if ((newItems) !== (cartItems)) {
         setCartItems(newItems);
       }
     }, 2000);
@@ -263,45 +263,55 @@ const storeCheckoutDetailsInLocalStorage = (checkoutDetails, addressDetails) => 
   }
 };
 
-  const initiatePayment = async (totalAmount, cartItems, orderId) => {
-    const username = "RMWBWl0";
-    const password = "3c42a596cd044fed81b492e74da4ae30";
-    const encodedCredentials = btoa(`${username}:${password}`);
+ const initiatePayment = async (totalAmount, cartItems, orderId) => {
+  const username = "RMWBWl0";
+  const password = "3c42a596cd044fed81b492e74da4ae30";
+  const encodedCredentials = btoa(`${username}:${password}`);
 
-    // Updated callback URLs to handle iframe communication
-    const payload = {
-      totalAmount,
-      description: `Payment for ${cartItems.map((item) => item.productName).join(", ")}`,
-      callbackUrl: "https://smfteapi.salesmate.app/PaymentSystem/PostHubtelCallBack",
-      returnUrl: `https://www.frankotrading.com/payment-success/${orderId}`, // This can be a success page that posts message to parent
-      cancellationUrl: "https://www.frankotrading.com/order-cancelled", // This can be a cancellation page that posts message to parent
-      merchantAccountNumber: "2020892",
-      clientReference: orderId,
-    };
-
-    try {
-      const response = await fetch("https://payproxyapi.hubtel.com/items/initiate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Basic ${encodedCredentials}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const result = await response.json();
-      
-      if (result.status === "Success") {
-        localStorage.setItem("pendingOrderId", orderId);
-        return result.data.checkoutUrl;
-      } else {
-        throw new Error(`Hubtel Error: ${result.message}`);
-      }
-    } catch (error) {
-      console.error("Payment initiation error:", error);
-      throw error;
-    }
+  const payload = {
+    totalAmount,
+    description: `Payment for ${cartItems.map((item) => item.productName).join(", ")}`,
+    callbackUrl: "https://smfteapi.salesmate.app/PaymentSystem/PostHubtelCallBack",
+    returnUrl: `https://www.frankotrading.com/payment-success/${orderId}`,
+    cancellationUrl: "https://www.frankotrading.com/order-cancelled",
+    merchantAccountNumber: "2020892",
+    clientReference: orderId,
   };
+
+  try {
+    const response = await fetch("https://payproxyapi.hubtel.com/items/initiate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ${encodedCredentials}`,
+      },
+      body: JSON.stringify(payload), // ✅ FIXED: must stringify payload
+    });
+
+    // Check if response has body
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`HTTP Error: ${response.status} - ${text}`);
+    }
+
+    // Try to parse JSON safely
+    const text = await response.text();
+    if (!text) throw new Error("Empty response from Hubtel API");
+    
+    const result = JSON.parse(text);
+
+    if (result.status === "Success") {
+      localStorage.setItem("pendingOrderId", orderId);
+      return result.data.checkoutUrl;
+    } else {
+      throw new Error(`Hubtel Error: ${result.message || "Unknown error"}`);
+    }
+  } catch (error) {
+    console.error("Payment initiation error:", error);
+    throw error;
+  }
+};
+
 
   // ENHANCED: More robust direct checkout processing with better error handling and retry mechanism
   const processDirectCheckout = async (orderId, checkoutDetails, addressDetails) => {
