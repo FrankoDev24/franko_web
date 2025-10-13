@@ -32,7 +32,7 @@ const AgentDashboard = () => {
   const [selectedDateRange, setSelectedDateRange] = useState('month');
   const [weeklyOrdersCount, setWeeklyOrdersCount] = useState(0);
 
-  const customerObject = JSON.parse(localStorage.getItem("customer"));
+  const customerObject = (localStorage.getItem("customer"));
   const ThirdPartyAccountNumber = customerObject?.customerAccountNumber;
 
   // Order cycle colors
