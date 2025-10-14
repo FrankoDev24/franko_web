@@ -53,16 +53,22 @@ const Nav = () => {
   const [hoveredCategory, setHoveredCategory] = useState(null);
   const dropdownRef = useRef(null);
 
-  // Function to get wishlist count from localStorage
-  const getWishlistCount = () => {
-    try {
-      const wishlist = localStorage.getItem('wishlist') || [];
-      return Array.isArray(wishlist) ? wishlist.length : 0;
-    } catch (error) {
-      console.error('Error parsing wishlist from localStorage:', error);
-      return 0;
-    }
-  };
+const getWishlistCount = () => {
+  try {
+    const stored = localStorage.getItem("wishlist");
+
+    if (!stored) return 0;
+
+    // Ensure parsed data is an array
+    const wishlist = typeof stored === "string" ? JSON.parse(stored) : stored;
+
+    return Array.isArray(wishlist) ? wishlist.length : 0;
+  } catch (error) {
+    console.error("Error parsing wishlist from localStorage:", error);
+    return 0;
+  }
+};
+
  // Scroll to top when component mounts
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
