@@ -27,7 +27,7 @@ const ContentHome = ({ children }) => {
   const location = useLocation();
 
   // Get user data from localStorage
-  const user = JSON.parse(localStorage.getItem('user'));
+  const user = (localStorage.getItem('user'));
   const fullName = user?.fullName || 'Guest';
   const userRole = user?.role || 'Admin';
 
