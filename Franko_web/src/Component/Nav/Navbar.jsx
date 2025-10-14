@@ -64,7 +64,7 @@ const getWishlistCount = () => {
 
     return Array.isArray(wishlist) ? wishlist.length : 0;
   } catch (error) {
-    console.error("Error parsing wishlist from localStorage:", error);
+    
     return 0;
   }
 };
@@ -120,7 +120,7 @@ useEffect(() => {
       }
     }
   } catch (error) {
-    console.error("Error reading encrypted customer data:", error);
+ 
   }
 }, [dispatch]);
 

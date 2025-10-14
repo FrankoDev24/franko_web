@@ -59,7 +59,7 @@ const getCartItems = () => {
 
     return Array.isArray(cartData) ? cartData : [];
   } catch (error) {
-    console.error("Error parsing cart data:", error);
+   
     return [];
   }
 };
@@ -78,7 +78,7 @@ const getCartItems = () => {
       const data = localStorage.getItem("customer");
       return data ? (data) : null;
     } catch (error) {
-      console.error("Error parsing customer data:", error);
+    
       return null;
     }
   })();
@@ -219,7 +219,7 @@ const getCartItems = () => {
           navigate("/order-cancelled");
         }
       } catch (error) {
-        console.error("Error checking payment status:", error);
+
       }
     };
 
@@ -257,9 +257,9 @@ const storeCheckoutDetailsInLocalStorage = (checkoutDetails, addressDetails) => 
   try {
     localStorage.setItem("checkoutDetails", checkoutDetails);
     localStorage.setItem("orderAddressDetails", addressDetails);
-    console.log("%c✅ Checkout details securely encrypted", "color: limegreen");
+    
   } catch (error) {
-    console.error("Error saving encrypted checkout details:", error);
+
   }
 };
 
@@ -307,7 +307,7 @@ const storeCheckoutDetailsInLocalStorage = (checkoutDetails, addressDetails) => 
       throw new Error(`Hubtel Error: ${result.message || "Unknown error"}`);
     }
   } catch (error) {
-    console.error("Payment initiation error:", error);
+
     throw error;
   }
 };
@@ -387,7 +387,7 @@ const storeCheckoutDetailsInLocalStorage = (checkoutDetails, addressDetails) => 
         return result;
         
       } catch (error) {
-        console.error(`Address update attempt ${attempt} failed:`, error);
+ 
         lastError = error;
         
         // If it's the last attempt, don't wait
@@ -513,7 +513,7 @@ const handleCheckout = async () => {
       
       // For agents or non-Hubtel payment methods, process direct checkout
       if (isAgent || !["Mobile Money", "Credit Card"].includes(paymentMethod)) {
-        console.log("Processing direct checkout (Agent or non-Hubtel payment)");
+   
         
         await processDirectCheckout(orderId, checkoutDetails, addressDetails);
    
@@ -539,21 +539,13 @@ const handleCheckout = async () => {
       }
       
     } catch (error) {
-      console.error("=== CHECKOUT ERROR ===", error);
+   
       
       // Show specific error message if available
       const errorMessage = error.message || "An error occurred during checkout.";
       message.error(errorMessage);
       
-      // Log additional error details for debugging
-      console.error("Error details:", {
-        error,
-        orderId,
-        paymentMethod,
-        isAgent,
-        checkoutDetails,
-        addressDetails
-      });
+
       
     } finally {
       setLoading(false);

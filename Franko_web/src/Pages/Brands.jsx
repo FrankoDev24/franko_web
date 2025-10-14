@@ -30,15 +30,19 @@ const Brand = () => {
   const [showDiscountedOnly, setShowDiscountedOnly] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [sortBy, setSortBy] = useState("newest"); // newest, oldest, price-low, price-high, name-az, name-za
+  const [sortBy, setSortBy] = useState("newest");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
   const itemsPerPage = 8;
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    setInitialLoadComplete(false);
     dispatch(fetchBrands());
-    dispatch(fetchProductsByBrand(brandId));
+    dispatch(fetchProductsByBrand(brandId)).then(() => {
+      setInitialLoadComplete(true);
+    });
   }, [dispatch, brandId]);
 
   const selectedBrand = brands.find((brand) => brand.brandId === brandId);
@@ -255,20 +259,47 @@ const Brand = () => {
     </div>
   );
 
+  // Loading skeleton component
+  const LoadingSkeleton = () => (
+    <div className="space-y-6">
+      {/* Header Skeleton */}
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 animate-pulse">
+        <div className="h-8 bg-gray-200 rounded w-1/3 mb-2"></div>
+        <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+      </div>
+
+      {/* Products Grid Skeleton */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+        {[...Array(8)].map((_, index) => (
+          <div key={index} className="bg-white rounded-2xl shadow-md overflow-hidden animate-pulse">
+            <div className="h-40 md:h-52 bg-gray-200"></div>
+            <div className="p-3 space-y-2">
+              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   const brandName = selectedBrand?.brandName || 'Featured Brands';
   const pageTitle = selectedBrand
-    ? `Buy ${brandName} Products in Ghana| Franko Trading`
+    ? `Buy ${brandName} Products in Ghana | Franko Trading`
     : 'Explore Branded Products | Franko Trading';
   const description = selectedBrand
     ? `Buy genuine ${brandName} electronics and accessories at Franko Trading. Fast delivery and best prices guaranteed.`
     : 'Browse a wide selection of authentic electronics and accessories from top brands.';
-  const imageUrl = "https://www.frankotrading.com/frankoIcon.png"; // Default image URL
-  const canonicalUrl = `https://www.frankotrading.com/brand/${brandId}`;
   const pageUrl = `https://www.frankotrading.com/brand/${brandId}`;
 
+  // Determine what to show
+  const showLoading = loading || !initialLoadComplete;
+  const showNoProducts = initialLoadComplete && !loading && currentProducts.length === 0;
+  const showProducts = initialLoadComplete && !loading && currentProducts.length > 0;
+
   return (
-    <div className="min-h-screen ">
-        <Helmet>
+    <div className="min-h-screen">
+      <Helmet>
         <title>{pageTitle}</title>
         <meta name="description" content={description} />
         <link rel="canonical" href={pageUrl} />
@@ -276,15 +307,24 @@ const Brand = () => {
 
       <div className="p-2 md:px-2 mx-auto">
         {/* Enhanced Mobile Header */}
-        <div className="md:hidden space-y-2 ">
+        <div className="md:hidden space-y-2">
           {/* Brand Info */}
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-            <h2 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-              {selectedBrand?.brandName}
-            </h2>
-            <p className="text-sm text-gray-500 mt-1">
-              {filteredProducts.length} products available
-            </p>
+            {showLoading ? (
+              <div className="animate-pulse">
+                <div className="h-6 bg-gray-200 rounded w-1/2 mb-2"></div>
+                <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+              </div>
+            ) : (
+              <>
+                <h2 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                  {selectedBrand?.brandName}
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  {filteredProducts.length} products available
+                </p>
+              </>
+            )}
           </div>
 
           {/* Mobile Controls */}
@@ -293,6 +333,7 @@ const Brand = () => {
             <button 
               onClick={() => setIsDrawerOpen(true)} 
               className="flex-1 flex items-center justify-center gap-2 p-3 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]"
+              disabled={showLoading}
             >
               <FunnelIcon className="w-5 h-5 text-red-400" />
               <span className="font-medium text-sm">Filter</span>
@@ -303,6 +344,7 @@ const Brand = () => {
               <button 
                 onClick={() => setShowSortDropdown(!showSortDropdown)}
                 className="w-full flex items-center justify-center gap-2 p-3 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-300"
+                disabled={showLoading}
               >
                 <Bars3BottomLeftIcon className="w-5 h-5 text-gray-600" />
                 <span className="text-gray-700 font-medium text-sm">Sort</span>
@@ -382,7 +424,11 @@ const Brand = () => {
 
           {/* Products Section */}
           <section className="flex-1">
-            {currentProducts.length > 0 ? (
+            {/* Show Loading Skeleton */}
+            {showLoading && <LoadingSkeleton />}
+
+            {/* Show Products */}
+            {showProducts && (
               <div className="space-y-2">
                 {/* Desktop Header with Sort */}
                 <div className="hidden md:block bg-white p-2 rounded-2xl shadow-sm border border-gray-100">
@@ -448,12 +494,12 @@ const Brand = () => {
                   <ProductCard
                     currentProducts={currentProducts}
                     navigate={navigate}
-                    loading={loading}
+                    loading={false}
                   />
                 </div>
 
                 {/* Pagination */}
-                {totalPages > 1 && !loading && (
+                {totalPages > 1 && (
                   <div className="flex justify-center">
                     <CircularPagination
                       currentPage={currentPage}
@@ -463,12 +509,14 @@ const Brand = () => {
                   </div>
                 )}
               </div>
-            ) : (
+            )}
+
+            {/* Show No Products Found */}
+            {showNoProducts && (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mt-6 md:mt-24">
                 <div className="flex flex-col justify-center items-center text-center space-y-6">
                   <div className="relative">
                     <img src={gif} alt="No products found" className="max-h-24 md:max-h-72 opacity-80" />
-              
                   </div>
                   
                   <div className="space-y-2">
