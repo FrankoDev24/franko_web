@@ -67,5 +67,5 @@ const decrypt = (cipherText) => {
     originalRemove.call(this, key);
   };
 
-  console.log("🔒 Secure LocalStorage Encryption Enabled");
+
 })();

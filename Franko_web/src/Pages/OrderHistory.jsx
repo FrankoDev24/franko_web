@@ -29,7 +29,7 @@ const OrderHistoryPage = () => {
   const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(false);
 
   // Check if customer exists in localStorage
-  const customerObject = JSON.parse(localStorage.getItem("customer") || "null");
+  const customerObject = (localStorage.getItem("customer") || "null");
   const customerId = customerObject?.customerAccountNumber;
   const hasValidCustomer = customerObject && customerId;
 

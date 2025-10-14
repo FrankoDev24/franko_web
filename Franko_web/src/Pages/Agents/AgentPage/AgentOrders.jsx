@@ -59,7 +59,7 @@ const AgentOrders = () => {
   const [viewedOrders, setViewedOrders] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const customerObject = JSON.parse(localStorage.getItem("customer"));
+  const customerObject = (localStorage.getItem("customer"));
   const ThirdPartyAccountNumber = customerObject?.customerAccountNumber;
 
   useEffect(() => {
