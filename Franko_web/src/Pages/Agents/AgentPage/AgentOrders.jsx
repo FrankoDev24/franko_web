@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchOrdersByThirdParty } from "../../../Redux/Slice/orderSlice";
@@ -128,23 +129,35 @@ const AgentOrders = () => {
     }
   };
 
-const transformedOrders = useMemo(() => {
-  return orders.map((order, index) => ({
-    key: index,
-    orderId: order?.orderCode || "N/A",
-    rawDate: order?.orderDate,
-    orderDate: order?.orderDate
-      ? dayjs(order.orderDate).format("MM/DD/YYYY hh:mm A")
-      : "N/A",
-    paymentMode: typeof order?.paymentMode === "object"
-      ? JSON.stringify(order.paymentMode)
-      : order?.paymentMode || "N/A",
-    orderCycle: typeof order?.orderCycle === "object"
-      ? JSON.stringify(order.orderCycle)
-      : order?.orderCycle || "N/A",
-  }));
-}, [orders]);
-
+  const transformedOrders = useMemo(() => {
+    return orders
+      .map((order, index) => ({
+        key: index,
+        orderId: order?.orderCode || "N/A",
+        rawDate: order?.orderDate,
+        orderDate: order?.orderDate
+          ? dayjs(order.orderDate).format("MM/DD/YYYY hh:mm A")
+          : "N/A",
+        paymentMode: order?.paymentMode || "N/A",
+        orderCycle: order?.orderCycle || "N/A",
+      }))
+      .filter((order) => {
+        const date = dayjs(order.rawDate);
+        const matchesDate =
+          date.isAfter(dateRange[0].startOf("day")) &&
+          date.isBefore(dateRange[1].endOf("day"));
+        const matchesSearch =
+          searchText === "" ||
+          order.orderId.toLowerCase().includes(searchText.toLowerCase());
+        const matchesStatus =
+          statusFilter === "all" || order.orderCycle === statusFilter;
+        const matchesPayment =
+          paymentFilter === "all" || order.paymentMode === paymentFilter;
+        
+        return matchesDate && matchesSearch && matchesStatus && matchesPayment;
+      })
+      .sort((a, b) => dayjs(b.rawDate).diff(dayjs(a.rawDate)));
+  }, [orders, dateRange, searchText, statusFilter, paymentFilter]);
 
   const exportToExcel = () => {
     const dataToExport = transformedOrders.map((order) => ({
