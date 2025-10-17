@@ -370,16 +370,81 @@ useEffect(() => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-10">
-      <Helmet>
+       <Helmet>
         <title>{`${product?.productName || "Product"} - Best Price`}</title>
         <meta name="description" content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}. High-quality and best prices available.`} />
         <meta property="og:title" content={product?.productName || "Product"} />
         <meta property="og:description" content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}.`} />
-        <meta property="og:image" content={imageUrl || "default-image-url.jpg"} />
+        <meta property="og:image" content={imageUrl || "https://www.frankotrading.com/assets/frankoIcon.png"} />
         <meta property="og:url" content={productUrl || "https://www.frankotrading.com"} />
         <meta name="twitter:card" content="summary_large_image" />
-        <link rel="canonical" href={`https://www.frankotrading.com/product/${product?.productID || "defaultID"}`} />
+        <link rel="canonical" href={`https://www.frankotrading.com/product/${product?.productID || "https://www.frankotrading.com"}`} />
       </Helmet>
+
+      <script type="application/ld+json">
+        {JSON.stringify({
+          "@context": "https://schema.org/",
+          "@type": "Product",
+          "name": product.productName,
+          "image": imageUrl,
+          "description": product.description,
+          "sku": product.productID,
+          "brand": {
+            "@type": "Brand",
+            "name": product.brandName
+          },
+         "offers": {
+  "@type": "Offer",
+  "priceCurrency": "GHS",
+  "price": product.price,
+  "priceValidUntil": "2025-12-31",
+  "itemCondition": "https://schema.org/NewCondition",
+  "availability": "https://schema.org/InStock",
+  "url": `https://www.frankotrading.com/product/${product.productID}`,
+  "seller": {
+    "@type": "Organization",
+    "name": "Franko Trading"
+  },
+  "shippingDetails": {
+    "@type": "OfferShippingDetails",
+    "shippingRate": {
+      "@type": "MonetaryAmount",
+      "currency": "GHS",
+      "value": "40.00"
+    },
+    "shippingDestination": {
+      "@type": "DefinedRegion",
+      "addressCountry": "GH"
+    },
+    "deliveryTime": {
+      "@type": "ShippingDeliveryTime",
+      "handlingTime": {
+        "@type": "QuantitativeValue",
+        "minValue": 1,
+        "maxValue": 2,
+        "unitCode": "DAY"
+      },
+      "transitTime": {
+        "@type": "QuantitativeValue",
+        "minValue": 3,
+        "maxValue": 5,
+        "unitCode": "DAY"
+      }
+    }
+  },
+  "hasMerchantReturnPolicy": {
+    "@type": "MerchantReturnPolicy",
+    "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+    "merchantReturnDays": 7,
+    "returnMethod": "https://schema.org/ReturnByMail",
+    "returnFees": "https://schema.org/FreeReturn",
+    "applicableCountry": "GH"
+  }
+}
+
+        })}
+      </script>
+
 
       {/* Sticky Header - Simplified with inline styles for reliability */}
       <div 

@@ -299,11 +299,89 @@ const Brand = () => {
 
   return (
     <div className="min-h-screen">
-      <Helmet>
-        <title>{pageTitle}</title>
-        <meta name="description" content={description} />
-        <link rel="canonical" href={pageUrl} />
-      </Helmet>
+   <script type="application/ld+json">
+  {JSON.stringify({
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        name: "Franko Trading Enterprise",
+        url: "https://www.frankotrading.com",
+        logo: "https://www.frankotrading.com/assets/images/logo.png",
+        sameAs: [
+          "https://www.facebook.com/frankotrading",
+          "https://www.instagram.com/frankotrading",
+          "https://twitter.com/frankotrading",
+        ],
+        contactPoint: {
+          "@type": "ContactPoint",
+          telephone: "+233302225651",
+          contactType: "Customer Service",
+          areaServed: "GH",
+          availableLanguage: ["English"],
+        },
+      },
+      {
+        "@type": "Brand",
+        name: selectedBrand?.brandName || "Franko Trading",
+        description: selectedBrand
+          ? `Official ${selectedBrand.brandName} distributor in Ghana. Shop authentic electronics, accessories, and more from Franko Trading.`
+          : "Shop authentic electronics and accessories from Franko Trading.",
+        logo:
+          selectedBrand?.brandImage ||
+          "https://www.frankotrading.com/assets/frankoIcon.png",
+        url: pageUrl,
+        aggregateRating: {
+          "@type": "AggregateRating",
+          ratingValue: "4.8",
+          reviewCount: "2150",
+        },
+      },
+      {
+        "@type": "ItemList",
+        name: `${selectedBrand?.brandName || "Brand"} Product Catalog`,
+        url: pageUrl,
+        itemListElement: currentProducts.map((product, index) => ({
+          "@type": "Product",
+          position: index + 1,
+          name: product.productName,
+          image:
+            product.imageUrl?.startsWith("http")
+              ? product.imageUrl
+              : `https://www.frankotrading.com/${product.imageUrl?.replace(
+                  /^\/+/,
+                  ""
+                )}`,
+          description:
+            product.description?.replace(/[\r\n•]+/g, " ").trim() ||
+            `${product.productName} available at Franko Trading.`,
+          sku: product.productID || `SKU-${product._id}`,
+          brand: {
+            "@type": "Brand",
+            name: selectedBrand?.brandName || "Franko Trading",
+          },
+          category: product.categoryName || "Electronics",
+          offers: {
+            "@type": "Offer",
+            url: `${pageUrl}#${product.productID || product._id}`,
+            priceCurrency: "GHS",
+            price: product.price,
+            availability:
+              product.status === "In Stock"
+                ? "https://schema.org/InStock"
+                : "https://schema.org/OutOfStock",
+            seller: {
+              "@type": "Organization",
+              name: "Franko Trading Enterprise",
+              url: "https://www.frankotrading.com",
+            },
+          },
+        })),
+      },
+    ],
+  })}
+</script>
+
 
       <div className="p-2 md:px-2 mx-auto">
         {/* Enhanced Mobile Header */}

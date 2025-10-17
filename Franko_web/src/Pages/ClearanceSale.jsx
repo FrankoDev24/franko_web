@@ -724,14 +724,7 @@ const ClearanceSale = () => {
                             </div>
 
                             {/* Savings Display */}
-                            {!isUnavailable && product.oldPrice > 0 && discount > 0 && (
-                              <div className="border px-2 py-1 rounded-lg" style={{
-                                backgroundColor: `${BRAND_COLORS.purple}10`,
-                                borderColor: `${BRAND_COLORS.purple}30`
-                              }}>
-                                
-                              </div>
-                            )}
+                          
                           </div>
 
                           {/* Action Buttons */}
