@@ -92,6 +92,7 @@ const Account = () => {
           localStorage.removeItem("wishlist");
           localStorage.removeItem("authToken");
           
+          
           message.success("Account deleted successfully.");
           navigate("/");
         } catch (error) {

@@ -8,7 +8,7 @@ UserOutlined,
 } from "@ant-design/icons";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
-import { createCustomer, loginCustomer } from "../Redux/Slice/customerSlice";
+import { createCustomer, loginCustomer ,getCustomerById} from "../Redux/Slice/customerSlice";
 import { v4 as uuidv4 } from "uuid";
 import logo from "../assets/frankoIcon.png";
 
@@ -331,30 +331,55 @@ const AuthModal = ({ open, onClose }) => {
     }
   };
 
-  const handleLogin = async () => {
-    if (!validateLoginForm()) return;
-    
-    setLoading(true);
-    try {
-      const result = await dispatch(loginCustomer(loginData)).unwrap();
-      
-      try {
-        localStorage.setItem('customer', (result));
-      } catch (storageError) {
-        console.warn('Failed to store login data in localStorage:', storageError);
-      }
-      
-      showNotification("Login successful! Welcome back!", "success");
-      setTimeout(() => {
-        onClose();
-      }, 1500);
-    } catch (error) {
-      const errorMessage = error?.message || "Login failed. Please check your credentials.";
-      showNotification(errorMessage, "error");
-    } finally {
-      setLoading(false);
+const handleLogin = async () => {
+  if (!validateLoginForm()) return;
+
+  setLoading(true);
+  try {
+    // Step 1: Attempt login
+    const loginResult = await dispatch(loginCustomer(loginData)).unwrap();
+
+    if (!loginResult || !loginResult.contactNumber) {
+      showNotification("No customer found with the provided contact number.", "error");
+      return;
     }
-  };
+
+    // Step 2: Fetch customer details by contact number
+    const contactNumber = loginResult.contactNumber;
+    const fullCustomerData = await dispatch(getCustomerById(contactNumber)).unwrap();
+
+    // ✅ Handle array response
+    const customer = Array.isArray(fullCustomerData) ? fullCustomerData[0] : fullCustomerData;
+
+    if (!customer || !customer.customerAccountNumber) {
+      showNotification("Failed to retrieve customer details.", "error");
+      return;
+    }
+
+    // Step 3: Save to localStorage
+    const customerToStore = {
+      ...customer,
+      isGuest: false,
+      loggedInAt: new Date().toISOString(),
+    };
+
+    localStorage.setItem("customer", JSON.stringify(customerToStore));
+  
+
+    showNotification("Login successful! Welcome back!", "success");
+    setTimeout(() => onClose(), 1500);
+  } catch (error) {
+    console.error("Login error:", error);
+    const message =
+      error?.response?.data?.message ||
+      error?.message ||
+      "Login failed. Please check your credentials.";
+    showNotification(message, "error");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const handleGuestContinue = async () => {
     if (!validateGuestForm()) return;

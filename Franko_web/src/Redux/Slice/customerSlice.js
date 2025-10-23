@@ -1,8 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
+const API_BASE_URL =import.meta.env.VITE_API_BASE_URL;
 // -------------------------
 // ✅ Secure LocalStorage Helper
 // -------------------------
@@ -49,41 +48,82 @@ export const fetchCustomers = createAsyncThunk(
   }
 );
 
-// Customer login
+// ✅ Get customer by contact number (instead of fetching all)
+export const getCustomerById = createAsyncThunk(
+  "customers/getCustomerById",
+  async (contactNumber, { rejectWithValue }) => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/Users/GetCustomerById?contactNumber=${contactNumber}`
+      );
+
+      // ✅ Normalize response: always return ONE object
+      const data = Array.isArray(response.data) ? response.data[0] : response.data;
+
+      if (!data || !data.contactNumber) {
+        return rejectWithValue("No customer found with that contact number.");
+      }
+
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "An unknown error occurred while fetching the customer."
+      );
+    }
+  }
+);
+// ✅ Customer login using GetCustomerById
 export const loginCustomer = createAsyncThunk(
   "customers/loginCustomer",
   async ({ contactNumber, password }, { dispatch, rejectWithValue }) => {
     try {
-      const customers = await dispatch(fetchCustomers()).unwrap();
-
-      const matchingCustomer = customers.find(
-        (c) => c.contactNumber === contactNumber && c.password === password
+      // 1️⃣ Step 1: Login API call
+      const loginResponse = await axios.post(
+        `${API_BASE_URL}/Users/CustomerLogin`,
+        {
+          contactNumber,
+          password,
+          FullName: "N/A", // ✅ Default fallback to prevent 400 error
+        }
       );
 
-      if (matchingCustomer) {
-        secureStorage.set("customer", matchingCustomer);
-        return matchingCustomer;
-      } else {
+      const loginData = loginResponse.data;
+
+      // 2️⃣ Step 2: Check for success before fetching details
+      if (loginData?.ResponseCode !== "1") {
         return rejectWithValue(
-          "No customer found with the provided credentials."
+          loginData?.ResponseMessage || "Login failed. Invalid credentials."
         );
       }
+
+      // 3️⃣ Step 3: If login is successful, fetch the customer details
+      const customer = await dispatch(getCustomerById(contactNumber)).unwrap();
+
+      // 4️⃣ Step 4: Save customer locally
+      secureStorage.set("customer", JSON.stringify(customer));
+
+      return customer;
     } catch (error) {
-      return rejectWithValue(error.message || "An unknown error occurred.");
+      return rejectWithValue(
+        error.response?.data ||
+          error.message ||
+          "An unknown error occurred during login."
+      );
     }
   }
 );
+
 
 // Update account status (e.g. deactivate)
 export const updateAccountStatus = createAsyncThunk(
   "customers/updateAccountStatus",
   async (_, { rejectWithValue }) => {
     try {
-      console.log("Fetching customer details from secure localStorage...");
+
       const customer = secureStorage.get("customer");
 
       if (!customer) {
-        console.error("No customer found in localStorage.");
+    
         return rejectWithValue("No customer found.");
       }
 
@@ -197,6 +237,20 @@ const customerSlice = createSlice({
         state.loading = false;
         state.error =
           action.payload || action.error?.message || "An unknown error occurred.";
+      })
+
+     // GET CUSTOMER BY ID
+      .addCase(getCustomerById.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getCustomerById.fulfilled, (state, action) => {
+        state.loading = false;
+        state.currentCustomerDetails = action.payload;
+      })
+      .addCase(getCustomerById.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       })
 
       // LOGIN

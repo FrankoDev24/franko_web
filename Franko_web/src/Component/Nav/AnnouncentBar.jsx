@@ -3,33 +3,64 @@ import React, { useState, useEffect } from "react";
 const BRAND_COLORS = {
   red: '#E53E3E',
   darkRed: '#C53030',
+  frankoRed: '#DC2626',
   green: '#38A169',
   darkGreen: '#2F855A',
+  frankoGreen: '#16A34A',
   black: '#1A202C',
   gray: '#2D3748',
   white: '#FFFFFF',
   lightGray: '#F7FAFC',
   mediumGray: '#E2E8F0',
-  orange: '#ED8936',
-  darkOrange: '#DD6B20',
-  purple: '#9B2C7D',
-  darkPurple: '#7A1F63',
-  magenta: '#B83280',
-  yellow: '#F6E05E',
+  orange: '#F59E0B',
+  darkOrange: '#D97706',
+  yellow: '#FDE047',
+  brightYellow: '#FACC15',
 };
 
 const promoMessages = [
   "🚚 FREE DELIVERY WITHIN ACCRA & KUMASI!",
-  "🎯 ON ALL PRODUCTS PURCHASED ONLINE",
-  "💰 SAVE MORE WITH FREE DELIVERY!",
-  "🛒 START SHOPPING NOW!",
+  "🎯 MASSIVE DISCOUNTS ON ALL PRODUCTS",
+  "💰 UNBEATABLE PRICES - LIMITED TIME!",
+  "🛒 DON'T MISS OUT - SHOP NOW!",
 ];
 
 const AnnouncementBar = () => {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(true);
-  const [pulseScale, setPulseScale] = useState(1);
+  const [timeLeft, setTimeLeft] = useState({
+    hours: 0,
+    minutes: 0,
+    seconds: 0
+  });
 
+  // Countdown to tomorrow (Friday, October 24, 2025)
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      const now = new Date();
+      const tomorrow = new Date(2025, 9, 24, 0, 0, 0); // October 24, 2025 at midnight
+      
+      const difference = tomorrow - now;
+      
+      if (difference > 0) {
+        return {
+          hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+          minutes: Math.floor((difference / 1000 / 60) % 60),
+          seconds: Math.floor((difference / 1000) % 60)
+        };
+      }
+      
+      return { hours: 0, minutes: 0, seconds: 0 };
+    };
+
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTimeLeft());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // Rotating promo messages
   useEffect(() => {
     const interval = setInterval(() => {
       setIsAnimating(false);
@@ -37,19 +68,9 @@ const AnnouncementBar = () => {
         setCurrentMessageIndex((prev) => (prev + 1) % promoMessages.length);
         setIsAnimating(true);
       }, 300);
-    }, 2500);
+    }, 3000);
 
     return () => clearInterval(interval);
-  }, []);
-
-  // Pulse animation for clearance sale badge
-  useEffect(() => {
-    const pulseInterval = setInterval(() => {
-      setPulseScale(1.05);
-      setTimeout(() => setPulseScale(1), 200);
-    }, 1500);
-
-    return () => clearInterval(pulseInterval);
   }, []);
 
   const PhoneIcon = () => (
@@ -64,52 +85,113 @@ const AnnouncementBar = () => {
     </svg>
   );
 
+  const CountdownBox = ({ value, label }) => (
+    <div className="flex flex-col items-center">
+      <div 
+        className="rounded-lg px-3  min-w-[50px] shadow-lg"
+        style={{ 
+          background: BRAND_COLORS.white,
+          border: `2px solid ${BRAND_COLORS.frankoRed}`
+        }}
+      >
+        <div 
+          className="font-bold text-2xl leading-none"
+          style={{ color: BRAND_COLORS.frankoRed }}
+        >
+          {String(value).padStart(2, '0')}
+        </div>
+      </div>
+      <div className="text-white text-xs font-semibold mt-1">{label}</div>
+    </div>
+  );
+
   return (
     <>
-      {/* Desktop Layout - Compact */}
-      <div className="hidden md:flex text-white px-3 py-1.5 items-center gap-2 shadow-md text-sm" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.green} 0%, ${BRAND_COLORS.darkGreen} 100%)` }}>
+      {/* Desktop Layout */}
+      <div className="hidden md:block text-white shadow-lg" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.frankoGreen} 0%, ${BRAND_COLORS.darkGreen} 100%)` }}>
         
-        {/* Clearance Sale Badge - Compact */}
-        <div className="flex-shrink-0">
+        {/* Top Row - Crazy Price Drop with Countdown */}
+        <div className="relative overflow-hidden px-2" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.orange} 0%, ${BRAND_COLORS.darkOrange} 100%)` }}>
+          {/* Animated background dots */}
           <div 
-            className="relative rounded-lg overflow-hidden px-5 py-1.5 transition-transform duration-200" 
-            style={{ 
-              background: `linear-gradient(135deg, ${BRAND_COLORS.purple} 0%, ${BRAND_COLORS.magenta} 100%)`,
-              transform: `scale(${pulseScale})`
+            className="absolute inset-0 opacity-20 pointer-events-none"
+            style={{
+              backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.3) 1px, transparent 1px)',
+              backgroundSize: '20px 20px',
+              animation: 'slideBackground 20s linear infinite'
             }}
-          >
-            {/* Shimmer effect overlay */}
-            <div 
-              className="absolute inset-0 opacity-30 pointer-events-none"
-              style={{
-                background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent)',
-                animation: 'shimmer 2s infinite'
-              }}
-            />
-            
-            <div className="flex items-center gap-2 relative z-10">
-              <span 
-                className="text-yellow-300 font-bold text-lg"
-                style={{ animation: 'bounce 1s infinite' }}
+          />
+          
+          {/* Shimmer effect */}
+          <div 
+            className="absolute inset-0 opacity-30 pointer-events-none"
+            style={{
+              background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent)',
+              animation: 'shimmer 3s infinite'
+            }}
+          />
+
+          <div className="relative z-10 flex items-center justify-between max-w-7xl mx-auto">
+            {/* Left: Crazy Price Drop Text */}
+            <div className="flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <span 
+                  className="text-3xl"
+                  style={{ animation: 'bounce 1s infinite' }}
+                >
+                  🔥
+                </span>
+                <div>
+                  <div 
+                    className="font-black text-2xl leading-none mb-1"
+                    style={{ 
+                      color: BRAND_COLORS.frankoRed,
+                      textShadow: `3px 3px 0px ${BRAND_COLORS.white}, -1px -1px 0px ${BRAND_COLORS.white}, 1px -1px 0px ${BRAND_COLORS.white}, -1px 1px 0px ${BRAND_COLORS.white}`,
+                      animation: 'pulse 2s infinite'
+                    }}
+                  >
+                    CRAZY PRICE DROP
+                  </div>
+                  <div 
+                    className="font-bold text-lg"
+                    style={{ 
+                      color: BRAND_COLORS.white,
+                      textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)'
+                    }}
+                  >
+                    Tomorrow's the Day! Get Ready to Save BIG! 
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Center: Countdown Timer */}
+            <div className="flex flex-col items-center mx-6">
+              <div 
+                className="text-white font-bold text-sm mb-2 tracking-wide"
+                style={{ textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)' }}
               >
-                🔥
-              </span>
-              <span 
-                className="text-yellow-300 font-bold text-lg"
-                style={{ 
-                  animation: 'pulse 2s infinite',
-                  textShadow: '1px 1px 3px rgba(0, 0, 0, 0.3)'
-                }}
-              >
-                CLEARANCE
-              </span>
-              <span className="text-white font-extrabold text-base">SALE</span>
+                🚀 STARTS IN:
+              </div>
+              <div className="flex items-center gap-3">
+                <CountdownBox value={timeLeft.hours} label="HOURS" />
+                <span className="text-white font-bold text-3xl">:</span>
+                <CountdownBox value={timeLeft.minutes} label="MINS" />
+                <span className="text-white font-bold text-3xl">:</span>
+                <CountdownBox value={timeLeft.seconds} label="SECS" />
+              </div>
+            </div>
+
+            {/* Right: CTA Button */}
+            <div className="flex-shrink-0">
               <a 
-                href="/clearance-sale"
-                className="py-1 px-3 rounded font-bold text-xs transition-all duration-200 hover:scale-105"
+                href="/"
+                className="block py-4 px-8 rounded-xl font-black text-xl transition-all duration-300 hover:scale-110 shadow-xl"
                 style={{ 
-                  background: BRAND_COLORS.yellow,
-                  color: BRAND_COLORS.darkPurple
+                  background: `linear-gradient(135deg, ${BRAND_COLORS.frankoRed} 0%, ${BRAND_COLORS.darkRed} 100%)`,
+                  color: BRAND_COLORS.white,
+                  boxShadow: '0 10px 25px rgba(0, 0, 0, 0.3)',
+                  animation: 'wiggle 1s ease-in-out infinite'
                 }}
               >
                 SHOP NOW →
@@ -118,131 +200,176 @@ const AnnouncementBar = () => {
           </div>
         </div>
 
-        {/* Main Promo Animation Section - Compact */}
-        <div className="flex-1 relative h-8 overflow-hidden rounded-lg" style={{ background: `linear-gradient(135deg, #68D391 0%, #38A169 100%)` }}>
-          <div className="absolute inset-0 flex items-center justify-center px-2">
+        {/* Bottom Row - Promo Messages & Contact */}
+        <div className="flex items-center justify-between px-4">
+          {/* Promo Messages Animation */}
+          <div className="flex-1 relative h-8 overflow-hidden">
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div
+                className={`transform transition-all duration-300 ${
+                  isAnimating ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0'
+                }`}
+              >
+                <div className="font-semibold text-base" style={{ textShadow: '5px 2px 5px rgba(0, 0, 0, 0.3)' }}>
+                  {promoMessages[currentMessageIndex]}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Contact Section */}
+          <div className="flex-shrink-0 rounded-lg backdrop-blur-sm px-3 py-1.5 ml-4" style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}>
+            <div className="text-white font-semibold text-xs  text-center">Need Help? Contact Us!</div>
+            <div className="flex items-center gap-3">
+              <a
+                href="tel:+233302225651"
+                className="flex items-center text-white transition-all duration-200 hover:scale-105 rounded px-2 py-1"
+                style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
+              >
+                <PhoneIcon />
+                <span className="font-semibold text-xs ml-1">0302225651</span>
+              </a>
+
+              <a
+                href="https://wa.me/233246422338"
+                className="flex items-center text-white transition-all duration-200 hover:scale-105 rounded px-2 py-1"
+                style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <WhatsAppIcon />
+                <span className="font-semibold text-xs ml-1">233246422338</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Layout */}
+      <div className="md:hidden text-white shadow-lg" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.frankoGreen} 0%, ${BRAND_COLORS.darkGreen} 100%)` }}>
+        
+        {/* Crazy Price Drop Section */}
+        <div className="relative overflow-hidden px-2" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.orange} 0%, ${BRAND_COLORS.darkOrange} 100%)` }}>
+          {/* Animated background */}
+          <div 
+            className="absolute inset-0 opacity-20 pointer-events-none"
+            style={{
+              backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.3) 1px, transparent 1px)',
+              backgroundSize: '15px 15px',
+              animation: 'slideBackground 20s linear infinite'
+            }}
+          />
+          
+          <div className="relative z-10 flex flex-wrap items-center justify-center gap-1 text-center">
+  {/* Title */}
+  <div className="flex items-center gap-1">
+    <span className="text-2xl" style={{ animation: 'bounce 2s infinite' }}>🔥</span>
+    <div
+      className="font-black text-lg leading-none"
+      style={{
+        color: BRAND_COLORS.frankoRed,
+        textShadow: `1px 1px 0px ${BRAND_COLORS.white}, -1px -1px 0px ${BRAND_COLORS.white}`,
+      animation: 'pulse 2s infinite'
+      }}
+    >
+      CRAZY PRICE DROP
+    </div>
+  </div>
+
+  {/* Subtitle */}
+  <div
+    className="text-white font-bold text-xs"
+    style={{ textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)' }}
+  >
+    Tomorrow's the Day! Get Ready! 
+  </div>
+
+  {/* Countdown */}
+  <div className="flex items-center gap-1">
+    <span className="text-white font-bold text-xs">STARTS IN:</span>
+    <div className="flex items-center gap-1">
+      <div
+        className="bg-white rounded px-2 "
+        style={{ border: `1px solid ${BRAND_COLORS.frankoRed}` }}
+      >
+        <span className="font-bold text-sm" style={{ color: BRAND_COLORS.frankoRed }}>
+          {String(timeLeft.hours).padStart(2, '0')}
+        </span>
+      </div>
+      <span className="text-white font-bold">:</span>
+      <div
+        className="bg-white rounded px-2 "
+        style={{ border: `1px solid ${BRAND_COLORS.frankoRed}` }}
+      >
+        <span className="font-bold text-sm" style={{ color: BRAND_COLORS.frankoRed }}>
+          {String(timeLeft.minutes).padStart(2, '0')}
+        </span>
+      </div>
+      <span className="text-white font-bold">:</span>
+      <div
+        className="bg-white rounded px-2"
+        style={{ border: `1px solid ${BRAND_COLORS.frankoRed}` }}
+      >
+        <span className="font-bold text-sm" style={{ color: BRAND_COLORS.frankoRed }}>
+          {String(timeLeft.seconds).padStart(2, '0')}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  {/* CTA Button */}
+  <a
+    href="/"
+    className="inline-block py-2 px-4 rounded-lg font-bold text-xs transition-all duration-300 ml-4"
+    style={{
+      background: `linear-gradient(135deg, ${BRAND_COLORS.frankoRed} 0%, ${BRAND_COLORS.darkRed} 100%)`,
+      color: BRAND_COLORS.white,
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+    }}
+  >
+  SHOP NOW →
+  </a>
+</div>
+
+        </div>
+
+        {/* Promo Messages */}
+        <div className="relative h-7 overflow-hidden px-2 ">
+          <div className="absolute inset-0 flex items-center justify-center">
             <div
               className={`transform transition-all duration-300 ${
-                isAnimating ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0'
+                isAnimating ? 'translate-y-0 opacity-100' : '-translate-y-1 opacity-0'
               }`}
             >
-              <div className="font-semibold text-center text-lg" style={{ textShadow: '1px 4px 3px rgba(0, 0, 0, 0.5)' }}>
+              <div className="font-semibold text-xs text-center" style={{ textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)' }}>
                 {promoMessages[currentMessageIndex]}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Contact Section - Compact */}
-        <div className="flex-shrink-0 rounded backdrop-blur-sm px-2 py-1" style={{ backgroundColor: 'rgba(255, 255, 255, 0.15)' }}>
-          <div className="text-white font-semibold text-xs mb-1 text-center">Need Help? Contact Us!</div>
-          <div className="flex items-center gap-2">
-            <a
-              href="tel:+233302225651"
-              className="flex items-center text-white transition-all duration-200 hover:scale-105 rounded px-2 py-1"
-              style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
-            >
-              <PhoneIcon />
-              <span className="font-semibold text-xs ml-1">+233302225651</span>
-            </a>
-
-            <a
-              href="https://wa.me/233246422338"
-              className="flex items-center text-white transition-all duration-200 hover:scale-105 rounded px-2 py-1"
-              style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <WhatsAppIcon />
-              <span className="font-semibold text-xs ml-1">+233246422338</span>
-            </a>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Layout - Compact */}
-      <div className="md:hidden text-white py-1.5 px-0.5 shadow-md text-xs" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.green} 0%, ${BRAND_COLORS.darkGreen} 100%)` }}>
-        
-        {/* Top Row: Sale Badge + Promo Message */}
-        <div className="flex items-center gap-2 mb-1.5">
-          {/* Clearance Sale Badge */}
-          <div 
-            className="flex-shrink-0 rounded-md overflow-hidden px-2 py-1 transition-transform duration-200" 
-            style={{ 
-              background: `linear-gradient(135deg, ${BRAND_COLORS.purple} 0%, ${BRAND_COLORS.magenta} 100%)`,
-              transform: `scale(${pulseScale})`
-            }}
-          >
-            {/* Shimmer effect overlay */}
-            <div 
-              className="absolute inset-0 opacity-30 pointer-events-none"
-              style={{
-                background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent)',
-                animation: 'shimmer 2s infinite'
-              }}
-            />
-            
-            <div className="flex items-center gap-1.5 relative z-10">
-              <span 
-                className="text-yellow-300 font-bold text-xs whitespace-nowrap"
-                style={{ 
-                  animation: 'pulse 2s infinite',
-                  textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)'
-                }}
-              >
-                CLEARANCE SALE
-              </span>
-              <a 
-                href="/clearance-sale"
-                className="py-0.5 px-0.5 rounded text-xs font-bold"
-                style={{ 
-                  background: BRAND_COLORS.yellow,
-                  color: BRAND_COLORS.darkPurple
-                }}
-              >
-                BUY NOW
-              </a>
-            </div>
-          </div>
-
-          {/* Promo Animation */}
-          <div className="flex-1 relative h-7 overflow-hidden rounded-md" style={{ background: `linear-gradient(135deg, #68D391 0%, #38A169 100%)` }}>
-            <div className="absolute inset-0 flex items-center justify-center px-1">
-              <div
-                className={`transform transition-all duration-300 ${
-                  isAnimating ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0'
-                }`}
-              >
-                <div className="font-semibold text-center text-xs leading-tight" style={{ textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)' }}>
-                  {promoMessages[currentMessageIndex]}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Row: Contact */}
-        <div className="rounded backdrop-blur-sm px-2 py-1" style={{ backgroundColor: 'rgba(255, 255, 255, 0.15)' }}>
+        {/* Contact Section */}
+        <div className="rounded-lg backdrop-blur-sm px-2  mx-2 mb-2" style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}>
           <div className="text-white font-medium text-xs mb-1 text-center">Need Help? Contact Us</div>
           <div className="flex items-center justify-center gap-2">
             <a
               href="tel:+233302225651"
-              className="flex items-center text-white rounded px-2 py-0.5"
+              className="flex items-center text-white rounded px-2 py-1"
               style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
             >
               <PhoneIcon />
-              <span className="font-semibold text-xs ml-1">+233302225651</span>
+              <span className="font-semibold text-xs ml-1">0302225651</span>
             </a>
 
             <a
               href="https://wa.me/233246422338"
-              className="flex items-center text-white rounded px-2 py-0.5"
+              className="flex items-center text-white rounded px-2 py-1"
               style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
               target="_blank"
               rel="noopener noreferrer"
             >
               <WhatsAppIcon />
-              <span className="font-semibold text-xs ml-1">+233246422338</span>
+              <span className="font-semibold text-xs ml-1">233246422338</span>
             </a>
           </div>
         </div>
@@ -263,7 +390,7 @@ const AnnouncementBar = () => {
             transform: translateY(0);
           }
           50% {
-            transform: translateY(-3px);
+            transform: translateY(-5px);
           }
         }
 
@@ -273,6 +400,27 @@ const AnnouncementBar = () => {
           }
           50% {
             transform: scale(1.05);
+          }
+        }
+
+        @keyframes wiggle {
+          0%, 100% {
+            transform: rotate(0deg);
+          }
+          25% {
+            transform: rotate(-2deg);
+          }
+          75% {
+            transform: rotate(2deg);
+          }
+        }
+
+        @keyframes slideBackground {
+          0% {
+            transform: translateX(0) translateY(0);
+          }
+          100% {
+            transform: translateX(20px) translateY(20px);
           }
         }
       `}</style>
