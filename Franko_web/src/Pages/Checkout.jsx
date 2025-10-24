@@ -105,24 +105,6 @@ const getCartItems = () => {
      (typeof deliveryInfo?.feeDisplay === 'string' && 
       deliveryInfo.feeDisplay.toLowerCase() === 'n/a'));
 
-  // NEW: Check if cart contains restricted products for COD
-  const hasRestrictedProducts = () => {
-    const restrictedProducts = [
-      "Franko Frameless 43\" Smart TV",
-      "Samsung A06 (64GB + 4GB)",
-      "Samsung A16 (128GB + 4GB)"
-    ];
-    
-    return cartItems.some((item) =>
-      restrictedProducts.some((restrictedName) => 
-        item.productName?.trim() === restrictedName.trim()
-      )
-    );
-  };
-
-  // NEW: Determine if COD should be available for non-agents
-  const isCODAvailable = isAgent || (!hasRestrictedProducts() && (isFreeDelivery || (deliveryFee > 0 && !isNADelivery)));
-
   // Update delivery info initialization
   useEffect(() => {
     if (customerData) {
@@ -303,7 +285,7 @@ const storeCheckoutDetailsInLocalStorage = (checkoutDetails, addressDetails) => 
         "Content-Type": "application/json",
         Authorization: `Basic ${encodedCredentials}`,
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload), // ✅ FIXED: must stringify payload
     });
 
     // Check if response has body
@@ -743,11 +725,12 @@ const handleCheckout = async () => {
                 onChange={handlePaymentMethodChange}
                 className="flex flex-col gap-3"
               >
-                {/* Cash on Delivery - NEW LOGIC: Available only if:
-                    - Agent (always available for agents)
-                    - OR (Non-agent with no restricted products AND (free delivery OR paid delivery that's not N/A))
+                {/* Cash on Delivery - Available for:
+                    - Agents (always)
+                    - Non-agents with free delivery
+                    - Non-agents with paid delivery (not N/A)
                 */}
-                {isCODAvailable && (
+                {(isAgent || isFreeDelivery || (deliveryFee > 0 && !isNADelivery)) && (
                   <Radio value="Cash on Delivery" className="text-sm">
                     Cash on Delivery
                   </Radio>
@@ -777,8 +760,6 @@ const handleCheckout = async () => {
                   </>
                 )}
               </Radio.Group>
-
-              
             </div>
             
             {/* Place Order Button - Always enabled */}
@@ -838,6 +819,8 @@ const handleCheckout = async () => {
                   )}
                 </div>
               </button>
+
+            
             </div>
           </Card>
         </div>
