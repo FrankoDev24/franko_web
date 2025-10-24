@@ -70,7 +70,7 @@ const NewArrivals = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { products, loading } = useSelector((state) => state.products);
-  const wishlist = useSelector((state) => state.wishlist.items);
+  const wishlist = useSelector((state) => state.wishlist.items || []);
   const { addProductToCart, loading: cartLoading } = useAddToCart();
 
   const [notification, setNotification] = useState({
@@ -108,7 +108,9 @@ const NewArrivals = () => {
     setNotification((prev) => ({ ...prev, isVisible: false }));
   };
 
-  const isInWishlist = (id) => wishlist.some((item) => item.id === id);
+const isInWishlist = (id) =>
+  Array.isArray(wishlist) && wishlist.some((item) => item.id === id);
+
 
   const handleWishlistToggle = (product) => {
     const id = product.productID;

@@ -73,9 +73,10 @@ const BestSellers = () => {
   const { homePageShowrooms } = useSelector((state) => state.showrooms);
   const { productsByShowroom, loading } = useSelector((state) => state.products);
   const { addProductToCart, loading: cartLoading } = useAddToCart();
-  const wishlist = useSelector((state) => state.wishlist.items);
+ const wishlist = useSelector((state) => state.wishlist.items || []);
+const isInWishlist = (id) =>
+  Array.isArray(wishlist) && wishlist.some((item) => item.id === id);
 
-  const isInWishlist = (id) => wishlist.some((item) => item.id === id);
 
   const [activeShowroom, setActiveShowroom] = useState(null);
   const [isHovered, setIsHovered] = useState(false);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-
+import { useNavigate } from "react-router-dom";
 const BRAND_COLORS = {
   red: '#E53E3E',
   darkRed: '#C53030',
@@ -33,14 +33,16 @@ const AnnouncementBar = () => {
     minutes: 0,
     seconds: 0
   });
+  const navigate = useNavigate();
 
-  // Countdown to tomorrow (Friday, October 24, 2025)
+
+  // Countdown to end of today (midnight tonight)
   useEffect(() => {
     const calculateTimeLeft = () => {
       const now = new Date();
-      const tomorrow = new Date(2025, 9, 24, 0, 0, 0); // October 24, 2025 at midnight
+      const endOfDay = new Date(2025, 9, 25, 0, 0, 0); // October 25, 2025 at midnight
       
-      const difference = tomorrow - now;
+      const difference = endOfDay - now;
       
       if (difference > 0) {
         return {
@@ -88,7 +90,7 @@ const AnnouncementBar = () => {
   const CountdownBox = ({ value, label }) => (
     <div className="flex flex-col items-center">
       <div 
-        className="rounded-lg px-3  min-w-[50px] shadow-lg"
+        className="rounded-lg px-3 py-1 min-w-[50px] shadow-lg"
         style={{ 
           background: BRAND_COLORS.white,
           border: `2px solid ${BRAND_COLORS.frankoRed}`
@@ -111,7 +113,7 @@ const AnnouncementBar = () => {
       <div className="hidden md:block text-white shadow-lg" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.frankoGreen} 0%, ${BRAND_COLORS.darkGreen} 100%)` }}>
         
         {/* Top Row - Crazy Price Drop with Countdown */}
-        <div className="relative overflow-hidden px-2" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.orange} 0%, ${BRAND_COLORS.darkOrange} 100%)` }}>
+        <div className="relative overflow-hidden  px-4" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.orange} 0%, ${BRAND_COLORS.darkOrange} 100%)` }}>
           {/* Animated background dots */}
           <div 
             className="absolute inset-0 opacity-20 pointer-events-none"
@@ -159,7 +161,7 @@ const AnnouncementBar = () => {
                       textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)'
                     }}
                   >
-                    Tomorrow's the Day! Get Ready to Save BIG! 
+                    Happening NOW! SAVE BIG!
                   </div>
                 </div>
               </div>
@@ -171,7 +173,7 @@ const AnnouncementBar = () => {
                 className="text-white font-bold text-sm mb-2 tracking-wide"
                 style={{ textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)' }}
               >
-                🚀 STARTS IN:
+                ⏰ ENDS IN:
               </div>
               <div className="flex items-center gap-3">
                 <CountdownBox value={timeLeft.hours} label="HOURS" />
@@ -185,7 +187,7 @@ const AnnouncementBar = () => {
             {/* Right: CTA Button */}
             <div className="flex-shrink-0">
               <a 
-                href="/"
+                href="https://www.frankotrading.com/showroom/1e93aeb7-bba7-4bd4-b017-ea3267047d46"
                 className="block py-4 px-8 rounded-xl font-black text-xl transition-all duration-300 hover:scale-110 shadow-xl"
                 style={{ 
                   background: `linear-gradient(135deg, ${BRAND_COLORS.frankoRed} 0%, ${BRAND_COLORS.darkRed} 100%)`,
@@ -201,7 +203,7 @@ const AnnouncementBar = () => {
         </div>
 
         {/* Bottom Row - Promo Messages & Contact */}
-        <div className="flex items-center justify-between px-4">
+        <div className="flex items-center justify-between px-4 ">
           {/* Promo Messages Animation */}
           <div className="flex-1 relative h-8 overflow-hidden">
             <div className="absolute inset-0 flex items-center justify-center">
@@ -210,7 +212,7 @@ const AnnouncementBar = () => {
                   isAnimating ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0'
                 }`}
               >
-                <div className="font-semibold text-base" style={{ textShadow: '5px 2px 5px rgba(0, 0, 0, 0.3)' }}>
+                <div className="font-semibold text-base" style={{ textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)' }}>
                   {promoMessages[currentMessageIndex]}
                 </div>
               </div>
@@ -219,7 +221,7 @@ const AnnouncementBar = () => {
 
           {/* Contact Section */}
           <div className="flex-shrink-0 rounded-lg backdrop-blur-sm px-3 py-1.5 ml-4" style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}>
-            <div className="text-white font-semibold text-xs  text-center">Need Help? Contact Us!</div>
+            <div className="text-white font-semibold text-xs text-center mb-1">Need Help? Contact Us!</div>
             <div className="flex items-center gap-3">
               <a
                 href="tel:+233302225651"
@@ -249,7 +251,7 @@ const AnnouncementBar = () => {
       <div className="md:hidden text-white shadow-lg" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.frankoGreen} 0%, ${BRAND_COLORS.darkGreen} 100%)` }}>
         
         {/* Crazy Price Drop Section */}
-        <div className="relative overflow-hidden px-2" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.orange} 0%, ${BRAND_COLORS.darkOrange} 100%)` }}>
+        <div className="relative overflow-hidden  px-2" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.orange} 0%, ${BRAND_COLORS.darkOrange} 100%)` }}>
           {/* Animated background */}
           <div 
             className="absolute inset-0 opacity-20 pointer-events-none"
@@ -260,81 +262,80 @@ const AnnouncementBar = () => {
             }}
           />
           
-          <div className="relative z-10 flex flex-wrap items-center justify-center gap-1 text-center">
-  {/* Title */}
-  <div className="flex items-center gap-1">
-    <span className="text-2xl" style={{ animation: 'bounce 2s infinite' }}>🔥</span>
-    <div
-      className="font-black text-lg leading-none"
-      style={{
-        color: BRAND_COLORS.frankoRed,
-        textShadow: `1px 1px 0px ${BRAND_COLORS.white}, -1px -1px 0px ${BRAND_COLORS.white}`,
-      animation: 'pulse 2s infinite'
-      }}
-    >
-      CRAZY PRICE DROP
-    </div>
-  </div>
+          <div className="relative z-10 flex flex-wrap items-center justify-center text-center">
+            {/* Title */}
+            <div className="flex items-center gap-2 w-full justify-center">
+              <span className="text-2xl" style={{ animation: 'bounce 1s infinite' }}>🔥</span>
+              <div
+                className="font-black text-lg leading-none"
+                style={{
+                  color: BRAND_COLORS.frankoRed,
+                  textShadow: `2px 2px 0px ${BRAND_COLORS.white}, -1px -1px 0px ${BRAND_COLORS.white}`,
+                  animation: 'pulse 2s infinite'
+                }}
+              >
+                CRAZY PRICE DROP
+              </div>
+            </div>
 
-  {/* Subtitle */}
-  <div
-    className="text-white font-bold text-xs"
-    style={{ textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)' }}
-  >
-    Tomorrow's the Day! Get Ready! 
-  </div>
+            {/* Subtitle */}
+            <div
+              className="text-white font-bold text-xs w-full"
+              style={{ textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)' }}
+            >
+              Happening NOW! SAVE BIG!
+            </div>
 
-  {/* Countdown */}
-  <div className="flex items-center gap-1">
-    <span className="text-white font-bold text-xs">STARTS IN:</span>
-    <div className="flex items-center gap-1">
-      <div
-        className="bg-white rounded px-2 "
-        style={{ border: `1px solid ${BRAND_COLORS.frankoRed}` }}
-      >
-        <span className="font-bold text-sm" style={{ color: BRAND_COLORS.frankoRed }}>
-          {String(timeLeft.hours).padStart(2, '0')}
-        </span>
-      </div>
-      <span className="text-white font-bold">:</span>
-      <div
-        className="bg-white rounded px-2 "
-        style={{ border: `1px solid ${BRAND_COLORS.frankoRed}` }}
-      >
-        <span className="font-bold text-sm" style={{ color: BRAND_COLORS.frankoRed }}>
-          {String(timeLeft.minutes).padStart(2, '0')}
-        </span>
-      </div>
-      <span className="text-white font-bold">:</span>
-      <div
-        className="bg-white rounded px-2"
-        style={{ border: `1px solid ${BRAND_COLORS.frankoRed}` }}
-      >
-        <span className="font-bold text-sm" style={{ color: BRAND_COLORS.frankoRed }}>
-          {String(timeLeft.seconds).padStart(2, '0')}
-        </span>
-      </div>
-    </div>
-  </div>
+            {/* Countdown */}
+            <div className="flex items-center gap-2 w-full justify-center">
+              <span className="text-white font-bold text-xs">⏰ ENDS IN:</span>
+              <div className="flex items-center gap-1">
+                <div
+                  className="bg-white rounded px-2 "
+                  style={{ border: `1px solid ${BRAND_COLORS.frankoRed}` }}
+                >
+                  <span className="font-bold text-sm" style={{ color: BRAND_COLORS.frankoRed }}>
+                    {String(timeLeft.hours).padStart(2, '0')}
+                  </span>
+                </div>
+                <span className="text-white font-bold">:</span>
+                <div
+                  className="bg-white rounded px-2 "
+                  style={{ border: `1px solid ${BRAND_COLORS.frankoRed}` }}
+                >
+                  <span className="font-bold text-sm" style={{ color: BRAND_COLORS.frankoRed }}>
+                    {String(timeLeft.minutes).padStart(2, '0')}
+                  </span>
+                </div>
+                <span className="text-white font-bold">:</span>
+                <div
+                  className="bg-white rounded px-2 "
+                  style={{ border: `1px solid ${BRAND_COLORS.frankoRed}` }}
+                >
+                  <span className="font-bold text-sm" style={{ color: BRAND_COLORS.frankoRed }}>
+                    {String(timeLeft.seconds).padStart(2, '0')}
+                  </span>
+                </div>
+              </div>
+            </div>
 
-  {/* CTA Button */}
-  <a
-    href="/"
-    className="inline-block py-2 px-4 rounded-lg font-bold text-xs transition-all duration-300 ml-4"
-    style={{
-      background: `linear-gradient(135deg, ${BRAND_COLORS.frankoRed} 0%, ${BRAND_COLORS.darkRed} 100%)`,
-      color: BRAND_COLORS.white,
-      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
-    }}
-  >
-  SHOP NOW →
-  </a>
-</div>
-
+            {/* CTA Button */}
+            <a
+              href="https://www.frankotrading.com/showroom/1e93aeb7-bba7-4bd4-b017-ea3267047d46"
+              className="inline-block px-6 rounded-lg font-bold text-sm transition-all duration-300 hover:scale-105 mt-1"
+              style={{
+                background: `linear-gradient(135deg, ${BRAND_COLORS.frankoRed} 0%, ${BRAND_COLORS.darkRed} 100%)`,
+                color: BRAND_COLORS.white,
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+              }}
+            >
+              SHOP NOW →
+            </a>
+          </div>
         </div>
 
         {/* Promo Messages */}
-        <div className="relative h-7 overflow-hidden px-2 ">
+        <div className="relative h-7 overflow-hidden px-2 py-1">
           <div className="absolute inset-0 flex items-center justify-center">
             <div
               className={`transform transition-all duration-300 ${
@@ -349,12 +350,12 @@ const AnnouncementBar = () => {
         </div>
 
         {/* Contact Section */}
-        <div className="rounded-lg backdrop-blur-sm px-2  mx-2 mb-2" style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}>
-          <div className="text-white font-medium text-xs mb-1 text-center">Need Help? Contact Us</div>
+        <div className="rounded-lg backdrop-blur-sm px-2 py-2 mx-2 mb-2" style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}>
+          <div className="text-white font-medium text-xs mb-1 text-center">Need Help? Contact Us!</div>
           <div className="flex items-center justify-center gap-2">
             <a
               href="tel:+233302225651"
-              className="flex items-center text-white rounded px-2 py-1"
+              className="flex items-center text-white rounded px-2 py-1 transition-all duration-200 hover:scale-105"
               style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
             >
               <PhoneIcon />
@@ -363,7 +364,7 @@ const AnnouncementBar = () => {
 
             <a
               href="https://wa.me/233246422338"
-              className="flex items-center text-white rounded px-2 py-1"
+              className="flex items-center text-white rounded px-2 py-1 transition-all duration-200 hover:scale-105"
               style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
               target="_blank"
               rel="noopener noreferrer"

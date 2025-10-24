@@ -72,8 +72,10 @@ const FridgeDeals = () => {
   const categoryId = "4f5076f8-34b6-42b8-a9c5-a1e92e3d08fb"
   const { productsByCategory = {}, loading } = useSelector((state) => state.products);
   const { addProductToCart, loading: cartLoading } = useAddToCart();
-  const wishlist = useSelector((state) => state.wishlist.items);
-  const isInWishlist = (id) => wishlist.some((item) => item.id === id);
+  const wishlist = useSelector((state) => state.wishlist.items || []);
+const isInWishlist = (id) =>
+  Array.isArray(wishlist) && wishlist.some((item) => item.id === id);
+
   const [currentPage, setCurrentPage] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const intervalRef = useRef(null);

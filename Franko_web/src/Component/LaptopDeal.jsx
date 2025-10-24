@@ -72,8 +72,10 @@ const LaptopDeals = () => {
   const categoryId = "12f11417-4f9e-4e4a-a18d-f9ff0d4c85a6";
   const { productsByCategory = {}, loading } = useSelector((state) => state.products);
   const { addProductToCart, loading: cartLoading } = useAddToCart();
-  const wishlist = useSelector((state) => state.wishlist.items);
-  const isInWishlist = (id) => wishlist.some((item) => item.id === id);
+const wishlist = useSelector((state) => state.wishlist.items || []);
+const isInWishlist = (id) =>
+  Array.isArray(wishlist) && wishlist.some((item) => item.id === id);
+
   const [currentPage, setCurrentPage] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const intervalRef = useRef(null);

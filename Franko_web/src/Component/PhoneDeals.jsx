@@ -73,8 +73,10 @@ const PhoneDeals = () => {
   const categoryId = "51d1fff2-7b71-46aa-9b34-2e553a40e921";
   const { productsByCategory = {}, loading } = useSelector((state) => state.products);
   const { addProductToCart, loading: cartLoading } = useAddToCart();
-  const wishlist = useSelector((state) => state.wishlist.items);
-  const isInWishlist = (id) => wishlist.some((item) => item.id === id);
+const wishlist = useSelector((state) => state.wishlist.items || []);
+const isInWishlist = (id) =>
+  Array.isArray(wishlist) && wishlist.some((item) => item.id === id);
+
   const [currentPage, setCurrentPage] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const intervalRef = useRef(null);

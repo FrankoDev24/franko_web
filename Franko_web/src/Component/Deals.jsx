@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate, Link, } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import {
   HeartIcon as OutlineHeartIcon,
   HeartIcon as SolidHeartIcon,
@@ -19,12 +19,10 @@ import {
 import { Card, CardBody, Tooltip } from "@material-tailwind/react";
 import useAddToCart from "./Cart";
 
-// Enhanced Notification Component with Fixed Auto-Hide
 const Notification = ({ message, type, isVisible, onClose }) => {
   const timeoutRef = useRef(null);
 
   useEffect(() => {
-    // Clear any existing timeout when component unmounts or dependencies change
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
@@ -34,25 +32,22 @@ const Notification = ({ message, type, isVisible, onClose }) => {
   }, []);
 
   useEffect(() => {
-    // Clear existing timeout
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
 
-    // Only set timeout if notification is visible and has a message
     if (isVisible && message) {
       timeoutRef.current = setTimeout(() => {
         onClose();
       }, 3000);
     }
-  }, [isVisible, message]); // Remove onClose from dependencies to prevent recreation
+  }, [isVisible, message]);
 
   if (!isVisible || !message) return null;
 
   const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
   const Icon = type === 'success' ? CheckCircleIcon : XCircleIcon;
-
 
   return (
     <div className="fixed top-4 right-4 z-50 animate-slide-in">
@@ -70,8 +65,6 @@ const Notification = ({ message, type, isVisible, onClose }) => {
   );
 };
 
-
-
 const Deals = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -83,15 +76,12 @@ const Deals = () => {
   const [showRightArrow, setShowRightArrow] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  // Notification state with better management
-   // Simplified notification state
-   const [notification, setNotification] = useState({
+  const [notification, setNotification] = useState({
     message: '',
     type: 'success',
     isVisible: false
   });
 
-  // Memoize the hide function to prevent unnecessary re-renders
   const hideNotification = useCallback(() => {
     setNotification(prev => ({ 
       ...prev, 
@@ -100,10 +90,7 @@ const Deals = () => {
   }, []);
 
   const showNotification = useCallback((message, type = 'success') => {
-    // Reset any existing notification first
     setNotification({ message: '', type: 'success', isVisible: false });
-    
-    // Use requestAnimationFrame to ensure state reset is processed
     requestAnimationFrame(() => {
       setNotification({
         message,
@@ -112,7 +99,6 @@ const Deals = () => {
       });
     });
   }, []);
-
 
   const { addProductToCart, loading: cartLoading } = useAddToCart();
   const { productsByShowroom, loading } = useSelector((state) => state.products);
@@ -151,16 +137,18 @@ const Deals = () => {
   useEffect(() => {
     const calculateTimeLeft = () => {
       const now = new Date();
-      const daysUntilSunday = (7 - now.getDay()) % 7 || 7;
-      const nextSunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilSunday, 23, 59, 59);
-      const diff = nextSunday - now;
+      const endOfDay = new Date(2025, 9, 25, 0, 0, 0);
+      const diff = endOfDay - now;
 
-      setTimeLeft({
-        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
-        hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
-        minutes: Math.floor((diff / 1000 / 60) % 60),
-        seconds: Math.floor((diff / 1000) % 60),
-      });
+      if (diff > 0) {
+        setTimeLeft({
+          hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
+          minutes: Math.floor((diff / 1000 / 60) % 60),
+          seconds: Math.floor((diff / 1000) % 60),
+        });
+      } else {
+        setTimeLeft({ hours: 0, minutes: 0, seconds: 0 });
+      }
     };
 
     const interval = setInterval(calculateTimeLeft, 1000);
@@ -224,7 +212,6 @@ const Deals = () => {
 
   return (
     <>
-      {/* Notification Component with key prop for re-mounting */}
       <Notification
         key={notification.id}
         message={notification.message}
@@ -233,34 +220,56 @@ const Deals = () => {
         onClose={hideNotification}
       />
 
-      <div className="mx-auto px-4 md:px-24 py-4">
-        <div className="mb-1">
-         <div className="flex items-center gap-4 flex-nowrap">
-  <h2 className="text-sm md:text-lg font-bold text-gray-900 relative whitespace-nowrap">
-    Deals of the Week
-    <span className="absolute -bottom-1 left-0 w-16 h-1 bg-red-400 rounded-full"></span>
-  </h2>
-  <div className="flex-grow h-px bg-gray-300" />
-  <div className="bg-red-400 text-white px-1.5 md:px-2 py-1.5 md:py-2 rounded-full shadow-lg flex gap-3 font-md text-xs md:text-sm tracking-wide items-center whitespace-nowrap">
-    <span>Ends in:</span>
-    <div className="flex">
-      <span>{String(timeLeft.days).padStart(2, "0")}d</span>:
-      <span>{String(timeLeft.hours).padStart(2, "0")}h</span>:
-      <span>{String(timeLeft.minutes).padStart(2, "0")}m</span>:
-      <span>{String(timeLeft.seconds).padStart(2, "0")}s</span>
-    </div>
-  </div>
-</div>
+      <div className="mx-auto px-2 md:px-24 py-3">
+        {/* Header Section - Compact Banner */}
+        <div className="mb-3 relative overflow-hidden rounded-xl bg-gradient-to-r from-red-500 via-orange-500 to-red-600 p-2.5 md:p-3 shadow-lg">
+          {/* Animated background effects */}
+          <div className="absolute inset-0 opacity-20">
+            <div className="absolute inset-0 bg-white animate-shimmer" style={{
+              backgroundImage: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent)',
+            }}></div>
+          </div>
 
+          <div className="relative z-10 flex items-center justify-between gap-2 md:gap-3">
+            {/* Title - More Compact */}
+            <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
+              <span className="text-xl md:text-2xl animate-bounce-slow">🔥</span>
+              <div>
+                <h2 className="text-sm md:text-lg font-black text-white animate-pulse-slow drop-shadow-lg leading-tight">
+                  CRAZY PRICE DROP
+                </h2>
+                <span className="inline-block bg-yellow-400 text-red-900 text-[10px] md:text-xs font-black px-2 py-0.5 rounded-full animate-wiggle shadow-lg">
+                  ⚡ LIMITED TIME ⚡
+                </span>
+              </div>
+            </div>
+            
+
+
+            {/* Countdown Timer - Compact */}
+          
+            
+            {/* See More Button */}
+            <Link
+              to={`/showroom/${showroomID}`}
+              className="flex items-center gap-1 bg-white text-red-600 hover:bg-red-50 px-3 py-1.5 md:px-4 md:py-2 rounded-full font-bold text-xs md:text-sm transition-all duration-300 hover:scale-105 shadow-lg whitespace-nowrap flex-shrink-0"
+            >
+              <span>See More</span>
+              <svg className="w-3 h-3 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
         </div>
 
-        <div className="relative mt-6">
+        {/* Products Carousel */}
+        <div className="relative mt-4">
           {showLeftArrow && (
             <button
               onClick={() => scroll("left")}
-              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white border border-gray-300 shadow p-2 rounded-full hover:bg-gray-50 transition-colors"
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white border border-gray-300 shadow-lg p-2 rounded-full hover:bg-red-50 hover:border-red-300 transition-all hover:scale-110"
             >
-              <svg className="h-4 w-4 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <svg className="h-4 w-4 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
@@ -270,16 +279,16 @@ const Deals = () => {
             ref={scrollRef}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            className="flex gap-4 overflow-x-auto no-scrollbar scroll-smooth px-4"
+            className="flex gap-3 md:gap-4 overflow-x-auto no-scrollbar scroll-smooth px-1"
           >
             {(loading ? [...Array(10)] : productsByShowroom?.[showroomID])?.map((product, idx) => {
               if (loading) {
                 return (
-                  <Card key={idx} className="min-w-[200px] w-[200px] animate-pulse shadow mb-2">
-                    <div className="h-40 bg-gray-300" />
-                    <CardBody>
-                      <div className="h-4 bg-gray-300 rounded w-3/4 mb-2" />
-                      <div className="h-3 bg-gray-200 rounded w-1/2 mb-1" />
+                  <Card key={idx} className="min-w-[160px] md:min-w-[200px] w-[160px] md:w-[200px] animate-pulse shadow mb-2">
+                    <div className="h-32 md:h-40 bg-gray-300" />
+                    <CardBody className="p-2">
+                      <div className="h-3 bg-gray-300 rounded w-3/4 mb-2" />
+                      <div className="h-2 bg-gray-200 rounded w-1/2" />
                     </CardBody>
                   </Card>
                 );
@@ -295,109 +304,115 @@ const Deals = () => {
               } = product;
 
               const isOnSale = oldPrice > 0 && oldPrice > price;
+              const discountPercent = isOnSale ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0;
               const inWishlist = isInWishlist(productID);
 
               return (
                 <div
                   key={productID}
-                  className="group mb-2 rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden min-w-[180px] md:min-w-[240px] w-[250px]"
+                  className="group mb-2 rounded-xl shadow-md hover:shadow-2xl transition-all duration-300 overflow-hidden min-w-[160px] md:min-w-[220px] w-[160px] md:w-[220px] border-2 border-transparent hover:border-red-400"
                 >
                   <div className="relative overflow-hidden">
                     {stock === 0 ? (
-                      <span className="absolute top-2 left-2 bg-gray-800 text-white text-xs px-2 py-0.5 rounded-full z-10">
+                      <span className="absolute top-2 left-2 bg-gray-800 text-white text-[10px] md:text-xs px-2 py-0.5 rounded-full z-10 font-bold">
                         SOLD OUT
                       </span>
                     ) : isOnSale ? (
-                      <span className="absolute top-2 left-2 bg-red-600 text-white text-xs font-semibold w-10 h-10 rounded-full z-10 flex items-center justify-center">
-                        SALE
-                      </span>
+                      <div className="absolute top-2 left-2 z-10">
+                        <div className="bg-gradient-to-br from-red-500 to-red-700 text-white text-xs md:text-sm font-black w-12 h-12 md:w-14 md:h-14 rounded-full flex flex-col items-center justify-center shadow-lg animate-bounce-slow">
+                          <span className="text-[10px] md:text-xs">SAVE</span>
+                          <span className="text-sm md:text-base">{discountPercent}%</span>
+                        </div>
+                      </div>
                     ) : null}
 
                     <div
-                      className="h-40 w-full flex items-center justify-center cursor-pointer transition-transform duration-300"
+                      className="h-32 md:h-40 w-full flex items-center justify-center cursor-pointer transition-transform duration-300 p-2"
                       onClick={() => navigate(`/product/${productID}`)}
                     >
                       <img
                         src={getValidImageUrl(productImage)}
                         alt={productName}
-                        className="h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                        className="h-full object-contain transition-transform duration-300 group-hover:scale-110"
                       />
                     </div>
 
-                                   <div
-                                              className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20 transition-all cursor-pointer"
-                                              onClick={() => navigate(`/product/${product.productID}`)}
-                                            >
-                                              {/* Wishlist Icon */}
-                                              <Tooltip content={inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}>
-                                                <button
-                                                  className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleWishlistToggle(product);
-                                                  }}
-                                                >
-                                                  {inWishlist ? (
-                                                    <SolidHeartIcon className="w-5 h-5 text-red-500" />
-                                                  ) : (
-                                                    <OutlineHeartIcon className="w-5 h-5 text-white hover:text-red-400" />
-                                                  )}
-                                                </button>
-                                              </Tooltip>
-                                            
-                                              {/* View Details */}
-                                              <Tooltip content="View Details">
-                                                <button
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    navigate(`/product/${product.productID}`);
-                                                  }}
-                                                  className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-                                                >
-                                                  <EyeIcon className="w-5 h-5 text-white hover:text-green-400" />
-                                                </button>
-                                              </Tooltip>
-                                            
-                                              {/* Add to Cart */}
-                                              <Tooltip content={product.stock === 0 ? "Out of Stock" : "Add to Cart"}>
-                                                <button
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleAddToCart(product);
-                                                  }}
-                                                  className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                  disabled={cartLoading || product.stock === 0}
-                                                >
-                                                  <ShoppingCartIcon className="w-5 h-5 text-white hover:text-red-400" />
-                                                </button>
-                                              </Tooltip>
-                                            </div>
+                    <div
+                      className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-2 bg-gradient-to-t from-black/60 to-black/20 z-20 transition-all cursor-pointer"
+                      onClick={() => navigate(`/product/${product.productID}`)}
+                    >
+                      <Tooltip content={inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}>
+                        <button
+                          className="p-2 bg-white/90 hover:bg-white rounded-full transition-all hover:scale-110 shadow-lg"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleWishlistToggle(product);
+                          }}
+                        >
+                          {inWishlist ? (
+                            <SolidHeartIcon className="w-4 h-4 md:w-5 md:h-5 text-red-500" />
+                          ) : (
+                            <OutlineHeartIcon className="w-4 h-4 md:w-5 md:h-5 text-gray-700" />
+                          )}
+                        </button>
+                      </Tooltip>
+
+                      <Tooltip content="View Details">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/product/${product.productID}`);
+                          }}
+                          className="p-2 bg-white/90 hover:bg-white rounded-full transition-all hover:scale-110 shadow-lg"
+                        >
+                          <EyeIcon className="w-4 h-4 md:w-5 md:h-5 text-green-600" />
+                        </button>
+                      </Tooltip>
+
+                      <Tooltip content={product.stock === 0 ? "Out of Stock" : "Add to Cart"}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAddToCart(product);
+                          }}
+                          className="p-2 bg-white/90 hover:bg-white rounded-full transition-all hover:scale-110 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={cartLoading || product.stock === 0}
+                        >
+                          <ShoppingCartIcon className="w-4 h-4 md:w-5 md:h-5 text-red-600" />
+                        </button>
+                      </Tooltip>
+                    </div>
                   </div>
 
-                  <div className="p-1 md:p-2 text-center space-y-1">
-                    <h3 className="text-sm font-medium text-gray-800 line-clamp-2">{productName}</h3>
-                    <div className="flex flex-col md:flex-row items-center justify-center gap-1 mt-1">
-
-            <span className="text-red-500 font-medium text-sm">{formatPrice(price)}</span>
-            {oldPrice > 0 && (
-              <span className="text-xs line-through text-gray-400">
-                {formatPrice(oldPrice)}
-              </span>
-            )}
-          </div>
+                  <div className="p-2 md:p-3 text-center space-y-1 bg-white">
+                    <h3 className="text-xs md:text-sm font-semibold text-gray-800 line-clamp-2 min-h-[32px] md:min-h-[40px]">
+                      {productName}
+                    </h3>
+                    <div className="flex flex-col items-center justify-center gap-0.5 pt-1">
+                      <span className="text-red-600 font-black text-base md:text-lg">
+                        {formatPrice(price)}
+                      </span>
+                      {oldPrice > 0 && (
+                        <span className="text-xs line-through text-gray-400">
+                          {formatPrice(oldPrice)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
             })}
 
             {!loading && (
-              <div className="min-w-[150px] w-[200px] flex items-center justify-center">
+              <div className="min-w-[120px] md:min-w-[150px] w-[120px] md:w-[150px] flex items-center justify-center">
                 <Link
                   to={`/showroom/${showroomID}`}
-                  className="flex items-center gap-1 text-red-500 hover:text-red-600 transition-colors"
+                  className="flex flex-col items-center gap-2 text-red-500 hover:text-red-600 transition-all group hover:scale-105"
                 >
-                  <span className="text-sm font-medium">View All</span>
-                  <ArrowRightIcon className="w-5 h-5" />
+                  <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-red-50 flex items-center justify-center group-hover:bg-red-100 transition-colors">
+                    <ArrowRightIcon className="w-8 h-8 md:w-10 md:h-10 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                  <span className="text-xs md:text-sm font-bold">View All Deals</span>
                 </Link>
               </div>
             )}
@@ -406,9 +421,9 @@ const Deals = () => {
           {showRightArrow && (
             <button
               onClick={() => scroll("right")}
-              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white border border-gray-300 shadow p-2 rounded-full hover:bg-gray-50 transition-colors"
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white border border-gray-300 shadow-lg p-2 rounded-full hover:bg-red-50 hover:border-red-300 transition-all hover:scale-110"
             >
-              <svg className="h-4 w-4 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <svg className="h-4 w-4 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg> 
             </button>
@@ -427,8 +442,99 @@ const Deals = () => {
             opacity: 1;
           }
         }
+        
+        @keyframes shimmer {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(100%);
+          }
+        }
+        
+        @keyframes bounce-slow {
+          0%, 100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-8px);
+          }
+        }
+        
+        @keyframes pulse-slow {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.8;
+          }
+        }
+        
+        @keyframes pulse-fast {
+          0%, 100% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.2);
+          }
+        }
+        
+        @keyframes blink {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.3;
+          }
+        }
+        
+        @keyframes wiggle {
+          0%, 100% {
+            transform: rotate(0deg);
+          }
+          25% {
+            transform: rotate(-3deg);
+          }
+          75% {
+            transform: rotate(3deg);
+          }
+        }
+        
         .animate-slide-in {
           animation: slide-in 0.3s ease-out;
+        }
+        
+        .animate-shimmer {
+          animation: shimmer 3s infinite;
+        }
+        
+        .animate-bounce-slow {
+          animation: bounce-slow 2s infinite;
+        }
+        
+        .animate-pulse-slow {
+          animation: pulse-slow 2s infinite;
+        }
+        
+        .animate-pulse-fast {
+          animation: pulse-fast 1s infinite;
+        }
+        
+        .animate-blink {
+          animation: blink 1s infinite;
+        }
+        
+        .animate-wiggle {
+          animation: wiggle 1.5s ease-in-out infinite;
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
       `}</style>
     </>

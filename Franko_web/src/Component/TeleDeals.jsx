@@ -72,8 +72,10 @@ const TeleDeals = () => {
   const categoryId = "b51e02c2-540a-484a-9307-392fac7b50ed"
   const { productsByCategory = {}, loading } = useSelector((state) => state.products);
   const { addProductToCart, loading: cartLoading } = useAddToCart();
-  const wishlist = useSelector((state) => state.wishlist.items);
-  const isInWishlist = (id) => wishlist.some((item) => item.id === id);
+  const wishlist = useSelector((state) => state.wishlist.items || []);
+const isInWishlist = (id) =>
+  Array.isArray(wishlist) && wishlist.some((item) => item.id === id);
+
   const [currentPage, setCurrentPage] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const intervalRef = useRef(null);
