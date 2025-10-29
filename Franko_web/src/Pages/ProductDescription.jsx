@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
 import { Image } from "antd";
@@ -37,6 +37,10 @@ const ProductDescription = () => {
   const [updatingQuantity, setUpdatingQuantity] = useState({});
   const [removingItem, setRemovingItem] = useState({});
 
+  // Refs for scroll detection
+  const productSectionRef = useRef(null);
+  const stickyHeaderRef = useRef(null);
+
   // Redux selectors
   const { currentProduct, products, loading } = useSelector((state) => state.products);
   const { cart, loading: cartLoadingState, error: cartError, cartId } = useSelector((state) => state.cart);
@@ -58,57 +62,13 @@ const ProductDescription = () => {
     dispatch(fetchProductById(productID));
   }, [dispatch, productID]);
 
-useEffect(() => {
-  if (currentProduct?.length > 0) {
-    const prod = currentProduct[0];
-    const image = `https://smfteapi.salesmate.app/Media/Products_Images/${prod.productImage
-      .split("\\")
-      .pop()}`;
-
-    const viewedItem = {
-      id: prod.productID,
-      name: prod.productName,
-      price: prod.price,
-      image,
-    };
-
-    // ✅ Safely get decrypted data (thanks to your monkey patch)
-    const stored = localStorage.getItem("viewedProducts") || [];
-    const parsed = Array.isArray(stored) ? stored : [];
-
-    // ✅ Update viewed products (avoid duplicates)
-    const updated = [
-      viewedItem,
-      ...parsed.filter((item) => item.id !== viewedItem.id),
-    ].slice(0, 4);
-
-    // ✅ Store securely — encryption happens automatically
-    localStorage.setItem("viewedProducts", JSON.stringify(updated));
-
-    setViewedProducts(updated);
-  }
-}, [currentProduct]);
-
-  // Simple and reliable sticky header implementation
-  useEffect(() => {
-    const handleScroll = () => {
-      if (window.scrollY > 500) {
-        setShowStickyHeader(true);
-      } else {
-        setShowStickyHeader(false);
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
   useEffect(() => {
     if (currentProduct?.length > 0) {
       const prod = currentProduct[0];
       const image = `https://smfteapi.salesmate.app/Media/Products_Images/${prod.productImage
         .split("\\")
         .pop()}`;
+
       const viewedItem = {
         id: prod.productID,
         name: prod.productName,
@@ -116,16 +76,101 @@ useEffect(() => {
         image,
       };
 
-      const stored =(localStorage.getItem("viewedProducts")) || [];
+    const stored = localStorage.getItem("viewedProducts") || [];
+const parsed = Array.isArray(stored) ? stored : [];
+
+
       const updated = [
         viewedItem,
-        ...stored.filter((item) => item.id !== viewedItem.id),
+        ...parsed.filter((item) => item.id !== viewedItem.id),
       ].slice(0, 4);
 
-      localStorage.setItem("viewedProducts", (updated));
+      localStorage.setItem("viewedProducts", JSON.stringify(updated));
       setViewedProducts(updated);
     }
   }, [currentProduct]);
+
+  // Fixed scroll detection with proper navbar detection
+// IMPROVED: More reliable scroll detection
+useEffect(() => {
+  const handleScroll = () => {
+    // Method 1: Try to detect navbar with multiple selectors
+    const navbarSelectors = [
+      'nav',
+      'header',
+      '[role="navigation"]',
+      '.navbar',
+      '.header',
+      '.app-header',
+      '.main-header',
+      '[data-testid="navbar"]',
+      '#navbar'
+    ];
+    
+    let navbarHeight = 200; // Default fallback
+    
+    // Try to find the navbar
+    for (const selector of navbarSelectors) {
+      const element = document.querySelector(selector);
+      if (element && element.offsetHeight > 0) {
+        navbarHeight = element.offsetHeight;
+        console.log(`Found navbar with selector: ${selector}, height: ${navbarHeight}px`);
+        break;
+      }
+    }
+
+    // Method 2: Alternative approach - detect when product section enters viewport
+    const productSection = document.getElementById('product-details-section');
+    if (productSection) {
+      const rect = productSection.getBoundingClientRect();
+      // Show sticky header when product section starts moving out of viewport
+      if (rect.top < navbarHeight) {
+        setShowStickyHeader(true);
+      } else {
+        setShowStickyHeader(false);
+      }
+    } else {
+      // Fallback: simple scroll threshold
+      if (window.scrollY > navbarHeight) {
+        setShowStickyHeader(true);
+      } else {
+        setShowStickyHeader(false);
+      }
+    }
+  };
+
+  // Add a small delay to ensure DOM is fully rendered
+  const init = () => {
+    setTimeout(() => {
+      handleScroll();
+      console.log('Sticky header scroll detection initialized');
+    }, 100);
+  };
+
+  init();
+
+  // Throttled scroll listener
+  let ticking = false;
+  const throttledScroll = () => {
+    if (!ticking) {
+      requestAnimationFrame(() => {
+        handleScroll();
+        ticking = false;
+      });
+      ticking = true;
+    }
+  };
+
+  window.addEventListener('scroll', throttledScroll, { passive: true });
+  
+  // Also handle resize in case navbar height changes
+  window.addEventListener('resize', throttledScroll, { passive: true });
+  
+  return () => {
+    window.removeEventListener('scroll', throttledScroll);
+    window.removeEventListener('resize', throttledScroll);
+  };
+}, []);
 
   // Enhanced out-of-stock checker function
   const isOutOfStock = (product) => {
@@ -237,7 +282,7 @@ useEffect(() => {
   };
 
   const handleCheckout = () => {
-    const storedCustomer = (localStorage.getItem("customer"));
+    const storedCustomer = localStorage.getItem("customer");
 
     if (!storedCustomer) {
       setCartSidebarOpen(false);
@@ -259,7 +304,7 @@ useEffect(() => {
       }))
     });
     
-    localStorage.setItem("selectedCart", (cart));
+    localStorage.setItem("selectedCart", JSON.stringify(cart));
     navigate("/checkout");
   };
 
@@ -332,7 +377,7 @@ useEffect(() => {
     setAuthModalOpen(false);
     
     if (cart && cart.length > 0) {
-      localStorage.setItem("selectedCart", (cart));
+      localStorage.setItem("selectedCart", JSON.stringify(cart));
     }
     
     window.dataLayer = window.dataLayer || [];
@@ -370,7 +415,7 @@ useEffect(() => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-10">
-       <Helmet>
+      <Helmet>
         <title>{`${product?.productName || "Product"} - Best Price`}</title>
         <meta name="description" content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}. High-quality and best prices available.`} />
         <meta property="og:title" content={product?.productName || "Product"} />
@@ -393,79 +438,67 @@ useEffect(() => {
             "@type": "Brand",
             "name": product.brandName
           },
-         "offers": {
-  "@type": "Offer",
-  "priceCurrency": "GHS",
-  "price": product.price,
-  "priceValidUntil": "2025-12-31",
-  "itemCondition": "https://schema.org/NewCondition",
-  "availability": "https://schema.org/InStock",
-  "url": `https://www.frankotrading.com/product/${product.productID}`,
-  "seller": {
-    "@type": "Organization",
-    "name": "Franko Trading"
-  },
-  "shippingDetails": {
-    "@type": "OfferShippingDetails",
-    "shippingRate": {
-      "@type": "MonetaryAmount",
-      "currency": "GHS",
-      "value": "40.00"
-    },
-    "shippingDestination": {
-      "@type": "DefinedRegion",
-      "addressCountry": "GH"
-    },
-    "deliveryTime": {
-      "@type": "ShippingDeliveryTime",
-      "handlingTime": {
-        "@type": "QuantitativeValue",
-        "minValue": 1,
-        "maxValue": 2,
-        "unitCode": "DAY"
-      },
-      "transitTime": {
-        "@type": "QuantitativeValue",
-        "minValue": 3,
-        "maxValue": 5,
-        "unitCode": "DAY"
-      }
-    }
-  },
-  "hasMerchantReturnPolicy": {
-    "@type": "MerchantReturnPolicy",
-    "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
-    "merchantReturnDays": 7,
-    "returnMethod": "https://schema.org/ReturnByMail",
-    "returnFees": "https://schema.org/FreeReturn",
-    "applicableCountry": "GH"
-  }
-}
-
+          "offers": {
+            "@type": "Offer",
+            "priceCurrency": "GHS",
+            "price": product.price,
+            "priceValidUntil": "2025-12-31",
+            "itemCondition": "https://schema.org/NewCondition",
+            "availability": "https://schema.org/InStock",
+            "url": `https://www.frankotrading.com/product/${product.productID}`,
+            "seller": {
+              "@type": "Organization",
+              "name": "Franko Trading"
+            },
+            "shippingDetails": {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "currency": "GHS",
+                "value": "40.00"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "GH"
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 2,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 3,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            },
+            "hasMerchantReturnPolicy": {
+              "@type": "MerchantReturnPolicy",
+              "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+              "merchantReturnDays": 7,
+              "returnMethod": "https://schema.org/ReturnByMail",
+              "returnFees": "https://schema.org/FreeReturn",
+              "applicableCountry": "GH"
+            }
+          }
         })}
       </script>
 
-
-      {/* Sticky Header - Simplified with inline styles for reliability */}
+      {/* Fixed Sticky Header */}
       <div 
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 9999,
-          transform: showStickyHeader ? 'translateY(0)' : 'translateY(-100%)',
-          opacity: showStickyHeader ? 1 : 0,
-          transition: 'transform 0.3s ease-in-out, opacity 0.3s ease-in-out',
-          backgroundColor: 'white',
-          borderBottom: '1px solid #e5e7eb',
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-          pointerEvents: showStickyHeader ? 'auto' : 'none'
-        }}
-        className="hidden md:block"
+        ref={stickyHeaderRef}
+        className={`fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-lg transition-all duration-300 ${
+          showStickyHeader ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
+        } hidden md:block`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-3 gap-4">
+            {/* Product Image and Info */}
             <div className="flex items-center gap-4 flex-1 min-w-0">
               <div className="flex-shrink-0">
                 <img
@@ -508,6 +541,7 @@ useEffect(() => {
               </div>
             </div>
             
+            {/* Add to Cart Button and Cart Icon */}
             <div className="flex items-center gap-3 flex-shrink-0">
               <Button
                 size="sm"
@@ -524,17 +558,17 @@ useEffect(() => {
                 {isCartButtonLoading ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span className="hidden lg:inline text-sm">Adding...</span>
+                    <span>Adding...</span>
                   </>
                 ) : outOfStock ? (
                   <>
                     <ExclamationTriangleIcon className="w-4 h-4" />
-                    <span className="hidden lg:inline text-sm">Out of Stock</span>
+                    <span>Out of Stock</span>
                   </>
                 ) : (
                   <>
                     <ShoppingCartIcon className="w-4 h-4" />
-                    <span className="hidden lg:inline text-sm">Add to Cart</span>
+                    <span>Add to Cart</span>
                   </>
                 )}
               </Button>
@@ -557,7 +591,7 @@ useEffect(() => {
       </div>
 
       {/* Main Product Details Section */}
-      <div id="product-details-section" className="grid lg:grid-cols-2 gap-12">
+      <div id="product-details-section" ref={productSectionRef} className="grid lg:grid-cols-2 gap-12 pt-4">
         <div className="flex justify-center items-start">
           <Image.PreviewGroup>
             <Image
@@ -686,7 +720,8 @@ useEffect(() => {
               </Button>
             </div>
 
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 shadow-xl z-50 flex items-center justify-between md:hidden">
+            {/* Mobile bottom cart button */}
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 shadow-xl z-40 flex items-center justify-between md:hidden">
               <div className="flex gap-2 w-full">
                 <Button
                   variant="outlined"
@@ -721,6 +756,7 @@ useEffect(() => {
         </div>
       </div>
 
+      {/* Rest of the component remains the same */}
       {/* Service Features */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-sm text-gray-700 mt-2 md:mt-6">
         {[
@@ -852,7 +888,7 @@ useEffect(() => {
         </section>
       )}
 
-      {/* FIXED: Cart Sidebar with improved functionality */}
+      {/* Cart Sidebar */}
       <Drawer
         placement="right"
         open={cartSidebarOpen}

@@ -8,27 +8,22 @@ const BRAND_COLORS = {
   black: '#1A202C',
   gray: '#2D3748',
   white: '#FFFFFF',
-  lightGray: '#F7FAFC',
-  mediumGray: '#E2E8F0',
   orange: '#ED8936',
-  darkOrange: '#DD6B20',
-  purple: '#9B2C7D',
-  darkPurple: '#7A1F63',
-  magenta: '#B83280',
   yellow: '#F6E05E',
 };
 
 const promoMessages = [
-  "🚚 FREE DELIVERY WITHIN ACCRA & KUMASI!",
-  "🎯 ON ALL PRODUCTS PURCHASED ONLINE",
-  "💰 SAVE MORE WITH FREE DELIVERY!",
-  "🛒 START SHOPPING NOW!",
+  "FREE DELIVERY WITHIN ACCRA & KUMASI",
+  "ON ALL PRODUCTS PURCHASED ONLINE",
+  "SAVE MORE WITH FREE DELIVERY",
 ];
 
 const AnnouncementBar = () => {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(true);
-  const [bagBounce, setBagBounce] = useState(false);
+  const [showLeftElement, setShowLeftElement] = useState(false);
+  const [showRightElement, setShowRightElement] = useState(false);
+  const [showTopElement, setShowTopElement] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -38,19 +33,22 @@ const AnnouncementBar = () => {
         setIsAnimating(true);
       }, 300);
     }, 2500);
-
     return () => clearInterval(interval);
   }, []);
 
-  // Bounce animation for shopping bag
   useEffect(() => {
-    const bounceInterval = setInterval(() => {
-      setBagBounce(true);
-      setTimeout(() => setBagBounce(false), 500);
-    }, 2000);
-
-    return () => clearInterval(bounceInterval);
+    setTimeout(() => setShowLeftElement(true), 100);
+    setTimeout(() => setShowRightElement(true), 300);
+    setTimeout(() => setShowTopElement(true), 500);
   }, []);
+
+  const ShoppingCartIcon = ({ size = 16 }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="9" cy="21" r="1"/>
+      <circle cx="20" cy="21" r="1"/>
+      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+    </svg>
+  );
 
   const PhoneIcon = () => (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
@@ -64,90 +62,154 @@ const AnnouncementBar = () => {
     </svg>
   );
 
-  const ShoppingBagIcon = ({ animate }) => (
-    <svg 
-      width="20" 
-      height="20" 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2.5"
-      className={animate ? 'bag-bounce' : ''}
-    >
-      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-      <line x1="3" y1="6" x2="21" y2="6"/>
-      <path d="M16 10a4 4 0 0 1-8 0"/>
+  const FireIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2c1.5 3 4 5 6 6 0 3-2 5-4 6 1 1 2 2 2 4 0 3-2.5 6-6 6s-6-3-6-6c0-2 1-3 2-4-2-1-4-3-4-6 2-1 4.5-3 6-6 0 3 1 4 2 5 1-1 2-2 2-5z"/>
+    </svg>
+  );
+
+  const TagIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+      <line x1="7" y1="7" x2="7.01" y2="7"/>
     </svg>
   );
 
   return (
     <>
-      {/* Desktop Layout - Ultra Compact */}
-      <div className="hidden md:flex text-white px-2 py-1 items-center gap-2 shadow-md text-sm" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.green} 0%, ${BRAND_COLORS.darkGreen} 100%)` }}>
+      {/* Desktop Layout */}
+      <div className="hidden md:flex text-white px-2 py-0.5 items-center gap-2 shadow-md text-sm" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.green} 0%, ${BRAND_COLORS.darkGreen} 100%)` }}>
         
-        {/* Shop Online Badge - Compact */}
-        <div className="flex-shrink-0">
+        {/* Pre Black Friday Section - Compact Horizontal */}
+        <div 
+          className={`flex-[2] transition-all duration-700 ${showLeftElement ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'}`}
+        >
           <div 
-            className="relative rounded-lg overflow-hidden px-4 py-1 transition-all duration-300 hover:scale-105" 
+            className="relative rounded-lg overflow-hidden px-3 py-1.5 transition-all duration-300 hover:scale-[1.02]" 
             style={{ 
-              background: `linear-gradient(135deg, ${BRAND_COLORS.red} 0%, ${BRAND_COLORS.darkRed} 100%)`,
+              background: `linear-gradient(135deg, ${BRAND_COLORS.black} 80%, ${BRAND_COLORS.gray} 50%, ${BRAND_COLORS.darkRed} 100%)`,
+              boxShadow: '0 0 20px rgba(229, 62, 62, 0.6)'
             }}
           >
-            {/* Shimmer effect overlay */}
+            {/* Shimmer effect */}
             <div 
-              className="absolute inset-0 opacity-30 pointer-events-none"
+              className="absolute inset-0 opacity-40 pointer-events-none"
               style={{
-                background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent)',
+                background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent)',
                 animation: 'shimmer 2s infinite'
               }}
             />
             
-            {/* Animated background pulse */}
+            {/* Pulsing glow */}
             <div 
               className="absolute inset-0 pointer-events-none"
               style={{
-                background: `radial-gradient(circle, ${BRAND_COLORS.darkRed} 0%, transparent 70%)`,
-                animation: 'backgroundPulse 2s ease-in-out infinite'
+                background: `radial-gradient(circle, ${BRAND_COLORS.red} 0%, transparent 70%)`,
+                animation: 'glow 2s ease-in-out infinite'
               }}
             />
             
-            <div className="flex items-center gap-2 relative z-10">
-              <ShoppingBagIcon animate={bagBounce} />
-              <span 
-                className="text-white font-bold text-base"
-                style={{ 
-                  animation: 'slideIn 0.8s ease-out',
-                  textShadow: '1px 1px 3px rgba(0, 0, 0, 0.3)'
-                }}
+            <div className="flex items-center justify-between gap-2 relative z-10">
+              {/* Fire icon */}
+              <div 
+                className={`transition-all duration-700 delay-200 ${showLeftElement ? 'translate-x-0 opacity-100' : '-translate-x-20 opacity-0'}`}
+                style={{ color: BRAND_COLORS.orange }}
               >
-                SHOP ONLINE
-              </span>
-              <span className="text-yellow-300 font-extrabold text-base" style={{ animation: 'pulse 2s infinite, colorShift 3s infinite' }}>
-                & SAVE BIG
-              </span>
+                <div style={{ animation: 'flicker 1.5s infinite' }}>
+                  <ShoppingCartIcon/>
+                </div>
+              </div>
+              
+              {/* Compact content */}
+              <div 
+                className={`flex items-center gap-3 flex-1 transition-all duration-700 delay-400 ${showTopElement ? 'translate-y-0 opacity-100' : '-translate-y-20 opacity-0'}`}
+              >
+                <div className="text-center">
+                  <div 
+                    className="text-yellow-300 font-bold text-xs leading-tight"
+                    style={{ 
+                      animation: 'pulse 2s infinite',
+                      textShadow: '0 0 10px rgba(252, 211, 77, 0.8)'
+                    }}
+                  >
+                    PRE BLACK FRIDAY
+                  </div>
+                  <div 
+                    className="text-white font-extrabold text-lg leading-tight"
+                    style={{ 
+                      animation: 'textGlow 2s infinite, wiggle 3s infinite',
+                      textShadow: '2px 2px 8px rgba(0, 0, 0, 0.8), 0 0 20px rgba(229, 62, 62, 0.8)'
+                    }}
+                  >
+                    VOUCHER PROMO
+                  </div>
+                </div>
+                
+                <div className="h-8 w-px bg-white opacity-30"></div>
+                
+                <div className="flex items-center gap-2">
+                  <div className="text-center">
+                    <div 
+                      className="text-yellow-200 font-semibold text-xs"
+                      style={{ 
+                        animation: 'slideInLeft 1s infinite',
+                        textShadow: '1px 1px 4px rgba(0, 0, 0, 0.6)'
+                      }}
+                    >
+                      ONLINE ONLY
+                    </div>
+                    <div className="text-gray-300 text-xs">30 OCT - 10 NOV</div>
+                  </div>
+                  
+                  <button 
+                    className="flex items-center gap-1 px-3 py-1 rounded-md font-bold text-xs transition-all duration-200 hover:scale-105 active:scale-95"
+                    style={{ 
+                      background: `linear-gradient(135deg, ${BRAND_COLORS.green} 0%, ${BRAND_COLORS.darkGreen} 100%)`,
+                      boxShadow: '0 2px 8px rgba(56, 161, 105, 0.4)',
+                      animation: 'bounce 1.5s infinite'
+                    }}
+                  >
+                    <ShoppingCartIcon size={14} />
+                    SHOP NOW
+                  </button>
+                </div>
+              </div>
+              
+              {/* Tag icon */}
+              <div 
+                className={`transition-all duration-700 delay-200 ${showRightElement ? 'translate-x-0 opacity-100' : 'translate-x-20 opacity-0'}`}
+                style={{ color: BRAND_COLORS.yellow }}
+              >
+                <div style={{ animation: 'swing 2s infinite' }}>
+                  <TagIcon />
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Main Promo Animation Section - Compact */}
-        <div className="flex-1 relative h-7 overflow-hidden rounded-lg" style={{ background: `linear-gradient(135deg, #68D391 0%, #38A169 100%)` }}>
+        {/* Free Delivery Promo */}
+        <div 
+          className={`flex-[1] relative h-9 overflow-hidden rounded-lg transition-all duration-700 delay-300 ${showRightElement ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}
+          style={{ background: `linear-gradient(135deg, #68D391 0%, #38A169 100%)` }}
+        >
           <div className="absolute inset-0 flex items-center justify-center px-2">
-            <div
-              className={`transform transition-all duration-300 ${
-                isAnimating ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0'
-              }`}
-            >
-              <div className="font-semibold text-center" style={{ textShadow: '3px 4px 7px rgba(0, 0, 0, 0.5)' }}>
+            <div className={`transform transition-all duration-300 ${isAnimating ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0'}`}>
+              <div className="font-semibold text-center text-xs flex items-center gap-1" style={{ textShadow: '2px 2px 6px rgba(0, 0, 0, 0.5)' }}>
+                <ShoppingCartIcon size={14} />
                 {promoMessages[currentMessageIndex]}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Contact Section - Compact */}
-        <div className="flex-shrink-0 rounded backdrop-blur-sm px-2 py-1" style={{ backgroundColor: 'rgba(255, 255, 255, 0.15)' }}>
-          <div className="text-white font-semibold text-xs mb-0.5 text-center">Need Help? Contact Us</div>
-          <div className="flex items-center gap-2">
+        {/* Contact Section */}
+        <div 
+          className={`flex-shrink-0 rounded backdrop-blur-sm px-2 py-1 transition-all duration-700 delay-500 ${showRightElement ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}
+          style={{ backgroundColor: 'rgba(255, 255, 255, 0.15)' }}
+        >
+          <div className="text-white font-semibold text-xs mb-0.5 text-center">Need Help?</div>
+          <div className="flex items-center gap-1.5">
             <a
               href="tel:+233302225651"
               className="flex items-center text-white transition-all duration-200 hover:scale-105 rounded px-1.5 py-0.5"
@@ -171,55 +233,118 @@ const AnnouncementBar = () => {
         </div>
       </div>
 
-      {/* Mobile Layout - Ultra Compact */}
-      <div className="md:hidden text-white py-1 px-1 shadow-md text-xs" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.green} 0%, ${BRAND_COLORS.darkGreen} 100%)` }}>
+      {/* Mobile Layout */}
+      <div className="md:hidden text-white px-2 shadow-md text-xs" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.green} 0%, ${BRAND_COLORS.darkGreen} 100%)` }}>
         
-        {/* Top Row: Shop Badge + Promo Message */}
-        <div className="flex items-center gap-1.5 mb-1">
-          {/* Shop Online Badge */}
+        {/* Pre Black Friday Section - Compact */}
+        <div 
+          className={`mb-1.5 transition-all duration-700 ${showTopElement ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}
+        >
           <div 
-            className="flex-shrink-0 rounded-md overflow-hidden px-2 py-1 transition-all duration-300" 
+            className="rounded-lg overflow-hidden px-2 relative" 
             style={{ 
-              background: `linear-gradient(135deg, ${BRAND_COLORS.red} 0%, ${BRAND_COLORS.darkRed} 100%)`,
+              background: `linear-gradient(135deg, ${BRAND_COLORS.black} 0%, ${BRAND_COLORS.gray} 50%, ${BRAND_COLORS.darkRed} 100%)`,
+              boxShadow: '0 0 15px rgba(229, 62, 62, 0.6)'
             }}
           >
-         
+            {/* Shimmer effect */}
+            <div 
+              className="absolute inset-0 opacity-40 pointer-events-none"
+              style={{
+                background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent)',
+                animation: 'shimmer 2s infinite'
+              }}
+            />
             
-            <div className="flex items-center gap-1 relative z-10">
-              <div style={{ transform: 'scale(0.8)' }}>
-                <ShoppingBagIcon animate={bagBounce} />
+            {/* Pulsing glow */}
+            <div 
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background: `radial-gradient(circle, ${BRAND_COLORS.red} 0%, transparent 70%)`,
+                animation: 'glow 2s ease-in-out infinite'
+              }}
+            />
+            
+            <div className="flex items-center justify-between gap-2 relative z-10">
+              <div style={{ color: BRAND_COLORS.orange, animation: 'flicker 1.5s infinite' }}>
+                <ShoppingCartIcon/>
               </div>
-              <span 
-                className="text-white font-bold text-xs whitespace-nowrap"
-                style={{ 
-                  animation: 'slideIn 0.8s ease-out, colorShift 3s infinite',
-                  textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)'
-                }}
-              >
-                SHOP & SAVE BIG
-              </span>
-            </div>
-          </div>
-
-          {/* Promo Animation */}
-          <div className="flex-1 relative h-6 overflow-hidden rounded-md py-4" style={{ background: `linear-gradient(135deg, #68D391 0%, #38A169 100%)` }}>
-            <div className="absolute inset-0 flex items-center justify-center px-1">
-              <div
-                className={`transform transition-all duration-300 ${
-                  isAnimating ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0'
-                }`}
-              >
-                <div className="font-semibold text-center text-xs leading-tight" style={{ textShadow: '3px 3px 5px rgba(0, 0, 0, 0.5)' }}>
-                  {promoMessages[currentMessageIndex]}
+              
+              <div className="flex-1 flex items-center justify-between gap-2">
+                <div className="text-center">
+                  <div 
+                    className="text-yellow-300 font-bold text-xs leading-tight"
+                    style={{ 
+                      animation: 'pulse 2s infinite',
+                      textShadow: '0 0 8px rgba(252, 211, 77, 0.8)'
+                    }}
+                  >
+                    PRE BLACK FRIDAY
+                  </div>
+                  <div 
+                    className="text-white font-extrabold text-sm leading-tight"
+                    style={{ 
+                      animation: 'textGlow 2s infinite, wiggle 3s infinite',
+                      textShadow: '2px 2px 6px rgba(0, 0, 0, 0.8), 0 0 15px rgba(229, 62, 62, 0.8)'
+                    }}
+                  >
+                    VOUCHER PROMO
+                  </div>
+                  <div className="text-gray-300 text-xs mt-0.5">30 OCT - 10 NOV</div>
                 </div>
+                
+                <div>
+                  <div 
+                    className="text-yellow-200 font-semibold text-xs mb-1 text-center"
+                    style={{ 
+                      animation: 'slideInLeft 1s infinite',
+                      textShadow: '1px 1px 3px rgba(0, 0, 0, 0.6)'
+                    }}
+                  >
+                    ONLINE PURCHASE ONLY
+                  </div>
+                  <button 
+                    className="flex items-center gap-1 px-2 py-1 rounded-md font-bold text-xs transition-all duration-200 active:scale-95 whitespace-nowrap"
+                    style={{ 
+                      background: `linear-gradient(135deg, ${BRAND_COLORS.green} 0%, ${BRAND_COLORS.darkGreen} 100%)`,
+                      boxShadow: '0 2px 8px rgba(56, 161, 105, 0.4)',
+                      animation: 'bounce 1.5s infinite'
+                    }}
+                  >
+                    <ShoppingCartIcon size={12} />
+                    SHOP NOW
+                  </button>
+                </div>
+              </div>
+              
+              <div style={{ color: BRAND_COLORS.yellow, animation: 'swing 2s infinite' }}>
+                <TagIcon />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Bottom Row: Contact */}
-        <div className="rounded backdrop-blur-sm px-1.5" style={{ backgroundColor: 'rgba(255, 255, 255, 0.15)' }}>
-          <div className="text-white font-medium text-xs mb-0.5 text-center">Need Help? Contact Us</div>
+        {/* Free Delivery Promo */}
+        <div 
+          className={`relative h-7 overflow-hidden rounded-md mb-1 transition-all duration-700 delay-200 ${showLeftElement ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'}`}
+          style={{ background: `linear-gradient(135deg, #68D391 0%, #38A169 100%)` }}
+        >
+          <div className="absolute inset-0 flex items-center justify-center px-1">
+            <div className={`transform transition-all duration-300 ${isAnimating ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0'}`}>
+              <div className="font-semibold text-center text-xs leading-tight flex items-center gap-1" style={{ textShadow: '2px 2px 4px rgba(0, 0, 0, 0.5)' }}>
+                <ShoppingCartIcon size={12} />
+                {promoMessages[currentMessageIndex]}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Contact Section */}
+        <div 
+          className={`rounded backdrop-blur-sm px-1.5 py-1 transition-all duration-700 delay-400 ${showRightElement ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}
+          style={{ backgroundColor: 'rgba(255, 255, 255, 0.15)' }}
+        >
+          <div className="text-white font-medium text-xs mb-0.5 text-center">Need Help?</div>
           <div className="flex items-center justify-center gap-1.5">
             <a
               href="tel:+233302225651"
@@ -246,68 +371,94 @@ const AnnouncementBar = () => {
 
       <style>{`
         @keyframes shimmer {
-          0% {
-            transform: translateX(-100%);
-          }
-          100% {
-            transform: translateX(100%);
-          }
-        }
-
-        @keyframes bag-bounce {
-          0%, 100% {
-            transform: translateY(0) rotate(0deg);
-          }
-          25% {
-            transform: translateY(-4px) rotate(-5deg);
-          }
-          50% {
-            transform: translateY(0) rotate(0deg);
-          }
-          75% {
-            transform: translateY(-2px) rotate(5deg);
-          }
-        }
-
-        .bag-bounce {
-          animation: bag-bounce 0.5s ease-in-out;
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
         }
 
         @keyframes pulse {
           0%, 100% {
             transform: scale(1);
+            opacity: 1;
           }
           50% {
-            transform: scale(1.08);
+            transform: scale(1.05);
+            opacity: 0.9;
           }
         }
 
-        @keyframes slideIn {
-          0% {
-            transform: translateX(-10px);
-            opacity: 0;
+        @keyframes glow {
+          0%, 100% { opacity: 0.3; }
+          50% { opacity: 0.7; }
+        }
+
+        @keyframes textGlow {
+          0%, 100% { filter: brightness(1); }
+          50% { filter: brightness(1.3); }
+        }
+
+        @keyframes flicker {
+          0%, 100% {
+            opacity: 1;
+            transform: scale(1);
           }
-          100% {
+          25% {
+            opacity: 0.8;
+            transform: scale(1.1);
+          }
+          50% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          75% {
+            opacity: 0.9;
+            transform: scale(1.05);
+          }
+        }
+
+        @keyframes swing {
+          0%, 100% { transform: rotate(0deg); }
+          25% { transform: rotate(-15deg); }
+          75% { transform: rotate(15deg); }
+        }
+
+        @keyframes wiggle {
+          0%, 100% {
+            transform: rotate(0deg) scale(1);
+          }
+          25% {
+            transform: rotate(-2deg) scale(1.02);
+          }
+          50% {
+            transform: rotate(2deg) scale(1.04);
+          }
+          75% {
+            transform: rotate(-1deg) scale(1.02);
+          }
+        }
+
+        @keyframes slideInLeft {
+          0%, 100% {
             transform: translateX(0);
             opacity: 1;
           }
-        }
-
-        @keyframes backgroundPulse {
-          0%, 100% {
-            opacity: 0.3;
-          }
           50% {
-            opacity: 0.6;
+            transform: translateX(-3px);
+            opacity: 0.8;
           }
         }
 
-        @keyframes colorShift {
+        @keyframes bounce {
           0%, 100% {
-            filter: brightness(1);
+            transform: translateY(0) scale(1);
+          }
+          25% {
+            transform: translateY(-2px) scale(1.05);
           }
           50% {
-            filter: brightness(1.2);
+            transform: translateY(0) scale(1);
+          }
+          75% {
+            transform: translateY(-1px) scale(1.02);
           }
         }
       `}</style>
