@@ -62,11 +62,7 @@ const AnnouncementBar = () => {
     </svg>
   );
 
-  const FireIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2c1.5 3 4 5 6 6 0 3-2 5-4 6 1 1 2 2 2 4 0 3-2.5 6-6 6s-6-3-6-6c0-2 1-3 2-4-2-1-4-3-4-6 2-1 4.5-3 6-6 0 3 1 4 2 5 1-1 2-2 2-5z"/>
-    </svg>
-  );
+  
 
   const TagIcon = () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -205,10 +201,10 @@ const AnnouncementBar = () => {
 
         {/* Contact Section */}
         <div 
-          className={`flex-shrink-0 rounded backdrop-blur-sm px-2 py-1 transition-all duration-700 delay-500 ${showRightElement ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}
+          className={`flex-shrink-0 rounded backdrop-blur-sm px-2 transition-all duration-700 delay-500 ${showRightElement ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}
           style={{ backgroundColor: 'rgba(255, 255, 255, 0.15)' }}
         >
-          <div className="text-white font-semibold text-xs mb-0.5 text-center">Need Help?</div>
+          <div className="text-white font-semibold text-xs mb-0.5 text-center">Need Help? Contact Us</div>
           <div className="flex items-center gap-1.5">
             <a
               href="tel:+233302225651"
@@ -341,10 +337,10 @@ const AnnouncementBar = () => {
 
         {/* Contact Section */}
         <div 
-          className={`rounded backdrop-blur-sm px-1.5 py-1 transition-all duration-700 delay-400 ${showRightElement ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}
+          className={`rounded backdrop-blur-sm px-1.5 transition-all duration-700 delay-400 ${showRightElement ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}
           style={{ backgroundColor: 'rgba(255, 255, 255, 0.15)' }}
         >
-          <div className="text-white font-medium text-xs mb-0.5 text-center">Need Help?</div>
+          <div className="text-white font-medium text-xs mb-0.5 text-center">Need Help? Contact Us! </div>
           <div className="flex items-center justify-center gap-1.5">
             <a
               href="tel:+233302225651"
