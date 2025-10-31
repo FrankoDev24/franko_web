@@ -75,7 +75,7 @@ const ClearanceSale = () => {
 
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
+  const itemsPerPage = 10;
 
   // Filter States
   const [inputPriceRange, setInputPriceRange] = useState({ min: 0, max: 200000 });
