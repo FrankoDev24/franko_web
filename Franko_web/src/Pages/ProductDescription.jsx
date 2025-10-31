@@ -190,7 +190,7 @@ const ProductDescription = () => {
       iframe.id = 'flix-media-iframe';
       iframe.style.cssText = `
         width: 100%;
-        height: 600px;
+        height: 700px;
         border: none;
         overflow: hidden;
       `;
@@ -1060,25 +1060,28 @@ const ProductDescription = () => {
       </div>
 
       {/* Service Features */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-sm text-gray-700 mt-2 md:mt-6">
-        {[
-          { title: "Fast Shipping", subtitle: "All over Ghana", icon: <TruckIcon className="w-5 h-5 text-red-600" /> },
-          { title: "Quality Assurance", subtitle: "certified products", icon: <ShieldCheckIcon className="w-5 h-5 text-green-600" /> },
-          { title: "Customer Support", subtitle: "Dedicated support team", icon: <PhoneIcon className="w-5 h-5 text-red-400" /> },
-          { title: "Secure Payment", subtitle: "Safe Payment Processing", icon: <CreditCardIcon className="w-5 h-5 text-teal-500" /> }
-        ].map((item, idx) => (
-          <div
-            key={idx}
-            className="flex items-start gap-2 hover:bg-gray-50 p-2 rounded-lg transition"
-          >
-            {item.icon}
-            <div>
-              <p className="font-semibold">{item.title}</p>
-              <p className="text-xs text-gray-500">{item.subtitle}</p>
-            </div>
-          </div>
-        ))}
+   {/* Service Features - Hide when Flix Media is shown */}
+{!(showFlixMedia && showFlixMediaButton) && (
+  <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-sm text-gray-700 mt-2 md:mt-6">
+    {[
+      { title: "Fast Shipping", subtitle: "All over Ghana", icon: <TruckIcon className="w-5 h-5 text-red-600" /> },
+      { title: "Quality Assurance", subtitle: "certified products", icon: <ShieldCheckIcon className="w-5 h-5 text-green-600" /> },
+      { title: "Customer Support", subtitle: "Dedicated support team", icon: <PhoneIcon className="w-5 h-5 text-red-400" /> },
+      { title: "Secure Payment", subtitle: "Safe Payment Processing", icon: <CreditCardIcon className="w-5 h-5 text-teal-500" /> }
+    ].map((item, idx) => (
+      <div
+        key={idx}
+        className="flex items-start gap-2 hover:bg-gray-50 p-2 rounded-lg transition"
+      >
+        {item.icon}
+        <div>
+          <p className="font-semibold">{item.title}</p>
+          <p className="text-xs text-gray-500">{item.subtitle}</p>
+        </div>
       </div>
+    ))}
+  </div>
+)}
 
       {/* Flix Media Section - COMPLETELY ISOLATED */}
       {showFlixMedia && showFlixMediaButton && (
