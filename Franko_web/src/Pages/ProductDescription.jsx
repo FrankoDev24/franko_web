@@ -36,6 +36,8 @@ const ProductDescription = () => {
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [updatingQuantity, setUpdatingQuantity] = useState({});
   const [removingItem, setRemovingItem] = useState({});
+  const [showFlixMedia, setShowFlixMedia] = useState(false);
+  const [flixMediaLoaded, setFlixMediaLoaded] = useState(false);
 
   // Refs for scroll detection
   const productSectionRef = useRef(null);
@@ -45,6 +47,21 @@ const ProductDescription = () => {
   const { currentProduct, products, loading } = useSelector((state) => state.products);
   const { cart, loading: cartLoadingState, error: cartError, cartId } = useSelector((state) => state.cart);
   const [viewedProducts, setViewedProducts] = useState([]);
+
+  // Strict validation for Samsung products with valid MPN
+  const isValidSamsungProduct = () => {
+    if (!currentProduct?.length) return false;
+    const product = currentProduct[0];
+    
+    const isSamsung = product.brandName?.toLowerCase() === 'samsung';
+    const hasValidMPN = product.productId3 && 
+                        typeof product.productId3 === 'string' && 
+                        product.productId3.trim().toUpperCase().startsWith('SM');
+    
+    return isSamsung && hasValidMPN;
+  };
+
+  const showFlixMediaButton = isValidSamsungProduct();
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -76,9 +93,14 @@ const ProductDescription = () => {
         image,
       };
 
-    const stored = localStorage.getItem("viewedProducts") || [];
-const parsed = Array.isArray(stored) ? stored : [];
-
+      const stored = localStorage.getItem("viewedProducts") || "[]";
+      let parsed = [];
+      try {
+        parsed = JSON.parse(stored);
+        if (!Array.isArray(parsed)) parsed = [];
+      } catch (e) {
+        parsed = [];
+      }
 
       const updated = [
         viewedItem,
@@ -90,87 +112,211 @@ const parsed = Array.isArray(stored) ? stored : [];
     }
   }, [currentProduct]);
 
-  // Fixed scroll detection with proper navbar detection
-// IMPROVED: More reliable scroll detection
-useEffect(() => {
-  const handleScroll = () => {
-    // Method 1: Try to detect navbar with multiple selectors
-    const navbarSelectors = [
-      'nav',
-      'header',
-      '[role="navigation"]',
-      '.navbar',
-      '.header',
-      '.app-header',
-      '.main-header',
-      '[data-testid="navbar"]',
-      '#navbar'
-    ];
-    
-    let navbarHeight = 200; // Default fallback
-    
-    // Try to find the navbar
-    for (const selector of navbarSelectors) {
-      const element = document.querySelector(selector);
-      if (element && element.offsetHeight > 0) {
-        navbarHeight = element.offsetHeight;
-        console.log(`Found navbar with selector: ${selector}, height: ${navbarHeight}px`);
-        break;
-      }
+  // Enhanced Flix Media Integration - Only for valid Samsung products
+  useEffect(() => {
+    // Only proceed if it's a valid Samsung product with proper MPN
+    if (!showFlixMedia || !isValidSamsungProduct()) {
+      setFlixMediaLoaded(true);
+      return;
     }
 
-    // Method 2: Alternative approach - detect when product section enters viewport
-    const productSection = document.getElementById('product-details-section');
-    if (productSection) {
-      const rect = productSection.getBoundingClientRect();
-      // Show sticky header when product section starts moving out of viewport
-      if (rect.top < navbarHeight) {
-        setShowStickyHeader(true);
-      } else {
-        setShowStickyHeader(false);
-      }
+    const product = currentProduct[0];
+    
+    // Double-check Samsung validation
+    if (product.brandName?.toLowerCase() !== 'samsung') {
+
+      setFlixMediaLoaded(true);
+      return;
+    }
+
+    // Strict MPN validation
+    const mpn = product.productId3?.trim().toUpperCase();
+    if (!mpn || !mpn.startsWith('SM')) {
+
+      setFlixMediaLoaded(true);
+      return;
+    }
+
+    // Configuration
+    const distributorId = "17909";
+    const language = "gh";
+    const fallbackLanguage = "en";
+    const productMpn = product.productId3 || product.productID || "";
+    const productEan = product.productId2 || "";
+    const productBrand = product.brandName || "";
+
+ 
+
+    // Reset previous Flix Media content if exists
+    if (typeof window.flixJsCallbacks === 'object' && typeof window.flixJsCallbacks.reset !== 'undefined') {
+   
+      window.flixJsCallbacks.reset();
+    }
+
+    // Get or create containers in the Flix section
+    const flixSection = document.getElementById('flix-media-section');
+    if (!flixSection) {
+     
+      setFlixMediaLoaded(true);
+      return;
+    }
+
+    // Clear and recreate containers
+    let inpageContainer = document.getElementById('flix-inpage');
+    let minisiteContainer = document.getElementById('flix-minisite');
+    
+    if (!inpageContainer) {
+
+      inpageContainer = document.createElement('div');
+      inpageContainer.id = 'flix-inpage';
+      inpageContainer.className = 'flix-inpage-content';
+      flixSection.appendChild(inpageContainer);
     } else {
-      // Fallback: simple scroll threshold
-      if (window.scrollY > navbarHeight) {
-        setShowStickyHeader(true);
-      } else {
-        setShowStickyHeader(false);
-      }
+      inpageContainer.innerHTML = '';
+      inpageContainer.className = 'flix-inpage-content';
     }
-  };
+    
+    if (!minisiteContainer) {
 
-  // Add a small delay to ensure DOM is fully rendered
-  const init = () => {
+      minisiteContainer = document.createElement('div');
+      minisiteContainer.id = 'flix-minisite';
+      minisiteContainer.className = 'flix-minisite-content';
+      flixSection.insertBefore(minisiteContainer, inpageContainer);
+    } else {
+      minisiteContainer.innerHTML = '';
+      minisiteContainer.className = 'flix-minisite-content';
+    }
+
+    // Remove existing Flix scripts
+    const existingFlixScripts = document.querySelectorAll('script[src*="flixfacts.com"]');
+    if (existingFlixScripts.length > 0) {
+      existingFlixScripts.forEach(script => script.remove());
+    }
+
+    // Small delay to ensure DOM is ready
     setTimeout(() => {
-      handleScroll();
-      console.log('Sticky header scroll detection initialized');
+      // Create Flix script
+      const flixScript = document.createElement('script');
+      flixScript.type = 'text/javascript';
+      flixScript.async = true;
+      flixScript.setAttribute('data-flix-distributor', distributorId);
+      flixScript.setAttribute('data-flix-language', language);
+      flixScript.setAttribute('data-flix-fallback-language', fallbackLanguage);
+      flixScript.setAttribute('data-flix-brand', productBrand);
+      flixScript.setAttribute('data-flix-ean', productEan);
+      flixScript.setAttribute('data-flix-mpn', productMpn);
+      flixScript.setAttribute('data-flix-inpage', 'flix-inpage');
+      flixScript.setAttribute('data-flix-button', 'flix-minisite');
+      flixScript.setAttribute('data-flix-price', '');
+      
+      // Add load event listener
+      flixScript.onload = () => {
+  
+        setFlixMediaLoaded(true);
+        
+        // Check if content was injected after a delay
+        setTimeout(() => {
+          const inpage = document.getElementById('flix-inpage');
+          const minisite = document.getElementById('flix-minisite');
+      
+        }, 2000);
+      };
+      
+      flixScript.onerror = () => {
+
+        setFlixMediaLoaded(true);
+      };
+      
+      // Set source and append to head
+      flixScript.src = 'https://media.flixfacts.com/js/loader.js';
+      document.head.appendChild(flixScript);
+
     }, 100);
-  };
 
-  init();
+    // Cleanup function
+    return () => {
+     
+      if (typeof window.flixJsCallbacks === 'object' && typeof window.flixJsCallbacks.reset !== 'undefined') {
+        window.flixJsCallbacks.reset();
+      }
+    };
+  }, [showFlixMedia, currentProduct]);
 
-  // Throttled scroll listener
-  let ticking = false;
-  const throttledScroll = () => {
-    if (!ticking) {
-      requestAnimationFrame(() => {
-        handleScroll();
-        ticking = false;
-      });
-      ticking = true;
+  // Fixed scroll detection - only show sticky header for valid Samsung products
+  useEffect(() => {
+    // Don't show sticky header if not a valid Samsung product
+    if (!showFlixMediaButton) {
+      setShowStickyHeader(false);
+      return;
     }
-  };
 
-  window.addEventListener('scroll', throttledScroll, { passive: true });
-  
-  // Also handle resize in case navbar height changes
-  window.addEventListener('resize', throttledScroll, { passive: true });
-  
-  return () => {
-    window.removeEventListener('scroll', throttledScroll);
-    window.removeEventListener('resize', throttledScroll);
-  };
-}, []);
+    const handleScroll = () => {
+      const navbarSelectors = [
+        'nav',
+        'header',
+        '[role="navigation"]',
+        '.navbar',
+        '.header',
+        '.app-header',
+        '.main-header',
+        '[data-testid="navbar"]',
+        '#navbar'
+      ];
+      
+      let navbarHeight = 200;
+      
+      for (const selector of navbarSelectors) {
+        const element = document.querySelector(selector);
+        if (element && element.offsetHeight > 0) {
+          navbarHeight = element.offsetHeight;
+          break;
+        }
+      }
+
+      const productSection = document.getElementById('product-details-section');
+      if (productSection) {
+        const rect = productSection.getBoundingClientRect();
+        if (rect.top < navbarHeight) {
+          setShowStickyHeader(true);
+        } else {
+          setShowStickyHeader(false);
+        }
+      } else {
+        if (window.scrollY > navbarHeight) {
+          setShowStickyHeader(true);
+        } else {
+          setShowStickyHeader(false);
+        }
+      }
+    };
+
+    const init = () => {
+      setTimeout(() => {
+        handleScroll();
+      }, 100);
+    };
+
+    init();
+
+    let ticking = false;
+    const throttledScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', throttledScroll, { passive: true });
+    window.addEventListener('resize', throttledScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', throttledScroll);
+      window.removeEventListener('resize', throttledScroll);
+    };
+  }, [showFlixMediaButton]);
 
   // Enhanced out-of-stock checker function
   const isOutOfStock = (product) => {
@@ -489,106 +635,106 @@ useEffect(() => {
         })}
       </script>
 
-      {/* Fixed Sticky Header */}
-      <div 
-        ref={stickyHeaderRef}
-        className={`fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-lg transition-all duration-300 ${
-          showStickyHeader ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
-        } hidden md:block`}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-3 gap-4">
-            {/* Product Image and Info */}
-            <div className="flex items-center gap-4 flex-1 min-w-0">
-              <div className="flex-shrink-0">
-                <img
-                  src={imageUrl}
-                  alt={product.productName}
-                  className="w-16 h-16 object-contain rounded-lg border border-gray-200"
-                  onError={(e) => {
-                    e.target.src = "https://via.placeholder.com/150";
-                  }}
-                />
+      {/* Fixed Sticky Header - Only for valid Samsung products */}
+      {showFlixMediaButton && (
+        <div 
+          ref={stickyHeaderRef}
+          className={`fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-lg transition-all duration-300 ${
+            showStickyHeader ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
+          } hidden md:block`}
+        >
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between py-3 gap-4">
+              <div className="flex items-center gap-4 flex-1 min-w-0">
+                <div className="flex-shrink-0">
+                  <img
+                    src={imageUrl}
+                    alt={product.productName}
+                    className="w-16 h-16 object-contain rounded-lg border border-gray-200"
+                    onError={(e) => {
+                      e.target.src = "https://via.placeholder.com/150";
+                    }}
+                  />
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-gray-900 text-sm line-clamp-1 mb-1">
+                    {product.productName}
+                  </h3>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-lg font-bold text-red-600">
+                      GH₵{formatPrice(product.price)}.00
+                    </span>
+                    {product.oldPrice > 0 && (
+                      <span className="text-sm text-gray-400 line-through">
+                        GH₵{formatPrice(product.oldPrice)}.00
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 mt-1">
+                    {outOfStock ? (
+                      <>
+                        <ExclamationTriangleIcon className="w-3.5 h-3.5 text-red-500" />
+                        <span className="text-xs text-red-600 font-medium">Out of Stock</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircleIcon className="w-3.5 h-3.5 text-green-500" />
+                        <span className="text-xs text-green-600 font-medium">In Stock</span>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
               
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-gray-900 text-sm line-clamp-1 mb-1">
-                  {product.productName}
-                </h3>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-lg font-bold text-red-600">
-                    GH₵{formatPrice(product.price)}.00
-                  </span>
-                  {product.oldPrice > 0 && (
-                    <span className="text-sm text-gray-400 line-through">
-                      GH₵{formatPrice(product.oldPrice)}.00
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1 mt-1">
-                  {outOfStock ? (
+              <div className="flex items-center gap-3 flex-shrink-0">
+                <Button
+                  size="sm"
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 ${
+                    outOfStock 
+                      ? 'bg-gray-100 text-gray-400 border border-gray-300 cursor-not-allowed' 
+                      : isCartButtonLoading
+                      ? 'bg-red-400 text-white'
+                      : 'bg-red-500 text-white hover:bg-red-600 shadow-sm'
+                  }`}
+                  onClick={() => handleAddToCartAndOpenSidebar(product)}
+                  disabled={isCartButtonLoading || outOfStock}
+                >
+                  {isCartButtonLoading ? (
                     <>
-                      <ExclamationTriangleIcon className="w-3.5 h-3.5 text-red-500" />
-                      <span className="text-xs text-red-600 font-medium">Out of Stock</span>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Adding...</span>
+                    </>
+                  ) : outOfStock ? (
+                    <>
+                      <ExclamationTriangleIcon className="w-4 h-4" />
+                      <span>Out of Stock</span>
                     </>
                   ) : (
                     <>
-                      <CheckCircleIcon className="w-3.5 h-3.5 text-green-500" />
-                      <span className="text-xs text-green-600 font-medium">In Stock</span>
+                      <ShoppingCartIcon className="w-4 h-4" />
+                      <span>Add to Cart</span>
                     </>
                   )}
-                </div>
+                </Button>
+                
+                <button
+                  onClick={() => setCartSidebarOpen(true)}
+                  className="relative bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg p-2.5 transition-colors duration-200"
+                  disabled={!cart || cart.length === 0}
+                >
+                  <ShoppingCartIcon className="w-5 h-5" />
+                  {totalCartItems > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                      {totalCartItems}
+                    </span>
+                  )}
+                </button>
               </div>
-            </div>
-            
-            {/* Add to Cart Button and Cart Icon */}
-            <div className="flex items-center gap-3 flex-shrink-0">
-              <Button
-                size="sm"
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 ${
-                  outOfStock 
-                    ? 'bg-gray-100 text-gray-400 border border-gray-300 cursor-not-allowed' 
-                    : isCartButtonLoading
-                    ? 'bg-red-400 text-white'
-                    : 'bg-red-500 text-white hover:bg-red-600 shadow-sm'
-                }`}
-                onClick={() => handleAddToCartAndOpenSidebar(product)}
-                disabled={isCartButtonLoading || outOfStock}
-              >
-                {isCartButtonLoading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Adding...</span>
-                  </>
-                ) : outOfStock ? (
-                  <>
-                    <ExclamationTriangleIcon className="w-4 h-4" />
-                    <span>Out of Stock</span>
-                  </>
-                ) : (
-                  <>
-                    <ShoppingCartIcon className="w-4 h-4" />
-                    <span>Add to Cart</span>
-                  </>
-                )}
-              </Button>
-              
-              <button
-                onClick={() => setCartSidebarOpen(true)}
-                className="relative bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg p-2.5 transition-colors duration-200"
-                disabled={!cart || cart.length === 0}
-              >
-                <ShoppingCartIcon className="w-5 h-5" />
-                {totalCartItems > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                    {totalCartItems}
-                  </span>
-                )}
-              </button>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main Product Details Section */}
       <div id="product-details-section" ref={productSectionRef} className="grid lg:grid-cols-2 gap-12 pt-4">
@@ -673,6 +819,43 @@ useEffect(() => {
                 {descriptionLines}
               </div>
             </div>
+
+            {/* Flix Media Button - Only show for valid Samsung products with SM MPN */}
+            {showFlixMediaButton && (
+              <div className="mt-4 flex justify-center">
+                <Button
+                  variant="outlined"
+                  className="flex items-center gap-2 px-6 py-2.5 border-2 border-red-500 text-red-600 hover:bg-red-50 rounded-lg font-semibold transition-all duration-200 shadow-sm hover:shadow-md"
+                  onClick={() => {
+                    setShowFlixMedia(!showFlixMedia);
+                    if (!showFlixMedia) {
+                      setTimeout(() => {
+                        const flixSection = document.getElementById('flix-media-section');
+                        if (flixSection) {
+                          flixSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                      }, 100);
+                    }
+                  }}
+                >
+                  {showFlixMedia ? (
+                    <>
+                      <span>Hide Product Details</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+                      </svg>
+                    </>
+                  ) : (
+                    <>
+                      <span>See More Product Details</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                      </svg>
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="pt-2">
@@ -756,7 +939,6 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Rest of the component remains the same */}
       {/* Service Features */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-sm text-gray-700 mt-2 md:mt-6">
         {[
@@ -777,6 +959,37 @@ useEffect(() => {
           </div>
         ))}
       </div>
+
+      {/* Flix Media Section - Only for valid Samsung products with SM MPN */}
+      {showFlixMedia && showFlixMediaButton && (
+        <div id="flix-media-section" className="mt-8 bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+          <div className="mb-6 flex items-center gap-4">
+            <h2 className="text-xl font-bold text-gray-900 relative">
+              More Product Details
+              <span className="absolute -bottom-1 left-0 w-16 h-1 bg-red-400 rounded-full"></span>
+            </h2>
+          </div>
+          
+          {/* Flix Media Content Containers */}
+          <div className="space-y-6 min-h-[200px]">
+            {/* Minisite Button Container */}
+            <div id="flix-minisite" className="flix-minisite-container"></div>
+            
+            {/* Inpage Content Container */}
+            <div id="flix-inpage" className="flix-inpage-container"></div>
+          </div>
+
+          {/* Loading State */}
+          {!flixMediaLoaded && (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mb-4"></div>
+                <p className="text-gray-600">Loading rich media content...</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Recently Viewed Products */}
       {viewedProducts.length > 0 && (

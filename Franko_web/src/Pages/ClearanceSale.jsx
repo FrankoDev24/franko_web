@@ -16,7 +16,8 @@ import {
   ChevronDownIcon,
   Bars3BottomLeftIcon,
   SparklesIcon,
-  FireIcon
+  FireIcon,
+  BoltIcon
 } from "@heroicons/react/24/outline";
 import useAddToCart from "../Component/Cart";
 import { CircularPagination } from "../Component/CircularPagination";
@@ -25,22 +26,43 @@ import { Helmet } from "react-helmet";
 
 const { Title, Text } = Typography;
 
+// Loading Skeleton Component
+const ProductSkeleton = () => {
+  const BRAND_COLORS = {
+    black: '#1A1A1A',
+    lightGray: '#F5F5F5',
+    mediumGray: '#E5E5E5'
+  };
+
+  return (
+    <div className="bg-white rounded-2xl shadow-lg overflow-hidden border-2 animate-pulse" style={{borderColor: BRAND_COLORS.mediumGray}}>
+      <div className="h-40 md:h-48 w-full" style={{backgroundColor: BRAND_COLORS.lightGray}}></div>
+      <div className="p-3 space-y-3">
+        <div className="h-4 rounded" style={{backgroundColor: BRAND_COLORS.mediumGray}}></div>
+        <div className="h-4 rounded w-3/4" style={{backgroundColor: BRAND_COLORS.mediumGray}}></div>
+        <div className="h-6 rounded w-1/2 mx-auto" style={{backgroundColor: BRAND_COLORS.mediumGray}}></div>
+        <div className="h-10 rounded" style={{backgroundColor: BRAND_COLORS.mediumGray}}></div>
+      </div>
+    </div>
+  );
+};
+
 const ClearanceSale = () => {
   const showRoomID = '67f53c84-0257-4719-a170-ff62e3d707f1';
   const dispatch = useDispatch();
   const navigate = useNavigate();
   
-  // Brand Colors
+  // Pre Black Friday Brand Colors
   const BRAND_COLORS = {
-    purple: '#8B2E8F',
-    darkPurple: '#6B1D6E',
-    magenta: '#C93C8E',
-    yellow: '#FFD93D',
-    black: '#1A202C',
-    gray: '#2D3748',
+    black: '#1A1A1A',
+    darkGray: '#2D2D2D',
+    red: '#FF0000',
+    darkRed: '#CC0000',
+    yellow: '#FFD700',
     white: '#FFFFFF',
-    lightGray: '#F7FAFC',
-    mediumGray: '#E2E8F0'
+    lightGray: '#F5F5F5',
+    mediumGray: '#E5E5E5',
+    textGray: '#666666'
   };
   
   const { productsByShowroom = {}, loading, showroom } = useSelector(
@@ -81,7 +103,7 @@ const ClearanceSale = () => {
   useEffect(() => {
     const calculateTimeLeft = () => {
       const now = new Date();
-      const promoEndDate = new Date('2025-12-31T23:59:59');
+      const promoEndDate = new Date('2025-11-10T23:59:59');
       const difference = promoEndDate - now;
 
       if (difference > 0) {
@@ -223,7 +245,7 @@ const ClearanceSale = () => {
     <div className="w-full lg:w-80 space-y-6">
       {/* Filter Header */}
       <div className="hidden lg:flex items-center gap-3 pb-4" style={{borderBottom: `2px solid ${BRAND_COLORS.mediumGray}`}}>
-        <div className="p-2 rounded-lg" style={{backgroundColor: BRAND_COLORS.purple}}>
+        <div className="p-2 rounded-lg" style={{backgroundColor: BRAND_COLORS.red}}>
           <AdjustmentsHorizontalIcon className="w-5 h-5" style={{color: BRAND_COLORS.white}} />
         </div>
         <h3 className="text-xl font-bold" style={{color: BRAND_COLORS.black}}>Filters</h3>
@@ -235,16 +257,16 @@ const ClearanceSale = () => {
         borderColor: BRAND_COLORS.mediumGray
       }}>
         <div className="flex items-center gap-2 mb-4">
-          <div className="w-2 h-2 rounded-full animate-pulse" style={{backgroundColor: BRAND_COLORS.magenta}}></div>
+          <div className="w-2 h-2 rounded-full animate-pulse" style={{backgroundColor: BRAND_COLORS.red}}></div>
           <h4 className="text-base font-semibold" style={{color: BRAND_COLORS.black}}>Price Range</h4>
         </div>
         
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium mb-1" style={{color: BRAND_COLORS.gray}}>Min Price</label>
+              <label className="block text-xs font-medium mb-1" style={{color: BRAND_COLORS.textGray}}>Min Price</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm" style={{color: BRAND_COLORS.purple}}>₵</span>
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm" style={{color: BRAND_COLORS.red}}>₵</span>
                 <input
                   type="number"
                   min="0"
@@ -261,9 +283,9 @@ const ClearanceSale = () => {
             </div>
             
             <div>
-              <label className="block text-xs font-medium mb-1" style={{color: BRAND_COLORS.gray}}>Max Price</label>
+              <label className="block text-xs font-medium mb-1" style={{color: BRAND_COLORS.textGray}}>Max Price</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm" style={{color: BRAND_COLORS.purple}}>₵</span>
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm" style={{color: BRAND_COLORS.red}}>₵</span>
                 <input
                   type="number"
                   min="0"
@@ -284,21 +306,21 @@ const ClearanceSale = () => {
             onClick={applyPriceFilter}
             className="w-full py-2.5 rounded-lg font-medium transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg"
             style={{
-              backgroundColor: BRAND_COLORS.purple,
+              backgroundColor: BRAND_COLORS.red,
               color: BRAND_COLORS.white
             }}
-            onMouseEnter={(e) => e.target.style.backgroundColor = BRAND_COLORS.darkPurple}
-            onMouseLeave={(e) => e.target.style.backgroundColor = BRAND_COLORS.purple}
+            onMouseEnter={(e) => e.target.style.backgroundColor = BRAND_COLORS.darkRed}
+            onMouseLeave={(e) => e.target.style.backgroundColor = BRAND_COLORS.red}
           >
             Apply Price Filter
           </button>
 
           <div className="px-3 py-2 rounded-lg border" style={{
-            backgroundColor: BRAND_COLORS.lightGray,
+            backgroundColor: BRAND_COLORS.white,
             borderColor: BRAND_COLORS.mediumGray
           }}>
             <div className="flex justify-between items-center">
-              <span className="text-xs font-medium" style={{color: BRAND_COLORS.gray}}>Applied Range:</span>
+              <span className="text-xs font-medium" style={{color: BRAND_COLORS.textGray}}>Applied Range:</span>
               <span className="text-xs font-semibold" style={{color: BRAND_COLORS.black}}>
                 ₵{appliedPriceRange[0].toLocaleString()} - ₵{appliedPriceRange[1].toLocaleString()}
               </span>
@@ -314,8 +336,8 @@ const ClearanceSale = () => {
       }}>
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg" style={{backgroundColor: BRAND_COLORS.magenta}}>
-              <TagIcon className="w-4 h-4" style={{color: BRAND_COLORS.white}} />
+            <div className="p-2 rounded-lg" style={{backgroundColor: BRAND_COLORS.yellow}}>
+              <TagIcon className="w-4 h-4" style={{color: BRAND_COLORS.black}} />
             </div>
             <label htmlFor="discount-toggle" className="text-sm md:text-base font-semibold cursor-pointer" style={{color: BRAND_COLORS.black}}>
               Show Only Discounted Items
@@ -334,7 +356,7 @@ const ClearanceSale = () => {
               onClick={() => setShowDiscountedOnly(!showDiscountedOnly)}
               className="w-12 h-6 rounded-full cursor-pointer transition-all duration-300 shadow-lg"
               style={{
-                backgroundColor: showDiscountedOnly ? BRAND_COLORS.magenta : BRAND_COLORS.mediumGray
+                backgroundColor: showDiscountedOnly ? BRAND_COLORS.red : BRAND_COLORS.mediumGray
               }}
             >
               <div
@@ -352,11 +374,11 @@ const ClearanceSale = () => {
         onClick={resetFilters}
         className="w-full py-2.5 rounded-lg font-medium transition-all duration-200"
         style={{
-          backgroundColor: BRAND_COLORS.gray,
+          backgroundColor: BRAND_COLORS.darkGray,
           color: BRAND_COLORS.white
         }}
         onMouseEnter={(e) => e.target.style.backgroundColor = BRAND_COLORS.black}
-        onMouseLeave={(e) => e.target.style.backgroundColor = BRAND_COLORS.gray}
+        onMouseLeave={(e) => e.target.style.backgroundColor = BRAND_COLORS.darkGray}
       >
         Reset All Filters
       </button>
@@ -367,7 +389,7 @@ const ClearanceSale = () => {
           onClick={closeFilterDrawer}
           className="w-full py-3 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2"
           style={{
-            backgroundColor: BRAND_COLORS.purple,
+            backgroundColor: BRAND_COLORS.red,
             color: BRAND_COLORS.white
           }}
         >
@@ -381,8 +403,8 @@ const ClearanceSale = () => {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Offer",
-    "name": "Clearance Sale – Massive Discounts on Electronics",
-    "description": "Huge clearance sale! Get massive discounts on tablets, laptops, home appliances, and more.",
+    "name": "Pre Black Friday Sale – Massive Discounts on Electronics",
+    "description": "Huge Pre Black Friday sale! Get massive discounts on tablets, laptops, home appliances, and more.",
     "url": "https://www.frankotrading.com/clearance-sale",
     "priceCurrency": "GHS",
     "availability": "https://schema.org/InStock",
@@ -396,17 +418,17 @@ const ClearanceSale = () => {
       "name": "Franko Trading Enterprise",
       "url": "https://www.frankotrading.com"
     },
-    "validFrom": "2025-10-01T00:00:00+00:00",
-    "validThrough": "2025-12-31T23:59:59+00:00"
+    "validFrom": "2025-10-30T00:00:00+00:00",
+    "validThrough": "2025-11-10T23:59:59+00:00"
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen" style={{backgroundColor: BRAND_COLORS.lightGray}}>
       <Helmet>
-        <title>Clearance Sale promo| Franko Trading</title>
+        <title>Pre Black Friday Sale | Franko Trading</title>
         <meta
           name="description"
-          content="Unbeatable clearance sale prices! Shop electronics, appliances, and accessories at massive discounts."
+          content="Unbeatable Pre Black Friday sale prices! Shop electronics, appliances, and accessories at massive discounts from October 30th to November 10th."
         />
         <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
       </Helmet>
@@ -415,14 +437,17 @@ const ClearanceSale = () => {
         {/* Mobile Header */}
         <div className="md:hidden space-y-3">
           <div className="text-white rounded-2xl p-4 shadow-2xl border-2" style={{
-            background: `linear-gradient(135deg, ${BRAND_COLORS.darkPurple} 0%, ${BRAND_COLORS.magenta} 100%)`,
-            borderColor: BRAND_COLORS.yellow
+            background: `linear-gradient(135deg, ${BRAND_COLORS.black} 0%, ${BRAND_COLORS.darkGray} 100%)`,
+            borderColor: BRAND_COLORS.red
           }}>
             <div className="text-center">
-              <div className="flex items-center justify-center gap-2">
-                <FireIcon className="w-6 h-6 animate-bounce" />
-                <h2 className="text-xl font-black">CLEARANCE SALE!</h2>
-                <SparklesIcon className="w-6 h-6 animate-bounce" />
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <BoltIcon className="w-6 h-6 animate-bounce" style={{color: BRAND_COLORS.yellow}} />
+                <h2 className="text-xl font-black">PRE BLACK FRIDAY!</h2>
+                <FireIcon className="w-6 h-6 animate-bounce" style={{color: BRAND_COLORS.red}} />
+              </div>
+              <div className="text-xs font-semibold" style={{color: BRAND_COLORS.yellow}}>
+                30th Oct - 10th Nov 2025
               </div>
             </div>
           </div>
@@ -432,7 +457,7 @@ const ClearanceSale = () => {
             <button 
               onClick={() => setIsDrawerOpen(true)} 
               className="flex-1 flex items-center justify-center gap-2 p-3 text-white rounded-xl shadow-lg"
-              style={{backgroundColor: BRAND_COLORS.purple}}
+              style={{backgroundColor: BRAND_COLORS.red}}
             >
               <FunnelIcon className="w-5 h-5" />
               <span className="font-medium text-sm">Filter</span>
@@ -447,9 +472,9 @@ const ClearanceSale = () => {
                 className="w-full flex items-center justify-center gap-2 p-3 bg-white border-2 rounded-xl shadow-sm"
                 style={{borderColor: BRAND_COLORS.mediumGray}}
               >
-                <Bars3BottomLeftIcon className="w-5 h-5" style={{color: BRAND_COLORS.purple}} />
+                <Bars3BottomLeftIcon className="w-5 h-5" style={{color: BRAND_COLORS.red}} />
                 <span className="font-medium text-sm" style={{color: BRAND_COLORS.black}}>Sort</span>
-                <ChevronDownIcon className={`w-4 h-4 transition-transform duration-200 ${showSortDropdown ? 'rotate-180' : ''}`} style={{color: BRAND_COLORS.purple}} />
+                <ChevronDownIcon className={`w-4 h-4 transition-transform duration-200 ${showSortDropdown ? 'rotate-180' : ''}`} style={{color: BRAND_COLORS.red}} />
               </button>
 
               {showSortDropdown && (
@@ -468,7 +493,7 @@ const ClearanceSale = () => {
                       }`}
                       style={{
                         backgroundColor: sortBy === option.value ? BRAND_COLORS.lightGray : 'transparent',
-                        color: sortBy === option.value ? BRAND_COLORS.purple : BRAND_COLORS.gray
+                        color: sortBy === option.value ? BRAND_COLORS.red : BRAND_COLORS.textGray
                       }}
                     >
                       {option.label}
@@ -490,7 +515,7 @@ const ClearanceSale = () => {
             
             <div className="relative w-full max-w-sm h-full bg-white shadow-2xl overflow-auto">
               <div className="sticky top-0 border-b px-4 py-2 z-10" style={{
-                background: `linear-gradient(135deg, ${BRAND_COLORS.purple} 0%, ${BRAND_COLORS.magenta} 100%)`,
+                background: `linear-gradient(135deg, ${BRAND_COLORS.black} 0%, ${BRAND_COLORS.darkGray} 100%)`,
                 borderBottomColor: BRAND_COLORS.mediumGray
               }}>
                 <div className="flex justify-between items-center">
@@ -523,14 +548,17 @@ const ClearanceSale = () => {
           <aside className="lg:w-80">
             <div className="hidden lg:block sticky top-6">
               <div className="text-white rounded-3xl p-6 mb-6 shadow-2xl border-2" style={{
-                background: `linear-gradient(135deg, ${BRAND_COLORS.darkPurple} 0%, ${BRAND_COLORS.magenta} 100%)`,
-                borderColor: BRAND_COLORS.yellow
+                background: `linear-gradient(135deg, ${BRAND_COLORS.black} 0%, ${BRAND_COLORS.darkGray} 100%)`,
+                borderColor: BRAND_COLORS.red
               }}>
                 <div className="text-center">
-                  <div className="flex items-center justify-center gap-3 mb-1">
-                    <FireIcon className="w-8 h-8 animate-bounce" />
-                    <h2 className="text-xl font-black">CLEARANCE SALE!</h2>
-                    <SparklesIcon className="w-8 h-8 animate-bounce" />
+                  <div className="flex items-center justify-center gap-3 mb-2">
+                    <BoltIcon className="w-8 h-8 animate-bounce" style={{color: BRAND_COLORS.yellow}} />
+                    <h2 className="text-2xl font-black">PRE BLACK FRIDAY!</h2>
+                    <FireIcon className="w-8 h-8 animate-bounce" style={{color: BRAND_COLORS.red}} />
+                  </div>
+                  <div className="text-sm font-semibold mt-2" style={{color: BRAND_COLORS.yellow}}>
+                    30th October - 10th November 2025
                   </div>
                 </div>
               </div>
@@ -541,22 +569,45 @@ const ClearanceSale = () => {
 
           {/* Products Section */}
           <section className="flex-1">
-            {currentProducts.length > 0 ? (
+            {loading || !productsByShowroom[showRoomID] ? (
+              <div className="space-y-4">
+                {/* Desktop Header Skeleton */}
+                <div className="hidden md:block bg-white p-6 rounded-2xl shadow-lg border-2 animate-pulse" style={{borderColor: BRAND_COLORS.mediumGray}}>
+                  <div className="flex justify-between items-center">
+                    <div className="space-y-2">
+                      <div className="h-8 w-48 rounded" style={{backgroundColor: BRAND_COLORS.mediumGray}}></div>
+                      <div className="h-4 w-64 rounded" style={{backgroundColor: BRAND_COLORS.lightGray}}></div>
+                    </div>
+                    <div className="flex gap-4">
+                      <div className="h-10 w-32 rounded-full" style={{backgroundColor: BRAND_COLORS.mediumGray}}></div>
+                      <div className="h-10 w-40 rounded-lg" style={{backgroundColor: BRAND_COLORS.mediumGray}}></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Products Grid Skeleton */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 md:gap-6">
+                  {[...Array(10)].map((_, index) => (
+                    <ProductSkeleton key={index} />
+                  ))}
+                </div>
+              </div>
+            ) : currentProducts.length > 0 ? (
               <div className="space-y-4">
                 {/* Desktop Header */}
                 <div className="hidden md:block bg-white p-2 rounded-2xl shadow-lg border-2" style={{borderColor: BRAND_COLORS.mediumGray}}>
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="px-6">
                       <div className="flex items-center gap-3 mb-2">
-                        <div className="p-2 rounded-lg" style={{backgroundColor: BRAND_COLORS.purple}}>
+                        <div className="p-2 rounded-lg" style={{backgroundColor: BRAND_COLORS.red}}>
                           <TagIcon className="w-6 h-6 text-white" />
                         </div>
                         <h2 className="text-2xl font-bold" style={{color: BRAND_COLORS.black}}>
-                          Clearance Sale
+                          Pre Black Friday Sale
                         </h2>
                       </div>
-                      <p style={{color: BRAND_COLORS.gray}}>
-                        Unbeatable prices on premium products
+                      <p style={{color: BRAND_COLORS.textGray}}>
+                        It massive savings on electronics, appliances, and accessories! Hurry
                       </p>
                     </div>
                     
@@ -580,11 +631,11 @@ const ClearanceSale = () => {
                           className="flex items-center gap-2 px-4 py-2 border-2 rounded-lg bg-white"
                           style={{borderColor: BRAND_COLORS.mediumGray}}
                         >
-                          <Bars3BottomLeftIcon className="w-4 h-4" style={{color: BRAND_COLORS.purple}} />
+                          <Bars3BottomLeftIcon className="w-4 h-4" style={{color: BRAND_COLORS.red}} />
                           <span className="text-sm font-medium" style={{color: BRAND_COLORS.black}}>
                             {sortOptions.find(opt => opt.value === sortBy)?.label}
                           </span>
-                          <ChevronDownIcon className={`w-4 h-4 transition-transform duration-200 ${showSortDropdown ? 'rotate-180' : ''}`} style={{color: BRAND_COLORS.purple}} />
+                          <ChevronDownIcon className={`w-4 h-4 transition-transform duration-200 ${showSortDropdown ? 'rotate-180' : ''}`} style={{color: BRAND_COLORS.red}} />
                         </button>
 
                         {showSortDropdown && (
@@ -598,12 +649,13 @@ const ClearanceSale = () => {
                                   setShowSortDropdown(false);
                                   setCurrentPage(1);
                                 }}
+                              
                                 className={`w-full text-left px-4 py-3 text-sm transition-colors duration-200 first:rounded-t-lg last:rounded-b-lg ${
                                   sortBy === option.value ? 'font-medium' : ''
                                 }`}
                                 style={{
                                   backgroundColor: sortBy === option.value ? BRAND_COLORS.lightGray : 'transparent',
-                                  color: sortBy === option.value ? BRAND_COLORS.purple : BRAND_COLORS.gray
+                                  color: sortBy === option.value ? BRAND_COLORS.red : BRAND_COLORS.textGray
                                 }}
                               >
                                 {option.label}
@@ -641,21 +693,21 @@ const ClearanceSale = () => {
                         {/* Badges */}
                         <div className="absolute top-2 left-2 z-20 flex flex-col gap-1">
                           {isAllBrands ? (
-                            <span className="text-white text-xs px-2 py-1 rounded-full font-bold" style={{backgroundColor: BRAND_COLORS.gray}}>
+                            <span className="text-white text-xs px-2 py-1 rounded-full font-bold" style={{backgroundColor: BRAND_COLORS.darkGray}}>
                               OUT OF STOCK
                             </span>
                           ) : soldOut ? (
-                            <span className="text-white text-xs px-2 py-1 rounded-full font-bold" style={{backgroundColor: BRAND_COLORS.gray}}>
+                            <span className="text-white text-xs px-2 py-1 rounded-full font-bold" style={{backgroundColor: BRAND_COLORS.darkGray}}>
                               SOLD OUT
                             </span>
                           ) : discount > 0 ? (
                             <span className="text-white text-xs font-black px-3 py-1 rounded-full animate-bounce border border-white"
-                                  style={{background: `linear-gradient(135deg, ${BRAND_COLORS.magenta} 0%, ${BRAND_COLORS.darkPurple} 100%)`}}>
+                                  style={{background: `linear-gradient(135deg, ${BRAND_COLORS.red} 0%, ${BRAND_COLORS.darkRed} 100%)`}}>
                               -{discount}%
                             </span>
                           ) : (
-                            <span className="text-white text-xs font-black px-3 py-1 rounded-full border border-yellow-400 animate-pulse"
-                                  style={{backgroundColor: BRAND_COLORS.magenta}}>
+                            <span className="text-white text-xs font-black px-3 py-1 rounded-full border animate-pulse"
+                                  style={{backgroundColor: BRAND_COLORS.red, borderColor: BRAND_COLORS.yellow}}>
                               HOT DEAL
                             </span>
                           )}
@@ -664,7 +716,7 @@ const ClearanceSale = () => {
                         {/* Special Effects Overlay */}
                         {!isUnavailable && (
                           <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
-                               style={{background: `linear-gradient(135deg, ${BRAND_COLORS.purple}10 0%, ${BRAND_COLORS.magenta}05 100%)`}}>
+                               style={{background: `linear-gradient(135deg, ${BRAND_COLORS.red}10 0%, ${BRAND_COLORS.yellow}05 100%)`}}>
                           </div>
                         )}
 
@@ -682,14 +734,14 @@ const ClearanceSale = () => {
                             />
                           </div>
 
-                          {/* Clearance Overlay */}
+                          {/* Sale Overlay */}
                           {!isUnavailable && (
                             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
                               <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
                                 <div className="flex items-center gap-1 bg-white bg-opacity-90 backdrop-blur-sm px-3 py-1 rounded-full">
-                                  <FireIcon className="text-xs w-4 h-4" style={{color: BRAND_COLORS.magenta}} />
-                                  <span className="text-xs font-bold" style={{color: BRAND_COLORS.black}}>CLEARANCE</span>
-                                  <SparklesIcon className="text-xs w-4 h-4" style={{color: BRAND_COLORS.purple}} />
+                                  <BoltIcon className="text-xs w-4 h-4" style={{color: BRAND_COLORS.red}} />
+                                  <span className="text-xs font-bold" style={{color: BRAND_COLORS.black}}>BLACK FRIDAY</span>
+                                  <FireIcon className="text-xs w-4 h-4" style={{color: BRAND_COLORS.red}} />
                                 </div>
                               </div>
                             </div>
@@ -713,7 +765,7 @@ const ClearanceSale = () => {
                               <span className={`font-black text-sm md:text-lg ${
                                 isUnavailable ? 'text-gray-500' : ''
                               }`}
-                              style={{color: isUnavailable ? BRAND_COLORS.mediumGray : BRAND_COLORS.magenta}}>
+                              style={{color: isUnavailable ? BRAND_COLORS.mediumGray : BRAND_COLORS.red}}>
                                 {formatPrice(product.price)}
                               </span>
                               {product.oldPrice > 0 && (
@@ -722,9 +774,6 @@ const ClearanceSale = () => {
                                 </span>
                               )}
                             </div>
-
-                            {/* Savings Display */}
-                          
                           </div>
 
                           {/* Action Buttons */}
@@ -733,7 +782,7 @@ const ClearanceSale = () => {
                               <button
                                 className="w-full text-white px-3 py-2 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105"
                                 style={{
-                                  background: `linear-gradient(135deg, ${BRAND_COLORS.magenta} 0%, ${BRAND_COLORS.yellow} 100%)`
+                                  background: `linear-gradient(135deg, ${BRAND_COLORS.red} 0%, ${BRAND_COLORS.darkRed} 100%)`
                                 }}
                                 disabled={isAddingToCart}
                                 onClick={(e) => {
@@ -749,9 +798,9 @@ const ClearanceSale = () => {
                               
                               <button
                                 className="w-full text-white px-3 py-1.5 rounded-lg font-medium transition-all duration-300 text-sm shadow-md hover:shadow-lg"
-                                style={{backgroundColor: BRAND_COLORS.purple}}
-                                onMouseEnter={(e) => e.target.style.backgroundColor = BRAND_COLORS.darkPurple}
-                                onMouseLeave={(e) => e.target.style.backgroundColor = BRAND_COLORS.purple}
+                                style={{backgroundColor: BRAND_COLORS.black}}
+                                onMouseEnter={(e) => e.target.style.backgroundColor = BRAND_COLORS.darkGray}
+                                onMouseLeave={(e) => e.target.style.backgroundColor = BRAND_COLORS.black}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleProductClick(product.productID, false);
@@ -801,11 +850,11 @@ const ClearanceSale = () => {
                   </div>
                   
                   <div className="space-y-3">
-                    <h3 className="text-xl md:text-2xl font-bold" style={{color: BRAND_COLORS.magenta}}>
-                      No Clearance Items Found!
+                    <h3 className="text-xl md:text-2xl font-bold" style={{color: BRAND_COLORS.red}}>
+                      No Sale Items Found!
                     </h3>
-                    <p className="max-w-md text-sm md:text-base" style={{color: BRAND_COLORS.gray}}>
-                      All the amazing clearance deals might be sold out! 
+                    <p className="max-w-md text-sm md:text-base" style={{color: BRAND_COLORS.textGray}}>
+                      All the amazing Pre Black Friday deals might be sold out! 
                       Try adjusting your filters or check back soon for more incredible discounts.
                     </p>
                   </div>
@@ -814,14 +863,14 @@ const ClearanceSale = () => {
                     <button
                       onClick={resetFilters}
                       className="px-6 py-3 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                      style={{background: `linear-gradient(135deg, ${BRAND_COLORS.magenta} 0%, ${BRAND_COLORS.darkPurple} 100%)`}}
+                      style={{background: `linear-gradient(135deg, ${BRAND_COLORS.red} 0%, ${BRAND_COLORS.darkRed} 100%)`}}
                     >
                       Reset Filters
                     </button>
                     <button
                       onClick={() => navigate('/')}
                       className="px-6 py-3 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                      style={{background: `linear-gradient(135deg, ${BRAND_COLORS.purple} 0%, ${BRAND_COLORS.darkPurple} 100%)`}}
+                      style={{background: `linear-gradient(135deg, ${BRAND_COLORS.black} 0%, ${BRAND_COLORS.darkGray} 100%)`}}
                     >
                       Browse All Products
                     </button>

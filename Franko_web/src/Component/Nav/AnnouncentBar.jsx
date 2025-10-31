@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react"
+import { useNavigate} from "react-router-dom";
 
 const BRAND_COLORS = {
   red: '#E53E3E',
@@ -19,6 +20,7 @@ const promoMessages = [
 ];
 
 const AnnouncementBar = () => {
+    const navigate = useNavigate();
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(true);
   const [showLeftElement, setShowLeftElement] = useState(false);
@@ -157,7 +159,9 @@ const AnnouncementBar = () => {
                     <div className="text-gray-300 text-xs">30 OCT - 10 NOV</div>
                   </div>
                   
-                  <button 
+                  <button
+                    onClick={() =>  navigate("/pre-black friday")}
+                
                     className="flex items-center gap-1 px-3 py-1 rounded-md font-bold text-xs transition-all duration-200 hover:scale-105 active:scale-95"
                     style={{ 
                       background: `linear-gradient(135deg, ${BRAND_COLORS.green} 0%, ${BRAND_COLORS.darkGreen} 100%)`,
@@ -300,6 +304,8 @@ const AnnouncementBar = () => {
                     ONLINE PURCHASE ONLY
                   </div>
                   <button 
+                  onClick={() =>  navigate("/pre-black friday")}
+                  
                     className="flex items-center gap-1 px-2 py-1 rounded-md font-bold text-xs transition-all duration-200 active:scale-95 whitespace-nowrap"
                     style={{ 
                       background: `linear-gradient(135deg, ${BRAND_COLORS.green} 0%, ${BRAND_COLORS.darkGreen} 100%)`,

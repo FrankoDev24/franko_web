@@ -176,7 +176,7 @@ function App() {
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/phones" element={<Phones ProductCard={ProductCard} />} />
-        <Route path= "/clearance-sale" element= {<ClearanceSale/>} />
+        <Route path= "/pre-black friday" element= {<ClearanceSale/>} />
  
         <Route path="/computers" element={<Laptops ProductCard={ProductCard} />} />
         <Route path="/refrigerator" element={<Fridge ProductCard={ProductCard} />} />
@@ -199,6 +199,7 @@ function App() {
         <Route path="/order-success/:orderId" element={<OrderSuccessPage />} />
         <Route path="/account" element={<Account />} />
         <Route path="/shops" element={<Locations />} />
+ 
         <Route path="/order-cancelled" element={<Cancellation />} />
          <Route path="/admin/login" element={< UserLogin/>} />
           <Route path="/admin/register" element={< UserRegistration/>} />
