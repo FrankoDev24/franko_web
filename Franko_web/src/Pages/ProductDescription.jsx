@@ -38,10 +38,12 @@ const ProductDescription = () => {
   const [removingItem, setRemovingItem] = useState({});
   const [showFlixMedia, setShowFlixMedia] = useState(false);
   const [flixMediaLoaded, setFlixMediaLoaded] = useState(false);
+  const [flixMediaError, setFlixMediaError] = useState(false);
 
   // Refs for scroll detection
   const productSectionRef = useRef(null);
   const stickyHeaderRef = useRef(null);
+  const flixMediaSectionRef = useRef(null);
 
   // Redux selectors
   const { currentProduct, products, loading } = useSelector((state) => state.products);
@@ -112,210 +114,326 @@ const ProductDescription = () => {
     }
   }, [currentProduct]);
 
-  // Enhanced Flix Media Integration - Only for valid Samsung products
+  // COMPLETELY NEW Flix Media Integration - Using iframe isolation
   useEffect(() => {
-    // Only proceed if it's a valid Samsung product with proper MPN
     if (!showFlixMedia || !isValidSamsungProduct()) {
-      setFlixMediaLoaded(true);
       return;
     }
 
     const product = currentProduct[0];
-    
-    // Double-check Samsung validation
-    if (product.brandName?.toLowerCase() !== 'samsung') {
-
-      setFlixMediaLoaded(true);
-      return;
-    }
-
-    // Strict MPN validation
     const mpn = product.productId3?.trim().toUpperCase();
+    
     if (!mpn || !mpn.startsWith('SM')) {
-
+      setFlixMediaError(true);
       setFlixMediaLoaded(true);
       return;
     }
+
+    // Reset states
+    setFlixMediaLoaded(false);
+    setFlixMediaError(false);
 
     // Configuration
     const distributorId = "17909";
     const language = "gh";
-    const fallbackLanguage = "en";
-    const productMpn = product.productId3 || product.productID || "";
+    const productMpn = product.productId3 || "";
     const productEan = product.productId2 || "";
     const productBrand = product.brandName || "";
 
- 
+    // Cleanup function
+    const cleanupFlixMedia = () => {
+      const existingFlixScripts = document.querySelectorAll('script[src*="flixfacts.com"]');
+      existingFlixScripts.forEach(script => script.remove());
+      
+      const existingFlixStyles = document.querySelectorAll('link[href*="flixfacts.com"], style[data-flix]');
+      existingFlixStyles.forEach(style => style.remove());
+      
+      const flixContainers = document.querySelectorAll('#flix-inpage, #flix-minisite, .flix-inpage, .flix-minisite');
+      flixContainers.forEach(container => container.remove());
+      
+      if (window.flixJsCallbacks) delete window.flixJsCallbacks;
+      if (window.flixJs) delete window.flixJs;
+    };
 
-    // Reset previous Flix Media content if exists
-    if (typeof window.flixJsCallbacks === 'object' && typeof window.flixJsCallbacks.reset !== 'undefined') {
-   
-      window.flixJsCallbacks.reset();
-    }
+    // Initial cleanup
+    cleanupFlixMedia();
 
-    // Get or create containers in the Flix section
-    const flixSection = document.getElementById('flix-media-section');
-    if (!flixSection) {
-     
+    // Create isolated container approach
+    const initFlixMedia = () => {
+      const flixSection = flixMediaSectionRef.current;
+      if (!flixSection) return;
+
+      flixSection.innerHTML = '';
+
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'flex items-center justify-center py-12';
+      loadingDiv.innerHTML = `
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mb-4"></div>
+          <p className="text-gray-600">Loading product details...</p>
+        </div>
+      `;
+      flixSection.appendChild(loadingDiv);
+
+      const container = document.createElement('div');
+      container.id = 'flix-media-isolated-container';
+      container.className = 'flix-media-isolated w-full overflow-hidden';
+      container.style.cssText = `
+        position: relative;
+        width: 100%;
+        min-height: 400px;
+        border: none;
+        overflow: hidden;
+      `;
+
+      const iframe = document.createElement('iframe');
+      iframe.id = 'flix-media-iframe';
+      iframe.style.cssText = `
+        width: 100%;
+        height: 600px;
+        border: none;
+        overflow: hidden;
+      `;
+      iframe.onload = () => {
+        setFlixMediaLoaded(true);
+        loadingDiv.remove();
+      };
+      iframe.onerror = () => {
+        setFlixMediaError(true);
+        setFlixMediaLoaded(true);
+        loadingDiv.remove();
+      };
+
+      const iframeScript = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <base target="_parent">
+            <style>
+              body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+              #flix-container { width: 100%; max-width: 100%; overflow: hidden; }
+              .flix-inpage, .flix-minisite { width: 100% !important; max-width: 100% !important; }
+              iframe { max-width: 100% !important; }
+            </style>
+          </head>
+          <body>
+            <div id="flix-container">
+              <div id="flix-inpage"></div>
+              <div id="flix-minisite"></div>
+            </div>
+            <script>
+              (function() {
+                var script = document.createElement('script');
+                script.type = 'text/javascript';
+                script.async = true;
+                script.setAttribute('data-flix-distributor', '${distributorId}');
+                script.setAttribute('data-flix-language', '${language}');
+                script.setAttribute('data-flix-mpn', '${productMpn}');
+                script.setAttribute('data-flix-ean', '${productEan}');
+                script.setAttribute('data-flix-brand', '${productBrand}');
+                script.setAttribute('data-flix-inpage', 'flix-inpage');
+                script.setAttribute('data-flix-button', 'flix-minisite');
+                script.src = 'https://media.flixfacts.com/js/loader.js';
+                script.onload = function() {
+                  window.parent.postMessage({ type: 'FLIX_MEDIA_LOADED' }, '*');
+                };
+                script.onerror = function() {
+                  window.parent.postMessage({ type: 'FLIX_MEDIA_ERROR' }, '*');
+                };
+                document.head.appendChild(script);
+              })();
+            </script>
+          </body>
+        </html>
+      `;
+
+      iframe.srcdoc = iframeScript;
+      container.appendChild(iframe);
+      flixSection.appendChild(container);
+
+      const messageHandler = (event) => {
+        if (event.data.type === 'FLIX_MEDIA_LOADED') {
+          setFlixMediaLoaded(true);
+        } else if (event.data.type === 'FLIX_MEDIA_ERROR') {
+          setFlixMediaError(true);
+          setFlixMediaLoaded(true);
+        }
+      };
+
+      window.addEventListener('message', messageHandler);
+
+      return () => {
+        window.removeEventListener('message', messageHandler);
+        cleanupFlixMedia();
+      };
+    };
+
+    const style = document.createElement('style');
+    style.id = 'flix-media-containment';
+    style.textContent = `
+      #flix-media-section {
+        isolation: isolate;
+        contain: layout style paint;
+        position: relative;
+        z-index: 1;
+      }
+      #flix-media-section * {
+        box-sizing: border-box;
+        max-width: 100%;
+      }
+      .flix-media-isolated {
+        position: relative !important;
+        overflow: hidden !important;
+        z-index: 1;
+      }
+      #flix-media-iframe {
+        position: relative !important;
+        z-index: 1;
+      }
+    `;
+    document.head.appendChild(style);
+
+    const cleanup = initFlixMedia();
+
+    return () => {
+      cleanup?.();
+      const containmentStyle = document.getElementById('flix-media-containment');
+      if (containmentStyle) {
+        containmentStyle.remove();
+      }
+      cleanupFlixMedia();
+    };
+  }, [showFlixMedia, currentProduct]);
+
+  // Alternative approach: Direct script injection with better containment
+  const initFlixMediaDirect = () => {
+    if (!showFlixMedia || !isValidSamsungProduct() || flixMediaLoaded) return;
+
+    const product = currentProduct[0];
+    const mpn = product.productId3?.trim().toUpperCase();
+    
+    if (!mpn || !mpn.startsWith('SM')) {
+      setFlixMediaError(true);
       setFlixMediaLoaded(true);
       return;
     }
 
-    // Clear and recreate containers
-    let inpageContainer = document.getElementById('flix-inpage');
-    let minisiteContainer = document.getElementById('flix-minisite');
-    
-    if (!inpageContainer) {
+    const distributorId = "17909";
+    const language = "gh";
+    const productMpn = product.productId3 || "";
+    const productEan = product.productId2 || "";
+    const productBrand = product.brandName || "";
 
-      inpageContainer = document.createElement('div');
-      inpageContainer.id = 'flix-inpage';
-      inpageContainer.className = 'flix-inpage-content';
-      flixSection.appendChild(inpageContainer);
-    } else {
-      inpageContainer.innerHTML = '';
-      inpageContainer.className = 'flix-inpage-content';
-    }
-    
-    if (!minisiteContainer) {
+    const cleanupFlixMedia = () => {
+      const existingScripts = document.querySelectorAll('script[src*="flixfacts.com"]');
+      existingScripts.forEach(script => script.remove());
+      
+      const existingStyles = document.querySelectorAll('link[href*="flixfacts.com"], style[data-flix]');
+      existingStyles.forEach(style => style.remove());
+      
+      if (window.flixJsCallbacks) delete window.flixJsCallbacks;
+      if (window.flixJs) delete window.flixJs;
+    };
 
-      minisiteContainer = document.createElement('div');
-      minisiteContainer.id = 'flix-minisite';
-      minisiteContainer.className = 'flix-minisite-content';
-      flixSection.insertBefore(minisiteContainer, inpageContainer);
-    } else {
-      minisiteContainer.innerHTML = '';
-      minisiteContainer.className = 'flix-minisite-content';
-    }
+    cleanupFlixMedia();
 
-    // Remove existing Flix scripts
-    const existingFlixScripts = document.querySelectorAll('script[src*="flixfacts.com"]');
-    if (existingFlixScripts.length > 0) {
-      existingFlixScripts.forEach(script => script.remove());
-    }
+    const flixSection = flixMediaSectionRef.current;
+    if (!flixSection) return;
 
-    // Small delay to ensure DOM is ready
+    flixSection.innerHTML = `
+      <div class="flex items-center justify-center py-10">
+        <div class="text-center">
+          <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mb-4"></div>
+          <p class="text-gray-600">Loading product details...</p>
+        </div>
+      </div>
+      <div id="flix-inpage-container" style="width: 100%; overflow: hidden; contain: layout style paint;">
+        <div id="flix-inpage"></div>
+      </div>
+      <div id="flix-minisite-container" style="width: 100%; overflow: hidden; contain: layout style paint;">
+        <div id="flix-minisite"></div>
+      </div>
+    `;
+
+    const containStyles = `
+      #flix-inpage-container, #flix-minisite-container {
+        position: relative !important;
+        overflow: hidden !important;
+        max-width: 100% !important;
+      }
+      #flix-inpage, #flix-minisite {
+        position: relative !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+      }
+      .flix-inpage-content, .flix-minisite-content {
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+    `;
+
+    const styleEl = document.createElement('style');
+    styleEl.textContent = containStyles;
+    document.head.appendChild(styleEl);
+
     setTimeout(() => {
-      // Create Flix script
-      const flixScript = document.createElement('script');
-      flixScript.type = 'text/javascript';
-      flixScript.async = true;
-      flixScript.setAttribute('data-flix-distributor', distributorId);
-      flixScript.setAttribute('data-flix-language', language);
-      flixScript.setAttribute('data-flix-fallback-language', fallbackLanguage);
-      flixScript.setAttribute('data-flix-brand', productBrand);
-      flixScript.setAttribute('data-flix-ean', productEan);
-      flixScript.setAttribute('data-flix-mpn', productMpn);
-      flixScript.setAttribute('data-flix-inpage', 'flix-inpage');
-      flixScript.setAttribute('data-flix-button', 'flix-minisite');
-      flixScript.setAttribute('data-flix-price', '');
+      const script = document.createElement('script');
+      script.type = 'text/javascript';
+      script.async = true;
+      script.setAttribute('data-flix-distributor', distributorId);
+      script.setAttribute('data-flix-language', language);
+      script.setAttribute('data-flix-mpn', productMpn);
+      script.setAttribute('data-flix-ean', productEan);
+      script.setAttribute('data-flix-brand', productBrand);
+      script.setAttribute('data-flix-inpage', 'flix-inpage');
+      script.setAttribute('data-flix-button', 'flix-minisite');
       
-      // Add load event listener
-      flixScript.onload = () => {
-  
-        setFlixMediaLoaded(true);
-        
-        // Check if content was injected after a delay
+      script.onload = () => {
         setTimeout(() => {
-          const inpage = document.getElementById('flix-inpage');
-          const minisite = document.getElementById('flix-minisite');
-      
+          setFlixMediaLoaded(true);
+          const loadingEl = flixSection.querySelector('.flex.items-center.justify-center');
+          if (loadingEl) loadingEl.remove();
         }, 2000);
       };
       
-      flixScript.onerror = () => {
-
+      script.onerror = () => {
+        setFlixMediaError(true);
         setFlixMediaLoaded(true);
       };
       
-      // Set source and append to head
-      flixScript.src = 'https://media.flixfacts.com/js/loader.js';
-      document.head.appendChild(flixScript);
-
+      script.src = 'https://media.flixfacts.com/js/loader.js';
+      document.head.appendChild(script);
     }, 100);
 
-    // Cleanup function
     return () => {
-     
-      if (typeof window.flixJsCallbacks === 'object' && typeof window.flixJsCallbacks.reset !== 'undefined') {
-        window.flixJsCallbacks.reset();
-      }
+      cleanupFlixMedia();
+      styleEl.remove();
     };
-  }, [showFlixMedia, currentProduct]);
+  };
 
-  // Fixed scroll detection - only show sticky header for valid Samsung products
+  // Fixed scroll detection
   useEffect(() => {
-    // Don't show sticky header if not a valid Samsung product
     if (!showFlixMediaButton) {
       setShowStickyHeader(false);
       return;
     }
 
     const handleScroll = () => {
-      const navbarSelectors = [
-        'nav',
-        'header',
-        '[role="navigation"]',
-        '.navbar',
-        '.header',
-        '.app-header',
-        '.main-header',
-        '[data-testid="navbar"]',
-        '#navbar'
-      ];
-      
-      let navbarHeight = 200;
-      
-      for (const selector of navbarSelectors) {
-        const element = document.querySelector(selector);
-        if (element && element.offsetHeight > 0) {
-          navbarHeight = element.offsetHeight;
-          break;
-        }
-      }
+      const navbar = document.querySelector('nav, header, [role="navigation"]');
+      const navbarHeight = navbar?.offsetHeight || 200;
 
-      const productSection = document.getElementById('product-details-section');
-      if (productSection) {
-        const rect = productSection.getBoundingClientRect();
-        if (rect.top < navbarHeight) {
-          setShowStickyHeader(true);
-        } else {
-          setShowStickyHeader(false);
-        }
+      if (window.scrollY > navbarHeight) {
+        setShowStickyHeader(true);
       } else {
-        if (window.scrollY > navbarHeight) {
-          setShowStickyHeader(true);
-        } else {
-          setShowStickyHeader(false);
-        }
+        setShowStickyHeader(false);
       }
     };
 
-    const init = () => {
-      setTimeout(() => {
-        handleScroll();
-      }, 100);
-    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
 
-    init();
-
-    let ticking = false;
-    const throttledScroll = () => {
-      if (!ticking) {
-        requestAnimationFrame(() => {
-          handleScroll();
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-
-    window.addEventListener('scroll', throttledScroll, { passive: true });
-    window.addEventListener('resize', throttledScroll, { passive: true });
-    
-    return () => {
-      window.removeEventListener('scroll', throttledScroll);
-      window.removeEventListener('resize', throttledScroll);
-    };
+    return () => window.removeEventListener('scroll', handleScroll);
   }, [showFlixMediaButton]);
 
   // Enhanced out-of-stock checker function
@@ -635,6 +753,7 @@ const ProductDescription = () => {
         })}
       </script>
 
+
       {/* Fixed Sticky Header - Only for valid Samsung products */}
       {showFlixMediaButton && (
         <div 
@@ -830,6 +949,7 @@ const ProductDescription = () => {
                     setShowFlixMedia(!showFlixMedia);
                     if (!showFlixMedia) {
                       setTimeout(() => {
+                        initFlixMediaDirect();
                         const flixSection = document.getElementById('flix-media-section');
                         if (flixSection) {
                           flixSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -960,9 +1080,14 @@ const ProductDescription = () => {
         ))}
       </div>
 
-      {/* Flix Media Section - Only for valid Samsung products with SM MPN */}
+      {/* Flix Media Section - COMPLETELY ISOLATED */}
       {showFlixMedia && showFlixMediaButton && (
-        <div id="flix-media-section" className="mt-8 bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+        <div 
+          id="flix-media-section" 
+          ref={flixMediaSectionRef}
+          className="mt-8 bg-white rounded-2xl shadow-lg p-6 border border-gray-200 overflow-hidden"
+          style={{ contain: 'layout style paint' }}
+        >
           <div className="mb-6 flex items-center gap-4">
             <h2 className="text-xl font-bold text-gray-900 relative">
               More Product Details
@@ -970,22 +1095,9 @@ const ProductDescription = () => {
             </h2>
           </div>
           
-          {/* Flix Media Content Containers */}
-          <div className="space-y-6 min-h-[200px]">
-            {/* Minisite Button Container */}
-            <div id="flix-minisite" className="flix-minisite-container"></div>
-            
-            {/* Inpage Content Container */}
-            <div id="flix-inpage" className="flix-inpage-container"></div>
-          </div>
-
-          {/* Loading State */}
-          {!flixMediaLoaded && (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mb-4"></div>
-                <p className="text-gray-600">Loading rich media content...</p>
-              </div>
+          {flixMediaError && (
+            <div className="text-center py-8 text-gray-500">
+              <p>Unable to load additional product details at this time.</p>
             </div>
           )}
         </div>
