@@ -6,13 +6,22 @@ import { fetchProductById, fetchProducts } from "../Redux/Slice/productSlice";
 import { updateCartItem, deleteCartItem, getCartById } from '../Redux/Slice/cartSlice';
 import ProductDetailSkeleton from "../Component/ProductDetailSkeleton";
 import { Button, Tooltip, IconButton, Drawer } from "@material-tailwind/react";
-import { ShoppingCartIcon, CheckCircleIcon, HeartIcon as SolidHeartIcon, EyeIcon, TruckIcon, ShieldCheckIcon, PhoneIcon, CreditCardIcon,
+import { 
+  ShoppingCartIcon, 
+  CheckCircleIcon, 
+  HeartIcon as SolidHeartIcon, 
+  EyeIcon, 
+  TruckIcon, 
+  ShieldCheckIcon, 
+  PhoneIcon, 
+  CreditCardIcon,
   ShareIcon,
   TrashIcon,
   MinusIcon,
   PlusIcon,
   XMarkIcon,
-  ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+  ExclamationTriangleIcon 
+} from "@heroicons/react/24/outline";
 import ProductCard from "../Component/ProductCard";
 import useAddToCart from "../Component/Cart";
 import AuthModal from "../Component/AuthModal";
@@ -31,18 +40,18 @@ const ProductDescription = () => {
 
   // State management
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [showStickyHeader, setShowStickyHeader] = useState(false);
+  const [showStickyCart, setShowStickyCart] = useState(false);
   const [cartSidebarOpen, setCartSidebarOpen] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [updatingQuantity, setUpdatingQuantity] = useState({});
   const [removingItem, setRemovingItem] = useState({});
-  const [showFlixMedia, setShowFlixMedia] = useState(false);
   const [flixMediaLoaded, setFlixMediaLoaded] = useState(false);
   const [flixMediaError, setFlixMediaError] = useState(false);
+  const [cartSyncError, setCartSyncError] = useState(null);
+  const [networkStatus, setNetworkStatus] = useState(navigator.onLine);
 
-  // Refs for scroll detection
-  const productSectionRef = useRef(null);
-  const stickyHeaderRef = useRef(null);
+  // Refs
+  const productDetailsRef = useRef(null);
   const flixMediaSectionRef = useRef(null);
 
   // Redux selectors
@@ -50,12 +59,36 @@ const ProductDescription = () => {
   const { cart, loading: cartLoadingState, error: cartError, cartId } = useSelector((state) => state.cart);
   const [viewedProducts, setViewedProducts] = useState([]);
 
+  // Network status monitoring
+  useEffect(() => {
+    const handleOnline = () => {
+      setNetworkStatus(true);
+      setCartSyncError(null);
+      // Re-sync cart when coming back online
+      if (cartId) {
+        syncCartWithDatabase();
+      }
+    };
+    
+    const handleOffline = () => {
+      setNetworkStatus(false);
+      setCartSyncError("You're offline. Cart changes will sync when connection is restored.");
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [cartId]);
+
   // STRICT validation - Only show Flix Media when MPN starts with "SM"
   const isValidSamsungProduct = () => {
     if (!currentProduct?.length) return false;
     const product = currentProduct[0];
     
-    // Must have a valid MPN that starts with "SM" (case insensitive)
     const hasValidMPN = product.productId3 && 
                         typeof product.productId3 === 'string' && 
                         product.productId3.trim().toUpperCase().startsWith('SM');
@@ -63,16 +96,33 @@ const ProductDescription = () => {
     return hasValidMPN;
   };
 
-  const showFlixMediaButton = isValidSamsungProduct();
+  const showFlixMedia = isValidSamsungProduct();
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
+  // Sync cart with database
+  const syncCartWithDatabase = async () => {
+    if (!cartId || !networkStatus) return;
+    
+    try {
+      const result = await dispatch(getCartById(cartId)).unwrap();
+      
+      if (result && Array.isArray(result)) {
+        localStorage.setItem("selectedCart", JSON.stringify(result));
+        setCartSyncError(null);
+      }
+    } catch (error) {
+      console.error('Cart sync error:', error);
+      setCartSyncError("Failed to sync cart. Changes saved locally.");
+    }
+  };
+
   // Fetch cart data when component mounts or cartId changes
   useEffect(() => {
     if (cartId) {
-      dispatch(getCartById(cartId));
+      syncCartWithDatabase();
     }
   }, [dispatch, cartId]);
 
@@ -114,9 +164,9 @@ const ProductDescription = () => {
     }
   }, [currentProduct]);
 
-  // Flix Media Integration
+  // Preload Flix Media Integration
   useEffect(() => {
-    if (!showFlixMedia || !isValidSamsungProduct()) {
+    if (!showFlixMedia || !currentProduct?.length) {
       return;
     }
 
@@ -129,19 +179,15 @@ const ProductDescription = () => {
       return;
     }
 
-    // Reset states
     setFlixMediaLoaded(false);
     setFlixMediaError(false);
 
-    // Configuration
     const distributorId = "17909";
     const language = "gh";
     const productMpn = product.productId3 || "";
     const productEan = product.productId2 || "";
-const productBrand = "Samsung";
+    const productBrand = "Samsung";
 
-
-    // Cleanup function
     const cleanupFlixMedia = () => {
       const existingFlixScripts = document.querySelectorAll('script[src*="flixfacts.com"]');
       existingFlixScripts.forEach(script => script.remove());
@@ -156,10 +202,8 @@ const productBrand = "Samsung";
       if (window.flixJs) delete window.flixJs;
     };
 
-    // Initial cleanup
     cleanupFlixMedia();
 
-    // Create isolated container approach
     const initFlixMedia = () => {
       const flixSection = flixMediaSectionRef.current;
       if (!flixSection) return;
@@ -171,7 +215,7 @@ const productBrand = "Samsung";
       loadingDiv.innerHTML = `
         <div class="text-center">
           <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mb-4"></div>
-          <p class="text-gray-600">Loading product details...</p>
+          <p class="text-gray-600">Loading enhanced product details...</p>
         </div>
       `;
       flixSection.appendChild(loadingDiv);
@@ -191,7 +235,7 @@ const productBrand = "Samsung";
       iframe.id = 'flix-media-iframe';
       iframe.style.cssText = `
         width: 100%;
-        height: 700px;
+        height: 800px;
         border: none;
         overflow: hidden;
       `;
@@ -304,23 +348,14 @@ const productBrand = "Samsung";
       }
       cleanupFlixMedia();
     };
-  }, [showFlixMedia, currentProduct]);
+  }, [currentProduct, showFlixMedia]);
 
-  // Fixed scroll detection
+  // Sticky cart scroll detection
   useEffect(() => {
-    if (!showFlixMediaButton) {
-      setShowStickyHeader(false);
-      return;
-    }
-
     const handleScroll = () => {
-      const navbar = document.querySelector('nav, header, [role="navigation"]');
-      const navbarHeight = navbar?.offsetHeight || 200;
-
-      if (window.scrollY > navbarHeight) {
-        setShowStickyHeader(true);
-      } else {
-        setShowStickyHeader(false);
+      if (productDetailsRef.current) {
+        const rect = productDetailsRef.current.getBoundingClientRect();
+        setShowStickyCart(rect.bottom < 0);
       }
     };
 
@@ -328,9 +363,8 @@ const productBrand = "Samsung";
     handleScroll();
 
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [showFlixMediaButton]);
+  }, []);
 
-  // Enhanced out-of-stock checker function
   const isOutOfStock = (product) => {
     if (!product) return false;
     
@@ -375,72 +409,129 @@ const productBrand = "Samsung";
     return false;
   };
 
-  // Enhanced Add to Cart function that opens sidebar
+  // Enhanced Add to Cart with proper synchronization
   const handleAddToCartAndOpenSidebar = async (product) => {
     if (isOutOfStock(product)) {
       return;
     }
     
+    if (!networkStatus) {
+      setCartSyncError("No internet connection. Please check your network.");
+      return;
+    }
+    
     setIsAddingToCart(true);
+    setCartSyncError(null);
+    
     try {
-      await addProductToCart(product);
+      // Add product to cart
+      const result = await addProductToCart(product);
+      
+      // Sync with database
       if (cartId) {
-        await dispatch(getCartById(cartId)).unwrap();
+        try {
+          const updatedCart = await dispatch(getCartById(cartId)).unwrap();
+          
+          // Update local storage with latest cart data
+          if (updatedCart && Array.isArray(updatedCart)) {
+            localStorage.setItem("selectedCart", JSON.stringify(updatedCart));
+          }
+          
+          setCartSyncError(null);
+        } catch (syncError) {
+          console.error('Cart sync error:', syncError);
+          setCartSyncError("Added to cart, but sync failed. Changes saved locally.");
+        }
       }
+      
+      // Open sidebar on success
       setCartSidebarOpen(true);
+      
     } catch (error) {
       console.error('Error adding to cart:', error);
+      
+      if (!navigator.onLine) {
+        setCartSyncError('No internet connection. Please check your network and try again.');
+      } else if (error.message) {
+        setCartSyncError(`Failed to add to cart: ${error.message}`);
+      } else {
+        setCartSyncError('Failed to add product to cart. Please try again.');
+      }
     } finally {
       setIsAddingToCart(false);
     }
   };
 
-  // FIXED: Cart quantity update handler
+  // Cart quantity update handler with proper sync
   const handleQuantityChange = async (productId, newQuantity) => {
     if (newQuantity < 1 || !cartId) return;
     
-    // Set loading state for this specific product
+    if (!networkStatus) {
+      setCartSyncError("No internet connection. Changes will sync when connection is restored.");
+      // Update local storage optimistically
+      const localCart = JSON.parse(localStorage.getItem("selectedCart") || "[]");
+      const updatedLocalCart = localCart.map(item => 
+        item.productId === productId ? { ...item, quantity: newQuantity } : item
+      );
+      localStorage.setItem("selectedCart", JSON.stringify(updatedLocalCart));
+      return;
+    }
+    
     setUpdatingQuantity(prev => ({ ...prev, [productId]: true }));
+    setCartSyncError(null);
     
     try {
-      // Dispatch the update action
-      const result = await dispatch(updateCartItem({ 
+      await dispatch(updateCartItem({ 
         cartId, 
         productId, 
         quantity: newQuantity 
       })).unwrap();
       
-      // If successful, refresh the cart
-      await dispatch(getCartById(cartId)).unwrap();
+      // Sync with database
+      const updatedCart = await dispatch(getCartById(cartId)).unwrap();
+      
+      if (updatedCart && Array.isArray(updatedCart)) {
+        localStorage.setItem("selectedCart", JSON.stringify(updatedCart));
+      }
       
     } catch (error) {
       console.error('Error updating cart quantity:', error);
-      // Optionally show error message to user
+      setCartSyncError("Failed to update quantity. Please try again.");
     } finally {
-      // Clear loading state
       setUpdatingQuantity(prev => ({ ...prev, [productId]: false }));
     }
   };
 
-  // FIXED: Remove item handler
+  // Remove item handler with proper sync
   const handleRemoveItem = async (productId) => {
     if (!cartId) return;
     
-    // Set loading state for this specific product
+    if (!networkStatus) {
+      setCartSyncError("No internet connection. Changes will sync when connection is restored.");
+      // Update local storage optimistically
+      const localCart = JSON.parse(localStorage.getItem("selectedCart") || "[]");
+      const updatedLocalCart = localCart.filter(item => item.productId !== productId);
+      localStorage.setItem("selectedCart", JSON.stringify(updatedLocalCart));
+      return;
+    }
+    
     setRemovingItem(prev => ({ ...prev, [productId]: true }));
+    setCartSyncError(null);
     
     try {
-      // Dispatch the delete action
       await dispatch(deleteCartItem({ cartId, productId })).unwrap();
       
-      // Refresh the cart
-      await dispatch(getCartById(cartId)).unwrap();
+      // Sync with database
+      const updatedCart = await dispatch(getCartById(cartId)).unwrap();
+      
+      if (updatedCart && Array.isArray(updatedCart)) {
+        localStorage.setItem("selectedCart", JSON.stringify(updatedCart));
+      }
       
     } catch (error) {
       console.error('Error removing cart item:', error);
-      // Optionally show error message to user
+      setCartSyncError("Failed to remove item. Please try again.");
     } finally {
-      // Clear loading state
       setRemovingItem(prev => ({ ...prev, [productId]: false }));
     }
   };
@@ -613,149 +704,108 @@ const productBrand = "Samsung";
             "seller": {
               "@type": "Organization",
               "name": "Franko Trading"
-            },
-            "shippingDetails": {
-              "@type": "OfferShippingDetails",
-              "shippingRate": {
-                "@type": "MonetaryAmount",
-                "currency": "GHS",
-                "value": "40.00"
-              },
-              "shippingDestination": {
-                "@type": "DefinedRegion",
-                "addressCountry": "GH"
-              },
-              "deliveryTime": {
-                "@type": "ShippingDeliveryTime",
-                "handlingTime": {
-                  "@type": "QuantitativeValue",
-                  "minValue": 1,
-                  "maxValue": 2,
-                  "unitCode": "DAY"
-                },
-                "transitTime": {
-                  "@type": "QuantitativeValue",
-                  "minValue": 3,
-                  "maxValue": 5,
-                  "unitCode": "DAY"
-                }
-              }
-            },
-            "hasMerchantReturnPolicy": {
-              "@type": "MerchantReturnPolicy",
-              "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
-              "merchantReturnDays": 7,
-              "returnMethod": "https://schema.org/ReturnByMail",
-              "returnFees": "https://schema.org/FreeReturn",
-              "applicableCountry": "GH"
             }
           }
         })}
       </script>
 
-      {/* Fixed Sticky Header - Only for valid Samsung products with SM MPN */}
-      {showFlixMediaButton && (
-        <div 
-          ref={stickyHeaderRef}
-          className={`fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-lg transition-all duration-300 ${
-            showStickyHeader ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
-          } hidden md:block`}
-        >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between py-3 gap-4">
-              <div className="flex items-center gap-4 flex-1 min-w-0">
-                <div className="flex-shrink-0">
-                  <img
-                    src={imageUrl}
-                    alt={product.productName}
-                    className="w-16 h-16 object-contain rounded-lg border border-gray-200"
-                    onError={(e) => {
-                      e.target.src = "https://via.placeholder.com/150";
-                    }}
-                  />
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900 text-sm line-clamp-1 mb-1">
-                    {product.productName}
-                  </h3>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-lg font-bold text-red-600">
-                      GH₵{formatPrice(product.price)}.00
-                    </span>
-                    {product.oldPrice > 0 && (
-                      <span className="text-sm text-gray-400 line-through">
-                        GH₵{formatPrice(product.oldPrice)}.00
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 mt-1">
-                    {outOfStock ? (
-                      <>
-                        <ExclamationTriangleIcon className="w-3.5 h-3.5 text-red-500" />
-                        <span className="text-xs text-red-600 font-medium">Out of Stock</span>
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircleIcon className="w-3.5 h-3.5 text-green-500" />
-                        <span className="text-xs text-green-600 font-medium">In Stock</span>
-                      </>
-                    )}
-                  </div>
-                </div>
+      {/* Sticky Add to Cart Bar */}
+      <div 
+        className={`fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-lg transition-all duration-300 ${
+          showStickyCart ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between py-3 gap-4">
+            <div className="flex items-center gap-4 flex-1 min-w-0">
+              <div className="flex-shrink-0">
+                <img
+                  src={imageUrl}
+                  alt={product.productName}
+                  className="w-16 h-16 object-contain rounded-lg border border-gray-200"
+                  onError={(e) => {
+                    e.target.src = "https://via.placeholder.com/150";
+                  }}
+                />
               </div>
               
-              <div className="flex items-center gap-3 flex-shrink-0">
-                <Button
-                  size="sm"
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 ${
-                    outOfStock 
-                      ? 'bg-gray-100 text-gray-400 border border-gray-300 cursor-not-allowed' 
-                      : isCartButtonLoading
-                      ? 'bg-red-400 text-white'
-                      : 'bg-red-500 text-white hover:bg-red-600 shadow-sm'
-                  }`}
-                  onClick={() => handleAddToCartAndOpenSidebar(product)}
-                  disabled={isCartButtonLoading || outOfStock}
-                >
-                  {isCartButtonLoading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Adding...</span>
-                    </>
-                  ) : outOfStock ? (
-                    <>
-                      <ExclamationTriangleIcon className="w-4 h-4" />
-                      <span>Out of Stock</span>
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingCartIcon className="w-4 h-4" />
-                      <span>Add to Cart</span>
-                    </>
-                  )}
-                </Button>
-                
-                <button
-                  onClick={() => setCartSidebarOpen(true)}
-                  className="relative bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg p-2.5 transition-colors duration-200"
-                  disabled={!cart || cart.length === 0}
-                >
-                  <ShoppingCartIcon className="w-5 h-5" />
-                  {totalCartItems > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                      {totalCartItems}
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-gray-900 text-sm line-clamp-1 mb-1">
+                  {product.productName}
+                </h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-lg font-bold text-red-600">
+                    GH₵{formatPrice(product.price)}.00
+                  </span>
+                  {product.oldPrice > 0 && (
+                    <span className="text-sm text-gray-400 line-through">
+                      GH₵{formatPrice(product.oldPrice)}.00
                     </span>
                   )}
-                </button>
+                </div>
               </div>
             </div>
+            
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <Button
+                size="sm"
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold text-sm transition-all duration-200 ${
+                  outOfStock 
+                    ? 'bg-gray-100 text-gray-400 border border-gray-300 cursor-not-allowed' 
+                    : isCartButtonLoading
+                    ? 'bg-red-400 text-white'
+                    : 'bg-red-500 text-white hover:bg-red-600 shadow-md'
+                }`}
+                onClick={() => handleAddToCartAndOpenSidebar(product)}
+                disabled={isCartButtonLoading || outOfStock}
+              >
+                {isCartButtonLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Adding...</span>
+                  </>
+                ) : outOfStock ? (
+                  <>
+                    <ExclamationTriangleIcon className="w-4 h-4" />
+                    <span>Out of Stock</span>
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCartIcon className="w-4 h-4" />
+                    <span>Add to Cart</span>
+                  </>
+                )}
+              </Button>
+              
+              <button
+                onClick={() => setCartSidebarOpen(true)}
+                className="relative bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg p-3 transition-colors duration-200"
+                disabled={!cart || cart.length === 0}
+              >
+                <ShoppingCartIcon className="w-5 h-5" />
+                {totalCartItems > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                    {totalCartItems}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Network Status Alert */}
+      {cartSyncError && (
+        <div className="mb-4 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
+          <div className="flex items-center">
+            <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600 mr-2" />
+            <p className="text-sm text-yellow-800">{cartSyncError}</p>
           </div>
         </div>
       )}
 
       {/* Main Product Details Section */}
-      <div id="product-details-section" ref={productSectionRef} className="grid lg:grid-cols-2 gap-12 pt-4">
+      <div id="product-details-section" ref={productDetailsRef} className="grid lg:grid-cols-2 gap-12 pt-4">
         <div className="flex justify-center items-start">
           <Image.PreviewGroup>
             <Image
@@ -837,43 +887,6 @@ const productBrand = "Samsung";
                 {descriptionLines}
               </div>
             </div>
-
-            {/* Flix Media Button - Only show for products with SM MPN */}
-            {showFlixMediaButton && (
-              <div className="mt-4 flex justify-center">
-                <Button
-                  variant="outlined"
-                  className="flex items-center gap-2 px-6 py-2.5 border-2 border-red-500 text-red-600 hover:bg-red-50 rounded-lg font-semibold transition-all duration-200 shadow-sm hover:shadow-md"
-                  onClick={() => {
-                    setShowFlixMedia(!showFlixMedia);
-                    if (!showFlixMedia) {
-                      setTimeout(() => {
-                        const flixSection = document.getElementById('flix-media-section');
-                        if (flixSection) {
-                          flixSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }
-                      }, 100);
-                    }
-                  }}
-                >
-                  {showFlixMedia ? (
-                    <>
-                      <span>Hide Product Details</span>
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
-                      </svg>
-                    </>
-                  ) : (
-                    <>
-                      <span>See More Product Details</span>
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                      </svg>
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
           </div>
 
           <div className="pt-2">
@@ -929,14 +942,14 @@ const productBrand = "Samsung";
                   className={`flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-2xl transition-all duration-300 ease-in-out shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex-1 ${
                     outOfStock
                       ? 'bg-gray-100 text-gray-500 border border-gray-300'
-                      : 'bg-red-100 text-red-600 border border-red-300 hover:bg-red-200 hover:border-red-400'
+                      : 'bg-red-500 text-white border border-red-500 hover:bg-red-600 hover:border-red-600'
                   }`}
                   onClick={() => handleAddToCartAndOpenSidebar(product)}
                   disabled={isCartButtonLoading || outOfStock}
                 >
                   {isCartButtonLoading ? (
                     <>
-                      <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       <span className="text-sm">Adding...</span>
                     </>
                   ) : outOfStock ? (
@@ -951,37 +964,26 @@ const productBrand = "Samsung";
                     </>
                   )}
                 </Button>
+                <button
+                  onClick={() => setCartSidebarOpen(true)}
+                  className="relative bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg p-3 transition-colors duration-200"
+                  disabled={!cart || cart.length === 0}
+                >
+                  <ShoppingCartIcon className="w-6 h-6" />
+                  {totalCartItems > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                      {totalCartItems}
+                    </span>
+                  )}
+                </button>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Service Features - Hide when Flix Media is shown */}
-      {!(showFlixMedia && showFlixMediaButton) && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-sm text-gray-700 mt-2 md:mt-6">
-          {[
-            { title: "Fast Shipping", subtitle: "All over Ghana", icon: <TruckIcon className="w-5 h-5 text-red-600" /> },
-            { title: "Quality Assurance", subtitle: "certified products", icon: <ShieldCheckIcon className="w-5 h-5 text-green-600" /> },
-            { title: "Customer Support", subtitle: "Dedicated support team", icon: <PhoneIcon className="w-5 h-5 text-red-400" /> },
-            { title: "Secure Payment", subtitle: "Safe Payment Processing", icon: <CreditCardIcon className="w-5 h-5 text-teal-500" /> }
-          ].map((item, idx) => (
-            <div
-              key={idx}
-              className="flex items-start gap-2 hover:bg-gray-50 p-2 rounded-lg transition"
-            >
-              {item.icon}
-              <div>
-                <p className="font-semibold">{item.title}</p>
-                <p className="text-xs text-gray-500">{item.subtitle}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Flix Media Section - COMPLETELY ISOLATED */}
-      {showFlixMedia && showFlixMediaButton && (
+      {/* Flix Media Section - Preloaded as part of description */}
+      {showFlixMedia && (
         <div 
           id="flix-media-section" 
           ref={flixMediaSectionRef}
@@ -990,7 +992,7 @@ const productBrand = "Samsung";
         >
           <div className="mb-6 flex items-center gap-4">
             <h2 className="text-xl font-bold text-gray-900 relative">
-              More Product Details
+              Enhanced Product Details
               <span className="absolute -bottom-1 left-0 w-16 h-1 bg-red-400 rounded-full"></span>
             </h2>
           </div>
@@ -1002,6 +1004,27 @@ const productBrand = "Samsung";
           )}
         </div>
       )}
+
+      {/* Service Features */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-sm text-gray-700 mt-8 md:mt-10">
+        {[
+          { title: "Fast Shipping", subtitle: "All over Ghana", icon: <TruckIcon className="w-5 h-5 text-red-600" /> },
+          { title: "Quality Assurance", subtitle: "certified products", icon: <ShieldCheckIcon className="w-5 h-5 text-green-600" /> },
+          { title: "Customer Support", subtitle: "Dedicated support team", icon: <PhoneIcon className="w-5 h-5 text-red-400" /> },
+          { title: "Secure Payment", subtitle: "Safe Payment Processing", icon: <CreditCardIcon className="w-5 h-5 text-teal-500" /> }
+        ].map((item, idx) => (
+          <div
+            key={idx}
+            className="flex items-start gap-2 hover:bg-gray-50 p-2 rounded-lg transition"
+          >
+            {item.icon}
+            <div>
+              <p className="font-semibold">{item.title}</p>
+              <p className="text-xs text-gray-500">{item.subtitle}</p>
+            </div>
+          </div>
+        ))}
+      </div>
 
       {/* Recently Viewed Products */}
       {viewedProducts.length > 0 && (
