@@ -50,17 +50,17 @@ const ProductDescription = () => {
   const { cart, loading: cartLoadingState, error: cartError, cartId } = useSelector((state) => state.cart);
   const [viewedProducts, setViewedProducts] = useState([]);
 
-  // Strict validation for Samsung products with valid MPN
+  // STRICT validation - Only show Flix Media when MPN starts with "SM"
   const isValidSamsungProduct = () => {
     if (!currentProduct?.length) return false;
     const product = currentProduct[0];
     
-    const isSamsung = product.brandName?.toLowerCase() === 'samsung';
+    // Must have a valid MPN that starts with "SM" (case insensitive)
     const hasValidMPN = product.productId3 && 
                         typeof product.productId3 === 'string' && 
                         product.productId3.trim().toUpperCase().startsWith('SM');
     
-    return isSamsung && hasValidMPN;
+    return hasValidMPN;
   };
 
   const showFlixMediaButton = isValidSamsungProduct();
@@ -114,7 +114,7 @@ const ProductDescription = () => {
     }
   }, [currentProduct]);
 
-  // COMPLETELY NEW Flix Media Integration - Using iframe isolation
+  // Flix Media Integration
   useEffect(() => {
     if (!showFlixMedia || !isValidSamsungProduct()) {
       return;
@@ -138,7 +138,8 @@ const ProductDescription = () => {
     const language = "gh";
     const productMpn = product.productId3 || "";
     const productEan = product.productId2 || "";
-    const productBrand = product.brandName || "";
+const productBrand = "Samsung";
+
 
     // Cleanup function
     const cleanupFlixMedia = () => {
@@ -168,9 +169,9 @@ const ProductDescription = () => {
       const loadingDiv = document.createElement('div');
       loadingDiv.className = 'flex items-center justify-center py-12';
       loadingDiv.innerHTML = `
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mb-4"></div>
-          <p className="text-gray-600">Loading product details...</p>
+        <div class="text-center">
+          <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mb-4"></div>
+          <p class="text-gray-600">Loading product details...</p>
         </div>
       `;
       flixSection.appendChild(loadingDiv);
@@ -305,113 +306,6 @@ const ProductDescription = () => {
     };
   }, [showFlixMedia, currentProduct]);
 
-  // Alternative approach: Direct script injection with better containment
-  const initFlixMediaDirect = () => {
-    if (!showFlixMedia || !isValidSamsungProduct() || flixMediaLoaded) return;
-
-    const product = currentProduct[0];
-    const mpn = product.productId3?.trim().toUpperCase();
-    
-    if (!mpn || !mpn.startsWith('SM')) {
-      setFlixMediaError(true);
-      setFlixMediaLoaded(true);
-      return;
-    }
-
-    const distributorId = "17909";
-    const language = "gh";
-    const productMpn = product.productId3 || "";
-    const productEan = product.productId2 || "";
-    const productBrand = product.brandName || "";
-
-    const cleanupFlixMedia = () => {
-      const existingScripts = document.querySelectorAll('script[src*="flixfacts.com"]');
-      existingScripts.forEach(script => script.remove());
-      
-      const existingStyles = document.querySelectorAll('link[href*="flixfacts.com"], style[data-flix]');
-      existingStyles.forEach(style => style.remove());
-      
-      if (window.flixJsCallbacks) delete window.flixJsCallbacks;
-      if (window.flixJs) delete window.flixJs;
-    };
-
-    cleanupFlixMedia();
-
-    const flixSection = flixMediaSectionRef.current;
-    if (!flixSection) return;
-
-    flixSection.innerHTML = `
-      <div class="flex items-center justify-center py-10">
-        <div class="text-center">
-          <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mb-4"></div>
-          <p class="text-gray-600">Loading product details...</p>
-        </div>
-      </div>
-      <div id="flix-inpage-container" style="width: 100%; overflow: hidden; contain: layout style paint;">
-        <div id="flix-inpage"></div>
-      </div>
-      <div id="flix-minisite-container" style="width: 100%; overflow: hidden; contain: layout style paint;">
-        <div id="flix-minisite"></div>
-      </div>
-    `;
-
-    const containStyles = `
-      #flix-inpage-container, #flix-minisite-container {
-        position: relative !important;
-        overflow: hidden !important;
-        max-width: 100% !important;
-      }
-      #flix-inpage, #flix-minisite {
-        position: relative !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        overflow: hidden !important;
-      }
-      .flix-inpage-content, .flix-minisite-content {
-        width: 100% !important;
-        max-width: 100% !important;
-      }
-    `;
-
-    const styleEl = document.createElement('style');
-    styleEl.textContent = containStyles;
-    document.head.appendChild(styleEl);
-
-    setTimeout(() => {
-      const script = document.createElement('script');
-      script.type = 'text/javascript';
-      script.async = true;
-      script.setAttribute('data-flix-distributor', distributorId);
-      script.setAttribute('data-flix-language', language);
-      script.setAttribute('data-flix-mpn', productMpn);
-      script.setAttribute('data-flix-ean', productEan);
-      script.setAttribute('data-flix-brand', productBrand);
-      script.setAttribute('data-flix-inpage', 'flix-inpage');
-      script.setAttribute('data-flix-button', 'flix-minisite');
-      
-      script.onload = () => {
-        setTimeout(() => {
-          setFlixMediaLoaded(true);
-          const loadingEl = flixSection.querySelector('.flex.items-center.justify-center');
-          if (loadingEl) loadingEl.remove();
-        }, 2000);
-      };
-      
-      script.onerror = () => {
-        setFlixMediaError(true);
-        setFlixMediaLoaded(true);
-      };
-      
-      script.src = 'https://media.flixfacts.com/js/loader.js';
-      document.head.appendChild(script);
-    }, 100);
-
-    return () => {
-      cleanupFlixMedia();
-      styleEl.remove();
-    };
-  };
-
   // Fixed scroll detection
   useEffect(() => {
     if (!showFlixMediaButton) {
@@ -491,7 +385,7 @@ const ProductDescription = () => {
     try {
       await addProductToCart(product);
       if (cartId) {
-        await dispatch(getCartById(cartId));
+        await dispatch(getCartById(cartId)).unwrap();
       }
       setCartSidebarOpen(true);
     } catch (error) {
@@ -501,46 +395,52 @@ const ProductDescription = () => {
     }
   };
 
+  // FIXED: Cart quantity update handler
   const handleQuantityChange = async (productId, newQuantity) => {
     if (newQuantity < 1 || !cartId) return;
     
+    // Set loading state for this specific product
     setUpdatingQuantity(prev => ({ ...prev, [productId]: true }));
     
     try {
+      // Dispatch the update action
       const result = await dispatch(updateCartItem({ 
         cartId, 
         productId, 
         quantity: newQuantity 
-      }));
+      })).unwrap();
       
-      if (updateCartItem.fulfilled.match(result)) {
-        await dispatch(getCartById(cartId));
-      } else {
-        console.error('Failed to update cart item:', result.error);
-      }
+      // If successful, refresh the cart
+      await dispatch(getCartById(cartId)).unwrap();
+      
     } catch (error) {
       console.error('Error updating cart quantity:', error);
+      // Optionally show error message to user
     } finally {
+      // Clear loading state
       setUpdatingQuantity(prev => ({ ...prev, [productId]: false }));
     }
   };
 
+  // FIXED: Remove item handler
   const handleRemoveItem = async (productId) => {
     if (!cartId) return;
     
+    // Set loading state for this specific product
     setRemovingItem(prev => ({ ...prev, [productId]: true }));
     
     try {
-      const result = await dispatch(deleteCartItem({ cartId, productId }));
+      // Dispatch the delete action
+      await dispatch(deleteCartItem({ cartId, productId })).unwrap();
       
-      if (deleteCartItem.fulfilled.match(result)) {
-        await dispatch(getCartById(cartId));
-      } else {
-        console.error('Failed to remove cart item:', result.error);
-      }
+      // Refresh the cart
+      await dispatch(getCartById(cartId)).unwrap();
+      
     } catch (error) {
       console.error('Error removing cart item:', error);
+      // Optionally show error message to user
     } finally {
+      // Clear loading state
       setRemovingItem(prev => ({ ...prev, [productId]: false }));
     }
   };
@@ -753,8 +653,7 @@ const ProductDescription = () => {
         })}
       </script>
 
-
-      {/* Fixed Sticky Header - Only for valid Samsung products */}
+      {/* Fixed Sticky Header - Only for valid Samsung products with SM MPN */}
       {showFlixMediaButton && (
         <div 
           ref={stickyHeaderRef}
@@ -939,7 +838,7 @@ const ProductDescription = () => {
               </div>
             </div>
 
-            {/* Flix Media Button - Only show for valid Samsung products with SM MPN */}
+            {/* Flix Media Button - Only show for products with SM MPN */}
             {showFlixMediaButton && (
               <div className="mt-4 flex justify-center">
                 <Button
@@ -949,7 +848,6 @@ const ProductDescription = () => {
                     setShowFlixMedia(!showFlixMedia);
                     if (!showFlixMedia) {
                       setTimeout(() => {
-                        initFlixMediaDirect();
                         const flixSection = document.getElementById('flix-media-section');
                         if (flixSection) {
                           flixSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1059,29 +957,28 @@ const ProductDescription = () => {
         </div>
       </div>
 
-      {/* Service Features */}
-   {/* Service Features - Hide when Flix Media is shown */}
-{!(showFlixMedia && showFlixMediaButton) && (
-  <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-sm text-gray-700 mt-2 md:mt-6">
-    {[
-      { title: "Fast Shipping", subtitle: "All over Ghana", icon: <TruckIcon className="w-5 h-5 text-red-600" /> },
-      { title: "Quality Assurance", subtitle: "certified products", icon: <ShieldCheckIcon className="w-5 h-5 text-green-600" /> },
-      { title: "Customer Support", subtitle: "Dedicated support team", icon: <PhoneIcon className="w-5 h-5 text-red-400" /> },
-      { title: "Secure Payment", subtitle: "Safe Payment Processing", icon: <CreditCardIcon className="w-5 h-5 text-teal-500" /> }
-    ].map((item, idx) => (
-      <div
-        key={idx}
-        className="flex items-start gap-2 hover:bg-gray-50 p-2 rounded-lg transition"
-      >
-        {item.icon}
-        <div>
-          <p className="font-semibold">{item.title}</p>
-          <p className="text-xs text-gray-500">{item.subtitle}</p>
+      {/* Service Features - Hide when Flix Media is shown */}
+      {!(showFlixMedia && showFlixMediaButton) && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-sm text-gray-700 mt-2 md:mt-6">
+          {[
+            { title: "Fast Shipping", subtitle: "All over Ghana", icon: <TruckIcon className="w-5 h-5 text-red-600" /> },
+            { title: "Quality Assurance", subtitle: "certified products", icon: <ShieldCheckIcon className="w-5 h-5 text-green-600" /> },
+            { title: "Customer Support", subtitle: "Dedicated support team", icon: <PhoneIcon className="w-5 h-5 text-red-400" /> },
+            { title: "Secure Payment", subtitle: "Safe Payment Processing", icon: <CreditCardIcon className="w-5 h-5 text-teal-500" /> }
+          ].map((item, idx) => (
+            <div
+              key={idx}
+              className="flex items-start gap-2 hover:bg-gray-50 p-2 rounded-lg transition"
+            >
+              {item.icon}
+              <div>
+                <p className="font-semibold">{item.title}</p>
+                <p className="text-xs text-gray-500">{item.subtitle}</p>
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
-    ))}
-  </div>
-)}
+      )}
 
       {/* Flix Media Section - COMPLETELY ISOLATED */}
       {showFlixMedia && showFlixMediaButton && (

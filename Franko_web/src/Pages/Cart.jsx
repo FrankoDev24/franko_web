@@ -24,16 +24,33 @@ const Cart = () => {
     productName: ''
   });
 
-    useEffect(() => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, []);
+  // Network error notification state
+  const [networkError, setNetworkError] = useState({
+    show: false,
+    message: ''
+  });
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
   
-useEffect(() => {
-  const storedId = cartId || localStorage.getItem('cartId');
-  if (storedId) {
-    dispatch(getCartById(storedId));
-  }
-}, [dispatch, cartId]);
+  useEffect(() => {
+    const storedId = cartId || localStorage.getItem('cartId');
+    if (storedId) {
+      dispatch(getCartById(storedId));
+    }
+  }, [dispatch, cartId]);
+
+  // Sync cart to localStorage whenever it changes from the database
+  useEffect(() => {
+    if (cart && cart.length >= 0) {
+      try {
+        localStorage.setItem('cart', JSON.stringify(cart));
+      } catch (error) {
+        console.error('Failed to sync cart to localStorage:', error);
+      }
+    }
+  }, [cart]);
 
   // Reset selection when cart changes
   useEffect(() => {
@@ -60,84 +77,217 @@ useEffect(() => {
     });
   };
 
- const handleCheckout = () => {
-  const storedCustomer = (localStorage.getItem("customer"));
+  const handleCheckout = () => {
+    const storedCustomer = (localStorage.getItem("customer"));
 
-  if (!storedCustomer) {
-    setAuthModalOpen(true);
-    return;
-  }
+    if (!storedCustomer) {
+      setAuthModalOpen(true);
+      return;
+    }
 
-  // GTM event
-  window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push({
-    event: "proceed_to_checkout",
-    cartValue: cartTotal.toFixed(2),
-    cartItems: cart.map(item => ({
-      productId: item.productId,
-      name: item.productName,
-      price: item.price,
-      quantity: item.quantity
-    }))
-  });
+    // GTM event
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      event: "proceed_to_checkout",
+      cartValue: cartTotal.toFixed(2),
+      cartItems: cart.map(item => ({
+        productId: item.productId,
+        name: item.productName,
+        price: item.price,
+        quantity: item.quantity
+      }))
+    });
 
-  // Save cart and navigate
-  localStorage.setItem("selectedCart", JSON.stringify(cart));
-  navigate("/checkout");
-};
+    // Save cart and navigate
+    localStorage.setItem("selectedCart", JSON.stringify(cart));
+    navigate("/checkout");
+  };
 
-  
   const handleContinueShopping = () => {
     navigate("/products");
   };
 
-const handleQuantityChange = async (productId, quantity) => {
-  if (quantity >= 1) {
-    await dispatch(updateCartItem({ cartId, productId, quantity }));
-    dispatch(getCartById(cartId)); // 🔁 sync latest state
-  }
-};
+  // Enhanced quantity change with rollback on failure
+  const handleQuantityChange = async (productId, quantity) => {
+    if (quantity >= 1) {
+      // Store current cart state for rollback
+      const previousCart = [...cart];
+      const previousLocalStorage = localStorage.getItem('cart');
 
-// Updated function to show confirmation modal instead of direct deletion
-const handleRemoveItemClick = (productId, productName) => {
-  setDeleteModal({
-    open: true,
-    productId,
-    productName
-  });
-};
+      try {
+        // Optimistically update local state
+        const optimisticCart = cart.map(item => 
+          item.productId === productId ? { ...item, quantity } : item
+        );
 
-// Function to handle confirmed individual deletion
-const handleConfirmRemoveItem = async () => {
-  try {
-    await dispatch(deleteCartItem({ cartId, productId: deleteModal.productId })).unwrap();
-    setSelectedItems(prev => prev.filter(id => id !== deleteModal.productId));
-    // Assuming you have message imported from antd
-    // message.success('Item removed from cart');
-    console.log('Item removed from cart');
-    
-    // Close the modal
+        // Update localStorage optimistically
+        localStorage.setItem('cart', JSON.stringify(optimisticCart));
+
+        // Attempt database update
+        const result = await dispatch(updateCartItem({ cartId, productId, quantity })).unwrap();
+
+        // Sync with database after successful update
+        await dispatch(getCartById(cartId)).unwrap();
+
+      } catch (error) {
+        console.error('Failed to update cart:', error);
+
+        // Rollback localStorage
+        if (previousLocalStorage) {
+          localStorage.setItem('cart', previousLocalStorage);
+        }
+
+        // Show error notification
+        setNetworkError({
+          show: true,
+          message: 'Failed to update cart. Please check your connection and try again.'
+        });
+
+        // Re-fetch from database to ensure consistency
+        try {
+          await dispatch(getCartById(cartId)).unwrap();
+        } catch (refetchError) {
+          console.error('Failed to refetch cart:', refetchError);
+        }
+
+        // Auto-hide error after 5 seconds
+        setTimeout(() => {
+          setNetworkError({ show: false, message: '' });
+        }, 5000);
+      }
+    }
+  };
+
+  // Updated function to show confirmation modal instead of direct deletion
+  const handleRemoveItemClick = (productId, productName) => {
     setDeleteModal({
-      open: false,
-      productId: null,
-      productName: ''
+      open: true,
+      productId,
+      productName
     });
-    
-    // dispatch(getCartById(cartId));
-  } catch (err) {
-    console.error('Delete failed:', err);
-    // message.error('Failed to remove item');
-    console.log('Failed to remove item');
-  }
-};
+  };
 
-  const handleBatchDelete = () => {
-    selectedItems.forEach((id) => {
-      dispatch(deleteCartItem({ cartId, productId: id }));
-    });
-    setSelectedItems([]);
-    setSelectAll(false);
-    setOpenModal(false);
+  // Enhanced individual deletion with rollback on failure
+  const handleConfirmRemoveItem = async () => {
+    const previousCart = [...cart];
+    const previousLocalStorage = localStorage.getItem('cart');
+    const productIdToDelete = deleteModal.productId;
+
+    try {
+      // Optimistically update local state
+      const optimisticCart = cart.filter(item => item.productId !== productIdToDelete);
+      localStorage.setItem('cart', JSON.stringify(optimisticCart));
+
+      // Attempt database deletion
+      await dispatch(deleteCartItem({ cartId, productId: productIdToDelete })).unwrap();
+
+      // Update selected items
+      setSelectedItems(prev => prev.filter(id => id !== productIdToDelete));
+
+      console.log('Item removed from cart');
+
+      // Close the modal
+      setDeleteModal({
+        open: false,
+        productId: null,
+        productName: ''
+      });
+
+      // Sync with database
+      await dispatch(getCartById(cartId)).unwrap();
+
+    } catch (error) {
+      console.error('Delete failed:', error);
+
+      // Rollback localStorage
+      if (previousLocalStorage) {
+        localStorage.setItem('cart', previousLocalStorage);
+      }
+
+      // Show error notification
+      setNetworkError({
+        show: true,
+        message: 'Failed to remove item. Please check your connection and try again.'
+      });
+
+      // Close delete modal
+      setDeleteModal({
+        open: false,
+        productId: null,
+        productName: ''
+      });
+
+      // Re-fetch from database to ensure consistency
+      try {
+        await dispatch(getCartById(cartId)).unwrap();
+      } catch (refetchError) {
+        console.error('Failed to refetch cart:', refetchError);
+      }
+
+      // Auto-hide error after 5 seconds
+      setTimeout(() => {
+        setNetworkError({ show: false, message: '' });
+      }, 5000);
+    }
+  };
+
+  // Enhanced batch delete with rollback on failure
+  const handleBatchDelete = async () => {
+    const previousCart = [...cart];
+    const previousLocalStorage = localStorage.getItem('cart');
+    const itemsToDelete = [...selectedItems];
+
+    try {
+      // Optimistically update local state
+      const optimisticCart = cart.filter(item => !itemsToDelete.includes(item.productId));
+      localStorage.setItem('cart', JSON.stringify(optimisticCart));
+
+      // Attempt to delete all items from database
+      const deletePromises = itemsToDelete.map((id) =>
+        dispatch(deleteCartItem({ cartId, productId: id })).unwrap()
+      );
+
+      await Promise.all(deletePromises);
+
+      // Clear selections
+      setSelectedItems([]);
+      setSelectAll(false);
+      setOpenModal(false);
+
+      console.log('Items removed from cart');
+
+      // Sync with database
+      await dispatch(getCartById(cartId)).unwrap();
+
+    } catch (error) {
+      console.error('Batch delete failed:', error);
+
+      // Rollback localStorage
+      if (previousLocalStorage) {
+        localStorage.setItem('cart', previousLocalStorage);
+      }
+
+      // Show error notification
+      setNetworkError({
+        show: true,
+        message: 'Failed to remove items. Please check your connection and try again.'
+      });
+
+      // Close modal
+      setOpenModal(false);
+
+      // Re-fetch from database to ensure consistency
+      try {
+        await dispatch(getCartById(cartId)).unwrap();
+      } catch (refetchError) {
+        console.error('Failed to refetch cart:', refetchError);
+      }
+
+      // Auto-hide error after 5 seconds
+      setTimeout(() => {
+        setNetworkError({ show: false, message: '' });
+      }, 5000);
+    }
   };
 
   // Calculate totals for the entire cart
@@ -188,6 +338,32 @@ const handleConfirmRemoveItem = async () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Network Error Notification */}
+      {networkError.show && (
+        <div className="fixed top-4 right-4 z-50 max-w-md animate-slide-in">
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg shadow-lg">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3 flex-1">
+                <p className="text-sm font-medium text-red-800">{networkError.message}</p>
+              </div>
+              <button
+                onClick={() => setNetworkError({ show: false, message: '' })}
+                className="ml-3 flex-shrink-0"
+              >
+                <svg className="h-5 w-5 text-red-500 hover:text-red-700" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white shadow-sm border-b sticky top-0 z-40">
         <div className=" px-4 py-2">
@@ -262,7 +438,6 @@ const handleConfirmRemoveItem = async () => {
                     ripple={false}
                     className="hover:before:opacity-10"
                   />
-                 
                 </div>
                 {selectedItems.length > 0 && (
                   <Button
@@ -273,7 +448,7 @@ const handleConfirmRemoveItem = async () => {
                     className="flex items-center gap-2 hover:bg-red-50"
                   >
                     <TrashIcon className="w-4 h-4" />
-                   delete Selected
+                    Delete Selected
                   </Button>
                 )}
               </div>
@@ -339,7 +514,7 @@ const handleConfirmRemoveItem = async () => {
                               </div>
                             </div>
 
-                            {/* Remove Button - Updated to show confirmation modal */}
+                            {/* Remove Button */}
                             <Button
                               size="sm"
                               variant="text"
