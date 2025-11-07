@@ -70,6 +70,9 @@ import OrderSuccessPage from './Pages/OrderSucess'
 import ScrollToTop from './Pages/ScrollToTop'
 import BackToSchool from './Pages/ClearanceSale'
 import ClearanceSale from './Pages/ClearanceSale'
+import DigiPage from './Pages/DigitalMarketer/DigiPage'
+import DigiOrders from './Pages/DigitalMarketer/Digi/DigiOrders'
+import DigiProducts from './Pages/DigitalMarketer/Digi/DigiProducts'
 
 // Utility to fetch customer role
 
@@ -99,7 +102,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const userRole = getUserRole();
 
   // ✅ Web-only restriction: allow only Developer and agent
-  if (isWebBrowser() && userRole && !["Developer", "agent"].includes(userRole)) {
+  if (isWebBrowser() && userRole && !["Developer", "agent", "Social"].includes(userRole)) {
     return <Navigate to="/" replace />;
   }
 
@@ -132,6 +135,8 @@ const ConditionalNavbar = () => {
   const isFulfillmentPath = pathname.startsWith("/fulfillment/");
   const isContentPath = pathname.startsWith("/content/");
   const isDevPath = pathname.startsWith("/dev/");
+  const isDigiPath = pathname.startsWith("/digi/");
+  
 
   return !hiddenPaths.includes(pathname) && 
          !isAdminPath && 
@@ -139,6 +144,7 @@ const ConditionalNavbar = () => {
          !isFulfillmentPath && 
          !isContentPath &&
           !isDevPath && 
+          !isDigiPath &&
          <Nav />;
 };
 
@@ -553,6 +559,45 @@ function App() {
             </ProtectedRoute>
           }
         />
+        {/* Digital Marketer Routes - Protected */}
+        <Route 
+          path="/digi/*" 
+          element={
+            <ProtectedRoute allowedRoles={['Social']}>
+              <DigiPage/>       
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/digi/orders" 
+          element={
+            <ProtectedRoute allowedRoles={['Social']}>
+              <DigiPage>
+                <DigiOrders />
+              </DigiPage>
+            </ProtectedRoute>
+
+          }
+        />
+        <Route 
+          path="/digi/products" 
+          element={
+            <ProtectedRoute allowedRoles={['Social']}>
+              <DigiPage>
+                <DigiProducts/>
+              </DigiPage>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/digi" 
+          element={
+            <ProtectedRoute allowedRoles={['Social']}>
+              <DigiPage />
+            </ProtectedRoute>
+          }
+        />
+  
 
 
         {/* Default route redirects */}

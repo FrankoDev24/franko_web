@@ -230,6 +230,18 @@ const pages = [
 ];
 
 const productIds = [
+  "926f18b1-33e2-4084-bef2-e028eb9de0c8",
+  "e3be4aa3-9665-4da5-96ad-f11ce418a7e6",
+  "9d9df3e1-5aae-483e-b37b-b611e9efd743",
+  "5fc3f429-4cf0-4e2c-a588-45e9e5ce5cd9",
+  "979f422e-8c1f-44a6-a5f9-fb86ed49c17e",
+  "146fc4cd-53d8-4b50-ab30-57191c66823d",
+  "b94853c8-c8a2-4c1b-8798-4abe2cecf5c7",
+  "af89b3a1-d2c5-498f-999c-a56d2565b86d",
+  "4fbf9ba6-4b3e-4437-9803-e54d1df68087",
+  "f3082b77-eebd-4a12-82cf-a48199223687",
+  "bf819552-65d3-4fa1-a6a3-6489f60686c7",
+
   "bf819552-65d3-4fa1-a6a3-6489f60686c7",
   "d173fc97-a312-450b-b3b9-e6b51fe05eb2",
   "d18c339e-a7db-49ed-8c71-ae7e9dae7418",

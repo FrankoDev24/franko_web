@@ -292,15 +292,8 @@ const Brand = () => {
     : 'Browse a wide selection of authentic electronics and accessories from top brands.';
   const pageUrl = `https://www.frankotrading.com/brand/${brandId}`;
 
-  // Determine what to show
-  const showLoading = loading || !initialLoadComplete;
-  const showNoProducts = initialLoadComplete && !loading && currentProducts.length === 0;
-  const showProducts = initialLoadComplete && !loading && currentProducts.length > 0;
-
-  return (
-    <div className="min-h-screen">
-   <script type="application/ld+json">
-  {JSON.stringify({
+  // Generate structured data for Schema.org
+  const structuredData = {
     "@context": "https://schema.org",
     "@graph": [
       {
@@ -379,9 +372,49 @@ const Brand = () => {
         })),
       },
     ],
-  })}
-</script>
+  };
 
+  // Determine what to show
+  const showLoading = loading || !initialLoadComplete;
+  const showNoProducts = initialLoadComplete && !loading && currentProducts.length === 0;
+  const showProducts = initialLoadComplete && !loading && currentProducts.length > 0;
+
+  return (
+    <div className="min-h-screen">
+      <Helmet>
+        {/* Primary Meta Tags */}
+        <title>{pageTitle}</title>
+        <meta name="title" content={pageTitle} />
+        <meta name="description" content={description} />
+        <link rel="canonical" href={pageUrl} />
+        
+        {/* Open Graph / Facebook */}
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content={pageUrl} />
+        <meta property="og:title" content={pageTitle} />
+        <meta property="og:description" content={description} />
+        <meta property="og:image" content={selectedBrand?.brandImage || "https://www.frankotrading.com/assets/frankoIcon.png"} />
+        <meta property="og:site_name" content="Franko Trading Enterprise" />
+        
+        {/* Twitter */}
+        <meta property="twitter:card" content="summary_large_image" />
+        <meta property="twitter:url" content={pageUrl} />
+        <meta property="twitter:title" content={pageTitle} />
+        <meta property="twitter:description" content={description} />
+        <meta property="twitter:image" content={selectedBrand?.brandImage || "https://www.frankotrading.com/assets/frankoIcon.png"} />
+        
+        {/* Additional SEO Tags */}
+        <meta name="keywords" content={`${brandName}, electronics Ghana, buy ${brandName}, Franko Trading, Ghana online shopping`} />
+        <meta name="robots" content="index, follow" />
+        <meta name="language" content="English" />
+        <meta name="revisit-after" content="7 days" />
+        <meta name="author" content="Franko Trading Enterprise" />
+        
+        {/* Structured Data */}
+        <script type="application/ld+json">
+          {JSON.stringify(structuredData)}
+        </script>
+      </Helmet>
 
       <div className="p-2 md:px-2 mx-auto">
         {/* Enhanced Mobile Header */}
