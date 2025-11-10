@@ -319,10 +319,7 @@ const Deals = () => {
                       </span>
                     ) : isOnSale ? (
                       <div className="absolute top-2 left-2 z-10">
-                        <div className="bg-gradient-to-br from-red-500 to-red-700 text-white text-xs md:text-xs font-bold w-12 h-12 md:w-14 md:h-14 rounded-full flex flex-col items-center justify-center shadow-lg animate-bounce-slow">
-                          <span className="text-[4px] md:text-xs">SAVE</span>
-                          <span className="text-xs">{discountPercent}% OFF</span>
-                        </div>
+                       
                       </div>
                     ) : null}
 
