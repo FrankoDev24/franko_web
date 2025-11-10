@@ -34,6 +34,9 @@ const UserLogin = () => {
       case 'Developer':
         navigate('/dev/dashboard');
         break;
+      case 'Social':
+        navigate('/digi/orders');
+        break;
       default:
         navigate('/');
     }

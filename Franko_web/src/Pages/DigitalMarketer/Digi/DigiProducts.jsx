@@ -511,27 +511,7 @@ useEffect(() => {
         />
       </Card>
 
-      {/* Modals */}
-      <AddProduct
-        visible={isAddModalVisible}
-        onClose={() => handleModalClose(setIsAddModalVisible, true)}
-        brands={brands}
-        showrooms={showrooms}
-      />
-      
-      <UpdateProduct
-        visible={isUpdateModalVisible}
-        onClose={() => handleModalClose(setIsUpdateModalVisible, true)}
-        product={selectedProduct || {}}
-        brands={brands}
-        showrooms={showrooms}
-      />
-
-      <UpdateProductImage
-        visible={isUpdateImageModalVisible}
-        onClose={() => handleModalClose(setIsUpdateImageModalVisible, true)}
-        productID={selectedProductIdForImage}
-      />
+     
       
       {/* Full Image Modal */}
       <Modal

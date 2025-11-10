@@ -92,7 +92,7 @@ const DigiLayout = ({ children }) => {
         >
           <div className="h-16 flex items-center justify-center border-b border-red-700">
             <h1 className="text-xl font-bold tracking-wide">
-              {collapsed ? 'M' : 'Digi Manager'}
+              {collapsed ? 'M' : 'Social Media Manager'}
             </h1>
           </div>
           <nav className="mt-4">
@@ -126,7 +126,7 @@ const DigiLayout = ({ children }) => {
           <div className="fixed inset-0 bg-black bg-opacity-50" onClick={closeDrawer}></div>
           <div className="relative bg-red-800 text-white w-64 h-full">
             <div className="h-16 flex items-center justify-between px-4 border-b border-red-700">
-              <h1 className="text-xl font-bold">Digi Panel</h1>
+              <h1 className="text-xl font-bold">Panel</h1>
               <button onClick={closeDrawer} className="text-white hover:text-gray-300">
                 <X size={24} />
               </button>

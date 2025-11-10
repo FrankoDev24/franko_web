@@ -102,7 +102,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const userRole = getUserRole();
 
   // ✅ Web-only restriction: allow only Developer and agent
-  if (isWebBrowser() && userRole && !["Developer", "agent", "Social"].includes(userRole)) {
+  if (isWebBrowser() && userRole && !["Developer", "agent"].includes(userRole)) {
     return <Navigate to="/" replace />;
   }
 
