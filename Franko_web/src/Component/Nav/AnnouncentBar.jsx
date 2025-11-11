@@ -156,7 +156,7 @@ const AnnouncementBar = () => {
                     >
                       ONLINE ONLY
                     </div>
-                    <div className="text-gray-300 text-xs">30 OCT - 10 NOV</div>
+                    <div className="text-gray-300 text-xs">30 OCT - 22 NOV</div>
                   </div>
                   
                   <button
@@ -290,7 +290,7 @@ const AnnouncementBar = () => {
                   >
                     VOUCHER PROMO
                   </div>
-                  <div className="text-gray-300 text-xs mt-0.5">30 OCT - 10 NOV</div>
+                  <div className="text-gray-300 text-xs mt-0.5">30 OCT - 22 NOV</div>
                 </div>
                 
                 <div>

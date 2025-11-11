@@ -103,7 +103,7 @@ const ClearanceSale = () => {
   useEffect(() => {
     const calculateTimeLeft = () => {
       const now = new Date();
-      const promoEndDate = new Date('2025-11-10T23:59:59');
+      const promoEndDate = new Date('2025-11-22T23:59:59');
       const difference = promoEndDate - now;
 
       if (difference > 0) {
@@ -447,7 +447,7 @@ const ClearanceSale = () => {
                 <FireIcon className="w-6 h-6 animate-bounce" style={{color: BRAND_COLORS.red}} />
               </div>
               <div className="text-xs font-semibold" style={{color: BRAND_COLORS.yellow}}>
-                30th Oct - 10th Nov 2025
+                30th Oct - 22nd Nov 2025
               </div>
             </div>
           </div>
@@ -558,7 +558,7 @@ const ClearanceSale = () => {
                     <FireIcon className="w-8 h-8 animate-bounce" style={{color: BRAND_COLORS.red}} />
                   </div>
                   <div className="text-sm font-semibold mt-2" style={{color: BRAND_COLORS.yellow}}>
-                    30th October - 10th November 2025
+                    30th October - 22nd November 2025
                   </div>
                 </div>
               </div>
