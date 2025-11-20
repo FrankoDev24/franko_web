@@ -127,21 +127,7 @@ const getCartItems = () => {
     }
   }, [deliveryInfo]);
 
-  // Check for electronics in cart and show alert - ONLY for non-agents and non-free delivery
-  useEffect(() => {
-    if (!isAgent && !isFreeDelivery) {
-      const electronicItems = ["fridge", "laptop", "tv", "Air", "Air condition", "condition"];
-      const hasElectronics = cartItems.some((item) =>
-        electronicItems.some((keyword) => 
-          item.productName?.toLowerCase().includes(keyword.toLowerCase())
-        )
-      );
-    
-      if (hasElectronics) {
-        setIsElectronicsAlertVisible(true);
-      }
-    }
-  }, [cartItems, isAgent, isFreeDelivery]);
+
 
   // Monitor cart changes
   useEffect(() => {
@@ -882,34 +868,6 @@ const handleCheckout = async () => {
         </div>
       </Modal>
 
-      {/* Electronics Delivery Alert Modal - ONLY for non-agents and non-free delivery */}
-      {!isAgent && !isFreeDelivery && (
-        <Modal
-          title={<Title level={4} style={{ margin: 0, color: "#FC5130" }}>📢 Delivery Price Notice</Title>}
-          open={isElectronicsAlertVisible}
-          onCancel={() => setIsElectronicsAlertVisible(false)}
-          centered
-          footer={[
-            <button
-              key="gotIt"
-              onClick={() => setIsElectronicsAlertVisible(false)}
-              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-            >
-              Got It
-            </button>,
-          ]}
-        >
-          <p style={{ marginTop: 10 }}>
-            Delivery charges for electronic items such as <strong>fridges, televisions, and air conditioners</strong> ranges from Ghc 100.00 and above depending on your location.</p>
-          <Alert
-            message="Important: Delivery Fee Information"
-            description="Please contact our customer service team at +233 24 123 4567 for exact delivery charges to your location before placing your order."
-            type="warning"
-            showIcon
-            style={{ marginTop: 16 }}
-          />
-        </Modal>
-      )}
 
       {/* Payment Iframe Modal */}
       {/* Payment Modal - ONLY for non-agents */}

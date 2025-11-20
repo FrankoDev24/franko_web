@@ -642,6 +642,9 @@ useEffect(() => {
                     {selectedProduct.status == 1 ? 'In Stock' : 'Out of Stock'}
                   </Tag>
                 </Col>
+                <Col span={12}>
+                  <strong>EAN:</strong> {selectedProduct.productId2}
+                </Col>
               </Row>
 
               <div style={{ marginTop: '16px' }}>
