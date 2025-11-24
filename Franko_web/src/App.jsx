@@ -68,8 +68,8 @@ import DevCustomers from './Pages/Developer/Dev/DevCustomers'
 import Payments from './Pages/Developer/Dev/Payments'
 import OrderSuccessPage from './Pages/OrderSucess'
 import ScrollToTop from './Pages/ScrollToTop'
-import BackToSchool from './Pages/ClearanceSale'
-import ClearanceSale from './Pages/ClearanceSale'
+// import BackToSchool from './Pages/ClearanceSale'
+// import ClearanceSale from './Pages/ClearanceSale'
 import DigiPage from './Pages/DigitalMarketer/DigiPage'
 import DigiOrders from './Pages/DigitalMarketer/Digi/DigiOrders'
 import DigiProducts from './Pages/DigitalMarketer/Digi/DigiProducts'
@@ -182,7 +182,7 @@ function App() {
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/phones" element={<Phones ProductCard={ProductCard} />} />
-        <Route path= "/pre-black friday" element= {<ClearanceSale/>} />
+        {/* <Route path= "/pre-black friday" element= {<ClearanceSale/>} /> */}
  
         <Route path="/computers" element={<Laptops ProductCard={ProductCard} />} />
         <Route path="/refrigerator" element={<Fridge ProductCard={ProductCard} />} />
