@@ -53,7 +53,7 @@ export default function ContactUsPage() {
   };
 
   const handleWhatsAppClick = () => {
-    const phoneNumber = "233246422338"; // Replace with actual WhatsApp number
+    const phoneNumber = "2330555939311"; // Replace with actual WhatsApp number
     const message = "Hello! I'd like to get in touch with you.";
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
@@ -112,7 +112,7 @@ export default function ContactUsPage() {
     href="mailto:online@frankotrading.com"
     className="text-gray-600 hover:underline"
   >
-    online@frankotrading.com
+    it@frankotrading.com
   </a>
 </div>
 
@@ -125,7 +125,7 @@ export default function ContactUsPage() {
                   <div>
                     <p className="font-semibold text-gray-800">Address</p>
                     <p className="text-gray-600">
-                      Franko Online, 123 Main Street, Accra, Ghana
+                     Accra, Kingsway, Opposite GCB (Former UT Bank Building)
                     </p>
                   </div>
                 </div>
