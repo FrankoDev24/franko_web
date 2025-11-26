@@ -222,7 +222,7 @@ const Deals = () => {
 
       <div className="mx-auto px-2 md:px-24 py-3">
         {/* Header Section - Compact Banner */}
-        <div className="mb-3 relative overflow-hidden rounded-xl bg-gradient-to-r from-red-500 via-orange-500 to-red-600 p-2.5 md:p-3 shadow-lg">
+        <div className="mb-3 relative overflow-hidden rounded-xl bg-gradient-to-r from-green-300 via-green-500 to-green-200 p-2.5 md:p-3 shadow-lg">
           {/* Animated background effects */}
           <div className="absolute inset-0 opacity-20">
             <div className="absolute inset-0 bg-white animate-shimmer" style={{
@@ -382,11 +382,11 @@ const Deals = () => {
                   </div>
 
                   <div className="p-2 md:p-3 text-center space-y-1 bg-white">
-                    <h3 className="text-xs md:text-sm font-semibold text-gray-800 line-clamp-2 min-h-[32px] md:min-h-[40px]">
+                    <h3 className="text-xs md:text-sm  text-gray-800 line-clamp-2 min-h-[32px] md:min-h-[40px]">
                       {productName}
                     </h3>
                     <div className="flex flex-col items-center justify-center gap-0.5 pt-1">
-                      <span className="text-red-600 font-black text-base md:text-sm">
+                      <span className="text-red-600 font-bold text-xs md:text-sm">
                         {formatPrice(price)}
                       </span>
                       {oldPrice > 0 && (

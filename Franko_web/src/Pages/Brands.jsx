@@ -322,7 +322,7 @@ const Brand = () => {
           : "Shop authentic electronics and accessories from Franko Trading.",
         logo:
           selectedBrand?.brandImage ||
-          "https://www.frankotrading.com/assets/frankoIcon.png",
+          "https://www.frankotrading.com/frankoIcon.png",
         url: pageUrl,
         aggregateRating: {
           "@type": "AggregateRating",

@@ -71,10 +71,10 @@ const Notification = ({ message, type, isVisible, onClose }) => {
   );
 };
 
-const AuthModal = ({ open, onClose }) => {
+const AuthModal = ({ open, onClose, onSuccess }) => {
   const dispatch = useDispatch();
 
-  const [authMode, setAuthMode] = useState('signup'); // 'login', 'signup', 'guest'
+  const [authMode, setAuthMode] = useState('signup');
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState({
     message: '',
@@ -103,12 +103,10 @@ const AuthModal = ({ open, onClose }) => {
     contactNumber: "",
   });
 
-  // Generate customer account number for signup and guest
   const generateCustomerAccountNumber = () => {
     return uuidv4();
   };
 
-  // Notification handlers
   const hideNotification = useCallback(() => {
     setNotification(prev => ({ 
       ...prev, 
@@ -233,7 +231,6 @@ const AuthModal = ({ open, onClose }) => {
     try {
       const result = await dispatch(createCustomer(signupData)).unwrap();
       
-      // Check if account already exists (ResponseCode: '2')
       if (result?.ResponseCode === '2') {
         const message = result.ResponseMessage || 'Account already exists';
         showNotification(`${message}. Please login with your existing account.`, "error");
@@ -249,14 +246,12 @@ const AuthModal = ({ open, onClose }) => {
         return;
       }
 
-      // Check for other error response codes
       if (result?.ResponseCode && result.ResponseCode !== '1' && result.ResponseCode !== '0') {
         const errorMessage = result.ResponseMessage || 'Registration failed';
         showNotification(errorMessage, "error");
         return;
       }
 
-      // Success case - ResponseCode is '1' or '0'
       try {
         const customerDataForStorage = {
           ...signupData,
@@ -273,13 +268,12 @@ const AuthModal = ({ open, onClose }) => {
           registeredAt: new Date().toISOString(),
         };
         
-        localStorage.setItem('customer', (customerDataForStorage));
-        console.log('Customer registration data stored in localStorage under "customer" key:', customerDataForStorage);
+        localStorage.setItem('customer', JSON.stringify(customerDataForStorage));
+        console.log('✅ Customer registration data stored:', customerDataForStorage);
       } catch (storageError) {
         console.warn('Failed to store registration data in localStorage:', storageError);
       }
       
-      // Track Facebook Pixel event
       if (typeof window.fbq === "function") {
         window.fbq("track", "CompleteRegistration", {
           content_name: "Customer Registration",
@@ -291,7 +285,6 @@ const AuthModal = ({ open, onClose }) => {
         });
       }
 
-      // Track with Google Analytics
       if (typeof window.gtag === "function") {
         window.gtag('event', 'sign_up', {
           method: 'email',
@@ -300,10 +293,20 @@ const AuthModal = ({ open, onClose }) => {
         });
       }
       
-      showNotification("Registration successful! Welcome aboard!", "success");
+      showNotification("Registration successful! ", "success");
+      
       setTimeout(() => {
-        onClose();
-      }, 2000);
+        // CRITICAL: Call onSuccess callback if provided
+        if (onSuccess && typeof onSuccess === 'function') {
+          console.log('✅ Calling onSuccess callback for signup');
+          onSuccess();
+        } else {
+          // Fallback: just close the modal
+          console.log('⚠️ No onSuccess callback provided, just closing modal');
+          onClose();
+        }
+      }, 1500);
+      
     } catch (error) {
       console.error("Registration error:", error);
       
@@ -319,74 +322,73 @@ const AuthModal = ({ open, onClose }) => {
       
       showNotification(errorMessage, "error");
       
-      console.error("Detailed error info:", {
-        message: error?.message,
-        response: error?.response?.data,
-        stack: error?.stack,
-        signupData: signupData
-      });
-      
     } finally {
       setLoading(false);
     }
   };
 
-const handleLogin = async () => {
-  if (!validateLoginForm()) return;
+  const handleLogin = async () => {
+    if (!validateLoginForm()) return;
 
-  setLoading(true);
-  try {
-    // Step 1: Attempt login
-    const loginResult = await dispatch(loginCustomer(loginData)).unwrap();
+    setLoading(true);
+    try {
+      const loginResult = await dispatch(loginCustomer(loginData)).unwrap();
 
-    if (!loginResult || !loginResult.contactNumber) {
-      showNotification("No customer found with the provided contact number.", "error");
-      return;
+      if (!loginResult || !loginResult.contactNumber) {
+        showNotification("No customer found with the provided contact number.", "error");
+        return;
+      }
+
+      const contactNumber = loginResult.contactNumber;
+      const fullCustomerData = await dispatch(getCustomerById(contactNumber)).unwrap();
+
+      const customer = Array.isArray(fullCustomerData) ? fullCustomerData[0] : fullCustomerData;
+
+      if (!customer || !customer.customerAccountNumber) {
+        showNotification("Failed to retrieve customer details.", "error");
+        return;
+      }
+
+      const customerToStore = {
+        ...customer,
+        isGuest: false,
+        loggedInAt: new Date().toISOString(),
+      };
+
+      localStorage.setItem("customer", JSON.stringify(customerToStore));
+      console.log('✅ Customer login data stored:', customerToStore);
+
+      showNotification("Login successful!", "success");
+      
+      setTimeout(() => {
+        // CRITICAL: Call onSuccess callback if provided
+        if (onSuccess && typeof onSuccess === 'function') {
+          console.log('✅ Calling onSuccess callback for login');
+          onSuccess();
+        } else {
+          // Fallback: just close the modal
+          console.log('⚠️ No onSuccess callback provided, just closing modal');
+          onClose();
+        }
+      }, 1500);
+      
+    } catch (error) {
+      console.error("Login error:", error);
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Login failed. Please check your credentials.";
+      showNotification(message, "error");
+    } finally {
+      setLoading(false);
     }
-
-    // Step 2: Fetch customer details by contact number
-    const contactNumber = loginResult.contactNumber;
-    const fullCustomerData = await dispatch(getCustomerById(contactNumber)).unwrap();
-
-    // ✅ Handle array response
-    const customer = Array.isArray(fullCustomerData) ? fullCustomerData[0] : fullCustomerData;
-
-    if (!customer || !customer.customerAccountNumber) {
-      showNotification("Failed to retrieve customer details.", "error");
-      return;
-    }
-
-    // Step 3: Save to localStorage
-    const customerToStore = {
-      ...customer,
-      isGuest: false,
-      loggedInAt: new Date().toISOString(),
-    };
-
-    localStorage.setItem("customer", JSON.stringify(customerToStore));
-  
-
-    showNotification("Login successful! Welcome back!", "success");
-    setTimeout(() => onClose(), 1500);
-  } catch (error) {
-    console.error("Login error:", error);
-    const message =
-      error?.response?.data?.message ||
-      error?.message ||
-      "Login failed. Please check your credentials.";
-    showNotification(message, "error");
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   const handleGuestContinue = async () => {
     if (!validateGuestForm()) return;
     
     setLoading(true);
     
-    // Create guest customer account data
     const guestCustomerData = {
       customerAccountNumber: generateCustomerAccountNumber(),
       firstName: "Guest",
@@ -405,9 +407,7 @@ const handleLogin = async () => {
     let dbResult = null;
 
     try {
-      // Attempt to create guest account in database
       dbResult = await dispatch(createCustomer(guestCustomerData)).unwrap();
-
       console.log('Guest creation API response:', dbResult);
 
     } catch (error) {
@@ -425,50 +425,32 @@ const handleLogin = async () => {
       }
       
       showNotification(errorMessage, "error");
-      
-      console.error("Detailed error info:", {
-        message: error?.message,
-        response: error?.response?.data,
-        stack: error?.stack,
-        guestData: guestCustomerData
-      });
-      
-      return; // Exit on error
+      return;
     }
 
-    // CRITICAL: Check response code AFTER API call completes
-    // CRITICAL: Check if account already exists (ResponseCode: '2')
     if (dbResult?.ResponseCode === '2') {
-      // Account already exists - DO NOT create guest account
-      // DO NOT store in localStorage
       setLoading(false);
       const message = dbResult.ResponseMessage || 'Account already exists';
       showNotification(`${message}. Please login with your existing account.`, "error");
       
-      // Switch to login mode after delay
       setTimeout(() => {
         setAuthMode('login');
-        // Pre-fill the contact number in login form
         setLoginData(prev => ({
           ...prev,
           contactNumber: guestData.contactNumber
         }));
       }, 2500);
       
-      return; // Exit immediately without storing anything
+      return;
     }
 
-    // Check for other error response codes (not success)
-    // ONLY create guest account when ResponseCode is exactly '1'
     if (dbResult?.ResponseCode !== '1') {
       setLoading(false);
       const errorMessage = dbResult?.ResponseMessage || 'Failed to create guest account';
       showNotification(errorMessage, "error");
-      return; // Exit without storing anything
+      return;
     }
 
-    // SUCCESS: Only proceed if ResponseCode is exactly '1'
-    // NOW and ONLY NOW do we store in localStorage
     try {
       const guestCustomerForStorage = {
         ...guestCustomerData,
@@ -483,13 +465,12 @@ const handleLogin = async () => {
         accountStatus: "1"
       };
       
-      localStorage.setItem('customer',(guestCustomerForStorage));
-      console.log('✅ Guest customer details saved to localStorage under "customer" key:', guestCustomerForStorage);
+      localStorage.setItem('customer', JSON.stringify(guestCustomerForStorage));
+      console.log('✅ Guest customer details saved:', guestCustomerForStorage);
     } catch (storageError) {
       console.error('Failed to save to localStorage:', storageError);
     }
 
-    // Track analytics events only on success
     try {
       if (typeof window.fbq === "function") {
         window.fbq("track", "CompleteRegistration", {
@@ -514,19 +495,25 @@ const handleLogin = async () => {
     }
     
     setLoading(false);
-    showNotification("Guest account created successfully! Welcome!", "success");
+    showNotification("Guest account created!", "success");
     
     setTimeout(() => {
-      onClose();
-    }, 2000);
+      // CRITICAL: Call onSuccess callback if provided
+      if (onSuccess && typeof onSuccess === 'function') {
+        console.log('✅ Calling onSuccess callback for guest');
+        onSuccess();
+      } else {
+        // Fallback: just close the modal
+        console.log('⚠️ No onSuccess callback provided, just closing modal');
+        onClose();
+      }
+    }, 1500);
   };
 
-  // Reset notification when switching between modes
   useEffect(() => {
     hideNotification();
   }, [authMode, hideNotification]);
 
-  // Reset notification when modal closes
   useEffect(() => {
     if (!open) {
       hideNotification();
@@ -742,7 +729,6 @@ const handleLogin = async () => {
           )}
         </button>
 
-        {/* Auth Mode Navigation */}
         {authMode !== 'guest' && (
           <>
             <Divider className="my-4">

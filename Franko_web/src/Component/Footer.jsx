@@ -13,14 +13,14 @@ const Footer = () => {
       {/* Newsletter Section */}
      
       {/* Main Footer */}
-      <div className="mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8 py-1 px-6">
+      <div className="mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8  px-6">
         {/* Company Info */}
         <div className="lg:col-span-1 space-y-6">
           <div>
             <img 
               src= {logo}
               alt="Franko Trading" 
-              className="h-16 mb-4 filter brightness-110" 
+              className="h-16 mb-1 filter brightness-110" 
             />
             <p className="text-gray-300 text-sm leading-relaxed mb-4">
               Ghana's premier destination for phones and electronic devices. 
@@ -28,14 +28,14 @@ const Footer = () => {
             </p>
           </div>
           
-          <div className="bg-gray-800/50 backdrop-blur-sm p-4 rounded-xl border border-gray-700/50">
-            <div className="flex items-center gap-2 mb-3">
+          <div className="bg-gray-800/50 backdrop-blur-sm  rounded-xl border border-gray-700/50">
+            <div className="flex items-center gap-2 ">
               <PhoneOutlined className="text-green-400" />
-              <p className="text-sm font-semibold text-gray-200">Need Help?</p>
+              <p className="text-xs font-semibold text-gray-200">Need Help?</p>
             </div>
             <a 
               href="tel:+233246422338" 
-              className="text-white text-lg font-bold hover:text-green-400 transition-colors duration-300 block mb-3"
+              className="text-white text-xs md:text-sm font-bold hover:text-green-400 transition-colors duration-300 block mb-3"
             >
               +233 246 422 338
             </a>
@@ -44,7 +44,7 @@ const Footer = () => {
               className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 border-0 flex items-center gap-2 px-4 py-2 h-10 rounded-lg font-medium shadow-md hover:shadow-lg transition-all duration-300"
               onClick={() => window.open('https://wa.me/233246422338', '_blank')}
             >
-              <FaWhatsapp className="text-lg" />
+              <FaWhatsapp className="text-xs" />
               Chat with us
             </Button>
           </div>
@@ -111,20 +111,6 @@ const Footer = () => {
               </li>
               <li>
                 <Link 
-                  to="/sign-up" 
-                  className="text-gray-300 hover:text-green-400 text-sm transition-colors duration-300 hover:translate-x-1 inline-block"
-                >
-                  Create Account
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="font-bold text-white mb-4 text-base border-b border-green-600/30 pb-2">Orders</h4>
-            <ul className="space-y-3">
-              <li>
-                <Link 
                   to="/order-history" 
                   className="text-gray-300 hover:text-green-400 text-sm transition-colors duration-300 hover:translate-x-1 inline-block"
                 >
@@ -133,13 +119,15 @@ const Footer = () => {
               </li>
             </ul>
           </div>
+
+        
         </div>
 
         {/* App Download Section */}
-      <div className="flex flex-row items-center space-y-6 mt-82 lg:mt-0">
-  <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 backdrop-blur-sm p-6 rounded-xl border border-gray-700/50">
-    <h4 className="font-bold text-white mb-3 text-base">Download Our App</h4>
-    <p className="text-gray-300 text-sm mb-6 leading-relaxed">
+      <div className="flex flex-row items-center space-y-2">
+  <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 backdrop-blur-sm p-2 rounded-xl border border-gray-700/50">
+    <h4 className="font-bold text-white mb-1 text-base">Download Our App</h4>
+    <p className="text-gray-300 text-sm mb-1 leading-relaxed">
       Get exclusive deals and faster checkout.
     </p>
 

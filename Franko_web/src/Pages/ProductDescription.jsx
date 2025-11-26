@@ -49,6 +49,7 @@ const ProductDescription = () => {
   const [flixMediaError, setFlixMediaError] = useState(false);
   const [cartSyncError, setCartSyncError] = useState(null);
   const [networkStatus, setNetworkStatus] = useState(navigator.onLine);
+  const [pendingCheckout, setPendingCheckout] = useState(false);
 
   // Refs
   const productDetailsRef = useRef(null);
@@ -64,7 +65,6 @@ const ProductDescription = () => {
     const handleOnline = () => {
       setNetworkStatus(true);
       setCartSyncError(null);
-      // Re-sync cart when coming back online
       if (cartId) {
         syncCartWithDatabase();
       }
@@ -131,6 +131,7 @@ const ProductDescription = () => {
     dispatch(fetchProductById(productID));
   }, [dispatch, productID]);
 
+  // Enhanced Recently Viewed Products Management
   useEffect(() => {
     if (currentProduct?.length > 0) {
       const prod = currentProduct[0];
@@ -142,9 +143,17 @@ const ProductDescription = () => {
         id: prod.productID,
         name: prod.productName,
         price: prod.price,
+        oldPrice: prod.oldPrice || 0,
         image,
+        brandName: prod.brandName,
+        categoryName: prod.categoryName,
+        showRoomName: prod.showRoomName,
+        stockStatus: prod.stockStatus,
+        quantity: prod.quantity,
+        viewedAt: new Date().toISOString()
       };
 
+      // Get existing viewed products from localStorage
       const stored = localStorage.getItem("viewedProducts") || "[]";
       let parsed = [];
       try {
@@ -154,15 +163,30 @@ const ProductDescription = () => {
         parsed = [];
       }
 
-      const updated = [
-        viewedItem,
-        ...parsed.filter((item) => item.id !== viewedItem.id),
-      ].slice(0, 4);
+      // Remove duplicate if exists and add new item to the beginning
+      const filtered = parsed.filter((item) => item.id !== viewedItem.id);
+      const updated = [viewedItem, ...filtered].slice(0, 4); // Keep only 4 most recent
 
+      // Save to localStorage
       localStorage.setItem("viewedProducts", JSON.stringify(updated));
       setViewedProducts(updated);
     }
   }, [currentProduct]);
+
+  // Load viewed products on component mount
+  useEffect(() => {
+    const stored = localStorage.getItem("viewedProducts");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setViewedProducts(parsed.slice(0, 4));
+        }
+      } catch (e) {
+        console.error('Error parsing viewed products:', e);
+      }
+    }
+  }, []);
 
   // Preload Flix Media Integration
   useEffect(() => {
@@ -424,15 +448,12 @@ const ProductDescription = () => {
     setCartSyncError(null);
     
     try {
-      // Add product to cart
       const result = await addProductToCart(product);
       
-      // Sync with database
       if (cartId) {
         try {
           const updatedCart = await dispatch(getCartById(cartId)).unwrap();
           
-          // Update local storage with latest cart data
           if (updatedCart && Array.isArray(updatedCart)) {
             localStorage.setItem("selectedCart", JSON.stringify(updatedCart));
           }
@@ -444,7 +465,6 @@ const ProductDescription = () => {
         }
       }
       
-      // Open sidebar on success
       setCartSidebarOpen(true);
       
     } catch (error) {
@@ -468,7 +488,6 @@ const ProductDescription = () => {
     
     if (!networkStatus) {
       setCartSyncError("No internet connection. Changes will sync when connection is restored.");
-      // Update local storage optimistically
       const localCart = JSON.parse(localStorage.getItem("selectedCart") || "[]");
       const updatedLocalCart = localCart.map(item => 
         item.productId === productId ? { ...item, quantity: newQuantity } : item
@@ -487,7 +506,6 @@ const ProductDescription = () => {
         quantity: newQuantity 
       })).unwrap();
       
-      // Sync with database
       const updatedCart = await dispatch(getCartById(cartId)).unwrap();
       
       if (updatedCart && Array.isArray(updatedCart)) {
@@ -508,7 +526,6 @@ const ProductDescription = () => {
     
     if (!networkStatus) {
       setCartSyncError("No internet connection. Changes will sync when connection is restored.");
-      // Update local storage optimistically
       const localCart = JSON.parse(localStorage.getItem("selectedCart") || "[]");
       const updatedLocalCart = localCart.filter(item => item.productId !== productId);
       localStorage.setItem("selectedCart", JSON.stringify(updatedLocalCart));
@@ -521,7 +538,6 @@ const ProductDescription = () => {
     try {
       await dispatch(deleteCartItem({ cartId, productId })).unwrap();
       
-      // Sync with database
       const updatedCart = await dispatch(getCartById(cartId)).unwrap();
       
       if (updatedCart && Array.isArray(updatedCart)) {
@@ -540,6 +556,7 @@ const ProductDescription = () => {
     const storedCustomer = localStorage.getItem("customer");
 
     if (!storedCustomer) {
+      setPendingCheckout(true);
       setCartSidebarOpen(false);
       setTimeout(() => {
         setAuthModalOpen(true);
@@ -626,6 +643,7 @@ const ProductDescription = () => {
 
   const handleAuthModalClose = () => {
     setAuthModalOpen(false);
+    setPendingCheckout(false);
   };
 
   const handleAuthSuccess = () => {
@@ -647,7 +665,10 @@ const ProductDescription = () => {
       }))
     });
     
-    navigate("/checkout");
+    // Automatically redirect to checkout after successful authentication
+    setTimeout(() => {
+      navigate("/checkout");
+    }, 100);
   };
 
   if (loading || !currentProduct?.length) {
@@ -670,15 +691,15 @@ const ProductDescription = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-10">
-              <Helmet>
+         <Helmet>
         <title>{`${product?.productName || "Product"} - Best Price`}</title>
         <meta name="description" content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}. High-quality and best prices available.`} />
-        <meta property="og:title" content={product?.productName || "Product"} />
+        <meta  property="og:title" content={product?.productName || "Product"} />
         <meta property="og:description" content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}.`} />
-        <meta property="og:image" content={imageUrl || "default-image-url.jpg"} />
+        <meta property="og:image" content={imageUrl || "https://www.frankotrading.com/frankoIcon.png"} />
         <meta property="og:url" content={productUrl || "https://www.frankotrading.com"} />
         <meta name="twitter:card" content="summary_large_image" />
-        <link rel="canonical" href={`https://www.frankotrading.com/product/${product?.productID || "defaultID"}`} />
+        <link rel="canonical" href={`https://www.frankotrading.com/product/${product?.productID || "https://www.frankotrading.com"}`} />
       </Helmet>
 
       <script type="application/ld+json">
@@ -693,55 +714,54 @@ const ProductDescription = () => {
             "@type": "Brand",
             "name": product.brandName
           },
-         "offers": {
-  "@type": "Offer",
-  "priceCurrency": "GHS",
-  "price": product.price,
-  "priceValidUntil": "2025-12-31",
-  "itemCondition": "https://schema.org/NewCondition",
-  "availability": "https://schema.org/InStock",
-  "url": `https://www.frankotrading.com/product/${product.productID}`,
-  "seller": {
-    "@type": "Organization",
-    "name": "Franko Trading"
-  },
-  "shippingDetails": {
-    "@type": "OfferShippingDetails",
-    "shippingRate": {
-      "@type": "MonetaryAmount",
-      "currency": "GHS",
-      "value": "30.00"
-    },
-    "shippingDestination": {
-      "@type": "DefinedRegion",
-      "addressCountry": "GH"
-    },
-    "deliveryTime": {
-      "@type": "ShippingDeliveryTime",
-      "handlingTime": {
-        "@type": "QuantitativeValue",
-        "minValue": 1,
-        "maxValue": 2,
-        "unitCode": "DAY"
-      },
-      "transitTime": {
-        "@type": "QuantitativeValue",
-        "minValue": 3,
-        "maxValue": 5,
-        "unitCode": "DAY"
-      }
-    }
-  },
-  "hasMerchantReturnPolicy": {
-    "@type": "MerchantReturnPolicy",
-    "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
-    "merchantReturnDays": 14,
-    "returnMethod": "https://schema.org/ReturnByMail",
-    "returnFees": "https://schema.org/FreeReturn",
-    "applicableCountry": "GH"
-  }
-}
-
+          "offers": {
+            "@type": "Offer",
+            "priceCurrency": "GHS",
+            "price": product.price,
+            "priceValidUntil": "2025-12-31",
+            "itemCondition": "https://schema.org/NewCondition",
+            "availability": "https://schema.org/InStock",
+            "url": `https://www.frankotrading.com/product/${product.productID}`,
+            "seller": {
+              "@type": "Organization",
+              "name": "Franko Trading"
+            },
+            "shippingDetails": {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "currency": "GHS",
+                "value": "40.00"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "GH"
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 2,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 3,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            },
+            "hasMerchantReturnPolicy": {
+              "@type": "MerchantReturnPolicy",
+              "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+              "merchantReturnDays": 7,
+              "returnMethod": "https://schema.org/ReturnByMail",
+              "returnFees": "https://schema.org/FreeReturn",
+              "applicableCountry": "GH"
+            }
+          }
         })}
       </script>
 
@@ -874,7 +894,7 @@ const ProductDescription = () => {
                 <div className="bg-gradient-to-r from-orange-400 to-red-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-md">
                   {product.tag}
                 </div>
-              )}
+                )}
               {product.productColor && (
                 <div className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-medium border">
                   Color: {product.productColor}
@@ -1005,12 +1025,7 @@ const ProductDescription = () => {
                   className="relative bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg p-3 transition-colors duration-200"
                   disabled={!cart || cart.length === 0}
                 >
-                  <ShoppingCartIcon className="w-6 h-6" />
-                  {totalCartItems > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                      {totalCartItems}
-                    </span>
-                  )}
+                 
                 </button>
               </div>
             </div>
@@ -1018,7 +1033,7 @@ const ProductDescription = () => {
         </div>
       </div>
 
-      {/* Flix Media Section - Preloaded as part of description */}
+      {/* Flix Media Section - Displayed at the top */}
       {showFlixMedia && (
         <div 
           id="flix-media-section" 
@@ -1028,7 +1043,7 @@ const ProductDescription = () => {
         >
           <div className="mb-6 flex items-center gap-4">
             <h2 className="text-xl font-bold text-gray-900 relative">
-              Enhanced Product Details
+              More Product Details
               <span className="absolute -bottom-1 left-0 w-16 h-1 bg-red-400 rounded-full"></span>
             </h2>
           </div>

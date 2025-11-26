@@ -190,7 +190,7 @@ const sortedProducts = (Array.isArray(productsByCategory[categoryId]) ? products
       {/* Header */}
       <div className="mb-6 flex items-center gap-4 flex-wrap md:flex-nowrap">
         <h2 className="text-sm md:text-lg font-bold text-gray-900 relative whitespace-nowrap">
-          Phones | Best Deals on Phones
+          Mobile Phones
           <span className="absolute -bottom-1 left-0 w-16 h-1 bg-red-400 rounded-full" />
         </h2>
         <div className="flex-grow h-px bg-gray-300" />
