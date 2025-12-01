@@ -53,7 +53,7 @@ export default function ContactUsPage() {
   };
 
   const handleWhatsAppClick = () => {
-    const phoneNumber = "233555939311"; // Replace with actual WhatsApp number
+    const phoneNumber = "233246422338"; // Replace with actual WhatsApp number
     const message = "Hello! I'd like to get in touch with you.";
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(
       message
