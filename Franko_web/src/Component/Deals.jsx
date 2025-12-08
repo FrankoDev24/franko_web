@@ -220,7 +220,7 @@ const Deals = () => {
         onClose={hideNotification}
       />
 
-      <div className="mx-auto px-2 md:px-24 py-3">
+      <div className="mx-auto px-4 md:px-16 py-6">
         {/* Header Section - Compact Banner */}
         <div className="mb-3 relative overflow-hidden rounded-xl bg-gradient-to-r from-green-300 via-green-500 to-green-200 p-2.5 md:p-3 shadow-lg">
           {/* Animated background effects */}

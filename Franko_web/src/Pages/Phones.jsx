@@ -34,7 +34,8 @@ const Phones = () => {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
   const itemsPerPage = 8;
-    useEffect(() => {
+  
+  useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
@@ -131,6 +132,12 @@ const Phones = () => {
     { value: "name-az", label: "Name: A to Z" },
     { value: "name-za", label: "Name: Z to A" },
   ];
+
+  // Check if we should show "no products found" - only when not loading AND no filtered products
+  const shouldShowNoProducts = !loading && filteredProducts.length === 0 && products.length > 0;
+  
+  // Check if we should show "no products exist at all" - only when not loading AND no products loaded
+  const shouldShowNoProductsAtAll = !loading && products.length === 0;
 
   const renderFilterContent = () => (
     <div className="w-full lg:w-80 space-y-6">
@@ -280,96 +287,93 @@ const Phones = () => {
   );
 
   return (
-    <div className="min-h-screen ">
-                 <Helmet>
-  <title>Smartphones in Ghana | Latest Phones & Great Prices – Franko Trading</title>
-  <meta name="description" content="Explore the newest smartphones in Ghana at Franko Trading. From budget to flagship devices, find phones from Samsung, Apple, Infinix, and Tecno — fast shipping and secure checkout." />
-  <meta name="keywords" content="mobile phones, smartphones, best phone deals, buy smartphones, latest phones" />
-  <meta property="og:title" content="smartphones in Ghana | Latest Phones & Great Prices – Franko Trading" />
-  <meta property="og:description" content="Explore the newest smartphones in Ghana at Franko Trading. From budget to flagship devices, find phones from Samsung, Apple, Infinix, and Tecno — fast shipping and secure checkout." />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content={window.location.href} />
-  <meta property="og:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="smartphones in Ghana | Latest Phones & Great Prices – Franko Trading" />
-  <meta name="twitter:description" content="Explore the newest smartphones in Ghana at Franko Trading. From budget to flagship devices, find phones from Samsung, Apple, Infinix, and Tecno — fast shipping and secure checkout." />
-  <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
-  <link rel="canonical" href="https://www.frankotrading.com/phones" />
-  {/* JSON-LD Structured Data for Schema.org */}
-  <script type="application/ld+json">
-  {JSON.stringify({
-  "@context": "https://schema.org",
-  "@type": "ItemList",
-  "name": "Smart Phones",
-  "description": "Explore a variety of mobile phones at the best prices. Find your perfect smartphone today!",
-  "url": "https://www.frankotrading.com/phones",
-  "itemListElement": filteredProducts.map((item, index) => ({
-    "@type": "Product",
-    "position": index + 1,
-    "name": item.productName,
-    "description": item.productDescription,
-    "sku": item.productID,
-    "image": `https://smfteapi.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
-    "brand": {
-      "@type": "Brand",
-      "name": item.brandName
-    },
-"offers": {
-  "@type": "Offer",
-  "priceCurrency": "GHS",
-  "price": item.price,
-  "priceValidUntil": "2025-12-31",
-  "itemCondition": "https://schema.org/NewCondition",
-  "availability": "https://schema.org/InStock",
-  "url": `https://www.frankotrading.com/product/${item.productID}`,
-  "seller": {
-    "@type": "Organization",
-    "name": "Franko Trading"
-  },
-  "shippingDetails": {
-    "@type": "OfferShippingDetails",
-    "shippingRate": {
-      "@type": "MonetaryAmount",
-      "currency": "GHS",
-      "value": "30.00"
-    },
-    "shippingDestination": {
-      "@type": "DefinedRegion",
-      "addressCountry": "GH"
-    },
-    "deliveryTime": {
-      "@type": "ShippingDeliveryTime",
-      "handlingTime": {
-        "@type": "QuantitativeValue",
-        "minValue": 1,
-        "maxValue": 2,
-        "unitCode": "DAY"
-      },
-      "transitTime": {
-        "@type": "QuantitativeValue",
-        "minValue": 3,
-        "maxValue": 5,
-        "unitCode": "DAY"
-      }
-    }
-  },
-  "hasMerchantReturnPolicy": {
-    "@type": "MerchantReturnPolicy",
-    "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
-    "merchantReturnDays": 14,
-    "returnMethod": "https://schema.org/ReturnByMail",
-    "returnFees": "https://schema.org/FreeReturn",
-    "applicableCountry": "GH"
-  }
-}
-
-
-  }))
-})}
-    
-  </script>
-</Helmet>
-<script>
+    <div className="min-h-screen">
+      <Helmet>
+        <title>Smartphones in Ghana | Latest Phones & Great Prices – Franko Trading</title>
+        <meta name="description" content="Explore the newest smartphones in Ghana at Franko Trading. From budget to flagship devices, find phones from Samsung, Apple, Infinix, and Tecno — fast shipping and secure checkout." />
+        <meta name="keywords" content="mobile phones, smartphones, best phone deals, buy smartphones, latest phones" />
+        <meta property="og:title" content="smartphones in Ghana | Latest Phones & Great Prices – Franko Trading" />
+        <meta property="og:description" content="Explore the newest smartphones in Ghana at Franko Trading. From budget to flagship devices, find phones from Samsung, Apple, Infinix, and Tecno — fast shipping and secure checkout." />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content={window.location.href} />
+        <meta property="og:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="smartphones in Ghana | Latest Phones & Great Prices – Franko Trading" />
+        <meta name="twitter:description" content="Explore the newest smartphones in Ghana at Franko Trading. From budget to flagship devices, find phones from Samsung, Apple, Infinix, and Tecno — fast shipping and secure checkout." />
+        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+        <link rel="canonical" href="https://www.frankotrading.com/phones" />
+        {/* JSON-LD Structured Data for Schema.org */}
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            "name": "Smart Phones",
+            "description": "Explore a variety of mobile phones at the best prices. Find your perfect smartphone today!",
+            "url": "https://www.frankotrading.com/phones",
+            "itemListElement": filteredProducts.map((item, index) => ({
+              "@type": "Product",
+              "position": index + 1,
+              "name": item.productName,
+              "description": item.productDescription,
+              "sku": item.productID,
+              "image": `https://smfteapi.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+              "brand": {
+                "@type": "Brand",
+                "name": item.brandName
+              },
+              "offers": {
+                "@type": "Offer",
+                "priceCurrency": "GHS",
+                "price": item.price,
+                "priceValidUntil": "2025-12-31",
+                "itemCondition": "https://schema.org/NewCondition",
+                "availability": "https://schema.org/InStock",
+                "url": `https://www.frankotrading.com/product/${item.productID}`,
+                "seller": {
+                  "@type": "Organization",
+                  "name": "Franko Trading"
+                },
+                "shippingDetails": {
+                  "@type": "OfferShippingDetails",
+                  "shippingRate": {
+                    "@type": "MonetaryAmount",
+                    "currency": "GHS",
+                    "value": "30.00"
+                  },
+                  "shippingDestination": {
+                    "@type": "DefinedRegion",
+                    "addressCountry": "GH"
+                  },
+                  "deliveryTime": {
+                    "@type": "ShippingDeliveryTime",
+                    "handlingTime": {
+                      "@type": "QuantitativeValue",
+                      "minValue": 1,
+                      "maxValue": 2,
+                      "unitCode": "DAY"
+                    },
+                    "transitTime": {
+                      "@type": "QuantitativeValue",
+                      "minValue": 3,
+                      "maxValue": 5,
+                      "unitCode": "DAY"
+                    }
+                  }
+                },
+                "hasMerchantReturnPolicy": {
+                  "@type": "MerchantReturnPolicy",
+                  "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+                  "merchantReturnDays": 14,
+                  "returnMethod": "https://schema.org/ReturnByMail",
+                  "returnFees": "https://schema.org/FreeReturn",
+                  "applicableCountry": "GH"
+                }
+              }
+            }))
+          })}
+        </script>
+      </Helmet>
+      <script>
         {`
           (function(w,d,s,l,i){
             w[l]=w[l]||[];w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});
@@ -377,13 +381,13 @@ const Phones = () => {
             j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
             j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;
             f.parentNode.insertBefore(j,f);
-          })(window,document,'script','dataLayer','GTM-WKCL4JTV);
+          })(window,document,'script','dataLayer','GTM-WKCL4JTV');
         `}
       </script>
 
       <div className="p-2 md:px-2 mx-auto">
         {/* Enhanced Mobile Header */}
-        <div className="md:hidden space-y-2 ">
+        <div className="md:hidden space-y-2">
           {/* Phone Info */}
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
             <div className="flex items-center gap-2 mb-1">
@@ -393,7 +397,7 @@ const Phones = () => {
               </h2>
             </div>
             <p className="text-sm text-gray-500 mt-1">
-              {filteredProducts.length} products available
+              {loading ? "Loading products..." : `${filteredProducts.length} products available`}
             </p>
           </div>
 
@@ -492,7 +496,65 @@ const Phones = () => {
 
           {/* Products Section */}
           <section className="flex-1">
-            {currentProducts.length > 0 ? (
+            {/* Show loading skeleton or products */}
+            {loading ? (
+              <div className="space-y-2">
+                {/* Desktop Header Skeleton */}
+                <div className="hidden md:block bg-white p-2 rounded-2xl shadow-sm border border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+                      <div className="space-y-2">
+                        <div className="w-40 h-6 bg-gray-200 rounded animate-pulse"></div>
+                        <div className="w-60 h-4 bg-gray-200 rounded animate-pulse"></div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="w-32 h-8 bg-gray-200 rounded-full animate-pulse"></div>
+                      <div className="w-40 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Products Grid Skeleton */}
+                <div className="md:p-6">
+                  <ProductCard
+                    currentProducts={[]}
+                    navigate={navigate}
+                    loading={true}
+                  />
+                </div>
+              </div>
+            ) : (shouldShowNoProducts || shouldShowNoProductsAtAll) ? (
+              /* Show "No Products Found" only when not loading and no products match filters */
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mt-6 md:mt-24">
+                <div className="flex flex-col justify-center items-center text-center space-y-6">
+                  <div className="relative">
+                    <img src={gif} alt="No products found" className="max-h-24 md:max-h-72 opacity-80" />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h3 className="text-lg md:text-xl font-semibold text-gray-800">No Phones Found</h3>
+                    <p className="text-gray-600 max-w-md text-sm md:text-base">
+                      {shouldShowNoProductsAtAll 
+                        ? "We don't have any phones available at the moment. Please check back later."
+                        : "We couldn't find any phones matching your current filters. Try adjusting your search criteria or browse other categories."
+                      }
+                    </p>
+                  </div>
+                  
+                  {shouldShowNoProducts && (
+                    <button
+                      onClick={resetFilters}
+                      className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-300 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                    >
+                      Reset Filters
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* Show products when loaded and available */
               <div className="space-y-2">
                 {/* Desktop Header with Sort */}
                 <div className="hidden md:block bg-white p-2 rounded-2xl shadow-sm border border-gray-100">
@@ -577,29 +639,6 @@ const Phones = () => {
                     />
                   </div>
                 )}
-              </div>
-            ) : (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mt-6 md:mt-24">
-                <div className="flex flex-col justify-center items-center text-center space-y-6">
-                  <div className="relative">
-                    <img src={gif} alt="No products found" className="max-h-24 md:max-h-72 opacity-80" />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <h3 className="text-lg md:text-xl font-semibold text-gray-800">No Phones Found</h3>
-                    <p className="text-gray-600 max-w-md text-sm md:text-base">
-                      We couldn't find any phones matching your current filters. 
-                      Try adjusting your search criteria or browse other categories.
-                    </p>
-                  </div>
-                  
-                  <button
-                    onClick={resetFilters}
-                    className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-300 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                  >
-                    Reset Filters
-                  </button>
-                </div>
               </div>
             )}
           </section>

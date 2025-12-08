@@ -16,7 +16,7 @@ import gif from "../assets/no.gif";
 import { FaHeadphonesAlt } from "react-icons/fa";
 import { Helmet } from "react-helmet";
 
-const categoryId = "2cfdb823-bbfd-495b-84a5-b5508356c1f6"; // Television category ID"
+const categoryId = "2cfdb823-bbfd-495b-84a5-b5508356c1f6";
 
 const Accessories = () => {
   const dispatch = useDispatch();
@@ -34,7 +34,8 @@ const Accessories = () => {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
   const itemsPerPage = 8;
-    useEffect(() => {
+  
+  useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
@@ -107,8 +108,9 @@ const Accessories = () => {
         return sorted.sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated));
     }
   };
-const filteredProducts = sortProducts(
-  products.filter((product) => {
+
+  const filteredProducts = sortProducts(
+    products.filter((product) => {
       const withinRange = product.price >= appliedPriceRange[0] && product.price <= appliedPriceRange[1];
       const hasDiscount = showDiscountedOnly ? product.oldPrice > product.price : true;
       const matchesBrand = selectedBrand ? product.brandName === selectedBrand : true;
@@ -116,7 +118,7 @@ const filteredProducts = sortProducts(
     })
   );
 
-const currentProducts = filteredProducts.slice(
+  const currentProducts = filteredProducts.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
@@ -130,6 +132,12 @@ const currentProducts = filteredProducts.slice(
     { value: "name-az", label: "Name: A to Z" },
     { value: "name-za", label: "Name: Z to A" },
   ];
+
+  // Check if we should show "no products found" - only when not loading AND no filtered products
+  const shouldShowNoProducts = !loading && filteredProducts.length === 0 && products.length > 0;
+  
+  // Check if we should show "no products exist at all" - only when not loading AND no products loaded
+  const shouldShowNoProductsAtAll = !loading && products.length === 0;
 
   const renderFilterContent = () => (
     <div className="w-full lg:w-80 space-y-6">
@@ -279,106 +287,103 @@ const currentProducts = filteredProducts.slice(
   );
 
   return (
-    <div className="min-h-screen ">
-            {/* Helmet for SEO */}
+    <div className="min-h-screen">
+      {/* Helmet for SEO */}
       <Helmet>
-  {/* Title and Description */}
-  <title>Accessories - Shop the Best Products</title>
-  <meta name="description" content="Find high-quality accessories at the best prices. Shop now!" />
-  
-  {/* Open Graph Metadata for Social Sharing */}
-  <meta property="og:title" content="Accessories - Shop the Best Products" />
-  <meta property="og:description" content="Find high-quality accessories at the best prices. Shop now!" />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://www.frankotrading.com/accessories" />
-  <meta property="og:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
-  <meta property="og:site_name" content="Franko Trading" />
-  <meta property="og:locale" content="en_US" />
-  
-  {/* Twitter Card for Social Media */}
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Accessories - Shop the Best Products" />
-  <meta name="twitter:description" content="Find high-quality accessories at the best prices. Shop now!" />
-  <meta name="twitter:image" content= {filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+        {/* Title and Description */}
+        <title>Accessories - Shop the Best Products</title>
+        <meta name="description" content="Find high-quality accessories at the best prices. Shop now!" />
+        
+        {/* Open Graph Metadata for Social Sharing */}
+        <meta property="og:title" content="Accessories - Shop the Best Products" />
+        <meta property="og:description" content="Find high-quality accessories at the best prices. Shop now!" />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://www.frankotrading.com/accessories" />
+        <meta property="og:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+        <meta property="og:site_name" content="Franko Trading" />
+        <meta property="og:locale" content="en_US" />
+        
+        {/* Twitter Card for Social Media */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Accessories - Shop the Best Products" />
+        <meta name="twitter:description" content="Find high-quality accessories at the best prices. Shop now!" />
+        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
 
-  {/* Canonical URL */}
-  <link rel="canonical" href="https://www.frankotrading.com/accessories" />
+        {/* Canonical URL */}
+        <link rel="canonical" href="https://www.frankotrading.com/accessories" />
 
-  {/* JSON-LD Schema for Structured Data */}
-  <script type="application/ld+json">
-    {JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": "ItemList",
-      "name": "Accessories",
-      "description": "Find high-quality accessories at the best prices.",
-      "itemListElement": filteredProducts.map((item, index) => ({
-        "@type": "Product",
-        "position": index + 1,
-        "name": item.productName,
-        "image": `https://smfteapi.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
-        "description": item.description,
-        "brand": {
-          "@type": "Brand",
-          "name": item.brandName
-        },
-        "sku": item.productID,
-    "offers": {
-  "@type": "Offer",
-  "priceCurrency": "GHS",
-  "price": item.price,
-  "priceValidUntil": "2025-12-31",
-  "itemCondition": "https://schema.org/NewCondition",
-  "availability": "https://schema.org/InStock",
-  "url": `https://www.frankotrading.com/product/${item.productID}`,
-  "seller": {
-    "@type": "Organization",
-    "name": "Franko Trading"
-  },
-  "shippingDetails": {
-    "@type": "OfferShippingDetails",
-    "shippingRate": {
-      "@type": "MonetaryAmount",
-      "currency": "GHS",
-      "value": "30.00"
-    },
-    "shippingDestination": {
-      "@type": "DefinedRegion",
-      "addressCountry": "GH"
-    },
-    "deliveryTime": {
-      "@type": "ShippingDeliveryTime",
-      "handlingTime": {
-        "@type": "QuantitativeValue",
-        "minValue": 1,
-        "maxValue": 2,
-        "unitCode": "DAY"
-      },
-      "transitTime": {
-        "@type": "QuantitativeValue",
-        "minValue": 3,
-        "maxValue": 5,
-        "unitCode": "DAY"
-      }
-    }
-  },
-  "hasMerchantReturnPolicy": {
-    "@type": "MerchantReturnPolicy",
-    "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
-    "merchantReturnDays": 14,
-    "returnMethod": "https://schema.org/ReturnByMail",
-    "returnFees": "https://schema.org/FreeReturn",
-    "applicableCountry": "GH"
-  }
-}
+        {/* JSON-LD Schema for Structured Data */}
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            "name": "Accessories",
+            "description": "Find high-quality accessories at the best prices.",
+            "itemListElement": filteredProducts.map((item, index) => ({
+              "@type": "Product",
+              "position": index + 1,
+              "name": item.productName,
+              "image": `https://smfteapi.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+              "description": item.description,
+              "brand": {
+                "@type": "Brand",
+                "name": item.brandName
+              },
+              "sku": item.productID,
+              "offers": {
+                "@type": "Offer",
+                "priceCurrency": "GHS",
+                "price": item.price,
+                "priceValidUntil": "2025-12-31",
+                "itemCondition": "https://schema.org/NewCondition",
+                "availability": "https://schema.org/InStock",
+                "url": `https://www.frankotrading.com/product/${item.productID}`,
+                "seller": {
+                  "@type": "Organization",
+                  "name": "Franko Trading"
+                },
+                "shippingDetails": {
+                  "@type": "OfferShippingDetails",
+                  "shippingRate": {
+                    "@type": "MonetaryAmount",
+                    "currency": "GHS",
+                    "value": "30.00"
+                  },
+                  "shippingDestination": {
+                    "@type": "DefinedRegion",
+                    "addressCountry": "GH"
+                  },
+                  "deliveryTime": {
+                    "@type": "ShippingDeliveryTime",
+                    "handlingTime": {
+                      "@type": "QuantitativeValue",
+                      "minValue": 1,
+                      "maxValue": 2,
+                      "unitCode": "DAY"
+                    },
+                    "transitTime": {
+                      "@type": "QuantitativeValue",
+                      "minValue": 3,
+                      "maxValue": 5,
+                      "unitCode": "DAY"
+                    }
+                  }
+                },
+                "hasMerchantReturnPolicy": {
+                  "@type": "MerchantReturnPolicy",
+                  "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+                  "merchantReturnDays": 14,
+                  "returnMethod": "https://schema.org/ReturnByMail",
+                  "returnFees": "https://schema.org/FreeReturn",
+                  "applicableCountry": "GH"
+                }
+              }
+            }))
+          })}
+        </script>
+      </Helmet>
 
-      
-      }))
-    })}
-  </script>
-</Helmet>
-
-
-            <script>
+      <script>
         {`
           (function(w,d,s,l,i){
             w[l]=w[l]||[];w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});
@@ -386,22 +391,23 @@ const currentProducts = filteredProducts.slice(
             j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
             j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;
             f.parentNode.insertBefore(j,f);
-          })(window,document,'script','dataLayer','GTM-WKCL4JTV') ;
+          })(window,document,'script','dataLayer','GTM-WKCL4JTV');
         `}
       </script>
+      
       <div className="p-2 md:px-2 mx-auto">
         {/* Enhanced Mobile Header */}
-        <div className="md:hidden space-y-2 ">
-          {/* Phone Info */}
+        <div className="md:hidden space-y-2">
+          {/* Accessories Info */}
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
             <div className="flex items-center gap-2 mb-1">
-              <FaHeadphonesAlt  className="w-5 h-5 text-red-300" />
+              <FaHeadphonesAlt className="w-5 h-5 text-red-300" />
               <h2 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
                 {selectedBrand ? `${selectedBrand}` : "Accessories"}
               </h2>
             </div>
             <p className="text-sm text-gray-500 mt-1">
-              {filteredProducts.length} products available
+              {loading ? "Loading products..." : `${filteredProducts.length} products available`}
             </p>
           </div>
 
@@ -500,7 +506,65 @@ const currentProducts = filteredProducts.slice(
 
           {/* Products Section */}
           <section className="flex-1">
-            {currentProducts.length > 0 ? (
+            {/* Show loading skeleton or products */}
+            {loading ? (
+              <div className="space-y-2">
+                {/* Desktop Header Skeleton */}
+                <div className="hidden md:block bg-white p-2 rounded-2xl shadow-sm border border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+                      <div className="space-y-2">
+                        <div className="w-40 h-6 bg-gray-200 rounded animate-pulse"></div>
+                        <div className="w-60 h-4 bg-gray-200 rounded animate-pulse"></div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="w-32 h-8 bg-gray-200 rounded-full animate-pulse"></div>
+                      <div className="w-40 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Products Grid Skeleton */}
+                <div className="md:p-6">
+                  <ProductCard
+                    currentProducts={[]}
+                    navigate={navigate}
+                    loading={true}
+                  />
+                </div>
+              </div>
+            ) : (shouldShowNoProducts || shouldShowNoProductsAtAll) ? (
+              /* Show "No Products Found" only when not loading and no products match filters */
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mt-6 md:mt-24">
+                <div className="flex flex-col justify-center items-center text-center space-y-6">
+                  <div className="relative">
+                    <img src={gif} alt="No products found" className="max-h-24 md:max-h-72 opacity-80" />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h3 className="text-lg md:text-xl font-semibold text-gray-800">No Accessories Found</h3>
+                    <p className="text-gray-600 max-w-md text-sm md:text-base">
+                      {shouldShowNoProductsAtAll 
+                        ? "We don't have any accessories available at the moment. Please check back later."
+                        : "We couldn't find any accessories matching your current filters. Try adjusting your search criteria or browse other categories."
+                      }
+                    </p>
+                  </div>
+                  
+                  {shouldShowNoProducts && (
+                    <button
+                      onClick={resetFilters}
+                      className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-300 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                    >
+                      Reset Filters
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* Show products when loaded and available */
               <div className="space-y-2">
                 {/* Desktop Header with Sort */}
                 <div className="hidden md:block bg-white p-2 rounded-2xl shadow-sm border border-gray-100">
@@ -508,14 +572,14 @@ const currentProducts = filteredProducts.slice(
                     <div>
                       <div className="flex items-center gap-3 mb-1">
                         <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg">
-                           <FaHeadphonesAlt  className="w-6 h-6 text-red-300" />
+                          <FaHeadphonesAlt className="w-6 h-6 text-red-300" />
                         </div>
                         <h2 className="text-md md:text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
                           {selectedBrand ? `${selectedBrand}` : "Accessories"}
                         </h2>
                       </div>
                       <p className="text-gray-500 text-sm mt-1">
-                        Discover amazing smart Accessories from various brands
+                        Discover amazing accessories from various brands
                       </p>
                     </div>
                     
@@ -586,29 +650,6 @@ const currentProducts = filteredProducts.slice(
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mt-6 md:mt-24">
-                <div className="flex flex-col justify-center items-center text-center space-y-6">
-                  <div className="relative">
-                    <img src={gif} alt="No products found" className="max-h-24 md:max-h-72 opacity-80" />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <h3 className="text-lg md:text-xl font-semibold text-gray-800">No Accessories Found</h3>
-                    <p className="text-gray-600 max-w-md text-sm md:text-base">
-                      We couldn't find any Accessories matching your current filters. 
-                      Try adjusting your search criteria or browse other brands.
-                    </p>
-                  </div>
-                  
-                  <button
-                    onClick={resetFilters}
-                    className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-300 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                  >
-                    Reset Filters
-                  </button>
-                </div>
-              </div>
             )}
           </section>
         </div>
@@ -625,4 +666,4 @@ const currentProducts = filteredProducts.slice(
   );
 };
 
-export default Accessories
+export default Accessories;

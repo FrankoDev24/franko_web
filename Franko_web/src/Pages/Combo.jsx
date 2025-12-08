@@ -7,8 +7,9 @@ import { CircularPagination } from "../Component/CircularPagination";
 import { FunnelIcon, XMarkIcon, AdjustmentsHorizontalIcon, TagIcon, Cog6ToothIcon  } from "@heroicons/react/24/outline";
 import { Tooltip } from "@material-tailwind/react";
 import ProductCard from "../Component/ProductCard";
- const categoryId = "2cf502a2-e621-4ed1-9bd5-6cebc165d6fe"
+const categoryId = "2cf502a2-e621-4ed1-9bd5-6cebc165d6fe"
 import { Helmet } from "react-helmet";
+
 const Combo = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -22,9 +23,10 @@ const Combo = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
-    useEffect(() => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, []);
+  
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
   useEffect(() => {
     dispatch(fetchProductsByCategory(categoryId));
@@ -67,14 +69,22 @@ const Combo = () => {
   );
 
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-const resetFilters = () => {
+
+  // Check if we should show "no products found" - only when not loading AND no filtered products
+  const shouldShowNoProducts = !loading && filteredProducts.length === 0 && products.length > 0;
+  
+  // Check if we should show "no products exist at all" - only when not loading AND no products loaded
+  const shouldShowNoProductsAtAll = !loading && products.length === 0;
+
+  const resetFilters = () => {
     setFilters({
       selectedBrand: null,
       priceRange: [0, 200000],
       showDiscountedOnly: false,
     });
   };
- const renderFilterContent = () => (
+
+  const renderFilterContent = () => (
     <div className="w-full lg:w-80 space-y-8">
       {/* Filter Header */}
       <div className="hidden lg:flex items-center gap-3 pb-4 border-b border-gray-300">
@@ -206,7 +216,7 @@ const resetFilters = () => {
                 key={brand}
                 className={`w-full text-left px-4 py-3 text-sm font-medium rounded-xl transition-all duration-300 transform hover:scale-105 ${
                   filters.selectedBrand === brand
-                                       ? "bg-gradient-to-r from-green-500 to-teal-600 text-white shadow-lg"
+                    ? "bg-gradient-to-r from-green-500 to-teal-600 text-white shadow-lg"
                     : "bg-white text-gray-700 border border-gray-200 hover:border-emerald-300 hover:text-green-600 hover:shadow-md"
                 }`}
                 onClick={() =>
@@ -222,24 +232,22 @@ const resetFilters = () => {
           </div>
         </div>
       )}
-
-       
     </div>
   );
 
   const structuredData = {
     "@context": "https://schema.org/",
     "@type": "Product",
-    "name": "Combo Deals",
+    "name": "Washing Deals",
     "image": filteredProducts.length
       ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}`
       : "",
-    "description": "Discover the best combo deals on our platform with amazing discounts.",
+    "description": "Discover the best Washing deals on our platform with amazing discounts.",
     "brand": {
       "@type": "Brand",
       "name": "Brand Name"
     },
-    "category": "Electronics", // Modify as per product category
+    "category": "Electronics",
     "offers": filteredProducts.map((item) => ({
       "@type": "Offer",
       "sku": item.productID,
@@ -304,13 +312,11 @@ const resetFilters = () => {
       }
     }
   };
-  
-
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
-          <Helmet>
-        <title>Combo Deals - Best Discounts</title>
+      <Helmet>
+        <title>Washing-Machine</title>
         <meta name="description" content="Find the best Washing Machine deals and discounts on your favorite products." />
         <meta property="og:title" content="Washing Machine Deals - Best Discounts" />
         <meta property="og:description" content="Get amazing discounts on our exclusive Washing Machine deals." />
@@ -327,12 +333,11 @@ const resetFilters = () => {
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="Washing Machine Deals - Best Discounts" />
         <meta name="twitter:description" content="Get amazing discounts on our washing machines." />
-        <meta name="twitter:image" content= {filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
+        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
         <link rel="canonical" href="https://www.frankotrading.com/washing-machine" />
         <script type="application/ld+json">{JSON.stringify(structuredData)}</script>
-        {/* Google Tag Manager */}
-
       </Helmet>
+      
       <script>
         {`
           (function(w,d,s,l,i){
@@ -344,23 +349,23 @@ const resetFilters = () => {
           })(window,document,'script','dataLayer','GTM-WKCL4JTV');
         `}
       </script>
+      
       <div className="p-4 md:px-24 mx-auto">
         {/* Mobile Header */}
         <div className="md:hidden flex justify-between items-center mb-6 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-         <div>
-  <div className="flex items-center gap-1 ">
-    <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg">
-      <Cog6ToothIcon   className="w-6 h-6 text-red-300" />
-    </div>
-    <h6 className="text-md font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-      {filters.selectedBrand || "Washing Machine Deals"}
-    </h6>
-   
-  </div>
-  <p className="text-sm text-gray-500">
-              {filteredProducts.length} products available
+          <div>
+            <div className="flex items-center gap-1">
+              <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg">
+                <Cog6ToothIcon className="w-6 h-6 text-red-300" />
+              </div>
+              <h6 className="text-md font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                {filters.selectedBrand || "Washing Machine Deals"}
+              </h6>
+            </div>
+            <p className="text-sm text-gray-500">
+              {loading ? "Loading products..." : `${filteredProducts.length} products available`}
             </p>
-</div>
+          </div>
           
           <button 
             onClick={() => setIsDrawerOpen(true)} 
@@ -530,8 +535,8 @@ const resetFilters = () => {
                         }
                         className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
                           filters.selectedBrand === brand
-                                                ? "bg-gradient-to-r from-green-500 to-teal-600 text-white shadow-lg"
-                    : "bg-white text-gray-700 border border-gray-200 hover:border-emerald-300 hover:text-green-600 hover:shadow-md"
+                            ? "bg-gradient-to-r from-green-500 to-teal-600 text-white shadow-lg"
+                            : "bg-white text-gray-700 border border-gray-200 hover:border-emerald-300 hover:text-green-600 hover:shadow-md"
                         }`}
                       >
                         {brand}
@@ -560,25 +565,81 @@ const resetFilters = () => {
 
           {/* Products Section */}
           <section className="flex-1">
-            {currentProducts.length > 0 ? (
+            {/* Show loading skeleton or products */}
+            {loading ? (
+              <div className="space-y-6">
+                {/* Header Skeleton */}
+                <div className="hidden md:block p-4 rounded-2xl shadow-sm border">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+                      <div className="space-y-2">
+                        <div className="w-40 h-6 bg-gray-200 rounded animate-pulse"></div>
+                        <div className="w-60 h-4 bg-gray-200 rounded animate-pulse"></div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="w-32 h-8 bg-gray-200 rounded-full animate-pulse"></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Products Grid Skeleton */}
+                <div className="p-1 md:p-4 rounded-2xl">
+                  <ProductCard
+                    currentProducts={[]}
+                    navigate={navigate}
+                    loading={true}
+                  />
+                </div>
+              </div>
+            ) : (shouldShowNoProducts || shouldShowNoProductsAtAll) ? (
+              /* Show "No Products Found" only when not loading and no products match filters */
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12">
+                <div className="flex flex-col justify-center items-center text-center space-y-6">
+                  <div className="relative">
+                    <img src={gif} alt="No products found" className="max-h-64 opacity-80" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent"></div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-semibold text-gray-800">No Washing Machines Found</h3>
+                    <p className="text-gray-600 max-w-md">
+                      {shouldShowNoProductsAtAll 
+                        ? "We don't have any washing machines available at the moment. Please check back later."
+                        : "We couldn't find any washing machines matching your current filters. Try adjusting your search criteria or browse other categories."
+                      }
+                    </p>
+                  </div>
+                  
+                  {shouldShowNoProducts && (
+                    <button
+                      onClick={resetFilters}
+                      className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                    >
+                      Reset Filters
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* Show products when loaded and available */
               <div className="space-y-6">
                 {/* Header */}
-                <div className="hidden md:block  p-4 rounded-2xl shadow-sm border ">
+                <div className="hidden md:block p-4 rounded-2xl shadow-sm border">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-3 mb-2">
                         <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg">
-                        <Cog6ToothIcon   className="w-6 h-6 text-red-300" />
+                          <Cog6ToothIcon className="w-6 h-6 text-red-300" />
                         </div>
                         <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                        {(filters.selectedBrand ? `${filters.selectedBrand} ` : "Washing Machine Deals")}
-
+                          {(filters.selectedBrand ? `${filters.selectedBrand} ` : "Washing Machine Deals")}
                         </h2>
-                     
                       </div>
                       <p className="text-sm text-gray-500">
-  Discover the best electronic device bundles and Washing Machine deals at unbeatable prices
-</p>
+                        Discover the best electronic device bundles and washing machine deals at unbeatable prices
+                      </p>
                     </div>
                     
                     <div className="flex items-center gap-4">
@@ -603,7 +664,7 @@ const resetFilters = () => {
                 {/* Pagination */}
                 {totalPages > 1 && !loading && (
                   <div className="flex justify-center">
-                    <div >
+                    <div>
                       <CircularPagination
                         currentPage={currentPage}
                         totalPages={totalPages}
@@ -612,30 +673,6 @@ const resetFilters = () => {
                     </div>
                   </div>
                 )}
-              </div>
-            ) : (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12">
-                <div className="flex flex-col justify-center items-center text-center space-y-6">
-                  <div className="relative">
-                    <img src={gif} alt="No products found" className="max-h-64 opacity-80" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent"></div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <h3 className="text-xl font-semibold text-gray-800">No Washing Machine Found</h3>
-                    <p className="text-gray-600 max-w-md">
-                      We couldn't find any Washing Machine matching your current filters. 
-                      Try adjusting your search criteria or browse other categories.
-                    </p>
-                  </div>
-                  
-                  <button
-                    onClick={resetFilters}
-                    className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                  >
-                    Reset Filters
-                  </button>
-                </div>
               </div>
             )}
           </section>

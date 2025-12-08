@@ -91,7 +91,7 @@ const CategoryComponent = () => {
 
   return (
     <section >
-      <div className="mx-auto px-4 md:px-8 lg:px-24">
+      <div className="mx-auto px-4 md:px-16 py-6">
         {/* Header with improved styling */}
         <div className="mb-2">
           <h2 className="text-md md:text-lg font-bold text-gray-900 relative inline-block mt-2">

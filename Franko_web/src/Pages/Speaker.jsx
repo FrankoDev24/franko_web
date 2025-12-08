@@ -16,8 +16,7 @@ import gif from "../assets/no.gif";
 import { MdSpeaker } from "react-icons/md";
 import { Helmet } from "react-helmet";
 
-
-const categoryId = "38f7245d-b5f4-408a-9607-c3e3cb410ae4"; // Television category ID"
+const categoryId = "38f7245d-b5f4-408a-9607-c3e3cb410ae4";
 
 const Speakers = () => {
   const dispatch = useDispatch();
@@ -35,7 +34,8 @@ const Speakers = () => {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
   const itemsPerPage = 8;
-    useEffect(() => {
+  
+  useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
@@ -108,8 +108,9 @@ const Speakers = () => {
         return sorted.sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated));
     }
   };
-const filteredProducts = sortProducts(
-  products.filter((product) => {
+
+  const filteredProducts = sortProducts(
+    products.filter((product) => {
       const withinRange = product.price >= appliedPriceRange[0] && product.price <= appliedPriceRange[1];
       const hasDiscount = showDiscountedOnly ? product.oldPrice > product.price : true;
       const matchesBrand = selectedBrand ? product.brandName === selectedBrand : true;
@@ -117,7 +118,7 @@ const filteredProducts = sortProducts(
     })
   );
 
-const currentProducts = filteredProducts.slice(
+  const currentProducts = filteredProducts.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
@@ -131,6 +132,12 @@ const currentProducts = filteredProducts.slice(
     { value: "name-az", label: "Name: A to Z" },
     { value: "name-za", label: "Name: Z to A" },
   ];
+
+  // Check if we should show "no products found" - only when not loading AND no filtered products
+  const shouldShowNoProducts = !loading && filteredProducts.length === 0 && products.length > 0;
+  
+  // Check if we should show "no products exist at all" - only when not loading AND no products loaded
+  const shouldShowNoProductsAtAll = !loading && products.length === 0;
 
   const renderFilterContent = () => (
     <div className="w-full lg:w-80 space-y-6">
@@ -280,106 +287,101 @@ const currentProducts = filteredProducts.slice(
   );
 
   return (
-    <div className="min-h-screen ">
-            <Helmet>
-  {/* Page Title & Meta Tags */}
-  <title>Best Speakers and sound bars for Sale | Affordable Audio Systems</title>
-  <meta name="description" content="Find the best speakers for your home or office. Shop high-quality audio systems at unbeatable prices." />
-  <meta name="keywords" content="speakers, audio systems, Bluetooth speakers, sound systems, home speakers" />
-  <meta name="robots" content="index, follow" />
+    <div className="min-h-screen">
+      <Helmet>
+        {/* Page Title & Meta Tags */}
+        <title>Best Speakers and sound bars for Sale | Affordable Audio Systems</title>
+        <meta name="description" content="Find the best speakers for your home or office. Shop high-quality audio systems at unbeatable prices." />
+        <meta name="keywords" content="speakers, audio systems, Bluetooth speakers, sound systems, home speakers" />
+        <meta name="robots" content="index, follow" />
 
-  {/* Open Graph (Facebook & LinkedIn) */}
-  <meta property="og:type" content="website" />
-  <meta property="og:title" content="Best Speakers for Sale | Affordable Audio Systems" />
-  <meta property="og:description" content="Shop high-quality speakers for your home or office at unbeatable prices." />
-  <meta property="og:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
-  <meta property="og:url" content="https://www.frankotrading.com/speakers" />
+        {/* Open Graph (Facebook & LinkedIn) */}
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="Best Speakers for Sale | Affordable Audio Systems" />
+        <meta property="og:description" content="Shop high-quality speakers for your home or office at unbeatable prices." />
+        <meta property="og:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
+        <meta property="og:url" content="https://www.frankotrading.com/speakers" />
 
-  {/* Twitter Cards */}
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Best Speakers for Sale | Affordable Audio Systems" />
-  <meta name="twitter:description" content="Find top-quality speakers with great sound at affordable prices." />
-  <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
-  <link rel="canonical" href="https://www.frankotrading.com/speakers" />
-  {/* JSON-LD Structured Data for Rich Snippets */}
-  <script type="application/ld+json">
-    {JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": "ItemList",
-      "name": "Speakers",
-      "description": "High-quality audio systems for your home or office.",
-      "url": "https://www.frankotrading.com/speakers",
-      "itemListElement": filteredProducts.map((item, index) => ({
-        "@type": "Product",
-        "position": index + 1,
-        "name": item.productName,
-        "image": `https://smfteapi.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
-        "description": item.description,
-        "sku": item.productID,
-        "category": item.categoryName,
-      
-        "brand": {
-          "@type": "Brand",
-          "name": item.brandName
-        },
-    "offers": {
-  "@type": "Offer",
-  "priceCurrency": "GHS",
-  "price": item.price,
-  "priceValidUntil": "2025-12-31",
-  "itemCondition": "https://schema.org/NewCondition",
-  "availability": "https://schema.org/InStock",
-  "url": `https://www.frankotrading.com/product/${item.productID}`,
-  "seller": {
-    "@type": "Organization",
-    "name": "Franko Trading"
-  },
-  "shippingDetails": {
-    "@type": "OfferShippingDetails",
-    "shippingRate": {
-      "@type": "MonetaryAmount",
-      "currency": "GHS",
-      "value": "30.00"
-    },
-    "shippingDestination": {
-      "@type": "DefinedRegion",
-      "addressCountry": "GH"
-    },
-    "deliveryTime": {
-      "@type": "ShippingDeliveryTime",
-      "handlingTime": {
-        "@type": "QuantitativeValue",
-        "minValue": 1,
-        "maxValue": 2,
-        "unitCode": "DAY"
-      },
-      "transitTime": {
-        "@type": "QuantitativeValue",
-        "minValue": 3,
-        "maxValue": 5,
-        "unitCode": "DAY"
-      }
-    }
-  },
-  "hasMerchantReturnPolicy": {
-    "@type": "MerchantReturnPolicy",
-    "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
-    "merchantReturnDays": 14,
-    "returnMethod": "https://schema.org/ReturnByMail",
-    "returnFees": "https://schema.org/FreeReturn",
-    "applicableCountry": "GH"
-  }
-}
+        {/* Twitter Cards */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Best Speakers for Sale | Affordable Audio Systems" />
+        <meta name="twitter:description" content="Find top-quality speakers with great sound at affordable prices." />
+        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
+        <link rel="canonical" href="https://www.frankotrading.com/speakers" />
+        {/* JSON-LD Structured Data for Rich Snippets */}
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            "name": "Speakers",
+            "description": "High-quality audio systems for your home or office.",
+            "url": "https://www.frankotrading.com/speakers",
+            "itemListElement": filteredProducts.map((item, index) => ({
+              "@type": "Product",
+              "position": index + 1,
+              "name": item.productName,
+              "image": `https://smfteapi.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+              "description": item.description,
+              "sku": item.productID,
+              "category": item.categoryName,
+              "brand": {
+                "@type": "Brand",
+                "name": item.brandName
+              },
+              "offers": {
+                "@type": "Offer",
+                "priceCurrency": "GHS",
+                "price": item.price,
+                "priceValidUntil": "2025-12-31",
+                "itemCondition": "https://schema.org/NewCondition",
+                "availability": "https://schema.org/InStock",
+                "url": `https://www.frankotrading.com/product/${item.productID}`,
+                "seller": {
+                  "@type": "Organization",
+                  "name": "Franko Trading"
+                },
+                "shippingDetails": {
+                  "@type": "OfferShippingDetails",
+                  "shippingRate": {
+                    "@type": "MonetaryAmount",
+                    "currency": "GHS",
+                    "value": "30.00"
+                  },
+                  "shippingDestination": {
+                    "@type": "DefinedRegion",
+                    "addressCountry": "GH"
+                  },
+                  "deliveryTime": {
+                    "@type": "ShippingDeliveryTime",
+                    "handlingTime": {
+                      "@type": "QuantitativeValue",
+                      "minValue": 1,
+                      "maxValue": 2,
+                      "unitCode": "DAY"
+                    },
+                    "transitTime": {
+                      "@type": "QuantitativeValue",
+                      "minValue": 3,
+                      "maxValue": 5,
+                      "unitCode": "DAY"
+                    }
+                  }
+                },
+                "hasMerchantReturnPolicy": {
+                  "@type": "MerchantReturnPolicy",
+                  "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+                  "merchantReturnDays": 14,
+                  "returnMethod": "https://schema.org/ReturnByMail",
+                  "returnFees": "https://schema.org/FreeReturn",
+                  "applicableCountry": "GH"
+                }
+              }
+            }))
+          })}
+        </script>
+      </Helmet>
 
-      }))
-    })}
-  </script>
-
-
-
-</Helmet>
-
-<script>
+      <script>
         {`
           (function(w,d,s,l,i){
             w[l]=w[l]||[];w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});
@@ -390,19 +392,20 @@ const currentProducts = filteredProducts.slice(
           })(window,document,'script','dataLayer','GTM-WKCL4JTV');
         `}
       </script>
+      
       <div className="p-2 md:px-2 mx-auto">
         {/* Enhanced Mobile Header */}
-        <div className="md:hidden space-y-2 ">
-          {/* Phone Info */}
+        <div className="md:hidden space-y-2">
+          {/* Speaker Info */}
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
             <div className="flex items-center gap-2 mb-1">
-              <MdSpeaker  className="w-5 h-5 text-red-300" />
+              <MdSpeaker className="w-5 h-5 text-red-300" />
               <h2 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
                 {selectedBrand ? `${selectedBrand}` : "Speakers"}
               </h2>
             </div>
             <p className="text-sm text-gray-500 mt-1">
-              {filteredProducts.length} products available
+              {loading ? "Loading products..." : `${filteredProducts.length} products available`}
             </p>
           </div>
 
@@ -501,7 +504,65 @@ const currentProducts = filteredProducts.slice(
 
           {/* Products Section */}
           <section className="flex-1">
-            {currentProducts.length > 0 ? (
+            {/* Show loading skeleton or products */}
+            {loading ? (
+              <div className="space-y-2">
+                {/* Desktop Header Skeleton */}
+                <div className="hidden md:block bg-white p-2 rounded-2xl shadow-sm border border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+                      <div className="space-y-2">
+                        <div className="w-40 h-6 bg-gray-200 rounded animate-pulse"></div>
+                        <div className="w-60 h-4 bg-gray-200 rounded animate-pulse"></div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="w-32 h-8 bg-gray-200 rounded-full animate-pulse"></div>
+                      <div className="w-40 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Products Grid Skeleton */}
+                <div className="md:p-6">
+                  <ProductCard
+                    currentProducts={[]}
+                    navigate={navigate}
+                    loading={true}
+                  />
+                </div>
+              </div>
+            ) : (shouldShowNoProducts || shouldShowNoProductsAtAll) ? (
+              /* Show "No Products Found" only when not loading and no products match filters */
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mt-6 md:mt-24">
+                <div className="flex flex-col justify-center items-center text-center space-y-6">
+                  <div className="relative">
+                    <img src={gif} alt="No products found" className="max-h-24 md:max-h-72 opacity-80" />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h3 className="text-lg md:text-xl font-semibold text-gray-800">No Speakers Found</h3>
+                    <p className="text-gray-600 max-w-md text-sm md:text-base">
+                      {shouldShowNoProductsAtAll 
+                        ? "We don't have any speakers available at the moment. Please check back later."
+                        : "We couldn't find any speakers matching your current filters. Try adjusting your search criteria or browse other categories."
+                      }
+                    </p>
+                  </div>
+                  
+                  {shouldShowNoProducts && (
+                    <button
+                      onClick={resetFilters}
+                      className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-300 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                    >
+                      Reset Filters
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* Show products when loaded and available */
               <div className="space-y-2">
                 {/* Desktop Header with Sort */}
                 <div className="hidden md:block bg-white p-2 rounded-2xl shadow-sm border border-gray-100">
@@ -509,14 +570,14 @@ const currentProducts = filteredProducts.slice(
                     <div>
                       <div className="flex items-center gap-3 mb-1">
                         <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg">
-                           <MdSpeaker  className="w-6 h-6 text-red-300" />
+                          <MdSpeaker className="w-6 h-6 text-red-300" />
                         </div>
                         <h2 className="text-md md:text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
                           {selectedBrand ? `${selectedBrand}` : "Speakers"}
                         </h2>
                       </div>
                       <p className="text-gray-500 text-sm mt-1">
-                        Discover amazing smart Speakers from various brands
+                        Discover amazing speakers from various brands
                       </p>
                     </div>
                     
@@ -587,29 +648,6 @@ const currentProducts = filteredProducts.slice(
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mt-6 md:mt-24">
-                <div className="flex flex-col justify-center items-center text-center space-y-6">
-                  <div className="relative">
-                    <img src={gif} alt="No products found" className="max-h-24 md:max-h-72 opacity-80" />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <h3 className="text-lg md:text-xl font-semibold text-gray-800">No Speakers Found</h3>
-                    <p className="text-gray-600 max-w-md text-sm md:text-base">
-                      We couldn't find any Speakers matching your current filters. 
-                      Try adjusting your search criteria or browse other brands.
-                    </p>
-                  </div>
-                  
-                  <button
-                    onClick={resetFilters}
-                    className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-300 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                  >
-                    Reset Filters
-                  </button>
-                </div>
-              </div>
             )}
           </section>
         </div>
@@ -626,4 +664,4 @@ const currentProducts = filteredProducts.slice(
   );
 };
 
-export default Speakers
+export default Speakers;

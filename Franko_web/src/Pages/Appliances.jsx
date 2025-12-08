@@ -16,7 +16,7 @@ import gif from "../assets/no.gif";
 import { MdMicrowave } from "react-icons/md";
 import { Helmet } from "react-helmet";
 
-const categoryId = "9170b363-bb16-4980-83a1-7e3a3bbba964"; // Appliances category ID"
+const categoryId = "9170b363-bb16-4980-83a1-7e3a3bbba964";
 
 const Appliances = () => {
   const dispatch = useDispatch();
@@ -34,7 +34,8 @@ const Appliances = () => {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
   const itemsPerPage = 8;
-    useEffect(() => {
+  
+  useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
@@ -107,8 +108,9 @@ const Appliances = () => {
         return sorted.sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated));
     }
   };
-const filteredProducts = sortProducts(
-  products.filter((product) => {
+
+  const filteredProducts = sortProducts(
+    products.filter((product) => {
       const withinRange = product.price >= appliedPriceRange[0] && product.price <= appliedPriceRange[1];
       const hasDiscount = showDiscountedOnly ? product.oldPrice > product.price : true;
       const matchesBrand = selectedBrand ? product.brandName === selectedBrand : true;
@@ -116,7 +118,7 @@ const filteredProducts = sortProducts(
     })
   );
 
-const currentProducts = filteredProducts.slice(
+  const currentProducts = filteredProducts.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
@@ -130,6 +132,12 @@ const currentProducts = filteredProducts.slice(
     { value: "name-az", label: "Name: A to Z" },
     { value: "name-za", label: "Name: Z to A" },
   ];
+
+  // Check if we should show "no products found" - only when not loading AND no filtered products
+  const shouldShowNoProducts = !loading && filteredProducts.length === 0 && products.length > 0;
+  
+  // Check if we should show "no products exist at all" - only when not loading AND no products loaded
+  const shouldShowNoProductsAtAll = !loading && products.length === 0;
 
   const renderFilterContent = () => (
     <div className="w-full lg:w-80 space-y-6">
@@ -279,129 +287,129 @@ const currentProducts = filteredProducts.slice(
   );
 
   return (
-    <div className="min-h-screen ">
-           <Helmet>
-  {/* Page Title & Meta Description */}
-  <title>Best Appliances in Ghana | Buy Affordable & Quality Appliances</title>
-  <meta 
-    name="description" 
-    content="Upgrade your kitchen with quality appliances from Franko Trading. Shop blenders, air fryers, hand mixers, microwaves, rice cookers, and more — all at unbeatable prices with fast delivery across Ghana." 
-  />
-  <meta 
-    name="keywords" 
-    content="Buy Blender Ghana, Affordable Appliances, Best Appliances in Ghana, Kitchen Appliances" 
-  />
+    <div className="min-h-screen">
+      <Helmet>
+        {/* Page Title & Meta Description */}
+        <title>Best Appliances in Ghana | Buy Affordable & Quality Appliances</title>
+        <meta 
+          name="description" 
+          content="Upgrade your kitchen with quality appliances from Franko Trading. Shop blenders, air fryers, hand mixers, microwaves, rice cookers, and more — all at unbeatable prices with fast delivery across Ghana." 
+        />
+        <meta 
+          name="keywords" 
+          content="Buy Blender Ghana, Affordable Appliances, Best Appliances in Ghana, Kitchen Appliances" 
+        />
 
-  {/* Open Graph (Facebook & WhatsApp) */}
-  <meta property="og:title" content="Best Appliances in Ghana | Buy Affordable & Quality Appliances" />
-  <meta 
-    property="og:description" 
-    content="Upgrade your kitchen with quality appliances from Franko Trading. Shop blenders, air fryers, hand mixers, microwaves, rice cookers, and more — all at unbeatable prices with fast delivery across Ghana." 
-  />
-  <meta property="og:type" content="product.group" />
-  <meta property="og:url" content="https://www.frankotrading.com/blender" />
-  <meta property="og:image" content= {filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
+        {/* Open Graph (Facebook & WhatsApp) */}
+        <meta property="og:title" content="Best Appliances in Ghana | Buy Affordable & Quality Appliances" />
+        <meta 
+          property="og:description" 
+          content="Upgrade your kitchen with quality appliances from Franko Trading. Shop blenders, air fryers, hand mixers, microwaves, rice cookers, and more — all at unbeatable prices with fast delivery across Ghana." 
+        />
+        <meta property="og:type" content="product.group" />
+        <meta property="og:url" content="https://www.frankotrading.com/blender" />
+        <meta property="og:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
 
-  {/* Twitter Card */}
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Best Appliances in Ghana | Buy Affordable & Quality Appliances" />
-  <meta name="twitter:description" content="Find top-quality appliances in Ghana at the best prices. Buy now and enjoy fast delivery!" />
-  <meta name="twitter:image" content= {filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Best Appliances in Ghana | Buy Affordable & Quality Appliances" />
+        <meta name="twitter:description" content="Find top-quality appliances in Ghana at the best prices. Buy now and enjoy fast delivery!" />
+        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
 
-  {/* Canonical URL */}
-  <link rel="canonical" href="https://www.frankotrading.com/appliances" />
+        {/* Canonical URL */}
+        <link rel="canonical" href="https://www.frankotrading.com/appliances" />
 
-  {/* JSON-LD Structured Data */}
-  <script type="application/ld+json">
-    {JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": "ItemList",
-      "name": "Appliances",
-      "description": "Upgrade your kitchen with quality appliances from Franko Trading. Shop blenders, air fryers, hand mixers, microwaves, rice cookers, and more — all at unbeatable prices with fast delivery across Ghana.",
-      "url": "https://www.frankotrading.com//appliances",
-      "numberOfItems": filteredProducts.length,
-      "itemListElement": filteredProducts.map((item, index) => ({
-        "@type": "Product",
-        "position": index + 1,
-        "name": item.productName,
-        "image": `https://smfteapi.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
-        "description": item.description,
-        "brand": {
-          "@type": "Brand",
-          "name": item.brandName
-        },
-        "sku": item.productID,
-        "offers": {
-          "@type": "Offer",
-          "priceCurrency": "GHS",
-          "price": item.price,
-          "priceValidUntil": "2025-12-31",
-          "itemCondition": "https://schema.org/NewCondition",
-         "availability": "https://schema.org/InStock",
-          "url": `https://www.frankotrading.com/product/${item.productID}`,
-          "seller": {
-            "@type": "Organization",
-            "name": "Franko Trading"
-          },
-          "shippingDetails": {
-            "@type": "OfferShippingDetails",
-            "shippingRate": {
-              "@type": "MonetaryAmount",
-              "currency": "GHS",
-              "value": "30.00"
-            },
-            "shippingDestination": {
-              "@type": "DefinedRegion",
-              "addressCountry": "GH"
-            },
-            "deliveryTime": {
-              "@type": "ShippingDeliveryTime",
-              "handlingTime": {
-                "@type": "QuantitativeValue",
-                "minValue": 1,
-                "maxValue": 2,
-                "unitCode": "DAY"
+        {/* JSON-LD Structured Data */}
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            "name": "Appliances",
+            "description": "Upgrade your kitchen with quality appliances from Franko Trading. Shop blenders, air fryers, hand mixers, microwaves, rice cookers, and more — all at unbeatable prices with fast delivery across Ghana.",
+            "url": "https://www.frankotrading.com//appliances",
+            "numberOfItems": filteredProducts.length,
+            "itemListElement": filteredProducts.map((item, index) => ({
+              "@type": "Product",
+              "position": index + 1,
+              "name": item.productName,
+              "image": `https://smfteapi.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+              "description": item.description,
+              "brand": {
+                "@type": "Brand",
+                "name": item.brandName
               },
-              "transitTime": {
-                "@type": "QuantitativeValue",
-                "minValue": 3,
-                "maxValue": 5,
-                "unitCode": "DAY"
+              "sku": item.productID,
+              "offers": {
+                "@type": "Offer",
+                "priceCurrency": "GHS",
+                "price": item.price,
+                "priceValidUntil": "2025-12-31",
+                "itemCondition": "https://schema.org/NewCondition",
+                "availability": "https://schema.org/InStock",
+                "url": `https://www.frankotrading.com/product/${item.productID}`,
+                "seller": {
+                  "@type": "Organization",
+                  "name": "Franko Trading"
+                },
+                "shippingDetails": {
+                  "@type": "OfferShippingDetails",
+                  "shippingRate": {
+                    "@type": "MonetaryAmount",
+                    "currency": "GHS",
+                    "value": "30.00"
+                  },
+                  "shippingDestination": {
+                    "@type": "DefinedRegion",
+                    "addressCountry": "GH"
+                  },
+                  "deliveryTime": {
+                    "@type": "ShippingDeliveryTime",
+                    "handlingTime": {
+                      "@type": "QuantitativeValue",
+                      "minValue": 1,
+                      "maxValue": 2,
+                      "unitCode": "DAY"
+                    },
+                    "transitTime": {
+                      "@type": "QuantitativeValue",
+                      "minValue": 3,
+                      "maxValue": 5,
+                      "unitCode": "DAY"
+                    }
+                  }
+                },
+                "hasMerchantReturnPolicy": {
+                  "@type": "MerchantReturnPolicy",
+                  "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+                  "merchantReturnDays": 14,
+                  "returnMethod": "https://schema.org/ReturnByMail",
+                  "returnFees": "https://schema.org/FreeReturn", 
+                  "applicableCountry": "GH"
+                }
+              },
+              "aggregateRating": {
+                "@type": "AggregateRating",
+                "ratingValue": "4.5",
+                "reviewCount": "120"
+              },
+              "review": {
+                "@type": "Review",
+                "author": {
+                  "@type": "Person",
+                  "name": "John Doe"
+                },
+                "reviewRating": {
+                  "@type": "Rating",
+                  "ratingValue": "5",
+                  "bestRating": "5"
+                }
               }
-            }
-          },
-          "hasMerchantReturnPolicy": {
-            "@type": "MerchantReturnPolicy",
-            "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
-            "merchantReturnDays": 14,
-            "returnMethod": "https://schema.org/ReturnByMail",
-            "returnFees": "https://schema.org/FreeReturn", 
-            "applicableCountry": "GH"
-          },
-        },
-        "aggregateRating": {
-          "@type": "AggregateRating",
-          "ratingValue": "4.5",
-          "reviewCount": "120"
-        },
-        "review": {
-          "@type": "Review",
-          "author": {
-            "@type": "Person",
-            "name": "John Doe"
-          },
-          "reviewRating": {
-            "@type": "Rating",
-            "ratingValue": "5",
-            "bestRating": "5"
-          }
-        }
-      }))
-    })}
-  </script>
-
-</Helmet>
-<script>
+            }))
+          })}
+        </script>
+      </Helmet>
+      
+      <script>
         {`
           (function(w,d,s,l,i){
             w[l]=w[l]||[];w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});
@@ -412,19 +420,20 @@ const currentProducts = filteredProducts.slice(
           })(window,document,'script','dataLayer','GTM-WKCL4JTV');
         `}
       </script>
+      
       <div className="p-2 md:px-2 mx-auto">
         {/* Enhanced Mobile Header */}
-        <div className="md:hidden space-y-2 ">
-          {/* Phone Info */}
+        <div className="md:hidden space-y-2">
+          {/* Appliances Info */}
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
             <div className="flex items-center gap-2 mb-1">
-              <MdMicrowave  className="w-5 h-5 text-red-300" />
+              <MdMicrowave className="w-5 h-5 text-red-300" />
               <h2 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
                 {selectedBrand ? `${selectedBrand}` : "Appliances"}
               </h2>
             </div>
             <p className="text-sm text-gray-500 mt-1">
-              {filteredProducts.length} products available
+              {loading ? "Loading products..." : `${filteredProducts.length} products available`}
             </p>
           </div>
 
@@ -523,7 +532,65 @@ const currentProducts = filteredProducts.slice(
 
           {/* Products Section */}
           <section className="flex-1">
-            {currentProducts.length > 0 ? (
+            {/* Show loading skeleton or products */}
+            {loading ? (
+              <div className="space-y-2">
+                {/* Desktop Header Skeleton */}
+                <div className="hidden md:block bg-white p-2 rounded-2xl shadow-sm border border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+                      <div className="space-y-2">
+                        <div className="w-40 h-6 bg-gray-200 rounded animate-pulse"></div>
+                        <div className="w-60 h-4 bg-gray-200 rounded animate-pulse"></div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="w-32 h-8 bg-gray-200 rounded-full animate-pulse"></div>
+                      <div className="w-40 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Products Grid Skeleton */}
+                <div className="md:p-6">
+                  <ProductCard
+                    currentProducts={[]}
+                    navigate={navigate}
+                    loading={true}
+                  />
+                </div>
+              </div>
+            ) : (shouldShowNoProducts || shouldShowNoProductsAtAll) ? (
+              /* Show "No Products Found" only when not loading and no products match filters */
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mt-6 md:mt-24">
+                <div className="flex flex-col justify-center items-center text-center space-y-6">
+                  <div className="relative">
+                    <img src={gif} alt="No products found" className="max-h-24 md:max-h-72 opacity-80" />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h3 className="text-lg md:text-xl font-semibold text-gray-800">No Appliances Found</h3>
+                    <p className="text-gray-600 max-w-md text-sm md:text-base">
+                      {shouldShowNoProductsAtAll 
+                        ? "We don't have any appliances available at the moment. Please check back later."
+                        : "We couldn't find any appliances matching your current filters. Try adjusting your search criteria or browse other categories."
+                      }
+                    </p>
+                  </div>
+                  
+                  {shouldShowNoProducts && (
+                    <button
+                      onClick={resetFilters}
+                      className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-300 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                    >
+                      Reset Filters
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* Show products when loaded and available */
               <div className="space-y-2">
                 {/* Desktop Header with Sort */}
                 <div className="hidden md:block bg-white p-2 rounded-2xl shadow-sm border border-gray-100">
@@ -531,14 +598,14 @@ const currentProducts = filteredProducts.slice(
                     <div>
                       <div className="flex items-center gap-3 mb-1">
                         <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg">
-                           < MdMicrowave  className="w-6 h-6 text-red-300" />
+                          <MdMicrowave className="w-6 h-6 text-red-300" />
                         </div>
                         <h2 className="text-md md:text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
                           {selectedBrand ? `${selectedBrand}` : "Appliances"}
                         </h2>
                       </div>
                       <p className="text-gray-500 text-sm mt-1">
-                        Discover amazing smart Appliances from various brands
+                        Discover amazing appliances from various brands
                       </p>
                     </div>
                     
@@ -609,29 +676,6 @@ const currentProducts = filteredProducts.slice(
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mt-6 md:mt-24">
-                <div className="flex flex-col justify-center items-center text-center space-y-6">
-                  <div className="relative">
-                    <img src={gif} alt="No products found" className="max-h-24 md:max-h-72 opacity-80" />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <h3 className="text-lg md:text-xl font-semibold text-gray-800">No Appliances  Found</h3>
-                    <p className="text-gray-600 max-w-md text-sm md:text-base">
-                      We couldn't find any Appliances matching your current filters. 
-                      Try adjusting your search criteria or browse other brands.
-                    </p>
-                  </div>
-                  
-                  <button
-                    onClick={resetFilters}
-                    className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-300 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                  >
-                    Reset Filters
-                  </button>
-                </div>
-              </div>
             )}
           </section>
         </div>
@@ -648,4 +692,4 @@ const currentProducts = filteredProducts.slice(
   );
 };
 
-export default Appliances
+export default Appliances;
