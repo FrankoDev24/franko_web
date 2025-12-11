@@ -190,7 +190,7 @@ function App() {
         <Route path="/speakers" element={<Speakers ProductCard={ProductCard} />} />
         <Route path="/accessories" element={<Accessories ProductCard={ProductCard} />} />
         <Route path="/appliances" element={<Appliances ProductCard={ProductCard} />} />
-        <Route path="/washing-machine" element={<Combo ProductCard={ProductCard} />} />
+        <Route path="/washing-machine" element={< Combo ProductCard={ProductCard} />} />
         <Route path="/air-condition" element={<Airconditioners ProductCard={ProductCard} />} />
         <Route path="/cart/:cartId" element={<Cart />} />
         <Route path="/product/:productID" element={<ProductDescription />} />
