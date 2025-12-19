@@ -12,18 +12,11 @@ import {
   ShoppingCartIcon,
   EyeIcon,
   CheckCircleIcon,
-  XCircleIcon
+  XCircleIcon,
 } from "@heroicons/react/24/solid";
 import useAddToCart from "./Cart";
 import { useNavigate, Link } from "react-router-dom";
-
-// Format image URL
-const getValidImageUrl = (imagePath) => {
-  if (!imagePath) return "https://via.placeholder.com/150";
-  return imagePath.includes("\\")
-    ? `https://smfteapi.salesmate.app/Media/Products_Images/${imagePath.split("\\").pop()}`
-    : imagePath;
-};
+import axiosInstance from "../Redux/Slice/AxiosInstance";
 
 // Format price
 const formatPrice = (price) =>
@@ -57,10 +50,17 @@ const Notification = ({ message, type, isVisible, onClose }) => {
 
   return (
     <div className="fixed top-4 right-4 z-50 animate-slide-in">
-      <div className={`${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 min-w-[300px]`}>
+      <div
+        className={`${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 min-w-[300px]`}
+      >
         <Icon className="w-5 h-5 flex-shrink-0" />
         <span className="text-sm font-medium">{message}</span>
-        <button onClick={onClose} className="ml-auto text-white/80 hover:text-white">×</button>
+        <button
+          onClick={onClose}
+          className="ml-auto text-white/80 hover:text-white"
+        >
+          ×
+        </button>
       </div>
     </div>
   );
@@ -79,6 +79,9 @@ const NewArrivals = () => {
     isVisible: false,
   });
 
+  // Cache for image blob URLs keyed by original productImage path
+  const [imageUrls, setImageUrls] = useState({});
+
   useEffect(() => {
     dispatch(fetchProducts());
   }, [dispatch]);
@@ -86,19 +89,77 @@ const NewArrivals = () => {
   // Get the 10 most recent products based on creation date
   const recentProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
-    
-    // Sort products by creation date (most recent first)
+
     const sortedProducts = [...products].sort((a, b) => {
-      // Handle different possible date field names - fixed the typo and prioritize dateCreated
-      const dateA = new Date(a.dateCreated || a.createdAt || a.created_at || a.date_created || a.creationDate || 0);
-      const dateB = new Date(b.dateCreated || b.createdAt || b.created_at || b.date_created || b.creationDate || 0);
-      
-      return dateB - dateA; // Descending order (newest first)
+      const dateA = new Date(
+        a.dateCreated ||
+          a.createdAt ||
+          a.created_at ||
+          a.date_created ||
+          a.creationDate ||
+          0
+      );
+      const dateB = new Date(
+        b.dateCreated ||
+          b.createdAt ||
+          b.created_at ||
+          b.date_created ||
+          b.creationDate ||
+          0
+      );
+
+      return dateB - dateA; // Newest first
     });
-    
-    // Return the first 10 products
+
     return sortedProducts.slice(0, 10);
   }, [products]);
+
+  // Load images for recent products via axiosInstance
+  useEffect(() => {
+    if (!recentProducts.length) return;
+
+    let isCancelled = false;
+
+    const loadImages = async () => {
+      const toLoad = recentProducts.filter(
+        (p) => p.productImage && !imageUrls[p.productImage]
+      );
+      if (!toLoad.length) return;
+
+      await Promise.allSettled(
+        toLoad.map(async (p) => {
+          const imagePath = p.productImage;
+          const fileName = imagePath.split("\\").pop();
+          if (!fileName) return;
+
+          try {
+            const res = await axiosInstance.get(
+              `/Media/Products_Images/${fileName}`,
+              { responseType: "blob" }
+            );
+            if (isCancelled) return;
+
+            const blobUrl = URL.createObjectURL(res.data);
+            setImageUrls((prev) => ({
+              ...prev,
+              [imagePath]: blobUrl,
+            }));
+          } catch (err) {
+            console.error(
+              `Error loading product image for ${p.productID}:`,
+              err
+            );
+          }
+        })
+      );
+    };
+
+    loadImages();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [recentProducts, imageUrls]);
 
   const showNotification = (message, type = "success") => {
     setNotification({ message, type, isVisible: true });
@@ -108,9 +169,8 @@ const NewArrivals = () => {
     setNotification((prev) => ({ ...prev, isVisible: false }));
   };
 
-const isInWishlist = (id) =>
-  Array.isArray(wishlist) && wishlist.some((item) => item.id === id);
-
+  const isInWishlist = (id) =>
+    Array.isArray(wishlist) && wishlist.some((item) => item.id === id);
 
   const handleWishlistToggle = (product) => {
     const id = product.productID;
@@ -132,25 +192,41 @@ const isInWishlist = (id) =>
     }
   };
 
+  const getValidImageUrl = (imagePath) => {
+    if (!imagePath) return "https://via.placeholder.com/150";
+    return imageUrls[imagePath] || "https://via.placeholder.com/150";
+  };
+
   return (
     <div className="mx-auto px-4 md:px-24 py-4">
-       {/* Header */}
-           <div className="mb-6 flex items-center gap-4 flex-wrap md:flex-nowrap">
-             <h2 className="text-sm md:text-xl font-bold text-gray-900 relative whitespace-nowrap">
-            New Arrivals
-               <span className="absolute -bottom-1 left-0 w-16 h-1 bg-red-400 rounded-full" />
-             </h2>
-             <div className="flex-grow h-px bg-gray-300" />
-             <Link
-               to="/products"
-               className="flex items-center gap-1 text-red-500 hover:text-red-600 transition"
-             >
-               <span className="text-sm font-medium">Shop All Products</span>
-               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-               </svg>
-             </Link>
-           </div>
+      {/* Header */}
+      <div className="mb-6 flex items-center gap-4 flex-wrap md:flex-nowrap">
+        <h2 className="text-sm md:text-xl font-bold text-gray-900 relative whitespace-nowrap">
+          New Arrivals
+          <span className="absolute -bottom-1 left-0 w-16 h-1 bg-red-400 rounded-full" />
+        </h2>
+        <div className="flex-grow h-px bg-gray-300" />
+        <Link
+          to="/products"
+          className="flex items-center gap-1 text-red-500 hover:text-red-600 transition"
+        >
+          <span className="text-sm font-medium">Shop All Products</span>
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+        </Link>
+      </div>
+
       <Notification
         message={notification.message}
         type={notification.type}
@@ -202,54 +278,73 @@ const isInWishlist = (id) =>
                       }}
                     />
                   </div>
- <div
-                                 className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20 transition-all cursor-pointer"
-                                 onClick={() => navigate(`/product/${product.productID}`)}
-                               >
-                                 {/* Wishlist Icon */}
-                                 <Tooltip content={inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}>
-                                   <button
-                                     className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-                                     onClick={(e) => {
-                                       e.stopPropagation();
-                                       handleWishlistToggle(product);
-                                     }}
-                                   >
-                                     {inWishlist ? (
-                                       <SolidHeartIcon className="w-5 h-5 text-red-500" />
-                                     ) : (
-                                       <OutlineHeartIcon className="w-5 h-5 text-white hover:text-red-400" />
-                                     )}
-                                   </button>
-                                 </Tooltip>
-                               
-                                 {/* View Details */}
-                                 <Tooltip content="View Details">
-                                   <button
-                                     onClick={(e) => {
-                                       e.stopPropagation();
-                                       navigate(`/product/${product.productID}`);
-                                     }}
-                                     className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-                                   >
-                                     <EyeIcon className="w-5 h-5 text-white hover:text-green-400" />
-                                   </button>
-                                 </Tooltip>
-                               
-                                 {/* Add to Cart */}
-                                 <Tooltip content={product.stock === 0 ? "Out of Stock" : "Add to Cart"}>
-                                   <button
-                                     onClick={(e) => {
-                                       e.stopPropagation();
-                                       handleAddToCart(product);
-                                     }}
-                                     className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                     disabled={cartLoading || product.stock === 0}
-                                   >
-                                     <ShoppingCartIcon className="w-5 h-5 text-white hover:text-red-400" />
-                                   </button>
-                                 </Tooltip>
-                               </div>
+
+                  <div
+                    className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20 transition-all cursor-pointer"
+                    onClick={() =>
+                      navigate(`/product/${product.productID}`)
+                    }
+                  >
+                    {/* Wishlist Icon */}
+                    <Tooltip
+                      content={
+                        inWishlist
+                          ? "Remove from Wishlist"
+                          : "Add to Wishlist"
+                      }
+                    >
+                      <button
+                        className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleWishlistToggle(product);
+                        }}
+                      >
+                        {inWishlist ? (
+                          <SolidHeartIcon className="w-5 h-5 text-red-500" />
+                        ) : (
+                          <OutlineHeartIcon className="w-5 h-5 text-white hover:text-red-400" />
+                        )}
+                      </button>
+                    </Tooltip>
+
+                    {/* View Details */}
+                    <Tooltip content="View Details">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(
+                            `/product/${product.productID}`
+                          );
+                        }}
+                        className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+                      >
+                        <EyeIcon className="w-5 h-5 text-white hover:text-green-400" />
+                      </button>
+                    </Tooltip>
+
+                    {/* Add to Cart */}
+                    <Tooltip
+                      content={
+                        product.stock === 0
+                          ? "Out of Stock"
+                          : "Add to Cart"
+                      }
+                    >
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddToCart(product);
+                        }}
+                        className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={
+                          cartLoading || product.stock === 0
+                        }
+                      >
+                        <ShoppingCartIcon className="w-5 h-5 text-white hover:text-red-400" />
+                      </button>
+                    </Tooltip>
+                  </div>
                 </div>
 
                 {/* Product Info */}
@@ -257,7 +352,7 @@ const isInWishlist = (id) =>
                   <h3 className="text-sm font-medium text-gray-800 line-clamp-2">
                     {productName}
                   </h3>
-                 <div className="flex flex-col md:flex-row items-center justify-center gap-1 mt-1">
+                  <div className="flex flex-col md:flex-row items-center justify-center gap-1 mt-1">
                     <span className="text-red-500 font-medium text-sm">
                       {formatPrice(price)}
                     </span>

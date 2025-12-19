@@ -1,16 +1,14 @@
 // src/Redux/Slice/orderSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axios from "axios";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import axiosInstance from "./AxiosInstance"; // adjust path if needed
 
 // Async thunks
 export const fetchOrdersByDate = createAsyncThunk(
   "orders/fetchOrdersByDate",
   async ({ from, to }, { rejectWithValue }) => {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/Order/GetOrdersByDate/${from}/${to}`
+      const response = await axiosInstance.get(
+        `/Order/GetOrdersByDate/${from}/${to}`
       );
       return response.data;
     } catch (error) {
@@ -25,11 +23,18 @@ export const fetchOrdersByDate = createAsyncThunk(
 export const checkOutOrder = createAsyncThunk(
   "orders/checkOutOrder",
   async (
-    { Cartid, orderCode, customerId, PaymentMode, paymentService,  PaymentAccountNumber, customerAccountType }, 
+    {
+      Cartid,
+      orderCode,
+      customerId,
+      PaymentMode,
+      paymentService,
+      PaymentAccountNumber,
+      customerAccountType,
+    },
     { rejectWithValue }
   ) => {
     try {
-      // Prepare the request payload with the required parameters
       const payload = {
         Cartid: Cartid,
         orderCode: orderCode,
@@ -37,45 +42,39 @@ export const checkOutOrder = createAsyncThunk(
         PaymentMode: PaymentMode,
         paymentService: paymentService,
         PaymentAccountNumber: PaymentAccountNumber,
-        customerAccountType: customerAccountType
+        customerAccountType: customerAccountType,
       };
 
-      // Make the API request to checkout the order
-      const response = await axios.post(
-        `${API_BASE_URL}/Order/CheckOutDbCart`,
+      const response = await axiosInstance.post(
+        `/Order/CheckOutDbCart`,
         payload
       );
 
-      // Return the response data if the request is successful
       return response.data;
     } catch (error) {
-      // Handle error and reject with a message
       return rejectWithValue(
         error.response?.data || "Failed to checkout order"
       );
     }
   }
 );
+
 // New async thunk for fetching orders by customer or agent
 export const fetchOrdersByCustomer = createAsyncThunk(
   "orders/fetchOrdersByCustomerOrAgent",
   async ({ from, to, customerId }, { rejectWithValue }) => {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/Order/GetOrderByCustomer`, // Use backticks for string interpolation
-        {
-          params: { from, to, customerId },
-        }
-      );
+      const response = await axiosInstance.get(`/Order/GetOrderByCustomer`, {
+        params: { from, to, customerId },
+      });
 
-      // Ensure response.data is an array and return it, or an empty array if null/undefined
       return response.data || [];
     } catch (error) {
       console.error("Error fetching orders by customer:", error);
-
-      // Return a proper error message, handling both response and general error
       return rejectWithValue(
-        error.response?.data || error.message || "Failed to fetch orders by customer"
+        error.response?.data ||
+          error.message ||
+          "Failed to fetch orders by customer"
       );
     }
   }
@@ -85,37 +84,35 @@ export const fetchOrdersByThirdParty = createAsyncThunk(
   "orders/fetchOrdersByThirdParty",
   async ({ from, to, ThirdPartyAccountNumber }, { rejectWithValue }) => {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/Order/GetOrderByThirdParty`,
-        {
-          params: { from, to, ThirdPartyAccountNumber },
-        }
-      );
-      return response.data; // Ensure this returns the expected data format
+      const response = await axiosInstance.get(`/Order/GetOrderByThirdParty`, {
+        params: { from, to, ThirdPartyAccountNumber },
+      });
+      return response.data;
     } catch (error) {
-      console.error("Error fetching orders by  agent:", error); // Log the error for debugging
+      console.error("Error fetching orders by  agent:", error);
       return rejectWithValue(
         error.response?.data || "Failed to fetch orders by  agent"
       );
     }
   }
 );
+
 export const updateOrderTransition = createAsyncThunk(
   "orders/updateOrderTransition",
   async ({ CycleName, OrderId }, { rejectWithValue }) => {
     try {
-      console.log("Updating order transition with CycleName:", CycleName); // Log the values for debugging
-      console.log("Updating order transition with OrderId:", OrderId); // Log the values for debugging
+      console.log("Updating order transition with CycleName:", CycleName);
+      console.log("Updating order transition with OrderId:", OrderId);
 
-      const response = await axios.post(
-        `${API_BASE_URL}/Order/UpdateOrderTransition/${CycleName}/${OrderId}`
+      const response = await axiosInstance.post(
+        `/Order/UpdateOrderTransition/${CycleName}/${OrderId}`
       );
 
       if (!response.data) {
         throw new Error("Invalid response format");
       }
 
-      return response.data; // Ensure this matches the expected structure
+      return response.data;
     } catch (error) {
       console.error("Error in updateOrderTransition:", error);
       return rejectWithValue(
@@ -129,9 +126,7 @@ export const fetchOrderLifeCycle = createAsyncThunk(
   "orders/fetchOrderLifeCycle",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/Order/OrderLifeCycle-Get`
-      );
+      const response = await axiosInstance.get(`/Order/OrderLifeCycle-Get`);
       return response.data;
     } catch (error) {
       return rejectWithValue(
@@ -145,8 +140,8 @@ export const fetchSalesOrderById = createAsyncThunk(
   "orders/fetchSalesOrderById",
   async (orderId, { rejectWithValue }) => {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/Order/SalesOrderGet/${orderId}`
+      const response = await axiosInstance.get(
+        `/Order/SalesOrderGet/${orderId}`
       );
       return response.data;
     } catch (error) {
@@ -159,10 +154,21 @@ export const fetchSalesOrderById = createAsyncThunk(
 
 export const updateOrderDelivery = createAsyncThunk(
   "orders/updateOrderDelivery",
-  async ({ orderCode, address, recipientName, recipientContactNumber, orderNote, geoLocation,  Customerid}, { rejectWithValue }) => {
+  async (
+    {
+      orderCode,
+      address,
+      recipientName,
+      recipientContactNumber,
+      orderNote,
+      geoLocation,
+      Customerid,
+    },
+    { rejectWithValue }
+  ) => {
     try {
-      const response = await axios.post(
-        `${API_BASE_URL}/Order/OrderDeliveryUpdate/${orderCode}`,
+      const response = await axiosInstance.post(
+        `/Order/OrderDeliveryUpdate/${orderCode}`,
         {
           Customerid,
           recipientName,
@@ -187,32 +193,38 @@ export const updateOrderDelivery = createAsyncThunk(
   }
 );
 
-
-
 export const orderAddress = createAsyncThunk(
   "orders/OrderAddress",
   async (
-    { customerId, OrderCode, address, geoLocation ,RecipientName, RecipientContactNumber, orderNote},
+    {
+      customerId,
+      OrderCode,
+      address,
+      geoLocation,
+      RecipientName,
+      RecipientContactNumber,
+      orderNote,
+    },
     { rejectWithValue }
   ) => {
     try {
-      // Create both camelCase and PascalCase fields
       const requestData = {
-        // camelCase version
         customerId,
         OrderCode,
         address,
-        geoLocation,RecipientName,RecipientContactNumber, orderNote,
-        
-       
+        geoLocation,
+        RecipientName,
+        RecipientContactNumber,
+        orderNote,
       };
 
-      const response = await axios.post(`${API_BASE_URL}/Order/OrderAddress`, requestData);
+      const response = await axiosInstance.post(
+        `/Order/OrderAddress`,
+        requestData
+      );
 
-      // Return the response data if the request is successful
       return response.data;
     } catch (error) {
-      // Return the error response if the request fails
       return rejectWithValue(
         error.response?.data || "Failed to update order address"
       );
@@ -224,8 +236,8 @@ export const fetchOrderDeliveryAddress = createAsyncThunk(
   "orders/fetchOrderDeliveryAddress",
   async (OrderCode, { rejectWithValue }) => {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/Order/GetOrderDeliveryAddress/${OrderCode}`
+      const response = await axiosInstance.get(
+        `/Order/GetOrderDeliveryAddress/${OrderCode}`
       );
       return response.data;
     } catch (error) {
@@ -241,18 +253,18 @@ const orderSlice = createSlice({
   name: "order",
   initialState: {
     orders: [],
-  salesOrder: [],
-  deliveryAddress: [],
-  deliveryUpdate: null,
-  lifeCycle: null,
-   
-    checkoutDetails: (localStorage.getItem("checkoutDetails")) || {},
-    orderAddressDetails: (localStorage.getItem("orderAddressDetails")) || {},
+    salesOrder: [],
+    deliveryAddress: [],
+    deliveryUpdate: null,
+    lifeCycle: null,
+
+    checkoutDetails: localStorage.getItem("checkoutDetails") || {},
+    orderAddressDetails: localStorage.getItem("orderAddressDetails") || {},
     loading: {
       orders: false,
-    deliveryAddress: false,
-    deliveryUpdate: false,
-    lifeCycle: false,
+      deliveryAddress: false,
+      deliveryUpdate: false,
+      lifeCycle: false,
     },
     error: {
       orders: null,
@@ -278,7 +290,7 @@ const orderSlice = createSlice({
       state.checkoutDetails = checkoutDetails;
 
       // Persist in localStorage
-      localStorage.setItem("checkoutDetails", (checkoutDetails));
+      localStorage.setItem("checkoutDetails", checkoutDetails);
     },
 
     // Save order address details
@@ -287,22 +299,23 @@ const orderSlice = createSlice({
       state.orderAddressDetails = orderAddressDetails;
 
       // Persist in localStorage
-      localStorage.setItem("orderAddressDetails", (orderAddressDetails));
+      localStorage.setItem("orderAddressDetails", orderAddressDetails);
     },
+
     updateOrder: (state, action) => {
       const updated = action.payload;
-      const index = state.orders.findIndex(o => o._id === updated._id);
+      const index = state.orders.findIndex((o) => o._id === updated._id);
       if (index !== -1) {
         state.orders[index] = { ...state.orders[index], ...updated };
       }
     },
-    
+
     // Store the local order
     storeLocalOrder: (state, action) => {
       const { userId, orderId } = action.payload;
-      const storedOrders = JSON.parse(localStorage.getItem("userOrders")) || [];
+      const storedOrders =
+        JSON.parse(localStorage.getItem("userOrders")) || [];
 
-      // Check if the order already exists
       const existingOrderIndex = storedOrders.findIndex(
         (order) => order.userId === userId && order.orderId === orderId
       );
@@ -313,15 +326,15 @@ const orderSlice = createSlice({
         storedOrders.push(action.payload);
       }
 
-      // Update state and persist to localStorage
       state.orders = storedOrders;
-      localStorage.setItem("userOrders", (storedOrders));
+      localStorage.setItem("userOrders", storedOrders);
     },
 
     // Fetch orders by user
     fetchOrdersByUser: (state, action) => {
       const userId = action.payload;
-      const storedOrders = JSON.parse(localStorage.getItem("userOrders")) || [];
+      const storedOrders =
+        JSON.parse(localStorage.getItem("userOrders")) || [];
       state.orders = storedOrders.filter((order) => order.userId === userId);
     },
 
@@ -345,34 +358,35 @@ const orderSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-    .addCase(fetchOrdersByDate.pending, (state) => {
-      state.loading = true;
-    })
-    .addCase(fetchOrdersByDate.fulfilled, (state, action) => {
-      state.orders = action.payload;
-      state.loading = false;
-    })
-    .addCase(fetchOrdersByDate.rejected, (state) => {
-      state.loading = false;
-    })
-    .addCase(updateOrderTransition.pending, (state) => {
-      state.loading = true;
-      state.error = null;
-    })
-    .addCase(updateOrderTransition.fulfilled, (state, action) => {
-      state.loading = false;
-      const updatedOrder = action.payload;
-      const index = state.orders.findIndex(
-        (order) => order.orderCode === updatedOrder.orderCode
-      );
-      if (index !== -1) {
-        state.orders[index] = updatedOrder; // Update the specific order
-      }
-    })
-    .addCase(updateOrderTransition.rejected, (state, action) => {
-      state.loading = false;
-      state.error = action.error.message || "Error updating order lifecycle";
-    })
+      .addCase(fetchOrdersByDate.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchOrdersByDate.fulfilled, (state, action) => {
+        state.orders = action.payload;
+        state.loading = false;
+      })
+      .addCase(fetchOrdersByDate.rejected, (state) => {
+        state.loading = false;
+      })
+      .addCase(updateOrderTransition.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateOrderTransition.fulfilled, (state, action) => {
+        state.loading = false;
+        const updatedOrder = action.payload;
+        const index = state.orders.findIndex(
+          (order) => order.orderCode === updatedOrder.orderCode
+        );
+        if (index !== -1) {
+          state.orders[index] = updatedOrder;
+        }
+      })
+      .addCase(updateOrderTransition.rejected, (state, action) => {
+        state.loading = false;
+        state.error =
+          action.error.message || "Error updating order lifecycle";
+      })
       .addCase(fetchOrderLifeCycle.fulfilled, (state, action) => {
         state.loading.lifeCycle = false;
         state.lifeCycle = action.payload;
@@ -395,32 +409,28 @@ const orderSlice = createSlice({
         state.loading.orders = false;
         state.error.orders = action.payload;
       })
-      
       .addCase(orderAddress.pending, (state) => {
         state.loading.deliveryAddress = true;
         state.error.deliveryAddress = null;
       })
       .addCase(orderAddress.fulfilled, (state, action) => {
         state.loading.deliveryAddress = false;
-        state.deliveryAddress = action.payload; // Optionally, you may want to store the updated address here
+        state.deliveryAddress = action.payload;
       })
       .addCase(orderAddress.rejected, (state, action) => {
         state.loading.deliveryAddress = false;
         state.error.deliveryAddress = action.payload;
       })
-
       .addCase(fetchOrderDeliveryAddress.fulfilled, (state, action) => {
-        // Ensure that the returned value from the API is an object, not false.
         if (action.payload) {
           state.deliveryAddress = action.payload;
         } else {
-          state.deliveryAddress = null; // Avoid setting a boolean value
+          state.deliveryAddress = null;
         }
       })
       .addCase(fetchOrderDeliveryAddress.rejected, (state, action) => {
         state.error = action.payload;
       })
-
       .addCase(updateOrderDelivery.pending, (state) => {
         state.loading.deliveryUpdate = true;
         state.error.deliveryUpdate = null;
@@ -443,16 +453,15 @@ const orderSlice = createSlice({
       })
       .addCase(fetchSalesOrderById.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || 'Failed to fetch sales order';
+        state.error = action.payload || "Failed to fetch sales order";
       })
-
       .addCase(fetchOrdersByCustomer.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchOrdersByCustomer.fulfilled, (state, action) => {
         state.loading = false;
-        state.orders = action.payload || []; // Default to empty array if payload is null
+        state.orders = action.payload || [];
       })
       .addCase(fetchOrdersByCustomer.rejected, (state, action) => {
         state.loading = false;
@@ -469,10 +478,17 @@ const orderSlice = createSlice({
       .addCase(fetchOrdersByThirdParty.rejected, (state, action) => {
         state.loading = false;
         state.error.orders = action.error.message;
-      })
-      
-    }
+      });
+  },
 });
 
-export const { storeLocalOrder, fetchOrdersByUser, clearOrders ,saveCheckoutDetails, updateOrder, saveAddressDetails} = orderSlice.actions;
+export const {
+  storeLocalOrder,
+  fetchOrdersByUser,
+  clearOrders,
+  saveCheckoutDetails,
+  updateOrder,
+  saveAddressDetails,
+} = orderSlice.actions;
+
 export default orderSlice.reducer;

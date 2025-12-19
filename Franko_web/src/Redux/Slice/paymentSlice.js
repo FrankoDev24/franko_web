@@ -1,16 +1,14 @@
 // src/redux/slices/paymentSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import axiosInstance from './AxiosInstance'; // adjust path if needed
 
 // Post Hubtel callback
 export const postHubtelCallback = createAsyncThunk(
   'payment/postHubtelCallback',
   async (responseData, { rejectWithValue }) => {
     try {
-      const response = await axios.post(
-        `${API_BASE_URL}/PaymentSystem/PostHubtelCallBack`,
+      const response = await axiosInstance.post(
+        '/PaymentSystem/PostHubtelCallBack',
         { responseData }
       );
       return response.data;
@@ -25,8 +23,8 @@ export const getHubtelCallbackById = createAsyncThunk(
   'payment/getHubtelCallbackById',
   async (orderId, { rejectWithValue }) => {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/PaymentSystem/GetHubtelCallBackById`,
+      const response = await axiosInstance.get(
+        '/PaymentSystem/GetHubtelCallBackById',
         {
           params: {
             Orderid: orderId,
@@ -45,8 +43,8 @@ export const getAllHubtelCallbackRecords = createAsyncThunk(
   'payment/getAllHubtelCallbackRecords',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/PaymentSystem/GetHubtelCallBackAllRecords`
+      const response = await axiosInstance.get(
+        '/PaymentSystem/GetHubtelCallBackAllRecords'
       );
 
       const sortedData = response.data?.slice().reverse(); // newest to oldest based on position
@@ -57,7 +55,6 @@ export const getAllHubtelCallbackRecords = createAsyncThunk(
     }
   }
 );
-
 
 const paymentSlice = createSlice({
   name: 'payment',

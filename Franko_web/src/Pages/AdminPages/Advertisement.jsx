@@ -1,15 +1,38 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Table, Form, Input, Button, Upload, message, Modal, Select, Image } from "antd";
+import {
+  Table,
+  Form,
+  Input,
+  Button,
+  Upload,
+  message,
+  Modal,
+  Select,
+  Image,
+} from "antd";
 import { UploadOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
-import { postAdvertisment, getAdvertisment, putAdvertisment } from "../../Redux/Slice/advertismentSlice";
+import {
+  postAdvertisment,
+  getAdvertisment,
+  putAdvertisment,
+} from "../../Redux/Slice/advertismentSlice";
+import axiosInstance from "../../Redux/Slice/AxiosInstance"; // ✅ use axios instance
 
 const { Option } = Select;
-const adOptions = ["Home Page", "Banner", "Phone Page", "Laptop Page", "Tablet Page"];
+const adOptions = [
+  "Home Page",
+  "Banner",
+  "Phone Page",
+  "Laptop Page",
+  "Tablet Page",
+];
 
 const AdvertisementPage = () => {
   const dispatch = useDispatch();
-  const { advertisments, loading } = useSelector((state) => state.advertisment);
+  const { advertisments, loading } = useSelector(
+    (state) => state.advertisment
+  );
 
   const [form] = Form.useForm();
   const [editForm] = Form.useForm();
@@ -17,25 +40,76 @@ const AdvertisementPage = () => {
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [selectedAd, setSelectedAd] = useState(null);
   const [selectedAdsName, setSelectedAdsName] = useState("Banner");
-  const [imagePreview, setImagePreview] = useState({ visible: false, fileName: "" });
+  const [imagePreview, setImagePreview] = useState({
+    visible: false,
+    fileName: "",
+  });
   const [previewLogo, setPreviewLogo] = useState(null);
-const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isModalVisible, setIsModalVisible] = useState(false);
 
-  const backendBaseURL = "https://smfteapi.salesmate.app";
-
+  // Cache for ad images fetched via axiosInstance (blob URLs)
+  const [imageUrls, setImageUrls] = useState({}); // key: original fileName string, value: blob URL
 
   // Fetch Advertisements whenever the selectedAdsName changes
   useEffect(() => {
-  dispatch(getAdvertisment(selectedAdsName))
-  .unwrap()
-  .then((data) => {
-    console.log("Fetched data:", data); // Check what is returned
-  })
-  .catch(() => {
-    message.error("Failed to fetch advertisements");
-  });
-
+    dispatch(getAdvertisment(selectedAdsName))
+      .unwrap()
+      .then((data) => {
+        console.log("Fetched data:", data);
+      })
+      .catch(() => {
+        message.error("Failed to fetch advertisements");
+      });
   }, [selectedAdsName, dispatch]);
+
+  // Load ad images using axiosInstance
+  useEffect(() => {
+    if (!advertisments || advertisments.length === 0) return;
+
+    let isCancelled = false;
+
+    const loadImages = async () => {
+      const toLoad = advertisments.filter(
+        (ad) => ad.fileName && !imageUrls[ad.fileName]
+      );
+      if (!toLoad.length) return;
+
+      await Promise.allSettled(
+        toLoad.map(async (ad) => {
+          const fullPath = ad.fileName;
+          const fileNameOnly = fullPath.split("\\").pop();
+          if (!fileNameOnly) return;
+
+          try {
+            const res = await axiosInstance.get(
+              `/Media/Ads/${fileNameOnly}`,
+              {
+                responseType: "blob",
+              }
+            );
+            if (isCancelled) return;
+
+            const blobUrl = URL.createObjectURL(res.data);
+            setImageUrls((prev) => ({
+              ...prev,
+              [fullPath]: blobUrl,
+            }));
+          } catch (err) {
+            console.error(
+              `Error loading ad image for file ${fullPath}:`,
+              err
+            );
+          }
+        })
+      );
+    };
+
+    loadImages();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [advertisments, imageUrls]);
 
   // Add Advertisement
   const handlePost = (values) => {
@@ -58,39 +132,50 @@ const [isModalVisible, setIsModalVisible] = useState(false);
 
   // Edit Advertisement
   const handleEdit = (values) => {
-    const fileId = values.Fileid || selectedAd?.fileId; // Ensure correct key
-  
+    const fileId = values.Fileid || selectedAd?.fileId;
+
     console.log("File ID extracted:", fileId);
-  
+
     if (!fileId) {
       message.error("File ID is missing!");
       return;
     }
-  
+
     let fileToUpload = null;
-    if (values.FileName && values.FileName.fileList && values.FileName.fileList.length > 0) {
+    if (
+      values.FileName &&
+      values.FileName.fileList &&
+      values.FileName.fileList.length > 0
+    ) {
       fileToUpload = values.FileName.fileList[0].originFileObj;
     } else {
       message.error("Please upload an image.");
       return;
     }
-  
+
     console.log("File to Upload:", fileToUpload);
-  
+
     const formData = new FormData();
     formData.append("Fileid", fileId);
     formData.append("AdsName", values.AdsName);
     formData.append("IndexOrder", values.IndexOrder);
     formData.append("AdsNote", values.AdsNote);
     formData.append("FileName", fileToUpload);
-  
-    // Debugging: Log formData entries
+
     console.log("FormData before dispatch:");
     for (let [key, value] of formData.entries()) {
       console.log(key, value);
     }
-  
-    dispatch(putAdvertisment({ Fileid: fileId, AdsName: values.AdsName, IndexOrder: values.IndexOrder, AdsNote: values.AdsNote, FileName: fileToUpload }))
+
+    dispatch(
+      putAdvertisment({
+        Fileid: fileId,
+        AdsName: values.AdsName,
+        IndexOrder: values.IndexOrder,
+        AdsNote: values.AdsNote,
+        FileName: fileToUpload,
+      })
+    )
       .unwrap()
       .then(() => {
         message.success("Advertisement updated successfully");
@@ -101,41 +186,36 @@ const [isModalVisible, setIsModalVisible] = useState(false);
         message.error(err);
       });
   };
-  
-  
 
   // Open Edit Modal
-  
   const handleEditClick = (record) => {
-    console.log("Selected Ad Record:", record); // Debugging
-  
+    console.log("Selected Ad Record:", record);
+
     setSelectedAd(record);
     editForm.setFieldsValue({
       AdsName: record.adsName,
       IndexOrder: record.indexOrder,
       AdsNote: record.adsNote,
-      Fileid: record.fileId, // Ensure this matches API expectations
+      Fileid: record.fileId,
     });
-  
+
     console.log("Form values set in modal:", {
       AdsName: record.adsName,
       IndexOrder: record.indexOrder,
       AdsNote: record.adsNote,
       Fileid: record.fileId,
     });
-  
+
     setEditModalVisible(true);
   };
-  
-  
-  // Open Image Preview
+
+  // Open Image Preview (using blob URL)
   const handleImageClick = (imageUrl) => {
     if (imageUrl) {
       setPreviewLogo(imageUrl);
       setIsModalVisible(true);
-    } 
+    }
   };
-  
 
   // Table Columns
   const columns = [
@@ -148,13 +228,18 @@ const [isModalVisible, setIsModalVisible] = useState(false);
       key: "fileName",
       render: (fileName) => {
         if (!fileName) {
-          return <span>No Image</span>; // Show a fallback message
+          return <span>No Image</span>;
         }
-    
-        const imageUrl = `${backendBaseURL}/Media/Ads/${fileName.split("\\").pop()}`;
+
+        const blobUrl = imageUrls[fileName];
+
+        if (!blobUrl) {
+          return <span>Loading...</span>;
+        }
+
         return (
           <img
-            src={imageUrl}
+            src={blobUrl}
             alt="Advertisement"
             style={{
               width: 50,
@@ -163,13 +248,11 @@ const [isModalVisible, setIsModalVisible] = useState(false);
               borderRadius: "8px",
               cursor: "pointer",
             }}
-            onClick={() => handleImageClick(imageUrl)}
+            onClick={() => handleImageClick(blobUrl)}
           />
         );
       },
     },
-    
-    
     {
       title: "Actions",
       key: "actions",
@@ -198,7 +281,11 @@ const [isModalVisible, setIsModalVisible] = useState(false);
             </Option>
           ))}
         </Select>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddModalVisible(true)}>
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={() => setAddModalVisible(true)}
+        >
           Add Advertisement
         </Button>
       </div>
@@ -213,13 +300,19 @@ const [isModalVisible, setIsModalVisible] = useState(false);
         bordered
       />
 
-      {/* Image Modal */}
+      {/* (Legacy) Image Modal using imagePreview state - kept for compatibility */}
       <Modal
         visible={imagePreview.visible}
         footer={null}
-        onCancel={() => setImagePreview({ visible: false, fileName: "" })}
+        onCancel={() =>
+          setImagePreview({ visible: false, fileName: "" })
+        }
       >
-        <img src={imagePreview.fileName} alt="Preview" style={{ width: "100%" }} />
+        <img
+          src={imagePreview.fileName}
+          alt="Preview"
+          style={{ width: "100%" }}
+        />
       </Modal>
 
       {/* Add Advertisement Modal */}
@@ -230,7 +323,11 @@ const [isModalVisible, setIsModalVisible] = useState(false);
         footer={null}
       >
         <Form form={form} onFinish={handlePost} layout="vertical">
-          <Form.Item name="AdsName" label="Advertisement Name" rules={[{ required: true }]}>
+          <Form.Item
+            name="AdsName"
+            label="Advertisement Name"
+            rules={[{ required: true }]}
+          >
             <Select placeholder="Select advertisement name">
               {adOptions.map((option) => (
                 <Option key={option} value={option}>
@@ -239,18 +336,31 @@ const [isModalVisible, setIsModalVisible] = useState(false);
               ))}
             </Select>
           </Form.Item>
-          <Form.Item name="IndexOrder" label="Index Order" rules={[{ required: true }]}>
+          <Form.Item
+            name="IndexOrder"
+            label="Index Order"
+            rules={[{ required: true }]}
+          >
             <Input placeholder="Enter index order" />
           </Form.Item>
           <Form.Item name="AdsNote" label="Advertisement Note">
             <Input.TextArea placeholder="Enter advertisement note" />
           </Form.Item>
-          <Form.Item name="FileName" label="Upload Image" rules={[{ required: true }]}>
+          <Form.Item
+            name="FileName"
+            label="Upload Image"
+            rules={[{ required: true }]}
+          >
             <Upload beforeUpload={() => false} maxCount={1}>
               <Button icon={<UploadOutlined />}>Click to Upload</Button>
             </Upload>
           </Form.Item>
-          <Button type="primary" htmlType="submit" loading={loading} icon={<PlusOutlined />}>
+          <Button
+            type="primary"
+            htmlType="submit"
+            loading={loading}
+            icon={<PlusOutlined />}
+          >
             Add Advertisement
           </Button>
         </Form>
@@ -264,7 +374,11 @@ const [isModalVisible, setIsModalVisible] = useState(false);
         footer={null}
       >
         <Form form={editForm} onFinish={handleEdit} layout="vertical">
-          <Form.Item name="AdsName" label="Advertisement Name" rules={[{ required: true }]}>
+          <Form.Item
+            name="AdsName"
+            label="Advertisement Name"
+            rules={[{ required: true }]}
+          >
             <Select>
               {adOptions.map((option) => (
                 <Option key={option} value={option}>
@@ -273,31 +387,36 @@ const [isModalVisible, setIsModalVisible] = useState(false);
               ))}
             </Select>
           </Form.Item>
-          <Form.Item name="IndexOrder" label="Index Order" rules={[{ required: true }]}>
+          <Form.Item
+            name="IndexOrder"
+            label="Index Order"
+            rules={[{ required: true }]}
+          >
             <Input />
           </Form.Item>
           <Form.Item name="AdsNote" label="Advertisement Note">
             <Input.TextArea />
           </Form.Item>
           <Form.Item name="FileName" label="Upload New Image">
-  <Upload beforeUpload={() => false} maxCount={1}>
-    <Button icon={<UploadOutlined />}>Click to Upload</Button>
-  </Upload>
-</Form.Item>
+            <Upload beforeUpload={() => false} maxCount={1}>
+              <Button icon={<UploadOutlined />}>Click to Upload</Button>
+            </Upload>
+          </Form.Item>
 
           <Button type="primary" htmlType="submit" loading={loading}>
             Update Advertisement
           </Button>
         </Form>
       </Modal>
-      <Modal
-  visible={isModalVisible}
-  footer={null}
-  onCancel={() => setIsModalVisible(false)}
->
-  <Image src={previewLogo} alt="Preview" />
-</Modal>
 
+      {/* New Image Preview Modal using axiosInstance-loaded blob URL */}
+      <Modal
+        visible={isModalVisible}
+        footer={null}
+        onCancel={() => setIsModalVisible(false)}
+      >
+        <Image src={previewLogo} alt="Preview" />
+      </Modal>
     </div>
   );
 };

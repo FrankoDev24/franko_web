@@ -3,18 +3,20 @@ import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { getBannerPageAdvertisment } from "../Redux/Slice/advertismentSlice";
 import { Splide, SplideSlide } from "@splidejs/react-splide";
-import "@splidejs/react-splide/css"; // default CSS
+import "@splidejs/react-splide/css";
+import axiosInstance from "../Redux/Slice/AxiosInstance";
 
 import ban from "../assets/banners.jpg";
-
-const backendBaseURL = "https://smfteapi.salesmate.app";
 
 const Carousel = () => {
   const [loading, setLoading] = useState(true);
   const [filteredAds, setFilteredAds] = useState([]);
+  const [imageUrls, setImageUrls] = useState({}); // fileName/path -> blob URL
 
   const dispatch = useDispatch();
-  const { advertisments = [] } = useSelector((state) => state.advertisment);
+  const { advertisments = [] } = useSelector(
+    (state) => state.advertisment
+  );
 
   useEffect(() => {
     dispatch(getBannerPageAdvertisment())
@@ -27,6 +29,53 @@ const Carousel = () => {
       })
       .finally(() => setLoading(false));
   }, [dispatch]);
+
+  // Load ad images via axiosInstance instead of backendBaseURL
+  useEffect(() => {
+    if (!filteredAds || filteredAds.length === 0) return;
+
+    const paths = new Set();
+    filteredAds.forEach((ad) => {
+      if (ad.fileName) paths.add(ad.fileName);
+    });
+
+    const toLoad = [...paths].filter((p) => p && !imageUrls[p]);
+    if (!toLoad.length) return;
+
+    let cancelled = false;
+
+    const loadImages = async () => {
+      await Promise.allSettled(
+        toLoad.map(async (filePath) => {
+          try {
+            const fileName = filePath.split("\\").pop();
+            if (!fileName) return;
+            const res = await axiosInstance.get(
+              `/Media/Ads/${fileName}`,
+              { responseType: "blob" }
+            );
+            if (cancelled) return;
+            const blobUrl = URL.createObjectURL(res.data);
+            setImageUrls((prev) => ({
+              ...prev,
+              [filePath]: blobUrl,
+            }));
+          } catch (err) {
+            console.error(
+              `Error loading banner ad image for ${filePath}:`,
+              err
+            );
+          }
+        })
+      );
+    };
+
+    loadImages();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filteredAds, imageUrls]);
 
   const renderBanner = (isMobile = false) => {
     const options = {
@@ -44,36 +93,38 @@ const Carousel = () => {
         {filteredAds
           .filter((ad) => ad.index !== 0)
           .map((ad, index) => {
-            const imageUrl = `${backendBaseURL}/Media/Ads/${ad.fileName.split("\\").pop()}`;
+            const src =
+              ad.fileName && imageUrls[ad.fileName]
+                ? imageUrls[ad.fileName]
+                : ban;
+
             return (
-              <SplideSlide key={ad.id || index} className="relative group">
-                {/* Entire image is clickable */}
-                <a href={ad.adsNote || "#"} className="block w-full h-full">
+              <SplideSlide
+                key={ad.id || index}
+                className="relative group"
+              >
+                <a
+                  href={ad.adsNote || "#"}
+                  className="block w-full h-full"
+                >
                   <img
-                    src={imageUrl}
+                    src={src}
                     alt="Franko Trading"
                     className="w-full h-full object-cover rounded-lg shadow-lg transition-transform duration-300 group-hover:scale-105"
                   />
                 </a>
 
-                {/* Buy Now Button */}
-             {/* Buy Now Button */}
-{ad.adsNote && (
-  <div className="absolute bottom-2 left-2 sm:left-6 z-10">
-    <a
-      href={ad.adsNote}
-      className="group relative inline-block transform transition-all duration-300 hover:scale-105"
-    >
-      {/* Pulsing background effect */}
-      <div className="absolute inset-0 bg-red-500 rounded-full animate-pulse opacity-75 blur-md"></div>
-
-     
-
-      {/* Outer glow */}
-      <div className="absolute inset-0 bg-red-500/30 rounded-full blur-xl animate-pulse"></div>
-    </a>
-  </div>
-)}
+                {ad.adsNote && (
+                  <div className="absolute bottom-2 left-2 sm:left-6 z-10">
+                    <a
+                      href={ad.adsNote}
+                      className="group relative inline-block transform transition-all duration-300 hover:scale-105"
+                    >
+                      <div className="absolute inset-0 bg-red-500 rounded-full animate-pulse opacity-75 blur-md"></div>
+                      <div className="absolute inset-0 bg-red-500/30 rounded-full blur-xl animate-pulse"></div>
+                    </a>
+                  </div>
+                )}
               </SplideSlide>
             );
           })}

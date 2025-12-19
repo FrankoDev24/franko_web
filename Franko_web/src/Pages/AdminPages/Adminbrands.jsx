@@ -3,17 +3,40 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   fetchBrands,
   addBrand,
-  updateBrand,} from "../../Redux/Slice/brandSlice";
+  updateBrand,
+} from "../../Redux/Slice/brandSlice";
 import { fetchCategories } from "../../Redux/Slice/categorySlice";
-import {Select, Form, Input,Button,Table,Upload,  Modal,  message,  Row, Col, Card, Badge, Tooltip, Space,
+import axiosInstance from "../../Redux/Slice/AxiosInstance"; // ✅ use axios instance
+import {
+  Select,
+  Form,
+  Input,
+  Button,
+  Table,
+  Upload,
+  Modal,
+  message,
+  Row,
+  Col,
+  Card,
+  Badge,
+  Tooltip,
+  Space,
   Typography,
   Divider,
   Empty,
   Tag,
-  Avatar} from "antd";
-import {Plus, Edit3, Search, Filter,
-  Eye, Store,Grid3X3,
-  List,Image as ImageIcon,
+  Avatar,
+} from "antd";
+import {
+  Plus,
+  Edit3,
+  Search,
+  Filter,
+  Eye,
+  Store,
+  Grid3X3,
+  List,
 } from "lucide-react";
 import { debounce } from "lodash";
 import { v4 as uuidv4 } from "uuid";
@@ -21,11 +44,11 @@ import { v4 as uuidv4 } from "uuid";
 const { Title, Text } = Typography;
 const { Dragger } = Upload;
 
-const backendBaseURL = "https://smfteapi.salesmate.app";
-
 const Adminbrands = () => {
   const dispatch = useDispatch();
-  const { brands, loading, totalRecords } = useSelector((state) => state.brands);
+  const { brands, loading, totalRecords } = useSelector(
+    (state) => state.brands
+  );
   const { categories, loading: categoryLoading } = useSelector(
     (state) => state.categories
   );
@@ -41,6 +64,9 @@ const Adminbrands = () => {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState("table"); // 'table' or 'grid'
+
+  // Cache for logo images fetched via axiosInstance (blob URLs)
+  const [imageUrls, setImageUrls] = useState({}); // key: logoName, value: blob URL
 
   useEffect(() => {
     dispatch(fetchBrands({ page: currentPage, limit: 10 }));
@@ -58,6 +84,54 @@ const Adminbrands = () => {
       }
     }
   }, [currentBrand, form]);
+
+  // Fetch brand logo images via axiosInstance (with headers/API key)
+  useEffect(() => {
+    if (!brands || brands.length === 0) return;
+
+    let isCancelled = false;
+
+    const loadImages = async () => {
+      const toLoad = brands.filter(
+        (b) => b.logoName && !imageUrls[b.logoName]
+      );
+      if (!toLoad.length) return;
+
+      await Promise.allSettled(
+        toLoad.map(async (b) => {
+          const fileName = b.logoName.split("\\").pop();
+          if (!fileName) return;
+
+          try {
+            const res = await axiosInstance.get(
+              `/Media/Brand_Logo/${fileName}`,
+              {
+                responseType: "blob",
+              }
+            );
+            if (isCancelled) return;
+
+            const blobUrl = URL.createObjectURL(res.data);
+            setImageUrls((prev) => ({
+              ...prev,
+              [b.logoName]: blobUrl,
+            }));
+          } catch (err) {
+            console.error(
+              `Error loading logo for brand ${b.brandId}:`,
+              err
+            );
+          }
+        })
+      );
+    };
+
+    loadImages();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [brands, imageUrls]);
 
   const showModal = (brand = null) => {
     setCurrentBrand(brand);
@@ -105,7 +179,9 @@ const Adminbrands = () => {
       setCurrentBrand(null);
     } catch (error) {
       console.error("Error saving brand:", error);
-      message.error(error?.message || "❌ Failed to save brand. Please try again.");
+      message.error(
+        error?.message || "❌ Failed to save brand. Please try again."
+      );
     } finally {
       setSubmitLoading(false);
     }
@@ -141,8 +217,12 @@ const Adminbrands = () => {
     });
   }, [brands, categories, searchText, selectedCategory]);
 
-  const showImagePreview = (imageUrl) => {
-    setPreviewImageUrl(imageUrl);
+  const showImagePreview = (blobUrl) => {
+    if (!blobUrl) {
+      message.error("Logo not available yet, please try again.");
+      return;
+    }
+    setPreviewImageUrl(blobUrl);
     setIsPreviewVisible(true);
   };
 
@@ -155,16 +235,10 @@ const Adminbrands = () => {
         <Space>
           <Avatar
             size={40}
-            src={
-              record.logoName
-                ? `${backendBaseURL}/Media/Brand_Logo/${record.logoName
-                    .split("\\")
-                    .pop()}`
-                : undefined
-            }
+            src={record.logoName ? imageUrls[record.logoName] : undefined}
             icon={<Tag />}
             style={{
-              backgroundColor: record.logoName ? undefined : '#dc2626',
+              backgroundColor: record.logoName ? undefined : "#dc2626",
             }}
           />
           <div>
@@ -179,41 +253,43 @@ const Adminbrands = () => {
         </Space>
       ),
     },
-{
-  title: "Category",
-  dataIndex: "categoryId",
-  key: "categoryId",
-  render: (categoryId) => {
-    const category = categories.find((cat) => cat.categoryId === categoryId);
-    return category ? (
-      <Tag color="green">{category.categoryName}</Tag>
-    ) : (
-      <Tag color="red">Products out of stock</Tag>
-    );
-  },
-}, 
+    {
+      title: "Category",
+      dataIndex: "categoryId",
+      key: "categoryId",
+      render: (categoryId) => {
+        const category = categories.find(
+          (cat) => cat.categoryId === categoryId
+        );
+        return category ? (
+          <Tag color="green">{category.categoryName}</Tag>
+        ) : (
+          <Tag color="red">Products out of stock</Tag>
+        );
+      },
+    },
     {
       title: "Logo",
       dataIndex: "logoName",
       key: "logoName",
-      render: (imagePath, record) => {
-        if (!imagePath) {
+      render: (logoName) => {
+        const blobUrl = logoName ? imageUrls[logoName] : null;
+
+        if (!blobUrl) {
           return (
             <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
               <Tag className="text-gray-400" size={20} />
             </div>
           );
         }
-        const imageUrl = `${backendBaseURL}/Media/Brand_Logo/${imagePath
-          .split("\\")
-          .pop()}`;
+
         return (
           <Tooltip title="Click to preview">
             <img
-              src={imageUrl}
+              src={blobUrl}
               alt="Brand Logo"
               className="w-12 h-12 object-cover rounded-lg cursor-pointer hover:shadow-lg transition-all duration-200 border border-gray-200"
-              onClick={() => showImagePreview(imageUrl)}
+              onClick={() => showImagePreview(blobUrl)}
             />
           </Tooltip>
         );
@@ -226,7 +302,6 @@ const Adminbrands = () => {
         <Space>
           <Tooltip title="Edit Brand">
             <Button
-        
               size="small"
               icon={<Edit3 size={16} />}
               onClick={() => showModal(record)}
@@ -244,10 +319,10 @@ const Adminbrands = () => {
   const GridView = () => (
     <Row gutter={[16, 16]}>
       {filteredBrands.map((brand) => {
-        const category = categories.find((cat) => cat.categoryId === brand.categoryId);
-        const imageUrl = brand.logoName
-          ? `${backendBaseURL}/Media/Brand_Logo/${brand.logoName.split("\\").pop()}`
-          : null;
+        const category = categories.find(
+          (cat) => cat.categoryId === brand.categoryId
+        );
+        const blobUrl = brand.logoName ? imageUrls[brand.logoName] : null;
 
         return (
           <Col xs={24} sm={12} md={8} lg={6} key={brand.brandId}>
@@ -256,12 +331,12 @@ const Adminbrands = () => {
               className="h-full shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-200"
               cover={
                 <div className="h-32 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-                  {imageUrl ? (
+                  {blobUrl ? (
                     <img
-                      src={imageUrl}
+                      src={blobUrl}
                       alt={brand.brandName}
                       className="max-h-24 max-w-24 object-contain cursor-pointer"
-                      onClick={() => showImagePreview(imageUrl)}
+                      onClick={() => showImagePreview(blobUrl)}
                     />
                   ) : (
                     <Tag className="text-4xl text-gray-300" size={48} />
@@ -279,8 +354,12 @@ const Adminbrands = () => {
                 <Tooltip title="Preview Logo" key="preview">
                   <Eye
                     size={18}
-                    onClick={() => imageUrl && showImagePreview(imageUrl)}
-                    className={imageUrl ? "text-red-600 hover:text-red-700 cursor-pointer" : "text-gray-300"}
+                    onClick={() => blobUrl && showImagePreview(blobUrl)}
+                    className={
+                      blobUrl
+                        ? "text-red-600 hover:text-red-700 cursor-pointer"
+                        : "text-gray-300"
+                    }
                   />
                 </Tooltip>,
               ]}
@@ -295,7 +374,9 @@ const Adminbrands = () => {
                   <Space direction="vertical" size={4}>
                     <Badge
                       color="green"
-                      text={category ? category.categoryName : "Uncategorized"}
+                      text={
+                        category ? category.categoryName : "Uncategorized"
+                      }
                     />
                     <Text type="secondary" className="text-xs">
                       ID: {brand.brandId?.slice(0, 8)}...
@@ -330,7 +411,6 @@ const Adminbrands = () => {
             </div>
             <div className="mt-4 sm:mt-0">
               <Button
-          
                 size="large"
                 icon={<Plus size={20} />}
                 onClick={() => showModal()}
@@ -364,17 +444,24 @@ const Adminbrands = () => {
                 value={selectedCategory}
                 onChange={setSelectedCategory}
                 className="w-full"
-           
                 suffixIcon={<Filter size={16} />}
               >
                 {categories.map((cat) => (
-                  <Select.Option key={cat.categoryId} value={cat.categoryId.toString()}>
+                  <Select.Option
+                    key={cat.categoryId}
+                    value={cat.categoryId.toString()}
+                  >
                     {cat.categoryName}
                   </Select.Option>
                 ))}
               </Select>
             </Col>
-            <Col xs={24} sm={24} md={10} className="flex justify-end">
+            <Col
+              xs={24}
+              sm={24}
+              md={10}
+              className="flex justify-end"
+            >
               <Space>
                 <Text type="secondary">
                   {filteredBrands.length} of {brands.length} brands
@@ -384,7 +471,11 @@ const Adminbrands = () => {
                     type={viewMode === "table" ? "primary" : "default"}
                     onClick={() => setViewMode("table")}
                     icon={<List size={16} />}
-                    className={viewMode === "table" ? "bg-green-600 border-green-600" : ""}
+                    className={
+                      viewMode === "table"
+                        ? "bg-green-600 border-green-600"
+                        : ""
+                    }
                   >
                     List
                   </Button>
@@ -392,7 +483,11 @@ const Adminbrands = () => {
                     type={viewMode === "grid" ? "primary" : "default"}
                     onClick={() => setViewMode("grid")}
                     icon={<Grid3X3 size={16} />}
-                    className={viewMode === "grid" ? "bg-green-600 border-green-600" : ""}
+                    className={
+                      viewMode === "grid"
+                        ? "bg-green-600 border-green-600"
+                        : ""
+                    }
                   >
                     Grid
                   </Button>
@@ -448,7 +543,11 @@ const Adminbrands = () => {
         title={
           <div className="flex items-center space-x-2">
             <div className="p-1 bg-green-100 rounded">
-              {currentBrand ? <Edit3 className="text-green-600" size={16} /> : <Plus className="text-green-600" size={16} />}
+              {currentBrand ? (
+                <Edit3 className="text-green-600" size={16} />
+              ) : (
+                <Plus className="text-green-600" size={16} />
+              )}
             </div>
             <span>{currentBrand ? "Edit Brand" : "Add New Brand"}</span>
           </div>
@@ -466,7 +565,12 @@ const Adminbrands = () => {
         className="rounded-lg"
       >
         <Divider />
-        <Form form={form} onFinish={handleSubmit} layout="vertical" size="large">
+        <Form
+          form={form}
+          onFinish={handleSubmit}
+          layout="vertical"
+          size="large"
+        >
           <Form.Item
             label="Brand Name"
             name="BrandName"
@@ -485,7 +589,9 @@ const Adminbrands = () => {
           <Form.Item
             label="Category"
             name="CategoryId"
-            rules={[{ required: true, message: "Please select a category" }]}
+            rules={[
+              { required: true, message: "Please select a category" },
+            ]}
           >
             <Select
               placeholder="Select category"
@@ -494,7 +600,10 @@ const Adminbrands = () => {
               suffixIcon={<Filter size={16} />}
             >
               {categories.map((cat) => (
-                <Select.Option key={cat.categoryId} value={cat.categoryId}>
+                <Select.Option
+                  key={cat.categoryId}
+                  value={cat.categoryId}
+                >
                   {cat.categoryName}
                 </Select.Option>
               ))}
@@ -516,14 +625,21 @@ const Adminbrands = () => {
                     alt="Preview"
                     className="w-24 h-24 object-cover mx-auto rounded-lg border border-gray-200"
                   />
-                  <p className="ant-upload-text mt-2">Click or drag to replace</p>
+                  <p className="ant-upload-text mt-2">
+                    Click or drag to replace
+                  </p>
                 </div>
               ) : (
                 <div className="py-8">
                   <p className="ant-upload-drag-icon">
-                    <Upload className="text-4xl text-green-600 mx-auto" size={48} />
+                    <Upload
+                      className="text-4xl text-green-600 mx-auto"
+                      size={48}
+                    />
                   </p>
-                  <p className="ant-upload-text">Click or drag file to upload</p>
+                  <p className="ant-upload-text">
+                    Click or drag file to upload
+                  </p>
                   <p className="ant-upload-hint">
                     Support for PNG, JPG, JPEG files only
                   </p>
@@ -551,7 +667,6 @@ const Adminbrands = () => {
             </Col>
             <Col span={12}>
               <Button
-              
                 size="large"
                 htmlType="submit"
                 loading={submitLoading}
@@ -574,11 +689,13 @@ const Adminbrands = () => {
         width={500}
       >
         <div className="text-center py-4">
-          <img
-            src={previewImageUrl}
-            alt="Logo Preview"
-            className="max-w-full max-h-96 object-contain mx-auto rounded-lg"
-          />
+          {previewImageUrl && (
+            <img
+              src={previewImageUrl}
+              alt="Logo Preview"
+              className="max-w-full max-h-96 object-contain mx-auto rounded-lg"
+            />
+          )}
         </div>
       </Modal>
     </div>
