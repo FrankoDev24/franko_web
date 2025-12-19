@@ -1,86 +1,87 @@
+
+
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axiosInstance from "./AxiosInstance";
+import axios from "axios";
 
-/* =========================
-   ASYNC THUNKS
-========================= */
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-// POST Advertisement
+// Async Thunks
+
 export const postAdvertisment = createAsyncThunk(
   "advertisment/postAdvertisment",
   async (formData, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.post(
-        "/Advertisment/PostAdvertisment",
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      const response = await axios.post(`${API_BASE_URL}/Advertisment/PostAdvertisment`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
     }
   }
 );
-
-// GET Advertisement by Name
 export const getAdvertisment = createAsyncThunk(
   "advertisment/get",
   async (AdsName, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get(
-        `/Advertisment/GetAdvertisment?AdsName=${encodeURIComponent(AdsName)}`
+      const response = await axios.get(
+        `https://smfteapi.salesmate.app/Advertisment/GetAdvertisment?AdsName=${encodeURIComponent(AdsName)}`
       );
 
-      return Array.isArray(response.data) ? response.data.slice(1) : [];
+      // ✅ Ensure data is an array and remove index 0
+      const formattedData = Array.isArray(response.data)
+        ? response.data.slice(1) // Exclude first advertisement (index 0)
+        : [];
+
+      return formattedData;
     } catch (error) {
-      return rejectWithValue(
-        error.response?.data || "Failed to fetch advertisements"
-      );
+      return rejectWithValue(error.response?.data || "Failed to fetch advertisements");
     }
   }
 );
 
-// GET Banner Page Advertisements
 export const getBannerPageAdvertisment = createAsyncThunk(
   "advertisment/getBannerPage",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get(
-        `/Advertisment/GetAdvertisment?AdsName=${encodeURIComponent("Banner")}`
+      const response = await axios.get(
+        `https://smfteapi.salesmate.app/Advertisment/GetAdvertisment?AdsName=${encodeURIComponent("Banner")}`
       );
 
-      return Array.isArray(response.data) ? response.data.slice(1) : [];
+      // Ensure data is an array and exclude index 0
+      const formattedData = Array.isArray(response.data) ? response.data.slice(1) : [];
+
+      return formattedData;
     } catch (error) {
-      return rejectWithValue(
-        error.response?.data || "Failed to fetch banner advertisements"
-      );
+      return rejectWithValue(error.response?.data || "Failed to fetch Home Page advertisements");
     }
   }
 );
 
-// GET Home Page Advertisements
 export const getHomePageAdvertisment = createAsyncThunk(
   "advertisment/getHomePage",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get(
-        `/Advertisment/GetAdvertisment?AdsName=${encodeURIComponent("Home Page")}`
+      const response = await axios.get(
+        `https://smfteapi.salesmate.app/Advertisment/GetAdvertisment?AdsName=${encodeURIComponent("Home Page")}`
       );
 
-      return Array.isArray(response.data) ? response.data.slice(1) : [];
+      // ✅ Ensure data is an array and remove index 0
+      const formattedData = Array.isArray(response.data)
+        ? response.data.slice(1) // Exclude first advertisement (index 0)
+        : [];
+
+      return formattedData;
     } catch (error) {
-      return rejectWithValue(
-        error.response?.data || "Failed to fetch home page advertisements"
-      );
+      return rejectWithValue(error.response?.data || "Failed to fetch Home Page advertisements");
     }
   }
 );
 
-// PUT Advertisement
+
+
+
+
 export const putAdvertisment = createAsyncThunk(
   "advertisment/putAdvertisment",
   async ({ Fileid, AdsName, IndexOrder, AdsNote, FileName }, { rejectWithValue }) => {
@@ -91,18 +92,27 @@ export const putAdvertisment = createAsyncThunk(
 
       const fileToUpload = FileName.originFileObj || FileName;
 
+      // Construct query parameters correctly
       const queryParams = new URLSearchParams({
-        Fileid,
+        Fileid,  
         AdsName,
         IndexOrder,
         AdsNote,
       }).toString();
 
+      // Prepare FormData for the file
       const formData = new FormData();
       formData.append("FileName", fileToUpload);
 
-      const response = await axiosInstance.post(
-        `/Advertisment/PutAdvertisment?${queryParams}`,
+      // Debugging: Log the request
+      console.log("API Request URL:", `${API_BASE_URL}/Advertisment/PutAdvertisment?${queryParams}`);
+      console.log("FormData being sent:");
+      for (let [key, value] of formData.entries()) {
+        console.log(key, value);
+      }
+
+      const response = await axios.post(
+        `${API_BASE_URL}/Advertisment/PutAdvertisment?${queryParams}`,
         formData,
         {
           headers: {
@@ -111,16 +121,18 @@ export const putAdvertisment = createAsyncThunk(
         }
       );
 
+      console.log("API Response:", response.data);
       return response.data;
     } catch (error) {
+      console.error("API Error:", error.response?.data || error.message);
       return rejectWithValue(error.response?.data || error.message);
     }
   }
 );
 
-/* =========================
-   SLICE
-========================= */
+
+
+// Slice
 
 const advertismentSlice = createSlice({
   name: "advertisment",
@@ -132,8 +144,6 @@ const advertismentSlice = createSlice({
   reducers: {},
   extraReducers: (builder) => {
     builder
-
-      // POST
       .addCase(postAdvertisment.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -146,8 +156,6 @@ const advertismentSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-
-      // GET
       .addCase(getAdvertisment.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -160,8 +168,6 @@ const advertismentSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-
-      // HOME PAGE
       .addCase(getHomePageAdvertisment.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -174,31 +180,27 @@ const advertismentSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-
-      // BANNER PAGE
       .addCase(getBannerPageAdvertisment.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(getBannerPageAdvertisment.fulfilled, (state, action) => {
         state.loading = false;
-        state.advertisments = action.payload;
+        state.advertisments = action.payload; // Ensure correct field
       })
+      
       .addCase(getBannerPageAdvertisment.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
-
-      // PUT
+      
       .addCase(putAdvertisment.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(putAdvertisment.fulfilled, (state, action) => {
         state.loading = false;
-        const index = state.advertisments.findIndex(
-          (ad) => ad.Fileid === action.payload.Fileid
-        );
+        const index = state.advertisments.findIndex(ad => ad.Fileid === action.payload.Fileid);
         if (index !== -1) {
           state.advertisments[index] = action.payload;
         }
@@ -206,7 +208,8 @@ const advertismentSlice = createSlice({
       .addCase(putAdvertisment.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-      });
+      })
+      
   },
 });
 

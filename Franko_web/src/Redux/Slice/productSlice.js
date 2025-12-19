@@ -1,257 +1,142 @@
-// src/redux/slices/productSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axiosInstance from './AxiosInstance'; // adjust path if needed
+import axios from 'axios';
 
-export const addProduct = createAsyncThunk(
-  'products/addProduct',
-  async (productData) => {
-    const response = await axiosInstance.post(
-      '/Product/Product-Post',
-      productData
-    );
-    return response.data;
-  }
-);
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-// Async thunk for updating a product
-export const updateProduct = createAsyncThunk(
-  'products/updateProduct',
-  async (productData) => {
-    const { Productid, ...restData } = productData;
+// ======================= Axios instance =======================
+const axiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
-    // Keep the absolute URL to preserve original behavior
-    const response = await axiosInstance.post(
-      `/Product/Product_Put/${Productid}`,
-      restData,
-      {
-        headers: {
-          accept: 'text/plain',
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-    return response.data;
-  }
-);
+// ======================= Async Thunks ========================
 
-// Async thunk for updating a product's image
+// Add Product
+export const addProduct = createAsyncThunk('products/addProduct', async (productData) => {
+  const { data } = await axiosInstance.post('/Product/Product-Post', productData);
+  return data;
+});
+
+// Update Product
+export const updateProduct = createAsyncThunk('products/updateProduct', async (productData) => {
+  const { Productid, ...restData } = productData;
+  const { data } = await axiosInstance.post(`/Product/Product_Put/${Productid}`, restData, {
+    headers: { 'accept': 'text/plain', 'Content-Type': 'application/json' },
+  });
+  return data;
+});
+
+// Update Product Image
 export const updateProductImage = createAsyncThunk(
   'products/updateProductImage',
   async ({ productID, imageFile }) => {
     const formData = new FormData();
-    formData.append('ProductId', productID); // Ensure this key matches backend
-    formData.append('ImageName', imageFile); // Ensure this key matches backend
+    formData.append('ProductId', productID);
+    formData.append('ImageName', imageFile);
 
-    const response = await axiosInstance.post(
-      '/Product/Product-Image-Edit',
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
-    );
-
-    return response.data;
+    const { data } = await axiosInstance.post('/Product/Product-Image-Edit', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data;
   }
 );
 
-// Async thunk for fetching all products
-export const fetchAllProducts = createAsyncThunk(
-  'products/fetchAllProducts',
-  async () => {
-    const response = await axiosInstance.get('/Product/Product-Get');
+// Fetch All Products
+export const fetchAllProducts = createAsyncThunk('products/fetchAllProducts', async () => {
+  const { data } = await axiosInstance.get('/Product/Product-Get');
+  return Array.isArray(data) ? data.sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)) : [];
+});
 
-    const products = response.data;
+// Fetch Active Products
+export const fetchActiveProducts = createAsyncThunk('products/fetchActiveProducts', async () => {
+  const { data } = await axiosInstance.get('/Product/Product-Get-Active');
+  return Array.isArray(data) ? data : [];
+});
 
-    return products.sort(
-      (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
-    );
+// Fetch Inactive Products
+export const fetchInactiveProducts = createAsyncThunk('products/fetchInactiveProducts', async () => {
+  const { data } = await axiosInstance.get('/Product/Product-Get-0');
+  return Array.isArray(data) ? data : [];
+});
+
+// Fetch Products by Brand
+export const fetchProductsByBrand = createAsyncThunk('products/fetchProductsByBrand', async (brandId) => {
+  const { data } = await axiosInstance.get(`/Product/Product-Get-by-Brand/${brandId}`);
+  return Array.isArray(data) ? data.sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)) : [];
+});
+
+// Fetch Products by Category
+export const fetchProductsByCategory = createAsyncThunk(
+  'products/fetchProductsByCategory',
+  async (categoryId) => {
+    const { data } = await axiosInstance.get(`/Product/Product-Get-by-Category/${categoryId}`);
+    return { categoryId, products: Array.isArray(data) ? data : [] };
   }
 );
 
-// Async thunk for fetching products
-export const fetchProducts = createAsyncThunk(
-  'products/fetchProducts',
-  async () => {
-    try {
-      const response = await axiosInstance.get('/Product/Product-Get');
-
-      const products = response.data;
-
-      const filteredProducts = products
-        .filter((product) => product.status == 1)
-        .sort(
-          (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
-        );
-      return filteredProducts;
-    } catch (error) {
-      console.error('Error fetching products:', error);
-      throw error;
-    }
+// Fetch Products by Showroom
+export const fetchProductsByShowroom = createAsyncThunk(
+  'products/fetchProductsByShowroom',
+  async (showRoomID) => {
+    const { data } = await axiosInstance.get(`/Product/Product-Get-by-ShowRoom/${showRoomID}`);
+    return { showRoomID, products: Array.isArray(data) ? data.sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)) : [] };
   }
 );
 
-export const fetchProduct = createAsyncThunk(
-  'products/fetchProduct',
-  async () => {
-    try {
-      const response = await axiosInstance.get('/Product/Product-Get');
-      const products = response.data;
+// Fetch Product by ID
+export const fetchProductById = createAsyncThunk('products/fetchProductById', async (productId) => {
+  const { data } = await axiosInstance.get(`/Product/Product-Get-by-Product_ID/${productId}`);
+  return data;
+});
 
-      const filteredProducts = products
-        .filter((product) => product.status == 1)
-        .sort(
-          (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
-        )
-        .slice(0, 10);
-
-      return filteredProducts;
-    } catch (error) {
-      console.error('Error fetching products:', error);
-      throw error;
-    }
+// Fetch Product by Showroom and Record Number
+export const fetchProductByShowroomAndRecord = createAsyncThunk(
+  'products/fetchProductByShowroomAndRecord',
+  async ({ showRoomCode, recordNumber }) => {
+    const { data } = await axiosInstance.get('/Product/Product-Get-by-ShowRoom_RecordNumber', {
+      params: { ShowRommCode: showRoomCode, RecordNumber: recordNumber },
+    });
+    const products = Array.isArray(data) ? data.sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)) : [];
+    return { showRoomCode, products };
   }
 );
 
+// Fetch Paginated Products
 export const fetchPaginatedProducts = createAsyncThunk(
   'products/fetchPaginatedProducts',
   async ({ pageNumber, pageSize = 10 }, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get(
-        '/Product/Product-Get-Paginated',
-        {
-          params: { PageNumber: pageNumber, PageSize: pageSize },
-        }
-      );
-
-      const sortedData = response.data.sort(
-        (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
-      );
-
-      return sortedData;
+      const { data } = await axiosInstance.get('/Product/Product-Get-Paginated', { params: { PageNumber: pageNumber, PageSize: pageSize } });
+      return Array.isArray(data) ? data.sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)) : [];
     } catch (error) {
-      console.error('Error fetching paginated products:', error);
-      return rejectWithValue(
-        error.response ? error.response.data : error.message
-      );
+      return rejectWithValue(error.response?.data || error.message);
     }
   }
 );
 
-export const fetchProductsByCategory = createAsyncThunk(
-  'products/fetchProductsByCategory',
-  async (categoryId) => {
-    const response = await axiosInstance.get(
-      `/Product/Product-Get-by-Category/${categoryId}`
-    );
-    return { categoryId, products: response.data };
-  }
-);
+// ======================= Slice ========================
+const initialState = {
+  products: [],
+  currentPage: 1,
+  filteredProducts: [],
+  brandProducts: [],
+  productsByShowroom: {},
+  productsByCategory: {},
+  productsCache: {},
+  activeProducts: [],
+  inactiveProducts: [],
+  currentProduct: null,
+  loading: false,
+  error: null,
+};
 
-export const fetchProductsByBrand = createAsyncThunk(
-  'products/fetchProductsByBrand',
-  async (brandId) => {
-    const response = await axiosInstance.get(
-      `/Product/Product-Get-by-Brand/${brandId}`
-    );
-    return response.data.sort(
-      (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
-    );
-  }
-);
-
-export const fetchProductsByShowroom = createAsyncThunk(
-  'products/fetchProductsByShowroom',
-  async (showRoomID) => {
-    const response = await axiosInstance.get(
-      `/Product/Product-Get-by-ShowRoom/${showRoomID}`
-    );
-    return {
-      showRoomID,
-      products: response.data.sort(
-        (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
-      ),
-    };
-  }
-);
-
-// Async thunk for fetching a product by its ID
-export const fetchProductById = createAsyncThunk(
-  'products/fetchProductById',
-  async (productId) => {
-    const response = await axiosInstance.get(
-      `/Product/Product-Get-by-Product_ID/${productId}`
-    );
-    return response.data;
-  }
-);
-
-export const fetchActiveProducts = createAsyncThunk(
-  'products/fetchActiveProducts',
-  async () => {
-    const response = await axiosInstance.get(
-      '/Product/Product-Get-Active'
-    );
-    return response.data;
-  }
-);
-
-export const fetchInactiveProducts = createAsyncThunk(
-  'products/fetchInactiveProducts',
-  async () => {
-    const response = await axiosInstance.get('/Product/Product-Get-0');
-    return response.data;
-  }
-);
-
-export const fetchProductByShowroomAndRecord = createAsyncThunk(
-  'products/fetchProductByShowroomAndRecord',
-  async ({ showRoomCode, recordNumber }) => {
-    try {
-      const response = await axiosInstance.get(
-        '/Product/Product-Get-by-ShowRoom_RecordNumber',
-        {
-          params: {
-            ShowRommCode: showRoomCode,
-            RecordNumber: recordNumber,
-          },
-        }
-      );
-
-      const sortedProducts = response.data.sort(
-        (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
-      );
-
-      return { showRoomCode, products: sortedProducts };
-    } catch (error) {
-      console.error(
-        'Error fetching product by showroom and record number:',
-        error
-      );
-      throw error;
-    }
-  }
-);
-
-// Create the product slice
 const productSlice = createSlice({
   name: 'products',
-  initialState: {
-    products: [],
-    currentPage: 1,
-    filteredProducts: [],
-    brandProducts: [],
-    productsByShowroom: {},
-    productsByCategory: {},
-    currentProduct: null,
-    loading: false,
-    error: null,
-  },
+  initialState,
   reducers: {
-    setPage: (state, action) => {
-      state.currentPage = action.payload;
-    },
+    setPage: (state, action) => { state.currentPage = action.payload; },
     clearProducts: (state) => {
       state.products = [];
       state.filteredProducts = [];
@@ -259,198 +144,60 @@ const productSlice = createSlice({
       state.currentProduct = null;
       state.error = null;
     },
+    setFilteredProducts: (state, action) => { state.filteredProducts = action.payload; },
     setProductsCache: (state, action) => {
       const { brandId, products } = action.payload;
       state.productsCache[brandId] = products;
     },
-    resetProducts: (state) => {
-      state.products = [];
-    },
-    clearCurrentProduct: (state) => {
-      state.currentProduct = [];
-    },
+    resetProducts: (state) => { state.products = []; },
+    clearCurrentProduct: (state) => { state.currentProduct = null; },
   },
   extraReducers: (builder) => {
     builder
-      .addCase(addProduct.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(addProduct.fulfilled, (state, action) => {
+      // Generic pending handler
+      .addMatcher(
+        (action) => action.type.startsWith('products/') && action.type.endsWith('/pending'),
+        (state) => { state.loading = true; state.error = null; }
+      )
+      // Generic rejected handler
+      .addMatcher(
+        (action) => action.type.startsWith('products/') && action.type.endsWith('/rejected'),
+        (state, action) => { state.loading = false; state.error = action.payload || action.error.message; }
+      )
+      // Fulfilled handlers
+      .addCase(fetchAllProducts.fulfilled, (state, action) => { state.loading = false; state.products = action.payload; })
+      .addCase(fetchProducts.fulfilled, (state, action) => { state.loading = false; state.products = action.payload; })
+      .addCase(fetchProductById.fulfilled, (state, action) => { state.loading = false; state.currentProduct = action.payload; })
+      .addCase(fetchProductsByCategory.fulfilled, (state, action) => {
+        const { categoryId, products } = action.payload;
+        state.productsByCategory[categoryId] = products;
         state.loading = false;
-        state.products.push(action.payload);
       })
-      .addCase(addProduct.rejected, (state, action) => {
+      .addCase(fetchProductsByShowroom.fulfilled, (state, action) => {
+        const { showRoomID, products } = action.payload;
+        state.productsByShowroom[showRoomID] = products;
         state.loading = false;
-        state.error = action.error.message;
       })
-      .addCase(updateProduct.pending, (state) => {
-        state.loading = true;
+      .addCase(fetchProductByShowroomAndRecord.fulfilled, (state, action) => {
+        const { showRoomCode, products } = action.payload;
+        state.productsByShowroom[showRoomCode] = products;
+        state.loading = false;
       })
+      .addCase(fetchPaginatedProducts.fulfilled, (state, action) => { state.loading = false; state.products = action.payload; })
+      .addCase(fetchProductsByBrand.fulfilled, (state, action) => { state.loading = false; state.brandProducts = action.payload; })
       .addCase(updateProduct.fulfilled, (state, action) => {
         state.loading = false;
         const updatedProduct = action.payload;
-
-        const index = state.products.findIndex(
-          (item) => item.Productid == updatedProduct.productID
-        );
-
-        if (index !== -1) {
-          state.products[index] = updatedProduct;
-        }
-      })
-      .addCase(updateProduct.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message;
+        const index = state.products.findIndex(item => item.Productid == updatedProduct.Productid);
+        if (index !== -1) state.products[index] = updatedProduct;
       })
       .addCase(updateProductImage.fulfilled, (state, action) => {
         state.loading = false;
-        const index = state.products.findIndex(
-          (item) => item.Productid === action.payload.Productid
-        );
-        if (index !== -1) {
-          state.products[index] = action.payload;
-        }
+        const index = state.products.findIndex(item => item.Productid === action.payload.Productid);
+        if (index !== -1) state.products[index] = action.payload;
       })
-      .addCase(updateProductImage.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message;
-      })
-      .addCase(fetchProductsByBrand.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(fetchProductsByBrand.fulfilled, (state, action) => {
-        state.loading = false;
-        state.brandProducts = action.payload;
-      })
-      .addCase(fetchProductsByBrand.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message;
-      })
-      .addCase(fetchProducts.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(fetchProducts.fulfilled, (state, action) => {
-        state.loading = false;
-        state.products = action.payload;
-      })
-      .addCase(fetchProducts.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message;
-      })
-      .addCase(fetchProduct.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(fetchProduct.fulfilled, (state, action) => {
-        state.loading = false;
-        state.products = action.payload;
-      })
-      .addCase(fetchProduct.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message;
-      })
-      .addCase(fetchAllProducts.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(fetchAllProducts.fulfilled, (state, action) => {
-        state.loading = false;
-        state.products = action.payload;
-      })
-      .addCase(fetchAllProducts.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message;
-      })
-      .addCase(fetchProductsByCategory.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(fetchProductsByCategory.fulfilled, (state, action) => {
-        state.productsByCategory[action.payload.categoryId] =
-          action.payload.products;
-        state.loading = false;
-      })
-      .addCase(fetchProductsByCategory.rejected, (state, action) => {
-        state.error = action.error.message;
-        state.loading = false;
-      })
-      .addCase(fetchProductsByShowroom.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(fetchProductsByShowroom.fulfilled, (state, action) => {
-        state.loading = false;
-        const { showRoomID, products } = action.payload;
-        state.productsByShowroom[showRoomID] = products;
-      })
-      .addCase(fetchProductsByShowroom.rejected, (state, action) => {
-        state.loading = false;
-        state.error =
-          action.error.message;
-      })
-      .addCase(fetchProductById.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(fetchProductById.fulfilled, (state, action) => {
-        state.loading = false;
-        state.currentProduct = action.payload;
-      })
-      .addCase(fetchProductById.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message;
-      })
-      .addCase(fetchPaginatedProducts.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchPaginatedProducts.fulfilled, (state, action) => {
-        state.loading = false;
-        state.products = action.payload;
-      })
-      .addCase(fetchPaginatedProducts.rejected, (state, action) => {
-        state.loading = false;
-        state.error =
-          action.payload || 'Failed to fetch products';
-      })
-      .addCase(fetchActiveProducts.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(fetchActiveProducts.fulfilled, (state, action) => {
-        state.loading = false;
-        state.activeProducts = action.payload;
-      })
-      .addCase(fetchActiveProducts.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message;
-      })
-      .addCase(fetchInactiveProducts.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(fetchInactiveProducts.fulfilled, (state, action) => {
-        state.loading = false;
-        state.inactiveProducts = action.payload;
-      })
-      .addCase(fetchInactiveProducts.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message;
-      })
-      .addCase(
-        fetchProductByShowroomAndRecord.pending,
-        (state) => {
-          state.loading = true;
-        }
-      )
-      .addCase(
-        fetchProductByShowroomAndRecord.fulfilled,
-        (state, action) => {
-          const { showRoomCode, products } = action.payload;
-          state.productsByShowroom[showRoomCode] = products;
-          state.loading = false;
-        }
-      )
-      .addCase(
-        fetchProductByShowroomAndRecord.rejected,
-        (state, action) => {
-          state.loading = false;
-          state.error = action.error.message;
-        }
-      );
+      .addCase(fetchActiveProducts.fulfilled, (state, action) => { state.loading = false; state.activeProducts = action.payload; })
+      .addCase(fetchInactiveProducts.fulfilled, (state, action) => { state.loading = false; state.inactiveProducts = action.payload; });
   },
 });
 

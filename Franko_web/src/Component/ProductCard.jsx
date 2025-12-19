@@ -4,7 +4,7 @@ import {
   ShoppingCartIcon,
   EyeIcon,
   CheckCircleIcon,
-  XCircleIcon,
+  XCircleIcon
 } from "@heroicons/react/24/solid";
 import { Tooltip } from "@material-tailwind/react";
 import useAddToCart from "./Cart";
@@ -14,7 +14,6 @@ import {
   removeFromWishlist,
 } from "../Redux/Slice/wishlistSlice";
 import { useState, useEffect } from "react";
-import axiosInstance from "../Redux/Slice/AxiosInstance"; // ✅ axios instance
 
 // Custom Notification Component
 const Notification = ({ message, type, isVisible, onClose }) => {
@@ -22,21 +21,19 @@ const Notification = ({ message, type, isVisible, onClose }) => {
     if (isVisible) {
       const timer = setTimeout(() => {
         onClose();
-      }, 3000);
+      }, 3000); // Auto-hide after 3 seconds
       return () => clearTimeout(timer);
     }
   }, [isVisible, onClose]);
 
   if (!isVisible) return null;
 
-  const bgColor = type === "success" ? "bg-green-500" : "bg-red-500";
-  const Icon = type === "success" ? CheckCircleIcon : XCircleIcon;
+  const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
+  const Icon = type === 'success' ? CheckCircleIcon : XCircleIcon;
 
   return (
     <div className="fixed top-4 right-4 z-50 animate-slide-in">
-      <div
-        className={`${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 min-w-[300px]`}
-      >
+      <div className={`${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 min-w-[300px]`}>
         <Icon className="w-5 h-5 flex-shrink-0" />
         <span className="text-sm font-medium">{message}</span>
         <button
@@ -50,13 +47,23 @@ const Notification = ({ message, type, isVisible, onClose }) => {
   );
 };
 
+// Format price
 // Format price with ₵
 const formatPrice = (price) =>
   new Intl.NumberFormat("en-GH", {
     style: "currency",
     currency: "GHS",
-    currencyDisplay: "symbol",
+    currencyDisplay: "symbol", // Force symbol instead of code
   }).format(price || 0);
+
+
+// Image formatter
+const getValidImageUrl = (imagePath) => {
+  if (!imagePath) return "https://via.placeholder.com/150";
+  return imagePath.includes("\\")
+    ? `https://smfteapi.salesmate.app/Media/Products_Images/${imagePath.split("\\").pop()}`
+    : imagePath;
+};
 
 // Skeleton
 const SkeletonCard = () => (
@@ -69,79 +76,26 @@ const SkeletonCard = () => (
 
 const ProductCard = ({ currentProducts = [], navigate, loading = false }) => {
   const dispatch = useDispatch();
-  const wishlist = useSelector((state) => state.wishlist.items || []);
+  const wishlist = useSelector((state) => state.wishlist.items);
   const { addProductToCart, loading: cartLoading } = useAddToCart();
 
   // Notification state
   const [notification, setNotification] = useState({
-    message: "",
-    type: "success",
-    isVisible: false,
+    message: '',
+    type: 'success', // 'success' or 'error'
+    isVisible: false
   });
 
-  // Cache for blob URLs keyed by productImage path
-  const [imageUrls, setImageUrls] = useState({});
-
-  // Load images via axiosInstance for backend-hosted paths
-  useEffect(() => {
-    if (!currentProducts || currentProducts.length === 0) return;
-
-    let isCancelled = false;
-
-    const loadImages = async () => {
-      const toLoad = currentProducts.filter(
-        (p) =>
-          p.productImage &&
-          p.productImage.includes("\\") &&
-          !imageUrls[p.productImage]
-      );
-      if (!toLoad.length) return;
-
-      await Promise.allSettled(
-        toLoad.map(async (p) => {
-          const imagePath = p.productImage;
-          const fileName = imagePath.split("\\").pop();
-          if (!fileName) return;
-
-          try {
-            const res = await axiosInstance.get(
-              `/Media/Products_Images/${fileName}`,
-              { responseType: "blob" }
-            );
-            if (isCancelled) return;
-
-            const blobUrl = URL.createObjectURL(res.data);
-            setImageUrls((prev) => ({
-              ...prev,
-              [imagePath]: blobUrl,
-            }));
-          } catch (err) {
-            console.error(
-              `Error loading product image for ${p.productID}:`,
-              err
-            );
-          }
-        })
-      );
-    };
-
-    loadImages();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [currentProducts, imageUrls]);
-
-  const showNotification = (message, type = "success") => {
+  const showNotification = (message, type = 'success') => {
     setNotification({
       message,
       type,
-      isVisible: true,
+      isVisible: true
     });
   };
 
   const hideNotification = () => {
-    setNotification((prev) => ({ ...prev, isVisible: false }));
+    setNotification(prev => ({ ...prev, isVisible: false }));
   };
 
   const isInWishlist = (id) => wishlist.some((item) => item.id === id);
@@ -156,7 +110,7 @@ const ProductCard = ({ currentProducts = [], navigate, loading = false }) => {
         dispatch(addToWishlist({ ...product, id }));
         showNotification("Added to wishlist", "success");
       }
-    } catch {
+    } catch  {
       showNotification("Failed to update wishlist", "error");
     }
   };
@@ -165,19 +119,9 @@ const ProductCard = ({ currentProducts = [], navigate, loading = false }) => {
     try {
       await addProductToCart(product);
       showNotification("Added to cart successfully", "success");
-    } catch {
+    } catch  {
       showNotification("Failed to add to cart", "error");
     }
-  };
-
-  // Use axiosInstance-fetched blob URL for backend paths; keep non-backend URLs as-is
-  const getImageUrl = (imagePath) => {
-    if (!imagePath) return "https://via.placeholder.com/150";
-    if (imageUrls[imagePath]) return imageUrls[imagePath];
-    // If it's not a backend path (no backslash), assume it's already a full URL
-    if (!imagePath.includes("\\")) return imagePath;
-    // Backend path still loading
-    return "https://via.placeholder.com/150";
   };
 
   return (
@@ -192,9 +136,7 @@ const ProductCard = ({ currentProducts = [], navigate, loading = false }) => {
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
         {loading
-          ? Array.from({ length: 8 }).map((_, i) => (
-              <SkeletonCard key={i} />
-            ))
+          ? Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)
           : currentProducts.map((product, index) => {
               const {
                 productID,
@@ -204,7 +146,7 @@ const ProductCard = ({ currentProducts = [], navigate, loading = false }) => {
                 oldPrice,
               } = product;
 
-              const imageUrl = getImageUrl(productImage);
+              const imageUrl = getValidImageUrl(productImage);
               const isOnSale = oldPrice > 0 && oldPrice > price;
               const inWishlist = isInWishlist(productID);
 
@@ -228,98 +170,78 @@ const ProductCard = ({ currentProducts = [], navigate, loading = false }) => {
                         src={imageUrl}
                         alt={productName}
                         className="h-full object-contain transition-transform duration-300 group-hover:scale-105"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = "https://via.placeholder.com/150";
-                        }}
                       />
                     </div>
 
-                    <div
-                      className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20 transition-all cursor-pointer"
-                      onClick={() =>
-                        navigate(`/product/${product.productID}`)
-                      }
-                    >
-                      {/* Wishlist Icon */}
-                      <Tooltip
-                        content={
-                          inWishlist
-                            ? "Remove from Wishlist"
-                            : "Add to Wishlist"
-                        }
-                      >
-                        <button
-                          className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleWishlistToggle(product);
-                          }}
-                        >
-                          {inWishlist ? (
-                            <SolidHeartIcon className="w-5 h-5 text-red-500" />
-                          ) : (
-                            <OutlineHeartIcon className="w-5 h-5 text-white hover:text-red-400" />
-                          )}
-                        </button>
-                      </Tooltip>
+                   <div
+  className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20 transition-all cursor-pointer"
+  onClick={() => navigate(`/product/${product.productID}`)}
+>
+  {/* Wishlist Icon */}
+  <Tooltip content={inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}>
+    <button
+      className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+      onClick={(e) => {
+        e.stopPropagation();
+        handleWishlistToggle(product);
+      }}
+    >
+      {inWishlist ? (
+        <SolidHeartIcon className="w-5 h-5 text-red-500" />
+      ) : (
+        <OutlineHeartIcon className="w-5 h-5 text-white hover:text-red-400" />
+      )}
+    </button>
+  </Tooltip>
 
-                      {/* View Details */}
-                      <Tooltip content="View Details">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(
-                              `/product/${product.productID}`
-                            );
-                          }}
-                          className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-                        >
-                          <EyeIcon className="w-5 h-5 text-white hover:text-green-400" />
-                        </button>
-                      </Tooltip>
+  {/* View Details */}
+  <Tooltip content="View Details">
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        navigate(`/product/${product.productID}`);
+      }}
+      className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+    >
+      <EyeIcon className="w-5 h-5 text-white hover:text-green-400" />
+    </button>
+  </Tooltip>
 
-                      {/* Add to Cart */}
-                      <Tooltip
-                        content={
-                          product.stock === 0
-                            ? "Out of Stock"
-                            : "Add to Cart"
-                        }
-                      >
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAddToCart(product);
-                          }}
-                          className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={
-                            cartLoading || product.stock === 0
-                          }
-                        >
-                          <ShoppingCartIcon className="w-5 h-5 text-white hover:text-red-400" />
-                        </button>
-                      </Tooltip>
-                    </div>
+  {/* Add to Cart */}
+  <Tooltip content={product.stock === 0 ? "Out of Stock" : "Add to Cart"}>
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        handleAddToCart(product);
+      }}
+      className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      disabled={cartLoading || product.stock === 0}
+    >
+      <ShoppingCartIcon className="w-5 h-5 text-white hover:text-red-400" />
+    </button>
+  </Tooltip>
+</div>
+
                   </div>
 
                   {/* Product Info */}
-                  <div className="p-3 text-center space-y-1">
-                    <h3 className="text-sm text-gray-800 line-clamp-2">
-                      {productName || "Franko Trading"}
-                    </h3>
+                 <div className="p-3 text-center space-y-1">
+  <h3 className="text-sm text-gray-800 line-clamp-2">
+    {productName || "Franko Trading"}
+  </h3>
 
-                    <div className="flex flex-col items-center justify-center gap-1 mt-1 md:flex-row">
-                      <span className="text-red-500 font-medium text-sm">
-                        {formatPrice(price)}
-                      </span>
-                      {oldPrice > 0 && (
-                        <span className="text-xs line-through text-gray-400">
-                          {formatPrice(oldPrice)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+  <div className="flex flex-col items-center justify-center gap-1 mt-1 md:flex-row">
+    <span className="text-red-500 font-medium text-sm">
+      {formatPrice(price)}
+    </span>
+    {oldPrice > 0 && (
+      <span className="text-xs line-through text-gray-400">
+        {formatPrice(oldPrice)}
+      </span>
+    )}
+  </div>
+</div>
+
                 </div>
               );
             })}

@@ -1,60 +1,34 @@
+
+// src/Redux/Slice/brandSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "./AxiosInstance";
 
-/* =========================
-   ASYNC THUNKS
-========================= */
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-// Fetch Brands
-export const fetchBrands = createAsyncThunk(
-  "brand/fetchBrands",
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await axiosInstance.get("/Brand/Get-Brand");
-      return response.data;
-    } catch (error) {
-      return rejectWithValue(
-        error.response?.data || "Failed to fetch brands"
-      );
-    }
-  }
-);
+// Fetch brands
+export const fetchBrands = createAsyncThunk("brand/fetchBrands", async () => {
+  const response = await axiosInstance.get(`${API_BASE_URL}/Brand/Get-Brand`);
+  return response.data; // Adjust based on your backend response
+});
 
-// Add Brand
-export const addBrand = createAsyncThunk(
-  "brand/addBrand",
-  async (brandData, { rejectWithValue }) => {
-    try {
-      if (!brandData.get("BrandName")) {
-        throw new Error("BrandName is required.");
-      }
-      if (!brandData.get("CategoryId")) {
-        throw new Error("CategoryId is required.");
-      }
-      if (!brandData.get("LogoName")) {
-        throw new Error("LogoName is required.");
-      }
+// Add a new brand
+export const addBrand = createAsyncThunk("brand/addBrand", async (brandData) => {
 
-      const response = await axiosInstance.post(
-        "/Brand/Setup-Brand",
-        brandData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+  if (!brandData.get("BrandName")) throw new Error("BrandName is required.");
+  if (!brandData.get("CategoryId")) throw new Error("CategoryId is required.");
+  if (!brandData.get("LogoName")) throw new Error("LogoName is required.");
 
-      return response.data;
-    } catch (error) {
-      return rejectWithValue(
-        error.response?.data || error.message
-      );
-    }
-  }
-);
+  const response = await axiosInstance.post(
+    `${API_BASE_URL}/Brand/Setup-Brand`,
+    brandData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
 
-// Update Brand
+  return response.data;
+});
+
+
+
 export const updateBrand = createAsyncThunk(
   "brand/updateBrand",
   async ({ id, formData }, { rejectWithValue }) => {
@@ -62,29 +36,21 @@ export const updateBrand = createAsyncThunk(
       if (!id) {
         throw new Error("Brand ID is required to update the brand.");
       }
-
       const response = await axiosInstance.post(
-        `/Brand/Put-Brand/${id}`,
+        `${API_BASE_URL}/Brand/Put-Brand/${id}`,
         formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
+        { headers: { "Content-Type": "multipart/form-data" } }
       );
-
       return response.data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data || "Failed to update brand"
+        error.response?.data?.message || "Failed to update brand"
       );
     }
   }
 );
 
-/* =========================
-   SLICE
-========================= */
+  
 
 const brandSlice = createSlice({
   name: "brands",
@@ -96,8 +62,6 @@ const brandSlice = createSlice({
   reducers: {},
   extraReducers: (builder) => {
     builder
-
-      // FETCH
       .addCase(fetchBrands.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -108,10 +72,8 @@ const brandSlice = createSlice({
       })
       .addCase(fetchBrands.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
+        state.error = action.error.message;
       })
-
-      // ADD
       .addCase(addBrand.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -122,16 +84,13 @@ const brandSlice = createSlice({
       })
       .addCase(addBrand.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
+        state.error = action.error.message;
       })
-
-      // UPDATE
       .addCase(updateBrand.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(updateBrand.fulfilled, (state, action) => {
-        state.loading = false;
         const index = state.brands.findIndex(
           (brand) => brand.brandId === action.payload.brandId
         );
@@ -141,7 +100,7 @@ const brandSlice = createSlice({
       })
       .addCase(updateBrand.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
+        state.error = action.payload || action.error.message;
       });
   },
 });
