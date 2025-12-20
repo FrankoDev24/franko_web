@@ -91,14 +91,14 @@ const AnnouncementBar = () => {
             </a>
 
             <a
-              href="https://wa.me/233246422338"
+              href="https://wa.me/233555939311"
               className="flex items-center text-white transition-all duration-200 hover:scale-105 rounded px-1.5 py-0.5"
               style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
               target="_blank"
               rel="noopener noreferrer"
             >
               <WhatsAppIcon />
-              <span className="font-semibold text-xs ml-1">0246422338</span>
+              <span className="font-semibold text-xs ml-1">0555939311</span>
             </a>
           </div>
         </div>
@@ -139,14 +139,14 @@ const AnnouncementBar = () => {
             </a>
 
             <a
-              href="https://wa.me/233246422338"
+              href="https://wa.me/233555939311"
               className="flex items-center text-white rounded px-1.5 py-0.5"
               style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
               target="_blank"
               rel="noopener noreferrer"
             >
               <WhatsAppIcon />
-              <span className="font-semibold text-xs ml-0.5">0246422338</span>
+              <span className="font-semibold text-xs ml-0.5">0555939311</span>
             </a>
           </div>
         </div>

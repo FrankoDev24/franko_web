@@ -37,12 +37,12 @@ const Footer = () => {
               href="tel:+0246422338" 
               className="text-white text-xs md:text-sm font-bold hover:text-green-400 transition-colors duration-300 block mb-3"
             >
-              +233246422338
+              +233555939311
             </a>
             <Button
               type="primary"
               className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 border-0 flex items-center gap-2 px-4 py-2 h-10 rounded-lg font-medium shadow-md hover:shadow-lg transition-all duration-300"
-              onClick={() => window.open('https://wa.me/233246422338', '_blank')}
+              onClick={() => window.open('https://wa.me/233555939311', '_blank')}
             >
               <FaWhatsapp className="text-xs" />
               Chat with us
