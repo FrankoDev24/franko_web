@@ -3,21 +3,29 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 export const addProduct = createAsyncThunk(
-  'products/addProduct',
-  async (productData) => {
+  "products/addProduct",
+  async (productData, { rejectWithValue }) => {
+    const isFormData = productData instanceof FormData;
+
     const response = await fetch(`${API_BASE_URL}/Product/Product-Post`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(productData),
+      method: "POST",
+      // ✅ If FormData, send it directly
+      body: isFormData ? productData : JSON.stringify(productData),
+      // ✅ DO NOT set Content-Type for FormData (browser sets boundary)
+      headers: isFormData ? undefined : { "Content-Type": "application/json" },
     });
-    
+
+    // Try to return useful error details from API (validation errors, etc.)
+    const contentType = response.headers.get("content-type") || "";
+    const payload = contentType.includes("application/json")
+      ? await response.json().catch(() => null)
+      : await response.text().catch(() => null);
+
     if (!response.ok) {
-      throw new Error('Failed to add product');
+      return rejectWithValue(payload || "Failed to add product");
     }
-    
-    return response.json();
+
+    return payload;
   }
 );
 

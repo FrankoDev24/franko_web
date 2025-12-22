@@ -246,7 +246,7 @@ const productIds = [
 "48b0ef1a-f81f-423e-b430-986af8d5e6f3",
 "a9a3510f-47a6-4e86-b7f8-12a853edec58",
 "3d710945-258c-49bc-80e3-32ecb65c692b",
-
+"f837fc2c-5e9f-43e9-b5e4-fa38cb35756b",
 
 "d443525a-999d-4a86-8de6-3ebfb1782e61",
 
