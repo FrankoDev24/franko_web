@@ -536,7 +536,7 @@ useEffect(() => {
         footer={null}
         centered
         width={600}
-        title="Product Details"
+        title="Product Detail"
       >
         {selectedProduct && (
           <div>
