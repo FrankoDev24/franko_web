@@ -1,310 +1,324 @@
-// src/redux/slices/productSlice.js
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import axiosInstance from "./AxiosInstance";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+/* ===========================
+   ASYNC THUNKS
+=========================== */
+
+// Add product
 export const addProduct = createAsyncThunk(
-  "products/addProduct",
+  'products/addProduct',
   async (productData, { rejectWithValue }) => {
-    const isFormData = productData instanceof FormData;
-
-    const response = await fetch(`${API_BASE_URL}/Product/Product-Post`, {
-      method: "POST",
-      // ✅ If FormData, send it directly
-      body: isFormData ? productData : JSON.stringify(productData),
-      // ✅ DO NOT set Content-Type for FormData (browser sets boundary)
-      headers: isFormData ? undefined : { "Content-Type": "application/json" },
-    });
-
-    // Try to return useful error details from API (validation errors, etc.)
-    const contentType = response.headers.get("content-type") || "";
-    const payload = contentType.includes("application/json")
-      ? await response.json().catch(() => null)
-      : await response.text().catch(() => null);
-
-    if (!response.ok) {
-      return rejectWithValue(payload || "Failed to add product");
-    }
-
-    return payload;
-  }
-);
-
-// Async thunk for updating a product
-export const updateProduct = createAsyncThunk(
-  'products/updateProduct',
-  async (productData) => {
-    const { Productid, ...restData } = productData;
-
-    const response = await fetch(
-      `${API_BASE_URL}/Product/Product_Put/${Productid}`,
-      {
-        method: 'POST',
-        headers: {
-          'accept': 'text/plain',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(restData),
-      }
-    );
-    
-    if (!response.ok) {
-      throw new Error('Failed to update product');
-    }
-    
-    return response.json();
-  }
-);
-
-// Async thunk for updating a product's image
-export const updateProductImage = createAsyncThunk(
-  'products/updateProductImage',
-  async ({ productID, imageFile }) => {
-    const formData = new FormData();
-    formData.append('ProductId', productID);
-    formData.append('ImageName', imageFile);
-
-    const response = await fetch(
-      `${API_BASE_URL}/Product/Product-Image-Edit`,
-      {
-        method: 'POST',
-        body: formData,
-      }
-    );
-    
-    if (!response.ok) {
-      throw new Error('Failed to update product image');
-    }
-
-    return response.json();
-  }
-);
-
-// Async thunk for fetching all products
-export const fetchAllProducts = createAsyncThunk(
-  'products/fetchAllProducts',
-  async () => {
-    const response = await fetch(`${API_BASE_URL}/Product/Product-Get`);
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch all products');
-    }
-    
-    const products = await response.json();
-
-    return products.sort(
-      (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
-    );
-  }
-);
-
-// Async thunk for fetching products
-export const fetchProducts = createAsyncThunk(
-  'products/fetchProducts',
-  async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/Product/Product-Get`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch products');
-      }
+      const isFormData = productData instanceof FormData;
 
-      const products = await response.json();
+      const response = await axiosInstance.post(
+        '/Product/Product-Post',
+        productData,
+        {
+          headers: isFormData
+            ? { 'Content-Type': 'multipart/form-data' }
+            : { 'Content-Type': 'application/json' },
+        }
+      );
 
-      const filteredProducts = products
+      // Axios returns parsed data directly
+      return response.data;
+    } catch (error) {
+      // Surface server validation errors back to UI
+      const payload = error.response?.data ?? error.message ?? 'Failed to add product';
+      return rejectWithValue(payload);
+    }
+  }
+);
+
+
+
+// Update product
+export const updateProduct = createAsyncThunk(
+  "products/updateProduct",
+  async (productData, { rejectWithValue }) => {
+    try {
+      const { Productid, ...restData } = productData;
+
+      const { data } = await axiosInstance.post(
+        `/Product/Product_Put/${Productid}`,
+        restData,
+        {
+          headers: {
+            accept: "text/plain",
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to update product"
+      );
+    }
+  }
+);
+
+// Update product image
+export const updateProductImage = createAsyncThunk(
+  "products/updateProductImage",
+  async ({ productID, imageFile }, { rejectWithValue }) => {
+    try {
+      const formData = new FormData();
+
+      // 🔴 IMPORTANT: field names MUST match backend DTO exactly
+      formData.append("ProductId", productID);
+
+      // 🔴 Must be a FILE object
+      formData.append("ImageName", imageFile, imageFile.name);
+
+
+      const response = await axiosInstance.post(
+        "/Product/Product-Image-Edit",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error("Upload error:", error.response?.data || error.message);
+      return rejectWithValue(
+        error.response?.data || "Failed to update product image"
+      );
+    }
+  }
+);
+
+
+// Fetch all products
+export const fetchAllProducts = createAsyncThunk(
+  "products/fetchAllProducts",
+  async (_, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.get(
+        "/Product/Product-Get"
+      );
+
+      return data.sort(
+        (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
+      );
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch all products"
+      );
+    }
+  }
+);
+
+// Fetch active products (status === 1)
+export const fetchProducts = createAsyncThunk(
+  "products/fetchProducts",
+  async (_, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.get(
+        "/Product/Product-Get"
+      );
+
+      return data
         .filter((product) => product.status == 1)
         .sort(
           (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
         );
-      return filteredProducts;
     } catch (error) {
-      console.error('Error fetching products:', error);
-      throw error;
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch products"
+      );
     }
   }
 );
 
+// Fetch top 10 products
 export const fetchProduct = createAsyncThunk(
-  'products/fetchProduct',
-  async () => {
+  "products/fetchProduct",
+  async (_, { rejectWithValue }) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/Product/Product-Get`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch product');
-      }
-      
-      const products = await response.json();
+      const { data } = await axiosInstance.get(
+        "/Product/Product-Get"
+      );
 
-      const filteredProducts = products
+      return data
         .filter((product) => product.status == 1)
         .sort(
           (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
         )
         .slice(0, 10);
-
-      return filteredProducts;
     } catch (error) {
-      console.error('Error fetching products:', error);
-      throw error;
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch product"
+      );
     }
   }
 );
 
+// Fetch paginated products
 export const fetchPaginatedProducts = createAsyncThunk(
-  'products/fetchPaginatedProducts',
+  "products/fetchPaginatedProducts",
   async ({ pageNumber, pageSize = 10 }, { rejectWithValue }) => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/Product/Product-Get-Paginated?PageNumber=${pageNumber}&PageSize=${pageSize}`
+      const { data } = await axiosInstance.get(
+        "/Product/Product-Get-Paginated",
+        { params: { PageNumber: pageNumber, PageSize: pageSize } }
       );
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch paginated products');
-      }
-      
-      const data = await response.json();
 
-      const sortedData = data.sort(
+      return data.sort(
         (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
       );
-
-      return sortedData;
     } catch (error) {
-      console.error('Error fetching paginated products:', error);
       return rejectWithValue(
-        error.message || 'Failed to fetch products'
+        error.response?.data || "Failed to fetch products"
       );
     }
   }
 );
 
+// Fetch by category
 export const fetchProductsByCategory = createAsyncThunk(
-  'products/fetchProductsByCategory',
-  async (categoryId) => {
-    const response = await fetch(
-      `${API_BASE_URL}/Product/Product-Get-by-Category/${categoryId}`
-    );
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch products by category');
-    }
-    
-    const data = await response.json();
-    return { categoryId, products: data };
-  }
-);
-
-export const fetchProductsByBrand = createAsyncThunk(
-  'products/fetchProductsByBrand',
-  async (brandId) => {
-    const response = await fetch(
-      `${API_BASE_URL}/Product/Product-Get-by-Brand/${brandId}`
-    );
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch products by brand');
-    }
-    
-    const data = await response.json();
-    return data.sort(
-      (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
-    );
-  }
-);
-
-export const fetchProductsByShowroom = createAsyncThunk(
-  'products/fetchProductsByShowroom',
-  async (showRoomID) => {
-    const response = await fetch(
-      `${API_BASE_URL}/Product/Product-Get-by-ShowRoom/${showRoomID}`
-    );
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch products by showroom');
-    }
-    
-    const data = await response.json();
-    return {
-      showRoomID,
-      products: data.sort(
-        (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
-      ),
-    };
-  }
-);
-
-// Async thunk for fetching a product by its ID
-export const fetchProductById = createAsyncThunk(
-  'products/fetchProductById',
-  async (productId) => {
-    const response = await fetch(
-      `${API_BASE_URL}/Product/Product-Get-by-Product_ID/${productId}`
-    );
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch product by ID');
-    }
-    
-    return response.json();
-  }
-);
-
-export const fetchActiveProducts = createAsyncThunk(
-  'products/fetchActiveProducts',
-  async () => {
-    const response = await fetch(
-      `${API_BASE_URL}/Product/Product-Get-Active`
-    );
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch active products');
-    }
-    
-    return response.json();
-  }
-);
-
-export const fetchInactiveProducts = createAsyncThunk(
-  'products/fetchInactiveProducts',
-  async () => {
-    const response = await fetch(`${API_BASE_URL}/Product/Product-Get-0`);
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch inactive products');
-    }
-    
-    return response.json();
-  }
-);
-
-export const fetchProductByShowroomAndRecord = createAsyncThunk(
-  'products/fetchProductByShowroomAndRecord',
-  async ({ showRoomCode, recordNumber }) => {
+  "products/fetchProductsByCategory",
+  async (categoryId, { rejectWithValue }) => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/Product/Product-Get-by-ShowRoom_RecordNumber?ShowRommCode=${showRoomCode}&RecordNumber=${recordNumber}`
-      );
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch product by showroom and record number');
-      }
-
-      const data = await response.json();
-
-      const sortedProducts = data.sort(
-        (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
+      const { data } = await axiosInstance.get(
+        `/Product/Product-Get-by-Category/${categoryId}`
       );
 
-      return { showRoomCode, products: sortedProducts };
+      return { categoryId, products: data };
     } catch (error) {
-      console.error(
-        'Error fetching product by showroom and record number:',
-        error
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch products by category"
       );
-      throw error;
     }
   }
 );
+
+// Fetch by brand
+export const fetchProductsByBrand = createAsyncThunk(
+  "products/fetchProductsByBrand",
+  async (brandId, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.get(
+        `/Product/Product-Get-by-Brand/${brandId}`
+      );
+
+      return data.sort(
+        (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
+      );
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch products by brand"
+      );
+    }
+  }
+);
+
+// Fetch by showroom
+export const fetchProductsByShowroom = createAsyncThunk(
+  "products/fetchProductsByShowroom",
+  async (showRoomID, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.get(
+        `/Product/Product-Get-by-ShowRoom/${showRoomID}`
+      );
+
+      return {
+        showRoomID,
+        products: data.sort(
+          (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
+        ),
+      };
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch products by showroom"
+      );
+    }
+  }
+);
+
+// Fetch product by ID
+export const fetchProductById = createAsyncThunk(
+  "products/fetchProductById",
+  async (productId, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.get(
+        `/Product/Product-Get-by-Product_ID/${productId}`
+      );
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch product by ID"
+      );
+    }
+  }
+);
+
+// Fetch active products
+export const fetchActiveProducts = createAsyncThunk(
+  "products/fetchActiveProducts",
+  async (_, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.get(
+        "/Product/Product-Get-Active"
+      );
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch active products"
+      );
+    }
+  }
+);
+
+// Fetch inactive products
+export const fetchInactiveProducts = createAsyncThunk(
+  "products/fetchInactiveProducts",
+  async (_, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.get(
+        "/Product/Product-Get-0"
+      );
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch inactive products"
+      );
+    }
+  }
+);
+
+// Fetch by showroom + record
+export const fetchProductByShowroomAndRecord = createAsyncThunk(
+  "products/fetchProductByShowroomAndRecord",
+  async ({ showRoomCode, recordNumber }, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.get(
+        "/Product/Product-Get-by-ShowRoom_RecordNumber",
+        { params: { ShowRommCode: showRoomCode, RecordNumber: recordNumber } }
+      );
+
+      return {
+        showRoomCode,
+        products: data.sort(
+          (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
+        ),
+      };
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data ||
+          "Failed to fetch product by showroom and record number"
+      );
+    }
+  }
+);
+
 
 // Create the product slice
 const productSlice = createSlice({

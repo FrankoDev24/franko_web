@@ -9,7 +9,7 @@ const formatPrice = (amount) => {
 };
 
 const PrintableInvoice = React.forwardRef(({ orderId, salesOrder, deliveryAddress }, ref) => {
-  const backendBaseURL = 'https://smfteapi.salesmate.app/';
+  const backendBaseURL = 'https://fte002n1.salesmate.app/';
   const customer = salesOrder[0];
   const totalAmount = salesOrder.reduce((acc, order) => acc + order.total, 0);
   const subAmount = totalAmount;

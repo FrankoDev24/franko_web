@@ -57,7 +57,7 @@ const AdminProducts = () => {
   const [refreshLoading, setRefreshLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
 
-  const backendBaseURL = import.meta.env.VITE_API_BASE_URL;
+  const backendBaseURL = 'https://fte002n1.salesmate.app/';
 
   // Check if any data is loading
   const isLoading = productsLoading || brandsLoading || showroomsLoading || refreshLoading;

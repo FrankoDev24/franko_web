@@ -257,7 +257,7 @@ const storeCheckoutDetailsInLocalStorage = (checkoutDetails, addressDetails) => 
   const payload = {
     totalAmount,
     description: `Payment for ${cartItems.map((item) => item.productName).join(", ")}`,
-    callbackUrl: "https://smfteapi.salesmate.app/PaymentSystem/PostHubtelCallBack",
+    callbackUrl: "https://fte002n1.salesmate.app/PaymentSystem/PostHubtelCallBack",
     returnUrl: `https://www.frankotrading.com/payment-success/${orderId}`,
     cancellationUrl: "https://www.frankotrading.com/order-cancelled",
     merchantAccountNumber: "2020892",
@@ -546,7 +546,7 @@ const handleCheckout = async () => {
       </div>;
     }
     
-    const backendBaseURL = "https://smfteapi.salesmate.app";
+    const backendBaseURL = "https://fte002n1.salesmate.app";
     const imageUrl = `${backendBaseURL}/Media/Products_Images/${imagePath.split("\\").pop()}`;
     
     return (

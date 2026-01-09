@@ -1,37 +1,37 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const AUTO_LOGOUT_INTERVAL = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
+import axiosInstance from './AxiosInstance';
 
-// Helper to update the last activity time
+const AUTO_LOGOUT_INTERVAL = 3 * 60 * 60 * 1000; // 3 hours
+
+// Helpers
 const updateLastActivityTime = () => {
-  localStorage.setItem('loginTime', Date.now());
-};
-// Periodically check for auto-logout
-const checkAutoLogout = (dispatch) => {
-  const loginTime = localStorage.getItem('loginTime');
-  if (loginTime && Date.now() - loginTime > AUTO_LOGOUT_INTERVAL) {
-    dispatch(logoutUser());}
+  localStorage.setItem('loginTime', String(Date.now()));
 };
 
 export const startAutoLogoutCheck = (dispatch) => {
+  // Call this once during app startup: startAutoLogoutCheck(store.dispatch)
   setInterval(() => {
-    const loginTime = localStorage.getItem('loginTime');
+    const loginTime = Number(localStorage.getItem('loginTime') || 0);
     if (loginTime && Date.now() - loginTime > AUTO_LOGOUT_INTERVAL) {
       dispatch(logoutUser());
     }
-  }, 60000); // Check every minute
+  }, 60_000); // every minute
 };
 
-// Async thunk for creating a new user
+// Thunks
 export const createUser = createAsyncThunk(
   'users/createUser',
   async (userData, { rejectWithValue }) => {
     try {
-      const response = await axios.post(`${API_BASE_URL}/Users/User-Post`, userData);
-      return response.data;
+      const res = await axiosInstance.post('/Users/User-Post', userData);
+      return res.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data || 'An unknown error occurred.');
+      const payload =
+        error.response?.data?.message ??
+        error.response?.data ??
+        error.message ??
+        'An unknown error occurred.';
+      return rejectWithValue(payload);
     }
   }
 );
@@ -41,7 +41,7 @@ export const fetchUsers = createAsyncThunk(
   "users/fetchUsers",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/Users/Users-Get`);
+      const response = await axiosInstance.get(`/Users/Users-Get`);
  
       return response.data;
     } catch (error) {
@@ -51,46 +51,53 @@ export const fetchUsers = createAsyncThunk(
   }
 );
 
-// Async thunk for login
+
 export const loginUser = createAsyncThunk(
   'users/loginUser',
   async ({ contact, password }, { dispatch, rejectWithValue }) => {
     try {
-      const fetchUsersResult = await dispatch(fetchUsers()).unwrap();
+      const users = await dispatch(fetchUsers()).unwrap();
 
-      const normalizedUsers = fetchUsersResult.map((user) => ({
-        ...user,
-        contact: user.contact || user.contactNumber,
+      const normalizedUsers = (Array.isArray(users) ? users : []).map((u) => ({
+        ...u,
+        contact: u.contact ?? u.contactNumber,
       }));
 
       const matchingUser = normalizedUsers.find(
-        (user) => user.contact === contact && user.password === password
+        (u) => u.contact === contact && u.password === password
       );
 
-      if (matchingUser) {
-        const loginTime = Date.now();
-        localStorage.setItem('user', (matchingUser));
-        localStorage.setItem('loginTime', loginTime);
-        return matchingUser;
-      } else {
+      if (!matchingUser) {
         return rejectWithValue('Invalid contact number or password.');
       }
+
+      const loginTime = Date.now();
+      localStorage.setItem('user', JSON.stringify(matchingUser));
+      localStorage.setItem('loginTime', String(loginTime));
+      return matchingUser;
     } catch (error) {
-      return rejectWithValue(error.message || 'An unknown error occurred.');
+      const payload = typeof error === 'string' ? error : (error?.message ?? 'An unknown error occurred.');
+      return rejectWithValue(payload);
     }
   }
 );
 
 // Initial state
 const initialState = {
-  currentUser: (localStorage.getItem('user')) || null,
+  currentUser: (() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || 'null');
+    } catch {
+      return null;
+    }
+  })(),
   currentUserDetails: null,
-  userList: [],
+  users: [],           // unified key (was userList)
   loading: false,
   error: null,
 };
 
-// Create the user slice
+// Slice
 const userSlice = createSlice({
   name: 'user',
   initialState,
@@ -102,11 +109,11 @@ const userSlice = createSlice({
       localStorage.removeItem('loginTime');
     },
     clearUsers: (state) => {
-      state.userList = [];
+      state.users = [];
     },
     setUser: (state, action) => {
       state.currentUser = action.payload;
-      localStorage.setItem('user', (action.payload));
+      localStorage.setItem('user', JSON.stringify(action.payload));
       updateLastActivityTime();
     },
     clearSelectedUser: (state) => {
@@ -115,52 +122,53 @@ const userSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // createUser
       .addCase(createUser.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(createUser.fulfilled, (state, action) => {
         state.loading = false;
-        if (action.payload && action.payload.ResponseCode === '1') {
-          const newUser = {
-            ...action.meta.arg,
-            ...action.payload,
-          };
+        // If your API uses a ResponseCode check, keep it; otherwise store user
+        if (action.payload?.ResponseCode === '1' || action.payload) {
+          const newUser = { ...action.meta.arg, ...action.payload };
           state.currentUser = newUser;
-          localStorage.setItem('user', (newUser));
+          localStorage.setItem('user', JSON.stringify(newUser));
         } else {
           state.error = 'Failed to create user.';
         }
       })
       .addCase(createUser.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error?.message || 'An unknown error occurred.';
+        state.error = action.payload || action.error?.message || 'An unknown error occurred.';
       })
-      
+
+      // fetchUsers
       .addCase(fetchUsers.pending, (state) => {
         state.loading = true;
+        state.error = null;
       })
       .addCase(fetchUsers.fulfilled, (state, action) => {
-    
         state.loading = false;
-        state.users = action.payload; // ✅ Ensure users array is updated
+        state.users = Array.isArray(action.payload) ? action.payload : [];
       })
-      
       .addCase(fetchUsers.rejected, (state, action) => {
-        state.error = action.error.message;
         state.loading = false;
+        // IMPORTANT: when using rejectWithValue, prefer action.payload
+        state.error = action.payload || action.error?.message || 'An error occurred.';
       })
+
+      // loginUser
       .addCase(loginUser.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-    .addCase(loginUser.fulfilled, (state, action) => {
-  state.loading = false;
-  state.currentUser = action.payload;
-  state.currentUserDetails = action.payload;
-  localStorage.setItem('user', (action.payload));
-})
-
+      .addCase(loginUser.fulfilled, (state, action) => {
+        state.loading = false;
+        state.currentUser = action.payload;
+        state.currentUserDetails = action.payload;
+        localStorage.setItem('user', JSON.stringify(action.payload));
+      })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || 'Login failed.';
@@ -168,15 +176,10 @@ const userSlice = createSlice({
   },
 });
 
-// Start auto-logout monitoring after user logs in
 export const { logoutUser, clearUsers, setUser, clearSelectedUser } = userSlice.actions;
 
-// Monitor user activity
+// Activity tracking
 document.addEventListener('mousemove', updateLastActivityTime);
 document.addEventListener('keydown', updateLastActivityTime);
 
-// Export the reducer
 export default userSlice.reducer;
-
-// Initialize auto-logout check on app start
-startAutoLogoutCheck((action) => userSlice.actions[action]);

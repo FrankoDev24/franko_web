@@ -7,7 +7,7 @@ import "@splidejs/react-splide/css"; // default CSS
 
 import ban from "../assets/banners.jpg";
 
-const backendBaseURL = "https://smfteapi.salesmate.app";
+const backendBaseURL = "https://fte002n1.salesmate.app/";
 
 const Carousel = () => {
   const [loading, setLoading] = useState(true);

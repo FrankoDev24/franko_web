@@ -299,14 +299,14 @@ const Speakers = () => {
         <meta property="og:type" content="website" />
         <meta property="og:title" content="Best Speakers for Sale | Affordable Audio Systems" />
         <meta property="og:description" content="Shop high-quality speakers for your home or office at unbeatable prices." />
-        <meta property="og:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
+        <meta property="og:image" content={filteredProducts.length > 0 ? `https://fte002n1.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
         <meta property="og:url" content="https://www.frankotrading.com/speakers" />
 
         {/* Twitter Cards */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="Best Speakers for Sale | Affordable Audio Systems" />
         <meta name="twitter:description" content="Find top-quality speakers with great sound at affordable prices." />
-        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
+        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://fte002n1.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
         <link rel="canonical" href="https://www.frankotrading.com/speakers" />
         {/* JSON-LD Structured Data for Rich Snippets */}
         <script type="application/ld+json">
@@ -320,7 +320,7 @@ const Speakers = () => {
               "@type": "Product",
               "position": index + 1,
               "name": item.productName,
-              "image": `https://smfteapi.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+              "image": `https://fte002n1.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
               "description": item.description,
               "sku": item.productID,
               "category": item.categoryName,

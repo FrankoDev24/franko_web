@@ -21,7 +21,7 @@ const AdvertisementPage = () => {
   const [previewLogo, setPreviewLogo] = useState(null);
 const [isModalVisible, setIsModalVisible] = useState(false);
 
-  const backendBaseURL = "https://smfteapi.salesmate.app";
+  const backendBaseURL = "https://fte002n1.salesmate.app/";
 
 
   // Fetch Advertisements whenever the selectedAdsName changes

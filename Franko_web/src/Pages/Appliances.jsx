@@ -308,13 +308,13 @@ const Appliances = () => {
         />
         <meta property="og:type" content="product.group" />
         <meta property="og:url" content="https://www.frankotrading.com/blender" />
-        <meta property="og:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
+        <meta property="og:image" content={filteredProducts.length > 0 ? `https://fte002n1.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
 
         {/* Twitter Card */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="Best Appliances in Ghana | Buy Affordable & Quality Appliances" />
         <meta name="twitter:description" content="Find top-quality appliances in Ghana at the best prices. Buy now and enjoy fast delivery!" />
-        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
+        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://fte002n1.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
 
         {/* Canonical URL */}
         <link rel="canonical" href="https://www.frankotrading.com/appliances" />
@@ -332,7 +332,7 @@ const Appliances = () => {
               "@type": "Product",
               "position": index + 1,
               "name": item.productName,
-              "image": `https://smfteapi.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+              "image": `https://fte002n1.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
               "description": item.description,
               "brand": {
                 "@type": "Brand",

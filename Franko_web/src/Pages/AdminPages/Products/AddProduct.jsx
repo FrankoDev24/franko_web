@@ -10,8 +10,7 @@ import {
   Row, 
   Col, 
   Divider, 
-  Typography,
-  AutoComplete 
+  Typography
 } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import PropTypes from 'prop-types';
@@ -78,31 +77,40 @@ const AddProduct = ({ visible, onClose }) => {
   const generateRandomId = () => Math.floor(10000 + Math.random() * 90000).toString();
 
   const onFinish = async (values) => {
+    // Build values in the exact casing the API expects
+    const apiValues = {
+      ProductName: values.productName,
+      Price: values.price ? Number(values.price) : 0,
+      OldPrice: values.oldPrice ? Number(values.oldPrice) : 0,
+      ProductDiscount: values.ProductDiscount ? Number(values.ProductDiscount) : 0,
+      Quantity: values.Quantity ? Number(values.Quantity) : 0,
+      Color: values.Color,
+      Tag: values.Tag,
+      Description: values.description,
+      BrandId: values.brandId,
+      ShowRoomId: values.showRoomId,
+      CategoryId: values.categoryId,
+      Status: values.status !== undefined ? Number(values.status) : 0, // 1 or 0
+      ProductId2: values.ProductId2 || generateRandomId(),
+      ProductId3: values.ProductId3 || generateRandomId(),
+      ProductID: uuidv4(),
+      DateCreated: new Date().toISOString(),
+      Userid: 'user-uuid', // TODO: replace with actual logged-in user id
+    };
+
     const formData = new FormData();
-
-    formData.append('UserId', 'user-uuid'); // Replace with actual ID
-    formData.append('productID', uuidv4());
-    formData.append('dateCreated', new Date().toISOString());
-
-   const finalValues = {
-  ...values,
-  oldPrice: values.oldPrice || '0',
-  ProductDiscount: values.ProductDiscount || '0', // default to 0 if empty
-  ProductId2: values.ProductId2 || generateRandomId(),
-  ProductId3: values.ProductId3 || generateRandomId(),
-};
-
-
-    Object.entries(finalValues).forEach(([key, value]) => {
-      formData.append(key, value);
+    Object.entries(apiValues).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        formData.append(key, value);
+      }
     });
 
     if (!productImageFile) {
       message.error('Please upload a product image.');
       return;
     }
-
-    formData.append('productImage', productImageFile);
+    // Match API field name
+    formData.append('ProductImage', productImageFile);
 
     try {
       setUploading(true);
@@ -112,8 +120,18 @@ const AddProduct = ({ visible, onClose }) => {
       handleReset();
       onClose();
     } catch (err) {
+      // err is the payload from rejectWithValue
       console.error(err);
-      message.error('Failed to add product.');
+      if (typeof err === 'string') {
+        message.error(err);
+      } else if (err?.title) {
+        message.error(err.title);
+      } else if (err?.errors) {
+        const msgs = Object.values(err.errors).flat();
+        message.error(msgs.join(', '));
+      } else {
+        message.error('Failed to add product.');
+      }
     } finally {
       setUploading(false);
     }
@@ -145,20 +163,16 @@ const AddProduct = ({ visible, onClose }) => {
 
   const uploadProps = {
     beforeUpload: (file) => {
-      // Validate file type
       const isImage = file.type.startsWith('image/');
       if (!isImage) {
         message.error('You can only upload image files!');
         return false;
       }
-
-      // Validate file size (5MB max)
       const isLt5M = file.size / 1024 / 1024 < 5;
       if (!isLt5M) {
         message.error('Image must be smaller than 5MB!');
         return false;
       }
-
       setProductImageFile(file);
       setImagePreview(URL.createObjectURL(file));
       return false;
@@ -166,7 +180,7 @@ const AddProduct = ({ visible, onClose }) => {
     onChange: handleUploadChange,
     showUploadList: false,
     progress: {
-      onProgress: ({ percent }) => setUploadProgress(percent),
+      onProgress: ({ percent }) => setUploadProgress(percent ?? 0),
     },
   };
 
@@ -223,23 +237,16 @@ const AddProduct = ({ visible, onClose }) => {
             </Form.Item>
           </Col>
           <Col span={4}>
-  <Form.Item
-    name="ProductDiscount"
-    label="Discount (₵)"
-    rules={[
-      { pattern: /^\d+(\.\d{1,2})?$/, message: 'Enter a valid discount amount.' }
-    ]}
-  >
-    <Input
-      type="number"
-      prefix="₵"
-      placeholder="0.00"
-      min="0"
-      step="0.01"
-    />
-  </Form.Item>
-</Col>
-
+            <Form.Item
+              name="ProductDiscount"
+              label="Discount (₵)"
+              rules={[
+                { pattern: /^\d+(\.\d{1,2})?$/, message: 'Enter a valid discount amount.' }
+              ]}
+            >
+              <Input type="number" prefix="₵" placeholder="0.00" min="0" step="0.01" />
+            </Form.Item>
+          </Col>
 
           <Col span={8}>
             <Form.Item 
@@ -289,8 +296,8 @@ const AddProduct = ({ visible, onClose }) => {
               rules={[{ required: true, message: 'Please select the status.' }]}
             >
               <Select placeholder="Select stock status">
-                <Option value="1">In Stock</Option>
-                <Option value="0">Out of Stock</Option>
+                <Option value={1}>In Stock</Option>
+                <Option value={0}>Out of Stock</Option>
               </Select>
             </Form.Item>
           </Col>

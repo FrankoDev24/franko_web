@@ -294,13 +294,13 @@ const Laptops = () => {
         <meta name="keywords" content="computers, laptops, desktops, accessories, buy online" />
         <meta property="og:title" content="Laptops - Buy Laptops, Desktops, and Accessories" />
         <meta property="og:description" content="Shop laptops, desktops, and computer accessories at Franko Trading. Choose top brands like HP, Lenovo, Acer, and Dell — with free shipping and warranty support." />
-        <meta property="og:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+        <meta property="og:image" content={filteredProducts.length > 0 ? `https://fte002n1.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
         <meta property="og:url" content="https://www.frankotrading.com/computers"/>
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="Computers - Buy Laptops, Desktops, and Accessories" />
         <meta name="twitter:description" content="Shop laptops, desktops, and computer accessories at Franko Trading. Choose top brands like HP, Lenovo, Acer, and Dell — with free shipping and warranty support." />
-        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://fte002n1.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
         <link rel="canonical" href="https://www.frankotrading.com/computers" />
         {/* JSON-LD Structured Data */}
         <script type="application/ld+json">
@@ -315,7 +315,7 @@ const Laptops = () => {
               "@type": "Product",
               "position": index + 1,
               "name": item.productName,
-              "image": `https://smfteapi.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+              "image": `https://fte002n1.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
               "description": item.description,
               "brand": {
                 "@type": "Brand",

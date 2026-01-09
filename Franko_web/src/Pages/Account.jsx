@@ -160,7 +160,7 @@ const Account = () => {
     { label: 'Verified Member', value: '2025', icon: <Star className="w-5 h-5" />, color: 'bg-red-500' }
   ];
   
-  const backendBaseURL = "https://smfteapi.salesmate.app";
+  const backendBaseURL = "https://fte002n1.salesmate.app";
 
 
   return (

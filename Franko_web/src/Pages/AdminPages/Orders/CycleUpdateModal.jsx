@@ -34,6 +34,7 @@ const CYCLE_OPTIONS = [
   "Delivery",
   "Completed",
   "Multiple Orders",
+  "Testing"
 ];
 
 const CycleUpdateModal = ({ open, onClose, orderId, currentCycle, onUpdated }) => {

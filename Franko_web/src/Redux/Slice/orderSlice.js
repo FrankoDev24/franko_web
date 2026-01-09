@@ -1,158 +1,79 @@
 // src/Redux/Slice/orderSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import axiosInstance from "./AxiosInstance";
 
 // Async thunks
 export const fetchOrdersByDate = createAsyncThunk(
   "orders/fetchOrdersByDate",
   async ({ from, to }, { rejectWithValue }) => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/Order/GetOrdersByDate/${from}/${to}`
+      const { data } = await axiosInstance.get(
+        `/Order/GetOrdersByDate/${from}/${to}`
       );
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch orders by date");
-      }
-      
-      return await response.json();
+      return data;
     } catch (error) {
-      console.error("Error fetching orders by date:", error);
       return rejectWithValue(
-        error.message || "Failed to fetch orders by date"
+        error.response?.data || "Failed to fetch orders by date"
       );
     }
   }
 );
+
 
 export const checkOutOrder = createAsyncThunk(
-  "orders/checkOutOrder",
-  async (
-    {
-      Cartid,
-      orderCode,
-      customerId,
-      PaymentMode,
-      paymentService,
-      PaymentAccountNumber,
-      customerAccountType,
-    },
-    { rejectWithValue }
-  ) => {
+  'orders/checkOutOrder',
+  async (payload, { rejectWithValue }) => {
     try {
-      const payload = {
-        Cartid: Cartid,
-        orderCode: orderCode,
-        customerId: customerId,
-        PaymentMode: PaymentMode,
-        paymentService: paymentService,
-        PaymentAccountNumber: PaymentAccountNumber,
-        customerAccountType: customerAccountType,
-      };
-
-      const response = await fetch(
-        `${API_BASE_URL}/Order/CheckOutDbCart`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-      
-      if (!response.ok) {
-        throw new Error("Failed to checkout order");
-      }
-
-      return await response.json();
+      const { data } = await axiosInstance.post(`/Order/CheckOutDbCart`, payload);
+      return data;
     } catch (error) {
-      return rejectWithValue(
-        error.message || "Failed to checkout order"
-      );
+      return rejectWithValue(toErrorPayload(error, 'Failed to checkout order'));
     }
   }
 );
-
 // New async thunk for fetching orders by customer or agent
+// Fetch orders by customer/agent
 export const fetchOrdersByCustomer = createAsyncThunk(
   "orders/fetchOrdersByCustomerOrAgent",
   async ({ from, to, customerId }, { rejectWithValue }) => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/Order/GetOrderByCustomer?from=${from}&to=${to}&customerId=${customerId}`
-      );
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch orders by customer");
-      }
-
-      const data = await response.json();
+      const { data } = await axiosInstance.get(`/Order/GetOrderByCustomer`, {
+        params: { from, to, customerId },
+      });
       return data || [];
     } catch (error) {
-      console.error("Error fetching orders by customer:", error);
-      return rejectWithValue(
-        error.message || "Failed to fetch orders by customer"
-      );
+      return rejectWithValue(error.response?.data || "Failed to fetch orders");
     }
   }
 );
 
+// Fetch orders by third-party agent
 export const fetchOrdersByThirdParty = createAsyncThunk(
   "orders/fetchOrdersByThirdParty",
   async ({ from, to, ThirdPartyAccountNumber }, { rejectWithValue }) => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/Order/GetOrderByThirdParty?from=${from}&to=${to}&ThirdPartyAccountNumber=${ThirdPartyAccountNumber}`
-      );
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch orders by agent");
-      }
-      
-      return await response.json();
+      const { data } = await axiosInstance.get(`/Order/GetOrderByThirdParty`, {
+        params: { from, to, ThirdPartyAccountNumber },
+      });
+      return data || [];
     } catch (error) {
-      console.error("Error fetching orders by agent:", error);
-      return rejectWithValue(
-        error.message || "Failed to fetch orders by agent"
-      );
+      return rejectWithValue(error.response?.data || "Failed to fetch orders ");
     }
   }
 );
+
 
 export const updateOrderTransition = createAsyncThunk(
   "orders/updateOrderTransition",
   async ({ CycleName, OrderId }, { rejectWithValue }) => {
     try {
-      console.log("Updating order transition with CycleName:", CycleName);
-      console.log("Updating order transition with OrderId:", OrderId);
-
-      const response = await fetch(
-        `${API_BASE_URL}/Order/UpdateOrderTransition/${CycleName}/${OrderId}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
+      const { data } = await axiosInstance.post(
+        `/Order/UpdateOrderTransition/${CycleName}/${OrderId}`
       );
-      
-      if (!response.ok) {
-        throw new Error("Failed to update order transition");
-      }
-
-      const data = await response.json();
-
-      if (!data) {
-        throw new Error("Invalid response format");
-      }
-
       return data;
     } catch (error) {
-      console.error("Error in updateOrderTransition:", error);
       return rejectWithValue(
-        error.message || "Failed to update order transition"
+        error.response?.data || "Failed to update order transition"
       );
     }
   }
@@ -162,160 +83,88 @@ export const fetchOrderLifeCycle = createAsyncThunk(
   "orders/fetchOrderLifeCycle",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/Order/OrderLifeCycle-Get`
+      const { data } = await axiosInstance.get(
+        `/Order/OrderLifeCycle-Get`
       );
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch order lifecycle");
-      }
-      
-      return await response.json();
+      return data;
     } catch (error) {
       return rejectWithValue(
-        error.message || "Failed to fetch order lifecycle"
+        error.response?.data || "Failed to fetch order lifecycle"
       );
     }
   }
 );
+
 
 export const fetchSalesOrderById = createAsyncThunk(
   "orders/fetchSalesOrderById",
   async (orderId, { rejectWithValue }) => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/Order/SalesOrderGet/${orderId}`
+      const { data } = await axiosInstance.get(
+        `/Order/SalesOrderGet/${orderId}`
       );
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch sales order");
-      }
-      
-      return await response.json();
+      return data;
     } catch (error) {
       return rejectWithValue(
-        error.message || "Failed to fetch sales order"
+        error.response?.data || "Failed to fetch sales order"
       );
     }
   }
 );
 
+
 export const updateOrderDelivery = createAsyncThunk(
-  "orders/updateOrderDelivery",
-  async (
-    {
-      orderCode,
-      address,
-      recipientName,
-      recipientContactNumber,
-      orderNote,
-      geoLocation,
-      Customerid,
-    },
-    { rejectWithValue }
-  ) => {
+  'orders/updateOrderDelivery',
+  async ({ orderCode, ...payload }, { rejectWithValue }) => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/Order/OrderDeliveryUpdate/${orderCode}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            Customerid,
-            recipientName,
-            recipientContactNumber,
-            orderCode,
-            address,
-            geoLocation,
-            orderNote,
-          }),
-        }
-      );
-      
-      if (!response.ok) {
-        throw new Error("Failed to update order delivery");
+      const OrderCode = payload?.OrderCode ?? orderCode;
+      if (!OrderCode) {
+        throw new Error('OrderCode is required.');
       }
-      
-      return await response.json();
+      // Include OrderCode in the body with correct casing
+      const body = { ...payload, OrderCode };
+      const { data } = await axiosInstance.post(`/Order/OrderDeliveryUpdate/${OrderCode}`, body);
+      return data;
     } catch (error) {
-      return rejectWithValue(
-        error.message || "Failed to update order delivery"
-      );
+      return rejectWithValue(toErrorPayload(error, 'Failed to update order delivery'));
     }
   }
 );
 
 export const orderAddress = createAsyncThunk(
-  "orders/OrderAddress",
-  async (
-    {
-      customerId,
-      OrderCode,
-      address,
-      geoLocation,
-      RecipientName,
-      RecipientContactNumber,
-      orderNote,
-    },
-    { rejectWithValue }
-  ) => {
+  "orders/orderAddress",
+  async (payload, { rejectWithValue }) => {
     try {
-      const requestData = {
-        customerId,
-        OrderCode,
-        address,
-        geoLocation,
-        RecipientName,
-        RecipientContactNumber,
-        orderNote,
-      };
-
-      const response = await fetch(
-        `${API_BASE_URL}/Order/OrderAddress`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(requestData),
-        }
+      const { data } = await axiosInstance.post(
+        `/Order/OrderAddress`,
+        payload
       );
-      
-      if (!response.ok) {
-        throw new Error("Failed to update order address");
-      }
-
-      return await response.json();
+      return data;
     } catch (error) {
       return rejectWithValue(
-        error.message || "Failed to update order address"
+        error.response?.data || "Failed to update order address"
       );
     }
   }
 );
+
 
 export const fetchOrderDeliveryAddress = createAsyncThunk(
   "orders/fetchOrderDeliveryAddress",
   async (OrderCode, { rejectWithValue }) => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/Order/GetOrderDeliveryAddress/${OrderCode}`
+      const { data } = await axiosInstance.get(
+        `/Order/GetOrderDeliveryAddress/${OrderCode}`
       );
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch delivery address");
-      }
-      
-      return await response.json();
+      return data;
     } catch (error) {
       return rejectWithValue(
-        error.message || "Failed to fetch delivery address"
+        error.response?.data || "Failed to fetch delivery address"
       );
     }
   }
 );
+
 
 // Slice
 const orderSlice = createSlice({
@@ -464,10 +313,8 @@ const orderSlice = createSlice({
         state.loading.lifeCycle = false;
         state.error.lifeCycle = action.payload;
       })
-      .addCase(checkOutOrder.pending, (state) => {
-        state.loading = state.loading || {};
+     .addCase(checkOutOrder.pending, (state) => {
         state.loading.orders = true;
-        state.error = state.error || {};
         state.error.orders = null;
       })
       .addCase(checkOutOrder.fulfilled, (state, action) => {
@@ -476,7 +323,7 @@ const orderSlice = createSlice({
       })
       .addCase(checkOutOrder.rejected, (state, action) => {
         state.loading.orders = false;
-        state.error.orders = action.payload;
+        state.error.orders = action.payload || action.error?.message || 'Failed to checkout order';
       })
       .addCase(orderAddress.pending, (state) => {
         state.loading.deliveryAddress = true;
@@ -500,7 +347,7 @@ const orderSlice = createSlice({
       .addCase(fetchOrderDeliveryAddress.rejected, (state, action) => {
         state.error = action.payload;
       })
-      .addCase(updateOrderDelivery.pending, (state) => {
+        .addCase(updateOrderDelivery.pending, (state) => {
         state.loading.deliveryUpdate = true;
         state.error.deliveryUpdate = null;
       })
@@ -510,7 +357,8 @@ const orderSlice = createSlice({
       })
       .addCase(updateOrderDelivery.rejected, (state, action) => {
         state.loading.deliveryUpdate = false;
-        state.error.deliveryUpdate = action.payload;
+        state.error.deliveryUpdate =
+          action.payload || action.error?.message || 'Failed to update order delivery';
       })
       .addCase(fetchSalesOrderById.pending, (state) => {
         state.loading = true;

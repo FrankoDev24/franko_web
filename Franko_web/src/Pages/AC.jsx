@@ -299,13 +299,13 @@ const Airconditioners = () => {
         <meta property="og:description" content="Find top air conditioner brands at unbeatable prices. Shop now for fast delivery in Ghana." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://www.frankotrading.com/air-condition" />
-        <meta property="og:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+        <meta property="og:image" content={filteredProducts.length > 0 ? `https://fte002n1.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
 
         {/* Twitter Card for better previews on Twitter */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="Buy Air Conditioners Online - Best Prices in Ghana" />
         <meta name="twitter:description" content="Shop the best air conditioners at unbeatable prices with fast delivery in Ghana." />
-        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://fte002n1.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
         
         {/* Canonical URL */}
         <link rel="canonical" href="https://www.frankotrading.com/air-condition" />
@@ -324,7 +324,7 @@ const Airconditioners = () => {
               "name": item.productName,
               "description": item.description,
               "sku": item.productID,
-              "image": `https://smfteapi.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+              "image": `https://fte002n1.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
               "brand": {
                 "@type": "Brand",
                 "name": item.brandName

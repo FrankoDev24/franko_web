@@ -1,161 +1,154 @@
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import axiosInstance from './AxiosInstance';
 
+// Small helper to normalize API array responses
+const toArray = (data) => {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.data)) return data.data; // handles { data: [...] }
+  return [];
+};
 
-import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axios from "axios";
+// Consistent error extraction for thunks
+const toErrorPayload = (error, fallback) => {
+  // Prefer server-provided message/string, else axios message, else a fallback
+  const server =
+    error.response?.data?.message ??
+    (typeof error.response?.data === 'string' ? error.response.data : null);
+  return server || error.message || fallback;
+};
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+/* ===========================
+   ASYNC THUNKS
+=========================== */
 
-// Async Thunks
-
+// Post a new advertisement
 export const postAdvertisment = createAsyncThunk(
-  "advertisment/postAdvertisment",
+  'advertisment/postAdvertisment',
   async (formData, { rejectWithValue }) => {
     try {
-      const response = await axios.post(`${API_BASE_URL}/Advertisment/PostAdvertisment`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+      const res = await axiosInstance.post('/Advertisment/PostAdvertisment', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-      return response.data;
+      return res.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data || error.message);
+      return rejectWithValue(toErrorPayload(error, 'Failed to post advertisement'));
     }
   }
 );
+
+// Get advertisements by AdsName (excluding index 0)
 export const getAdvertisment = createAsyncThunk(
-  "advertisment/get",
+  'advertisment/get',
   async (AdsName, { rejectWithValue }) => {
     try {
-      const response = await axios.get(
-        `https://smfteapi.salesmate.app/Advertisment/GetAdvertisment?AdsName=${encodeURIComponent(AdsName)}`
-      );
+      if (!AdsName) throw new Error('AdsName is required');
+      const res = await axiosInstance.get('/Advertisment/GetAdvertisment', {
+        params: { AdsName },
+      });
 
-      // ✅ Ensure data is an array and remove index 0
-      const formattedData = Array.isArray(response.data)
-        ? response.data.slice(1) // Exclude first advertisement (index 0)
-        : [];
-
-      return formattedData;
+      const rows = toArray(res.data);
+      const formatted = rows.length > 1 ? rows.slice(1) : [];
+      return formatted;
     } catch (error) {
-      return rejectWithValue(error.response?.data || "Failed to fetch advertisements");
+      return rejectWithValue(toErrorPayload(error, 'Failed to fetch advertisements'));
     }
   }
 );
 
-export const getBannerPageAdvertisment = createAsyncThunk(
-  "advertisment/getBannerPage",
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await axios.get(
-        `https://smfteapi.salesmate.app/Advertisment/GetAdvertisment?AdsName=${encodeURIComponent("Banner")}`
-      );
-
-      // Ensure data is an array and exclude index 0
-      const formattedData = Array.isArray(response.data) ? response.data.slice(1) : [];
-
-      return formattedData;
-    } catch (error) {
-      return rejectWithValue(error.response?.data || "Failed to fetch Home Page advertisements");
-    }
-  }
-);
-
+// Get Home Page advertisements
 export const getHomePageAdvertisment = createAsyncThunk(
-  "advertisment/getHomePage",
+  'advertisment/getHomePage',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axios.get(
-        `https://smfteapi.salesmate.app/Advertisment/GetAdvertisment?AdsName=${encodeURIComponent("Home Page")}`
-      );
+      const res = await axiosInstance.get('/Advertisment/GetAdvertisment', {
+        params: { AdsName: 'Home Page' },
+      });
 
-      // ✅ Ensure data is an array and remove index 0
-      const formattedData = Array.isArray(response.data)
-        ? response.data.slice(1) // Exclude first advertisement (index 0)
-        : [];
-
-      return formattedData;
+      const rows = toArray(res.data);
+      const formatted = rows.length > 1 ? rows.slice(1) : [];
+      return formatted;
     } catch (error) {
-      return rejectWithValue(error.response?.data || "Failed to fetch Home Page advertisements");
+      return rejectWithValue(toErrorPayload(error, 'Failed to fetch Home Page advertisements'));
     }
   }
 );
 
+// Get Banner Page advertisements
+export const getBannerPageAdvertisment = createAsyncThunk(
+  'advertisment/getBannerPage',
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await axiosInstance.get('/Advertisment/GetAdvertisment', {
+        params: { AdsName: 'Banner' },
+      });
 
+      const rows = toArray(res.data);
+      const formatted = rows.length > 1 ? rows.slice(1) : [];
+      return formatted;
+    } catch (error) {
+      return rejectWithValue(toErrorPayload(error, 'Failed to fetch Banner advertisements'));
+    }
+  }
+);
 
-
-
+// Update an existing advertisement
 export const putAdvertisment = createAsyncThunk(
-  "advertisment/putAdvertisment",
+  'advertisment/putAdvertisment',
   async ({ Fileid, AdsName, IndexOrder, AdsNote, FileName }, { rejectWithValue }) => {
     try {
       if (!Fileid || !FileName) {
-        throw new Error("Fileid and FileName are required.");
+        throw new Error('Fileid and FileName are required.');
       }
 
-      const fileToUpload = FileName.originFileObj || FileName;
+      const fileToUpload = FileName?.originFileObj || FileName;
 
-      // Construct query parameters correctly
-      const queryParams = new URLSearchParams({
-        Fileid,  
-        AdsName,
-        IndexOrder,
-        AdsNote,
-      }).toString();
-
-      // Prepare FormData for the file
       const formData = new FormData();
-      formData.append("FileName", fileToUpload);
+      formData.append('FileName', fileToUpload);
 
-      // Debugging: Log the request
-      console.log("API Request URL:", `${API_BASE_URL}/Advertisment/PutAdvertisment?${queryParams}`);
-      console.log("FormData being sent:");
-      for (let [key, value] of formData.entries()) {
-        console.log(key, value);
-      }
+      const res = await axiosInstance.post('/Advertisment/PutAdvertisment', formData, {
+        params: { Fileid, AdsName, IndexOrder, AdsNote },
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
 
-      const response = await axios.post(
-        `${API_BASE_URL}/Advertisment/PutAdvertisment?${queryParams}`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
-
-      console.log("API Response:", response.data);
-      return response.data;
+      return res.data;
     } catch (error) {
-      console.error("API Error:", error.response?.data || error.message);
-      return rejectWithValue(error.response?.data || error.message);
+      return rejectWithValue(toErrorPayload(error, 'Failed to update advertisement'));
     }
   }
 );
 
+/* ===========================
+   SLICE
+=========================== */
 
-
-// Slice
+const initialState = {
+  advertisments: [],
+  loading: false,
+  error: null,
+};
 
 const advertismentSlice = createSlice({
-  name: "advertisment",
-  initialState: {
-    advertisments: [],
-    loading: false,
-    error: null,
-  },
+  name: 'advertisment',
+  initialState,
   reducers: {},
   extraReducers: (builder) => {
     builder
+      // POST
       .addCase(postAdvertisment.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(postAdvertisment.fulfilled, (state, action) => {
         state.loading = false;
-        state.advertisments.push(action.payload);
+        // If API returns the created entity, append it; otherwise no-op
+        if (action.payload) state.advertisments.push(action.payload);
       })
       .addCase(postAdvertisment.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
+        state.error = action.payload || action.error?.message || 'Failed to post advertisement';
       })
+
+      // GET by AdsName
       .addCase(getAdvertisment.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -166,8 +159,10 @@ const advertismentSlice = createSlice({
       })
       .addCase(getAdvertisment.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
+        state.error = action.payload || action.error?.message || 'Failed to fetch advertisements';
       })
+
+      // GET Home Page
       .addCase(getHomePageAdvertisment.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -178,38 +173,41 @@ const advertismentSlice = createSlice({
       })
       .addCase(getHomePageAdvertisment.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
+        state.error =
+          action.payload || action.error?.message || 'Failed to fetch Home Page advertisements';
       })
+
+      // GET Banner
       .addCase(getBannerPageAdvertisment.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(getBannerPageAdvertisment.fulfilled, (state, action) => {
         state.loading = false;
-        state.advertisments = action.payload; // Ensure correct field
+        state.advertisments = action.payload;
       })
-      
       .addCase(getBannerPageAdvertisment.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
+        state.error =
+          action.payload || action.error?.message || 'Failed to fetch Banner advertisements';
       })
-      
+
+      // PUT
       .addCase(putAdvertisment.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(putAdvertisment.fulfilled, (state, action) => {
         state.loading = false;
-        const index = state.advertisments.findIndex(ad => ad.Fileid === action.payload.Fileid);
-        if (index !== -1) {
-          state.advertisments[index] = action.payload;
-        }
+        const idx = state.advertisments.findIndex(
+          (ad) => ad.Fileid === action.payload?.Fileid
+        );
+        if (idx !== -1) state.advertisments[idx] = action.payload;
       })
       .addCase(putAdvertisment.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
-      })
-      
+        state.error = action.payload || action.error?.message || 'Failed to update advertisement';
+      });
   },
 });
 

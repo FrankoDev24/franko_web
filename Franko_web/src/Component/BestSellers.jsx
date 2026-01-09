@@ -181,7 +181,7 @@ const isInWishlist = (id) =>
 
   const getImageUrl = (path) =>
     path?.includes("\\")
-      ? `https://smfteapi.salesmate.app/Media/Products_Images/${path.split("\\").pop()}`
+      ? `https://fte002n1.salesmate.app/Media/Products_Images/${path.split("\\").pop()}`
       : path || "https://via.placeholder.com/150";
 
   const formatPrice = (price) =>

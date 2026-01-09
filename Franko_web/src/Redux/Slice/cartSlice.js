@@ -1,15 +1,18 @@
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { v4 as uuidv4 } from "uuid";
+import axiosInstance from "./AxiosInstance";
 
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
-import { v4 as uuidv4 } from 'uuid';
+const CART_KEY = "cart";
+const CART_ID_KEY = "cartId";
 
-const CART_KEY = 'cart';
-const CART_ID_KEY = 'cartId';
+/* ===========================
+   LOCAL STORAGE HELPERS
+=========================== */
 
 // --- Load from secure localStorage ---
 const loadCartFromLocalStorage = () => {
   const savedCart = localStorage.getItem(CART_KEY);
-  // ⚠️ no JSON.parse needed — it's already decrypted and parsed
+  // ⚠️ no JSON.parse needed — already decrypted & parsed
   return Array.isArray(savedCart) ? savedCart : [];
 };
 
@@ -29,79 +32,126 @@ const getOrCreateCartId = () => {
   return cartId;
 };
 
-// --- Initial State ---
+/* ===========================
+   INITIAL STATE
+=========================== */
+
 const initialState = {
   cart: loadCartFromLocalStorage(),
-  totalItems: loadCartFromLocalStorage().reduce((total, item) => total + item.quantity, 0),
+  totalItems: loadCartFromLocalStorage().reduce(
+    (total, item) => total + item.quantity,
+    0
+  ),
   cartId: getOrCreateCartId(),
   loading: false,
   error: null,
 };
 
-// ...rest of your slice logic (reducers, thunks, etc.)
+/* ===========================
+   ASYNC THUNKS
+=========================== */
 
+export const addToCart = createAsyncThunk(
+  "cart/addToCart",
+  async (item, { rejectWithValue }) => {
+    try {
+      const cartId = getOrCreateCartId();
 
-// --- Thunks ---
+      const cartItem = {
+        cartId,
+        productId: item.productID,
+        price: item.price,
+        quantity: item.quantity,
+      };
 
-export const addToCart = createAsyncThunk('cart/addToCart', async (item, { rejectWithValue }) => {
-  try {
-    const cartId = getOrCreateCartId();
-    const cartItem = {
-      cartId,
-      productId: item.productID,
-      price: item.price,
-      quantity: item.quantity,
-    };
+      const response = await axiosInstance.post(
+        "/Cart/Add-To-Cart",
+        cartItem
+      );
 
-    const response = await axios.post('https://smfteapi.salesmate.app/Cart/Add-To-Cart', cartItem);
-    return { ...cartItem, ...response.data };
-  } catch (error) {
-    return rejectWithValue(error.response?.data || error.message);
+      return { ...cartItem, ...response.data };
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || error.message
+      );
+    }
   }
-});
+);
 
-export const createCartItem = createAsyncThunk('cart/createCartItem', async (item, { rejectWithValue }) => {
-  try {
-    const cartId = getOrCreateCartId();
-    const response = await axios.post('https://smfteapi.salesmate.app/Cart/Add-To-Cart', { ...item, cartId });
-    return { ...item, ...response.data };
-  } catch (error) {
-    return rejectWithValue(error.response?.data || error.message);
+export const createCartItem = createAsyncThunk(
+  "cart/createCartItem",
+  async (item, { rejectWithValue }) => {
+    try {
+      const cartId = getOrCreateCartId();
+
+      const response = await axiosInstance.post(
+        "/Cart/Add-To-Cart",
+        { ...item, cartId }
+      );
+
+      return { ...item, ...response.data };
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || error.message
+      );
+    }
   }
-});
+);
 
-export const getCartById = createAsyncThunk('cart/getCartById', async (_, { rejectWithValue }) => {
-  try {
-    const cartId = getOrCreateCartId();
-    const response = await axios.get(`https://smfteapi.salesmate.app/Cart/Cart-GetbyID/${cartId}`);
-    return response.data;
-  } catch (error) {
-    return rejectWithValue(error.message || 'Failed to fetch cart');
+export const getCartById = createAsyncThunk(
+  "cart/getCartById",
+  async (_, { rejectWithValue }) => {
+    try {
+      const cartId = getOrCreateCartId();
+
+      const response = await axiosInstance.get(
+        `/Cart/Cart-GetbyID/${cartId}`
+      );
+
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.message || "Failed to fetch cart"
+      );
+    }
   }
-});
+);
 
-export const updateCartItem = createAsyncThunk('cart/updateCartItem', async ({ productId, quantity }, { rejectWithValue }) => {
-  try {
-    const cartId = getOrCreateCartId();
-    const response = await axios.post(
-      `https://smfteapi.salesmate.app/Cart/Cart-Update/${cartId}/${productId}/${quantity}`
-    );
-    return { cartId, productId, quantity };
-  } catch (error) {
-    return rejectWithValue(error.response?.data || error.message);
+export const updateCartItem = createAsyncThunk(
+  "cart/updateCartItem",
+  async ({ productId, quantity }, { rejectWithValue }) => {
+    try {
+      const cartId = getOrCreateCartId();
+
+      await axiosInstance.post(
+        `/Cart/Cart-Update/${cartId}/${productId}/${quantity}`
+      );
+
+      return { cartId, productId, quantity };
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || error.message
+      );
+    }
   }
-});
+);
 
-export const deleteCartItem = createAsyncThunk('cart/deleteCartItem', async ({ productId }, { rejectWithValue }) => {
-  try {
-    const cartId = getOrCreateCartId();
-    await axios.post(`https://smfteapi.salesmate.app/Cart/Cart-Delete/${cartId}/${productId}`);
-    return { cartId, productId };
-  } catch (error) {
-    return rejectWithValue(error.message);
+export const deleteCartItem = createAsyncThunk(
+  "cart/deleteCartItem",
+  async ({ productId }, { rejectWithValue }) => {
+    try {
+      const cartId = getOrCreateCartId();
+
+      await axiosInstance.post(
+        `/Cart/Cart-Delete/${cartId}/${productId}`
+      );
+
+      return { cartId, productId };
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
   }
-});
-
+);
 // --- Slice ---
 const cartSlice = createSlice({
   name: 'cart',

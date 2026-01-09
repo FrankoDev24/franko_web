@@ -167,7 +167,7 @@ const Nav = () => {
     if (inputValue.trim()) setShowSearchResults(true);
   };
 
-  const backendBaseURL = 'https://smfteapi.salesmate.app';
+  const backendBaseURL = 'https://fte002n1.salesmate.app';
   const formatPrice = (price) => `₵${price?.toLocaleString?.() || 'N/A'}`;
   const highlightText = (text = '') => {
     if (!searchQuery) return text;

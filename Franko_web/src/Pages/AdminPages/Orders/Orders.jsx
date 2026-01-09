@@ -134,6 +134,8 @@ const Orders = () => {
     Delivery: "success",
     Completed: "success",
     "Multiple Orders": "info",
+    Testing: "secondary"
+
   };
 
   const handleFetchOrders = useCallback(() => {

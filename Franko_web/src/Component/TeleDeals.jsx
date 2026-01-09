@@ -174,7 +174,7 @@ const isInWishlist = (id) =>
   const getValidImageUrl = (imagePath) => {
     if (!imagePath) return "https://via.placeholder.com/150";
     return imagePath.includes("\\")
-      ? `https://smfteapi.salesmate.app/Media/Products_Images/${imagePath.split("\\").pop()}`
+      ? `https://fte002n1.salesmate.app/Media/Products_Images/${imagePath.split("\\").pop()}`
       : imagePath;
   };
 

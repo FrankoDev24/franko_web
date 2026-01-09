@@ -240,7 +240,7 @@ const Combo = () => {
     "@type": "Product",
     "name": "Washing Deals",
     "image": filteredProducts.length
-      ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}`
+      ? `https://fte002n1.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}`
       : "",
     "description": "Discover the best Washing deals on our platform with amazing discounts.",
     "brand": {
@@ -324,7 +324,7 @@ const Combo = () => {
           property="og:image"
           content={
             filteredProducts.length
-              ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}`
+              ? `https://fte002n1.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}`
               : ""
           }
         />
@@ -333,7 +333,7 @@ const Combo = () => {
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="Washing Machine Deals - Best Discounts" />
         <meta name="twitter:description" content="Get amazing discounts on our washing machines." />
-        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
+        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://fte002n1.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
         <link rel="canonical" href="https://www.frankotrading.com/washing-machine" />
         <script type="application/ld+json">{JSON.stringify(structuredData)}</script>
       </Helmet>

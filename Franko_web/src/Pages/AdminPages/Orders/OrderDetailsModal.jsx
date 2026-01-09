@@ -83,7 +83,7 @@ const OrderDetailsModal = ({ orderId, onClose }) => {
   if (error) return <div className='hidden'>Error loading order: {error.message || 'An error occurred'}</div>;
   if (!salesOrder || salesOrder.length === 0) return <div>No order details found.</div>;
 
-  const backendBaseURL = 'https://smfteapi.salesmate.app/';
+  const backendBaseURL = 'https://fte002n1.salesmate.app';
   const totalAmount = salesOrder.reduce((acc, order) => acc + order.total, 0);
   const address = deliveryAddress?.[0] || {};
 
@@ -227,7 +227,7 @@ const OrderDetailsModal = ({ orderId, onClose }) => {
               {salesOrder.map((order, index) => {
                 const imagePath = order?.imagePath;
                 const imageUrl = imagePath
-                  ? `${backendBaseURL}Media/Products_Images/${imagePath.split('\\').pop()}`
+                  ? `${backendBaseURL}/Media/Products_Images/${imagePath.split('\\').pop()}`
                   : null;
 
                 return (

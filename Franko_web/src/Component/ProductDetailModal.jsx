@@ -117,7 +117,7 @@ const ProductDetailModal = ({ productID, isModalVisible, onClose }) => {
     );
   }
 
-  const imageUrl = `https://smfteapi.salesmate.app/Media/Products_Images/${product.productImage?.split("\\").pop()}`;
+  const imageUrl = `https://fte002n1.salesmate.app/Media/Products_Images/${product.productImage?.split("\\").pop()}`;
 
   return (
     <>

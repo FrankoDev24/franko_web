@@ -135,7 +135,7 @@ const ProductDescription = () => {
   useEffect(() => {
     if (currentProduct?.length > 0) {
       const prod = currentProduct[0];
-      const image = `https://smfteapi.salesmate.app/Media/Products_Images/${prod.productImage
+      const image = `https://fte002n1.salesmate.app/Media/Products_Images/${prod.productImage
         .split("\\")
         .pop()}`;
 
@@ -593,11 +593,11 @@ const ProductDescription = () => {
     if (!imagePath) return "https://via.placeholder.com/150";
     
     if (imagePath.includes("\\")) {
-      return `https://smfteapi.salesmate.app/Media/Products_Images/${imagePath.split("\\").pop()}`;
+      return `https://fte002n1.salesmate.app/Media/Products_Images/${imagePath.split("\\").pop()}`;
     } else if (imagePath.includes("/")) {
-      return `https://smfteapi.salesmate.app/Media/Products_Images/${imagePath.split("/").pop()}`;
+      return `https://fte002n1.salesmate.app/Media/Products_Images/${imagePath.split("/").pop()}`;
     } else {
-      return `https://smfteapi.salesmate.app/Media/Products_Images/${imagePath}`;
+      return `https://fte002n1.salesmate.app/Media/Products_Images/${imagePath}`;
     }
   };
 
@@ -677,7 +677,7 @@ const ProductDescription = () => {
 
   const product = currentProduct[0];
   const outOfStock = isOutOfStock(product);
-  const imageUrl = `https://smfteapi.salesmate.app/Media/Products_Images/${product.productImage
+  const imageUrl = `https://fte002n1.salesmate.app/Media/Products_Images/${product.productImage
     .split("\\")
     .pop()}`;
   const descriptionLines = product.description.split("\n").map((line, i) => (

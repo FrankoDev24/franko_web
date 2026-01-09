@@ -295,7 +295,7 @@ const Television = () => {
       "@type": "Product",
       "position": index + 1,
       "name": item.productName,
-      "image": `https://smfteapi.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+      "image": `https://fte002n1.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
       "description": item.description,
       "brand": {
         "@type": "Brand",
@@ -363,7 +363,7 @@ const Television = () => {
         {/* Open Graph (OG) meta tags for better social media preview */}
         <meta property="og:title" content="Buy the Latest Televisions Online | 4K, Smart TVs & Best Deals" />
         <meta property="og:description" content="Explore our latest televisions with high resolution and best prices. Available from top brands." />
-        <meta property="og:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}/>
+        <meta property="og:image" content={filteredProducts.length > 0 ? `https://fte002n1.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}/>
         <meta property="og:url" content="https://www.frankotrading.com/television" />
         <meta property="og:type" content="website" />
 
@@ -371,7 +371,7 @@ const Television = () => {
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="Buy the Latest Televisions Online | 4K, Smart TVs & Best Deals" />
         <meta name="twitter:description" content="Explore our latest televisions with high resolution and best prices. Available from top brands." />
-        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}/>
+        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://fte002n1.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}/>
 
         {/* Injecting JSON-LD for structured data */}
         <script type="application/ld+json">{JSON.stringify(structuredData)}</script>

@@ -545,7 +545,7 @@ const OrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
     }
   };
 
-  const backendBaseURL = 'https://smfteapi.salesmate.app';
+  const backendBaseURL = 'https://fte002n1.salesmate.app';
   const totalAmount = salesOrder.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const totalItems = salesOrder.reduce((acc, item) => acc + item.quantity, 0);
 

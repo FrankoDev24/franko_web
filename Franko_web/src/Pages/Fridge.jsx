@@ -298,7 +298,7 @@ const Fridge = () => {
         {/* Open Graph (OG) Tags for Social Media */}
         <meta property="og:title" content="Shop Refrigerators - Best Prices & Top Brands" />
         <meta property="og:description" content="Find the best refrigerators from top brands at unbeatable prices. Shop now and enjoy great deals on high-quality fridges!" />
-        <meta property="og:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
+        <meta property="og:image" content={filteredProducts.length > 0 ? `https://fte002n1.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
         <meta property="og:url" content="https://www.frankotrading.com/refrigerator" />
         <meta property="og:type" content="website" />
 
@@ -306,7 +306,7 @@ const Fridge = () => {
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="Shop Refrigerators - Best Prices & Top Brands" />
         <meta name="twitter:description" content="Find the best refrigerators from top brands at unbeatable prices. Shop now and enjoy great deals on high-quality fridges!" />
-        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://smfteapi.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
+        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://fte002n1.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}  />
 
         {/* Canonical URL to Prevent Duplicate Content Issues */}
         <link rel="canonical" href="https://www.frankotrading.com/refrigerator" />
@@ -323,7 +323,7 @@ const Fridge = () => {
               "@type": "Product",
               "position": index + 1,
               "name": item.productName,
-              "image": `https://smfteapi.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+              "image": `https://fte002n1.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
               "description": item.description,
               "brand": {
                 "@type": "Brand",
