@@ -5,7 +5,7 @@ import { getHomePageAdvertisment } from "../Redux/Slice/advertismentSlice";
 const InfoBanner = () => {
   const dispatch = useDispatch();
   const { advertisments } = useSelector((state) => state.advertisment);
-  const backendBaseURL = "https://smfteapi.salesmate.app";
+  const backendBaseURL = "https://fte002n1.salesmate.app";
   const targetFileId = "dceed369-a7fe-4058-8e62-5ab61df74514";
 
   const [homePageAd, setHomePageAd] = useState(null);
