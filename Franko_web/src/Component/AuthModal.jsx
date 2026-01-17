@@ -269,7 +269,7 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
         };
         
         localStorage.setItem('customer', JSON.stringify(customerDataForStorage));
-        console.log('✅ Customer registration data stored:', customerDataForStorage);
+
       } catch (storageError) {
         console.warn('Failed to store registration data in localStorage:', storageError);
       }
@@ -298,11 +298,11 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
       setTimeout(() => {
         // CRITICAL: Call onSuccess callback if provided
         if (onSuccess && typeof onSuccess === 'function') {
-          console.log('✅ Calling onSuccess callback for signup');
+
           onSuccess();
         } else {
           // Fallback: just close the modal
-          console.log('⚠️ No onSuccess callback provided, just closing modal');
+
           onClose();
         }
       }, 1500);
@@ -356,18 +356,18 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
       };
 
       localStorage.setItem("customer", JSON.stringify(customerToStore));
-      console.log('✅ Customer login data stored:', customerToStore);
+
 
       showNotification("Login successful!", "success");
       
       setTimeout(() => {
         // CRITICAL: Call onSuccess callback if provided
         if (onSuccess && typeof onSuccess === 'function') {
-          console.log('✅ Calling onSuccess callback for login');
+     
           onSuccess();
         } else {
           // Fallback: just close the modal
-          console.log('⚠️ No onSuccess callback provided, just closing modal');
+
           onClose();
         }
       }, 1500);
@@ -408,10 +408,9 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
 
     try {
       dbResult = await dispatch(createCustomer(guestCustomerData)).unwrap();
-      console.log('Guest creation API response:', dbResult);
-
+    
     } catch (error) {
-      console.error("Guest registration error:", error);
+
       setLoading(false);
       
       let errorMessage = "Failed to create guest account. Please try again.";
@@ -466,7 +465,7 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
       };
       
       localStorage.setItem('customer', JSON.stringify(guestCustomerForStorage));
-      console.log('✅ Guest customer details saved:', guestCustomerForStorage);
+
     } catch (storageError) {
       console.error('Failed to save to localStorage:', storageError);
     }
@@ -491,7 +490,7 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
         });
       }
     } catch (analyticsError) {
-      console.warn('Analytics tracking failed:', analyticsError);
+     
     }
     
     setLoading(false);
@@ -500,11 +499,10 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
     setTimeout(() => {
       // CRITICAL: Call onSuccess callback if provided
       if (onSuccess && typeof onSuccess === 'function') {
-        console.log('✅ Calling onSuccess callback for guest');
+
         onSuccess();
       } else {
-        // Fallback: just close the modal
-        console.log('⚠️ No onSuccess callback provided, just closing modal');
+     
         onClose();
       }
     }, 1500);
