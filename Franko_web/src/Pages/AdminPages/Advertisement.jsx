@@ -29,7 +29,7 @@ const [isModalVisible, setIsModalVisible] = useState(false);
   dispatch(getAdvertisment(selectedAdsName))
   .unwrap()
   .then((data) => {
-    console.log("Fetched data:", data); // Check what is returned
+   
   })
   .catch(() => {
     message.error("Failed to fetch advertisements");

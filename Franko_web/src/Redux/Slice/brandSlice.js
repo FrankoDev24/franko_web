@@ -2,13 +2,17 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "./AxiosInstance";
 
 /* ============================
-   FETCH BRANDS
+   FETCH BRANDS (via Lambda)
 ============================ */
 export const fetchBrands = createAsyncThunk(
   "brand/fetchBrands",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get("/Brand/Get-Brand");
+      const response = await axiosInstance.get("/", {
+        params: {
+          endpoint: "/Brand/Get-Brand",
+        },
+      });
       return response.data;
     } catch (error) {
       return rejectWithValue(
@@ -19,7 +23,7 @@ export const fetchBrands = createAsyncThunk(
 );
 
 /* ============================
-   ADD BRAND
+   ADD BRAND (via Lambda)
 ============================ */
 export const addBrand = createAsyncThunk(
   "brand/addBrand",
@@ -34,9 +38,12 @@ export const addBrand = createAsyncThunk(
         throw new Error("LogoName is required.");
 
       const response = await axiosInstance.post(
-        "/Brand/Setup-Brand",
+        "/",           // Lambda root
         brandData,
         {
+          params: {
+            endpoint: "/Brand/Setup-Brand",
+          },
           headers: {
             "Content-Type": "multipart/form-data",
           },
@@ -53,7 +60,7 @@ export const addBrand = createAsyncThunk(
 );
 
 /* ============================
-   UPDATE BRAND
+   UPDATE BRAND (via Lambda)
 ============================ */
 export const updateBrand = createAsyncThunk(
   "brand/updateBrand",
@@ -64,9 +71,12 @@ export const updateBrand = createAsyncThunk(
       }
 
       const response = await axiosInstance.post(
-        `/Brand/Put-Brand/${id}`,
+        "/",           // Lambda root
         formData,
         {
+          params: {
+            endpoint: `/Brand/Put-Brand/${id}`,
+          },
           headers: {
             "Content-Type": "multipart/form-data",
           },

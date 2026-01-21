@@ -2,37 +2,37 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "./AxiosInstance";
 
 /* ===========================
-   ASYNC THUNKS
+   ASYNC THUNKS (via Lambda)
 =========================== */
 
 // Add product
 export const addProduct = createAsyncThunk(
-  'products/addProduct',
+  "products/addProduct",
   async (productData, { rejectWithValue }) => {
     try {
       const isFormData = productData instanceof FormData;
 
       const response = await axiosInstance.post(
-        '/Product/Product-Post',
+        "/", // call Lambda root
         productData,
         {
+          params: {
+            endpoint: "/Product/Product-Post", // real backend endpoint
+          },
           headers: isFormData
-            ? { 'Content-Type': 'multipart/form-data' }
-            : { 'Content-Type': 'application/json' },
+            ? { "Content-Type": "multipart/form-data" }
+            : { "Content-Type": "application/json" },
         }
       );
 
-      // Axios returns parsed data directly
       return response.data;
     } catch (error) {
-      // Surface server validation errors back to UI
-      const payload = error.response?.data ?? error.message ?? 'Failed to add product';
+      const payload =
+        error.response?.data ?? error.message ?? "Failed to add product";
       return rejectWithValue(payload);
     }
   }
 );
-
-
 
 // Update product
 export const updateProduct = createAsyncThunk(
@@ -42,9 +42,12 @@ export const updateProduct = createAsyncThunk(
       const { Productid, ...restData } = productData;
 
       const { data } = await axiosInstance.post(
-        `/Product/Product_Put/${Productid}`,
+        "/", // via Lambda
         restData,
         {
+          params: {
+            endpoint: `/Product/Product_Put/${Productid}`, // real backend route
+          },
           headers: {
             accept: "text/plain",
             "Content-Type": "application/json",
@@ -62,26 +65,26 @@ export const updateProduct = createAsyncThunk(
 );
 
 // Update product image
+
 export const updateProductImage = createAsyncThunk(
   "products/updateProductImage",
   async ({ productID, imageFile }, { rejectWithValue }) => {
     try {
       const formData = new FormData();
 
-      // 🔴 IMPORTANT: field names MUST match backend DTO exactly
+      // ✅ Match backend: both as form-data fields
       formData.append("ProductId", productID);
-
-      // 🔴 Must be a FILE object
       formData.append("ImageName", imageFile, imageFile.name);
 
-
       const response = await axiosInstance.post(
-        "/Product/Product-Image-Edit",
+        "/",          // Lambda root (FrankoAPI)
         formData,
         {
-          headers: {
-            "Content-Type": "multipart/form-data",
+          params: {
+            endpoint: "/Product/Product-Image-Edit",
           },
+          // ⚠️ Do NOT set Content-Type manually
+          // headers: { "Content-Type": "multipart/form-data" }  <-- remove
         }
       );
 
@@ -94,16 +97,16 @@ export const updateProductImage = createAsyncThunk(
     }
   }
 );
-
-
 // Fetch all products
 export const fetchAllProducts = createAsyncThunk(
   "products/fetchAllProducts",
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get(
-        "/Product/Product-Get"
-      );
+      const { data } = await axiosInstance.get("/", {
+        params: {
+          endpoint: "/Product/Product-Get",
+        },
+      });
 
       return data.sort(
         (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
@@ -121,9 +124,11 @@ export const fetchProducts = createAsyncThunk(
   "products/fetchProducts",
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get(
-        "/Product/Product-Get"
-      );
+      const { data } = await axiosInstance.get("/", {
+        params: {
+          endpoint: "/Product/Product-Get",
+        },
+      });
 
       return data
         .filter((product) => product.status == 1)
@@ -143,9 +148,11 @@ export const fetchProduct = createAsyncThunk(
   "products/fetchProduct",
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get(
-        "/Product/Product-Get"
-      );
+      const { data } = await axiosInstance.get("/", {
+        params: {
+          endpoint: "/Product/Product-Get",
+        },
+      });
 
       return data
         .filter((product) => product.status == 1)
@@ -166,10 +173,13 @@ export const fetchPaginatedProducts = createAsyncThunk(
   "products/fetchPaginatedProducts",
   async ({ pageNumber, pageSize = 10 }, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get(
-        "/Product/Product-Get-Paginated",
-        { params: { PageNumber: pageNumber, PageSize: pageSize } }
-      );
+      const { data } = await axiosInstance.get("/", {
+        params: {
+          endpoint: "/Product/Product-Get-Paginated",
+          PageNumber: pageNumber,
+          PageSize: pageSize,
+        },
+      });
 
       return data.sort(
         (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
@@ -187,9 +197,11 @@ export const fetchProductsByCategory = createAsyncThunk(
   "products/fetchProductsByCategory",
   async (categoryId, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get(
-        `/Product/Product-Get-by-Category/${categoryId}`
-      );
+      const { data } = await axiosInstance.get("/", {
+        params: {
+          endpoint: `/Product/Product-Get-by-Category/${categoryId}`,
+        },
+      });
 
       return { categoryId, products: data };
     } catch (error) {
@@ -205,9 +217,11 @@ export const fetchProductsByBrand = createAsyncThunk(
   "products/fetchProductsByBrand",
   async (brandId, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get(
-        `/Product/Product-Get-by-Brand/${brandId}`
-      );
+      const { data } = await axiosInstance.get("/", {
+        params: {
+          endpoint: `/Product/Product-Get-by-Brand/${brandId}`,
+        },
+      });
 
       return data.sort(
         (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
@@ -225,9 +239,11 @@ export const fetchProductsByShowroom = createAsyncThunk(
   "products/fetchProductsByShowroom",
   async (showRoomID, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get(
-        `/Product/Product-Get-by-ShowRoom/${showRoomID}`
-      );
+      const { data } = await axiosInstance.get("/", {
+        params: {
+          endpoint: `/Product/Product-Get-by-ShowRoom/${showRoomID}`,
+        },
+      });
 
       return {
         showRoomID,
@@ -248,9 +264,12 @@ export const fetchProductById = createAsyncThunk(
   "products/fetchProductById",
   async (productId, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get(
-        `/Product/Product-Get-by-Product_ID/${productId}`
-      );
+      const { data } = await axiosInstance.get("/", {
+        params: {
+          endpoint: `/Product/Product-Get-by-Product_ID/${productId}`,
+        },
+      });
+
       return data;
     } catch (error) {
       return rejectWithValue(
@@ -265,9 +284,12 @@ export const fetchActiveProducts = createAsyncThunk(
   "products/fetchActiveProducts",
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get(
-        "/Product/Product-Get-Active"
-      );
+      const { data } = await axiosInstance.get("/", {
+        params: {
+          endpoint: "/Product/Product-Get-Active",
+        },
+      });
+
       return data;
     } catch (error) {
       return rejectWithValue(
@@ -282,9 +304,12 @@ export const fetchInactiveProducts = createAsyncThunk(
   "products/fetchInactiveProducts",
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get(
-        "/Product/Product-Get-0"
-      );
+      const { data } = await axiosInstance.get("/", {
+        params: {
+          endpoint: "/Product/Product-Get-0",
+        },
+      });
+
       return data;
     } catch (error) {
       return rejectWithValue(
@@ -299,10 +324,13 @@ export const fetchProductByShowroomAndRecord = createAsyncThunk(
   "products/fetchProductByShowroomAndRecord",
   async ({ showRoomCode, recordNumber }, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get(
-        "/Product/Product-Get-by-ShowRoom_RecordNumber",
-        { params: { ShowRommCode: showRoomCode, RecordNumber: recordNumber } }
-      );
+      const { data } = await axiosInstance.get("/", {
+        params: {
+          endpoint: "/Product/Product-Get-by-ShowRoom_RecordNumber",
+          ShowRommCode: showRoomCode, // keep same name backend expects
+          RecordNumber: recordNumber,
+        },
+      });
 
       return {
         showRoomCode,
@@ -319,10 +347,12 @@ export const fetchProductByShowroomAndRecord = createAsyncThunk(
   }
 );
 
+/* ===========================
+   SLICE
+=========================== */
 
-// Create the product slice
 const productSlice = createSlice({
-  name: 'products',
+  name: "products",
   initialState: {
     products: [],
     currentPage: 1,
@@ -367,7 +397,7 @@ const productSlice = createSlice({
       })
       .addCase(addProduct.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       })
       .addCase(updateProduct.pending, (state) => {
         state.loading = true;
@@ -386,7 +416,7 @@ const productSlice = createSlice({
       })
       .addCase(updateProduct.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       })
       .addCase(updateProductImage.fulfilled, (state, action) => {
         state.loading = false;
@@ -399,7 +429,7 @@ const productSlice = createSlice({
       })
       .addCase(updateProductImage.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       })
       .addCase(fetchProductsByBrand.pending, (state) => {
         state.loading = true;
@@ -410,7 +440,7 @@ const productSlice = createSlice({
       })
       .addCase(fetchProductsByBrand.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       })
       .addCase(fetchProducts.pending, (state) => {
         state.loading = true;
@@ -421,7 +451,7 @@ const productSlice = createSlice({
       })
       .addCase(fetchProducts.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       })
       .addCase(fetchProduct.pending, (state) => {
         state.loading = true;
@@ -432,7 +462,7 @@ const productSlice = createSlice({
       })
       .addCase(fetchProduct.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       })
       .addCase(fetchAllProducts.pending, (state) => {
         state.loading = true;
@@ -443,7 +473,7 @@ const productSlice = createSlice({
       })
       .addCase(fetchAllProducts.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       })
       .addCase(fetchProductsByCategory.pending, (state) => {
         state.loading = true;
@@ -454,7 +484,7 @@ const productSlice = createSlice({
         state.loading = false;
       })
       .addCase(fetchProductsByCategory.rejected, (state, action) => {
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
         state.loading = false;
       })
       .addCase(fetchProductsByShowroom.pending, (state) => {
@@ -467,7 +497,7 @@ const productSlice = createSlice({
       })
       .addCase(fetchProductsByShowroom.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       })
       .addCase(fetchProductById.pending, (state) => {
         state.loading = true;
@@ -478,7 +508,7 @@ const productSlice = createSlice({
       })
       .addCase(fetchProductById.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       })
       .addCase(fetchPaginatedProducts.pending, (state) => {
         state.loading = true;
@@ -490,7 +520,7 @@ const productSlice = createSlice({
       })
       .addCase(fetchPaginatedProducts.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || 'Failed to fetch products';
+        state.error = action.payload || "Failed to fetch products";
       })
       .addCase(fetchActiveProducts.pending, (state) => {
         state.loading = true;
@@ -501,7 +531,7 @@ const productSlice = createSlice({
       })
       .addCase(fetchActiveProducts.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       })
       .addCase(fetchInactiveProducts.pending, (state) => {
         state.loading = true;
@@ -512,7 +542,7 @@ const productSlice = createSlice({
       })
       .addCase(fetchInactiveProducts.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       })
       .addCase(fetchProductByShowroomAndRecord.pending, (state) => {
         state.loading = true;
@@ -524,7 +554,7 @@ const productSlice = createSlice({
       })
       .addCase(fetchProductByShowroomAndRecord.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       });
   },
 });

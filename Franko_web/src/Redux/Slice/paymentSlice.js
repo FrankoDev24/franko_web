@@ -2,7 +2,7 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "./AxiosInstance";
 
 /* ===========================
-   ASYNC THUNKS
+   ASYNC THUNKS (via Lambda)
 =========================== */
 
 // Post Hubtel callback
@@ -11,8 +11,13 @@ export const postHubtelCallback = createAsyncThunk(
   async (responseData, { rejectWithValue }) => {
     try {
       const response = await axiosInstance.post(
-        "/PaymentSystem/PostHubtelCallBack",
-        { responseData }
+        "/",                      // Lambda root
+        { responseData },
+        {
+          params: {
+            endpoint: "/PaymentSystem/PostHubtelCallBack",
+          },
+        }
       );
 
       return response.data;
@@ -29,14 +34,12 @@ export const getHubtelCallbackById = createAsyncThunk(
   "payment/getHubtelCallbackById",
   async (orderId, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get(
-        "/PaymentSystem/GetHubtelCallBackById",
-        {
-          params: {
-            Orderid: orderId,
-          },
-        }
-      );
+      const response = await axiosInstance.get("/", {
+        params: {
+          endpoint: "/PaymentSystem/GetHubtelCallBackById",
+          Orderid: orderId,
+        },
+      });
 
       return response.data;
     } catch (error) {
@@ -52,11 +55,13 @@ export const getAllHubtelCallbackRecords = createAsyncThunk(
   "payment/getAllHubtelCallbackRecords",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get(
-        "/PaymentSystem/GetHubtelCallBackAllRecords"
-      );
+      const response = await axiosInstance.get("/", {
+        params: {
+          endpoint: "/PaymentSystem/GetHubtelCallBackAllRecords",
+        },
+      });
 
-      // 🔒 Maintain original logic: newest → oldest (array position)
+      // Maintain original logic: newest → oldest
       const sortedData = response.data?.slice().reverse();
 
       return sortedData;

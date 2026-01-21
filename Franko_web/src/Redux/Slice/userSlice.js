@@ -23,7 +23,15 @@ export const createUser = createAsyncThunk(
   'users/createUser',
   async (userData, { rejectWithValue }) => {
     try {
-      const res = await axiosInstance.post('/Users/User-Post', userData);
+      const res = await axiosInstance.post(
+        '/',          // Lambda root
+        userData,
+        {
+          params: {
+            endpoint: '/Users/User-Post',
+          },
+        }
+      );
       return res.data;
     } catch (error) {
       const payload =
@@ -38,19 +46,21 @@ export const createUser = createAsyncThunk(
 
 // Async thunk for fetching all users
 export const fetchUsers = createAsyncThunk(
-  "users/fetchUsers",
+  'users/fetchUsers',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get(`/Users/Users-Get`);
- 
+      const response = await axiosInstance.get('/', {
+        params: {
+          endpoint: '/Users/Users-Get',
+        },
+      });
+
       return response.data;
     } catch (error) {
-   
-      return rejectWithValue(error.response?.data || "An error occurred.");
+      return rejectWithValue(error.response?.data || 'An error occurred.');
     }
   }
 );
-
 
 export const loginUser = createAsyncThunk(
   'users/loginUser',
@@ -76,7 +86,10 @@ export const loginUser = createAsyncThunk(
       localStorage.setItem('loginTime', String(loginTime));
       return matchingUser;
     } catch (error) {
-      const payload = typeof error === 'string' ? error : (error?.message ?? 'An unknown error occurred.');
+      const payload =
+        typeof error === 'string'
+          ? error
+          : error?.message ?? 'An unknown error occurred.';
       return rejectWithValue(payload);
     }
   }
@@ -92,7 +105,7 @@ const initialState = {
     }
   })(),
   currentUserDetails: null,
-  users: [],           // unified key (was userList)
+  users: [], // unified key (was userList)
   loading: false,
   error: null,
 };
@@ -140,7 +153,10 @@ const userSlice = createSlice({
       })
       .addCase(createUser.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || action.error?.message || 'An unknown error occurred.';
+        state.error =
+          action.payload ||
+          action.error?.message ||
+          'An unknown error occurred.';
       })
 
       // fetchUsers
@@ -155,7 +171,10 @@ const userSlice = createSlice({
       .addCase(fetchUsers.rejected, (state, action) => {
         state.loading = false;
         // IMPORTANT: when using rejectWithValue, prefer action.payload
-        state.error = action.payload || action.error?.message || 'An error occurred.';
+        state.error =
+          action.payload ||
+          action.error?.message ||
+          'An error occurred.';
       })
 
       // loginUser
@@ -176,7 +195,8 @@ const userSlice = createSlice({
   },
 });
 
-export const { logoutUser, clearUsers, setUser, clearSelectedUser } = userSlice.actions;
+export const { logoutUser, clearUsers, setUser, clearSelectedUser } =
+  userSlice.actions;
 
 // Activity tracking
 document.addEventListener('mousemove', updateLastActivityTime);

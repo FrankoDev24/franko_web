@@ -1,133 +1,153 @@
-import  { useEffect, useState } from "react";
-import { Card, Button, Typography, message, Modal, Spin, Badge, Divider } from "antd";
-import { 
-  LogOut, 
-  Trash2, 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  BadgeInfo, 
-  Package, 
+// src/pages/Account.jsx
+import { useEffect, useState } from "react";
+import {
+  Card,
+  Button,
+  Typography,
+  message,
+  Modal,
+  Badge,
+} from "antd";
+import {
+  LogOut,
+  Trash2,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  BadgeInfo,
+  Package,
   Heart,
   Gift,
   Star,
-  Camera
+  Camera,
 } from "lucide-react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { updateAccountStatus, logoutCustomer } from "../Redux/Slice/customerSlice";
-
+import {
+  updateAccountStatus,
+  logoutCustomer,
+} from "../Redux/Slice/customerSlice";
 
 const { Title, Text } = Typography;
 
+const backendBaseURL = "https://fte002n1.salesmate.app";
+
 const Account = () => {
   const [customer, setCustomer] = useState(null);
-  const [activeTab, setActiveTab] = useState('profile');
+  const [wishlist, setWishlist] = useState([]);
+  const [activeTab, setActiveTab] = useState("profile");
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [wishlist, setWishlist] = useState([]);
-    useEffect(() => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, []);
 
+  // Scroll to top
   useEffect(() => {
-    const storedCustomer = localStorage.getItem("customer");
-    if (storedCustomer) {
-      setCustomer((storedCustomer));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  // Load customer from encrypted localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("customer");
+      if (!stored) return;
+
+      // Your monkey-patch returns parsed object for JSON values
+      const parsed =
+        typeof stored === "string" ? JSON.parse(stored) : stored;
+      setCustomer(parsed);
+    } catch (e) {
+      console.error("Failed to load customer from localStorage:", e);
+      setCustomer(null);
     }
   }, []);
+
+  // Load wishlist from encrypted localStorage
   useEffect(() => {
-  const storedWishlist = (localStorage.getItem("wishlist")) || [];
-  setWishlist(storedWishlist);
-}, []);
+    try {
+      const stored = localStorage.getItem("wishlist");
+      if (!stored) {
+        setWishlist([]);
+      } else if (typeof stored === "string") {
+        setWishlist(JSON.parse(stored));
+      } else {
+        setWishlist(stored);
+      }
+    } catch (e) {
+      console.error("Failed to load wishlist:", e);
+      setWishlist([]);
+    }
+  }, []);
 
   const handleLogout = () => {
     setShowLogoutModal(true);
   };
 
   const confirmLogout = () => {
-    // Dispatch the Redux logout action
     dispatch(logoutCustomer());
-    
-    // Clear additional data from localStorage if needed
     localStorage.removeItem("wishlist");
-    localStorage.removeItem("authToken"); // Add any other auth-related items
-    
-    // Show success message
+    localStorage.removeItem("authToken");
     message.success("Logged out successfully.");
-    
-    // Close modal
     setShowLogoutModal(false);
-    
-    // Navigate to home page
     navigate("/");
   };
 
   const handleDeleteAccount = () => {
-    Modal.confirm({
-      title: "Confirm Account Deletion",
-      content: (
-        <div className="py-4">
-          <p className="text-gray-600 mb-2">Are you sure you want to delete your account?</p>
-          <p className="text-red-500 text-sm font-medium">⚠️ This action cannot be undone and will:</p>
-          <ul className="text-sm text-gray-500 mt-2 ml-4">
-            <li>• Remove all your personal data</li>
-            <li>• Cancel active orders</li>
-            <li>• Delete your purchase history</li>
-          </ul>
-        </div>
-      ),
-      okText: "Yes, Delete My Account",
-      okType: "danger",
-      cancelText: "Keep My Account",
-      width: 480,
-      onOk: async () => {
-        try {
-          await dispatch(updateAccountStatus()).unwrap();
-          
-          // Clear localStorage after successful account deletion
-          localStorage.removeItem("customer");
-          localStorage.removeItem("wishlist");
-          localStorage.removeItem("authToken");
-          
-          
-          message.success("Account deleted successfully.");
-          navigate("/");
-        } catch (error) {
-          message.error(error || "Failed to delete account.");
-        }
-      },
-    });
+    if (!customer?.customerAccountNumber) {
+      message.error("No customer account found.");
+      return;
+    }
+    setShowDeleteModal(true);
   };
-   const handleOrderHistoryClick = () => {
-    // Check if user is an agent and navigate accordingly
-    if (customer?.accountType === 'agent' || customer?.isAgent) {
-      navigate("/agent/dashboard");
-    } else {
-      // Navigate to regular customer order history
-      navigate("/order-history");
+
+  const confirmDeleteAccount = async () => {
+    if (!customer?.customerAccountNumber) {
+      message.error("No customer account found.");
+      return;
+    }
+
+    try {
+      setDeleting(true);
+
+      await dispatch(
+        updateAccountStatus({ accountNumber: customer.customerAccountNumber })
+      ).unwrap();
+
+      // Clear Redux + localStorage
+      dispatch(logoutCustomer());
+      localStorage.removeItem("wishlist");
+      localStorage.removeItem("authToken");
+
+      message.success("Account deleted successfully.");
+      setShowDeleteModal(false);
+      navigate("/");
+    } catch (error) {
+      console.error("Delete account error:", error);
+      message.error(
+        (typeof error === "string" && error) ||
+          error?.message ||
+          "Failed to delete account."
+      );
+    } finally {
+      setDeleting(false);
     }
   };
-    const getBadgeProps = () => {
-    if (isUserAgent) return { color: "blue", text: "Agent" };
-    if (isGuest) return { color: "orange", text: "Guest Account" };
-    return { color: "green", text: "Verified Member" };
-  };
-    const getAccountTypeDisplay = () => {
-    if (isUserAgent) return "Agent";
-    if (isGuest) return "Guest Account";
-    return "Registered Member";
+
+  const handleOrderHistoryClick = () => {
+    if (customer?.accountType === "agent" || customer?.isAgent) {
+      navigate("/agent/dashboard");
+    } else {
+      navigate("/order-history");
+    }
   };
 
   if (!customer) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-slate-50 to-green-50">
-        <div className="text-center">
- 
-          <Text className="text-gray-500">Loading your profile...</Text>
-        </div>
+        <Text className="text-gray-500">Loading your profile...</Text>
       </div>
     );
   }
@@ -141,27 +161,54 @@ const Account = () => {
     customerAccountNumber,
     isGuest,
     isAgent,
-    accountType
+    accountType,
   } = customer;
-    const isUserAgent = accountType === 'agent' || isAgent;
+
+  const isUserAgent = accountType === "agent" || isAgent;
+
+  const getBadgeProps = () => {
+    if (isUserAgent) return { color: "blue", text: "Agent" };
+    if (isGuest) return { color: "orange", text: "Guest Account" };
+    return { color: "green", text: "Verified Member" };
+  };
+
+  const getAccountTypeDisplay = () => {
+    if (isUserAgent) return "Agent";
+    if (isGuest) return "Guest Account";
+    return "Registered Member";
+  };
 
   const tabs = [
-    { key: 'profile', label: 'Profile', icon: <User className="w-4 h-4" /> },
-   
-    { key: 'wishlist', label: 'Wishlist', icon: <Heart className="w-4 h-4" /> },
-   
+    { key: "profile", label: "Profile", icon: <User className="w-4 h-4" /> },
+    { key: "wishlist", label: "Wishlist", icon: <Heart className="w-4 h-4" /> },
   ];
 
   const quickStats = [
-    { label: 'Total Orders', value: '12', icon: <Package className="w-5 h-5" />, color: 'bg-green-500' },
-   { label: 'wishlist', value: ` ${wishlist.length}`, icon: <Heart className="w-4 h-4" /> , color: 'bg-red-500'},
-
-    { label: 'Reward Points', value: '2,450', icon: <Gift className="w-5 h-5" />, color: 'bg-green-500' },
-    { label: 'Verified Member', value: '2025', icon: <Star className="w-5 h-5" />, color: 'bg-red-500' }
+    {
+      label: "Total Orders",
+      value: "12",
+      icon: <Package className="w-5 h-5" />,
+      color: "bg-green-500",
+    },
+    {
+      label: "Wishlist",
+      value: `${wishlist.length}`,
+      icon: <Heart className="w-4 h-4" />,
+      color: "bg-red-500",
+    },
+    {
+      label: "Reward Points",
+      value: "2,450",
+      icon: <Gift className="w-5 h-5" />,
+      color: "bg-green-500",
+    },
+    {
+      label: "Verified Member",
+      value: "2025",
+      icon: <Star className="w-5 h-5" />,
+      color: "bg-red-500",
+    },
   ];
-  
-  const backendBaseURL = "https://fte002n1.salesmate.app";
-
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-indigo-50 p-4">
@@ -169,11 +216,12 @@ const Account = () => {
         {/* Header Section */}
         <div className="mb-8">
           <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-            <div className="flex flex-col md:flex-row items-center gap-6 ">
+            <div className="flex flex-col md:flex-row items-center gap-6">
               {/* Avatar */}
               <div className="relative">
                 <div className="w-16 h-16 md:w-24 md:h-24 rounded-full bg-red-400 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
-                  {firstName?.charAt(0)}{lastName?.charAt(0)}
+                  {firstName?.charAt(0)}
+                  {lastName?.charAt(0)}
                 </div>
                 <button className="absolute -bottom-1 -right-1 w-8 h-8 bg-white rounded-full shadow-lg border-2 border-gray-100 flex items-center justify-center hover:bg-gray-50 transition-colors">
                   <Camera className="w-4 h-4 text-gray-600" />
@@ -182,37 +230,40 @@ const Account = () => {
 
               {/* User Info */}
               <div className="flex-1 text-center md:text-left">
-                <div className="md:flexitems-center gap-3 justify-center md:justify-start mb-2">
-                 <div className=" text-xl md:text-2xl !mb-0 text-gray-800">
+                <div className="flex items-center gap-3 justify-center md:justify-start mb-2">
+                  <div className="text-xl md:text-2xl !mb-0 text-gray-800">
                     {firstName} {lastName}
-                   
                   </div>
-                  <Badge 
+                  <Badge
                     className="px-2 py-1"
                     color={getBadgeProps().color}
                     text={getBadgeProps().text}
                   />
                 </div>
                 <div className="flex items-center gap-2 text-gray-600 justify-center md:justify-start mb-4">
-              
                   <Text>Account #{customerAccountNumber}</Text>
                 </div>
 
                 {/* Quick Stats */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {quickStats.map((stat, index) => (
-                    <div key={index} className="text-center p-3 bg-gray-50 rounded-lg">
-                      <div className={`w-8 h-8 ${stat.color} rounded-full flex items-center justify-center text-white mx-auto mb-2`}>
+                    <div
+                      key={index}
+                      className="text-center p-3 bg-gray-50 rounded-lg"
+                    >
+                      <div
+                        className={`w-8 h-8 ${stat.color} rounded-full flex items-center justify-center text-white mx-auto mb-2`}
+                      >
                         {stat.icon}
                       </div>
-                      <div className="text-lg font-semibold text-gray-800">{stat.value}</div>
+                      <div className="text-lg font-semibold text-gray-800">
+                        {stat.value}
+                      </div>
                       <div className="text-xs text-gray-500">{stat.label}</div>
                     </div>
                   ))}
                 </div>
               </div>
-
-             
             </div>
           </Card>
         </div>
@@ -226,8 +277,8 @@ const Account = () => {
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-all ${
                   activeTab === tab.key
-                    ? 'bg-green-600 text-white shadow-md'
-                    : 'text-gray-600 hover:text-green-600 hover:bg-blue-50'
+                    ? "bg-green-600 text-white shadow-md"
+                    : "text-gray-600 hover:text-green-600 hover:bg-blue-50"
                 }`}
               >
                 {tab.icon}
@@ -241,21 +292,23 @@ const Account = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2">
-            {activeTab === 'profile' && (
+            {activeTab === "profile" && (
               <Card className="border-0 shadow-lg">
                 <div className="p-6">
                   <Title level={4} className="mb-6 flex items-center gap-2">
                     <User className="w-5 h-5 text-green-600" />
                     Personal Information
                   </Title>
-                  
+
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-4">
                         <div className="p-4 bg-gray-50 rounded-lg">
                           <div className="flex items-center gap-3 mb-2">
                             <Mail className="w-4 h-4 text-green-600" />
-                            <Text strong className="text-gray-700">Email Address</Text>
+                            <Text strong className="text-gray-700">
+                              Email Address
+                            </Text>
                           </div>
                           <Text className="text-gray-900">{email}</Text>
                         </div>
@@ -263,7 +316,9 @@ const Account = () => {
                         <div className="p-4 bg-gray-50 rounded-lg">
                           <div className="flex items-center gap-3 mb-2">
                             <Phone className="w-4 h-4 text-green-600" />
-                            <Text strong className="text-gray-700">Phone Number</Text>
+                            <Text strong className="text-gray-700">
+                              Phone Number
+                            </Text>
                           </div>
                           <Text className="text-gray-900">{contactNumber}</Text>
                         </div>
@@ -273,7 +328,9 @@ const Account = () => {
                         <div className="p-4 bg-gray-50 rounded-lg">
                           <div className="flex items-center gap-3 mb-2">
                             <MapPin className="w-4 h-4 text-red-600" />
-                            <Text strong className="text-gray-700">Address</Text>
+                            <Text strong className="text-gray-700">
+                              Address
+                            </Text>
                           </div>
                           <Text className="text-gray-900">{address}</Text>
                         </div>
@@ -281,9 +338,15 @@ const Account = () => {
                         <div className="p-4 bg-gray-50 rounded-lg">
                           <div className="flex items-center gap-3 mb-2">
                             <BadgeInfo className="w-4 h-4 text-red-600" />
-                            <Text strong className="text-gray-700">Account Type</Text>
+                            <Text strong className="text-gray-700">
+                              Account Type
+                            </Text>
                           </div>
-                           <Text className={`text-gray-900 ${isUserAgent ? 'font-semibold text-blue-600' : ''}`}>
+                          <Text
+                            className={`text-gray-900 ${
+                              isUserAgent ? "font-semibold text-blue-600" : ""
+                            }`}
+                          >
                             {getAccountTypeDisplay()}
                           </Text>
                         </div>
@@ -293,70 +356,78 @@ const Account = () => {
                 </div>
               </Card>
             )}
-{activeTab === "wishlist" && (
-  <Card>
-    <Title level={4}>Wishlist Preview</Title>
 
-    {wishlist.length === 0 ? (
-      <Text type="secondary">Your wishlist is empty.</Text>
-    ) : (
-      <>
-        {wishlist.slice(0, 3).map((item, index) => {
-          const imagePath = item.productImage || "";
-          const imageUrl = `${backendBaseURL}/Media/Products_Images/${imagePath.split("\\").pop()}`;
+            {activeTab === "wishlist" && (
+              <Card className="border-0 shadow-lg">
+                <Title level={4}>Wishlist Preview</Title>
+                {wishlist.length === 0 ? (
+                  <Text type="secondary">Your wishlist is empty.</Text>
+                ) : (
+                  <>
+                    {wishlist.slice(0, 3).map((item, index) => {
+                      const imagePath = item.productImage || "";
+                      const imageUrl = `${backendBaseURL}/Media/Products_Images/${imagePath
+                        .split("\\")
+                        .pop()}`;
 
-          return (
-            <div
-              key={index}
-              className="flex items-center justify-between bg-gray-50 border rounded-lg p-4 mb-3"
-            >
-              <div className="flex items-center gap-4">
-                <img
-                  src={imageUrl}
-                  alt={item.productName}
-                  className="w-16 h-16 object-contain border rounded"
-                  onError={(e) => {
-                    e.target.src = "/images/placeholder.png";
-                  }}
-                />
-                <div>
-                  <div className="text-sm">{item.productName}</div>
-                  <div className="text-sm text-gray-400">
-                   {item.brandName || "N/A"} • {item.categoryName || "N/A"}
-                  </div>
-                  <div className="text-sm font-medium text-red-500 mt-1">
-                    GH₵ {item.price?.toLocaleString() || "0.00"}
-                  </div>
-                </div>
-              </div>
+                      return (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between bg-gray-50 border rounded-lg p-4 mb-3"
+                        >
+                          <div className="flex items-center gap-4">
+                            <img
+                              src={imageUrl}
+                              alt={item.productName}
+                              className="w-16 h-16 object-contain border rounded"
+                              onError={(e) => {
+                                e.target.src = "/images/placeholder.png";
+                              }}
+                            />
+                            <div>
+                              <div className="text-sm">
+                                {item.productName}
+                              </div>
+                              <div className="text-sm text-gray-400">
+                                {item.brandName || "N/A"} •{" "}
+                                {item.categoryName || "N/A"}
+                              </div>
+                              <div className="text-sm font-medium text-red-500 mt-1">
+                                GH₵ {item.price?.toLocaleString() || "0.00"}
+                              </div>
+                            </div>
+                          </div>
 
-              <Button
-                size="small"
-                onClick={() => navigate(`/product/${item.productID}`)}
-                className="bg-red-500 text-white hover:bg-green-700"
-       
-              >
-                View Product
-              </Button>
-            </div>
-          );
-        })}
+                          <Button
+                            size="small"
+                            onClick={() =>
+                              navigate(`/product/${item.productID}`)
+                            }
+                            className="bg-red-500 text-white hover:bg-green-700"
+                          >
+                            View Product
+                          </Button>
+                        </div>
+                      );
+                    })}
 
-        {wishlist.length > 3 && (
-          <Button
-            type="primary"
-            className="mt-1 bg-green-500 hover:bg-green-600 text-white"
-            icon={<Heart className="w-4 h-4" />}
-            block 
-            onClick={() => message.info("Wishlist page coming soon")}
-          >
-            View All Wishlist
-          </Button>
-        )}
-      </>
-    )}
-  </Card>
-)}
+                    {wishlist.length > 3 && (
+                      <Button
+                        type="primary"
+                        className="mt-1 bg-green-500 hover:bg-green-600 text-white"
+                        icon={<Heart className="w-4 h-4" />}
+                        block
+                        onClick={() =>
+                          message.info("Wishlist page coming soon")
+                        }
+                      >
+                        View All Wishlist
+                      </Button>
+                    )}
+                  </>
+                )}
+              </Card>
+            )}
           </div>
 
           {/* Sidebar */}
@@ -364,18 +435,19 @@ const Account = () => {
             {/* Quick Actions */}
             <Card className="border-0 shadow-lg">
               <div className="p-6">
-                <Title level={5} className="mb-4">Quick Actions</Title>
+                <Title level={5} className="mb-4">
+                  Quick Actions
+                </Title>
                 <div className="space-y-3">
-                  
-                 <Button 
-                    block 
+                  <Button
+                    block
                     icon={<Package className="w-4 h-4" />}
                     className="text-left justify-start border-gray-200 hover:border-green-400"
                     onClick={handleOrderHistoryClick}
                   >
-                    {isUserAgent ? 'Agent Dashboard' : 'Order History'}
+                    {isUserAgent ? "Agent Dashboard" : "Order History"}
                   </Button>
-                    <Button
+                  <Button
                     block
                     icon={<LogOut className="w-4 h-4" />}
                     className="border-orange-300 text-orange-600 hover:bg-orange-50 hover:border-orange-400"
@@ -391,7 +463,6 @@ const Account = () => {
                   >
                     Delete Account
                   </Button>
-                  
                 </div>
               </div>
             </Card>
@@ -399,11 +470,13 @@ const Account = () => {
             {/* Help & Support */}
             <Card className="border-0 shadow-lg bg-red-500 text-white">
               <div className="p-2">
-                <Title level={5} className="!text-white mb-2">Need Help? </Title>
+                <Title level={5} className="!text-white mb-2">
+                  Need Help?
+                </Title>
                 <Text className="text-green-100 mb-4">
                   Our support team is here to assist you 24/7
                 </Text>
-                <Button 
+                <Button
                   className="bg-white text-green-600 border-0 font-medium"
                   block
                 >
@@ -424,13 +497,49 @@ const Account = () => {
         okText="Yes, Sign Out"
         cancelText="Cancel"
         width={400}
-        okButtonProps={{ 
-          className: "bg-orange-500 hover:bg-orange-600 border-orange-500 hover:border-orange-600" 
+        okButtonProps={{
+          className:
+            "bg-orange-500 hover:bg-orange-600 border-orange-500 hover:border-orange-600",
         }}
       >
         <div className="py-4">
-          <p className="text-gray-600 mb-2">Are you sure you want to sign out?</p>
-          <p className="text-orange-500 text-sm font-medium">⚠️ You will need to sign in again to access your account.</p>
+          <p className="text-gray-600 mb-2">
+            Are you sure you want to sign out?
+          </p>
+          <p className="text-orange-500 text-sm font-medium">
+            ⚠️ You will need to sign in again to access your account.
+          </p>
+        </div>
+      </Modal>
+
+      {/* Delete Account Confirmation Modal */}
+      <Modal
+        title="Confirm Account Deletion"
+        open={showDeleteModal}
+        onOk={confirmDeleteAccount}
+        onCancel={() => setShowDeleteModal(false)}
+        okText="Yes, Delete My Account"
+        cancelText="Keep My Account"
+        width={480}
+        okButtonProps={{
+          danger: true,
+          loading: deleting,
+          className:
+            "bg-red-500 hover:bg-red-600 border-red-500 hover:border-red-600",
+        }}
+      >
+        <div className="py-4">
+          <p className="text-gray-600 mb-2">
+            Are you sure you want to delete your account?
+          </p>
+          <p className="text-red-500 text-sm font-medium">
+            ⚠️ This action cannot be undone and will:
+          </p>
+          <ul className="text-sm text-gray-500 mt-2 ml-4">
+            <li>• Remove all your personal data</li>
+            <li>• Cancel active orders</li>
+            <li>• Delete your purchase history</li>
+          </ul>
         </div>
       </Modal>
     </div>

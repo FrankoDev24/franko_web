@@ -10,7 +10,6 @@ const toArray = (data) => {
 
 // Consistent error extraction for thunks
 const toErrorPayload = (error, fallback) => {
-  // Prefer server-provided message/string, else axios message, else a fallback
   const server =
     error.response?.data?.message ??
     (typeof error.response?.data === 'string' ? error.response.data : null);
@@ -18,17 +17,24 @@ const toErrorPayload = (error, fallback) => {
 };
 
 /* ===========================
-   ASYNC THUNKS
+   ASYNC THUNKS (via Lambda)
 =========================== */
 
-// Post a new advertisement
+// Post a new advertisement (goes through Lambda)
 export const postAdvertisment = createAsyncThunk(
   'advertisment/postAdvertisment',
   async (formData, { rejectWithValue }) => {
     try {
-      const res = await axiosInstance.post('/Advertisment/PostAdvertisment', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await axiosInstance.post(
+        '/',                     // call Lambda root
+        formData,
+        {
+          params: {
+            endpoint: '/Advertisment/PostAdvertisment', // backend endpoint
+          },
+          headers: { 'Content-Type': 'multipart/form-data' },
+        }
+      );
       return res.data;
     } catch (error) {
       return rejectWithValue(toErrorPayload(error, 'Failed to post advertisement'));
@@ -42,8 +48,12 @@ export const getAdvertisment = createAsyncThunk(
   async (AdsName, { rejectWithValue }) => {
     try {
       if (!AdsName) throw new Error('AdsName is required');
-      const res = await axiosInstance.get('/Advertisment/GetAdvertisment', {
-        params: { AdsName },
+
+      const res = await axiosInstance.get('/', {
+        params: {
+          endpoint: '/Advertisment/GetAdvertisment', // backend endpoint
+          AdsName,
+        },
       });
 
       const rows = toArray(res.data);
@@ -60,8 +70,11 @@ export const getHomePageAdvertisment = createAsyncThunk(
   'advertisment/getHomePage',
   async (_, { rejectWithValue }) => {
     try {
-      const res = await axiosInstance.get('/Advertisment/GetAdvertisment', {
-        params: { AdsName: 'Home Page' },
+      const res = await axiosInstance.get('/', {
+        params: {
+          endpoint: '/Advertisment/GetAdvertisment',
+          AdsName: 'Home Page',
+        },
       });
 
       const rows = toArray(res.data);
@@ -78,8 +91,11 @@ export const getBannerPageAdvertisment = createAsyncThunk(
   'advertisment/getBannerPage',
   async (_, { rejectWithValue }) => {
     try {
-      const res = await axiosInstance.get('/Advertisment/GetAdvertisment', {
-        params: { AdsName: 'Banner' },
+      const res = await axiosInstance.get('/', {
+        params: {
+          endpoint: '/Advertisment/GetAdvertisment',
+          AdsName: 'Banner',
+        },
       });
 
       const rows = toArray(res.data);
@@ -105,10 +121,20 @@ export const putAdvertisment = createAsyncThunk(
       const formData = new FormData();
       formData.append('FileName', fileToUpload);
 
-      const res = await axiosInstance.post('/Advertisment/PutAdvertisment', formData, {
-        params: { Fileid, AdsName, IndexOrder, AdsNote },
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await axiosInstance.post(
+        '/',                     // still POST, but via Lambda
+        formData,
+        {
+          params: {
+            endpoint: '/Advertisment/PutAdvertisment', // backend endpoint
+            Fileid,
+            AdsName,
+            IndexOrder,
+            AdsNote,
+          },
+          headers: { 'Content-Type': 'multipart/form-data' },
+        }
+      );
 
       return res.data;
     } catch (error) {
@@ -140,7 +166,6 @@ const advertismentSlice = createSlice({
       })
       .addCase(postAdvertisment.fulfilled, (state, action) => {
         state.loading = false;
-        // If API returns the created entity, append it; otherwise no-op
         if (action.payload) state.advertisments.push(action.payload);
       })
       .addCase(postAdvertisment.rejected, (state, action) => {

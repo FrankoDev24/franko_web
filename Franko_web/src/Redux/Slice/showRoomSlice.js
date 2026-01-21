@@ -1,8 +1,8 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axiosInstance from './AxiosInstance'; // <-- your centralized Axios instance
+import axiosInstance from './AxiosInstance'; // Lambda-based Axios instance
 
 /* ===========================
-   ASYNC THUNKS
+   ASYNC THUNKS (via Lambda)
 =========================== */
 
 // Fetch all showrooms
@@ -10,7 +10,9 @@ export const fetchShowrooms = createAsyncThunk(
   'showrooms/fetchShowrooms',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get('/ShowRoom/Get-ShowRoom');
+      const response = await axiosInstance.get('/', {
+        params: { endpoint: '/ShowRoom/Get-ShowRoom' },
+      });
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch showrooms');
@@ -23,10 +25,14 @@ export const fetchHomePageShowrooms = createAsyncThunk(
   'showrooms/fetchHomePageShowrooms',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get('/ShowRoom/Get-HomePageShowRoom');
+      const response = await axiosInstance.get('/', {
+        params: { endpoint: '/ShowRoom/Get-HomePageShowRoom' },
+      });
       return Array.isArray(response.data) ? response.data : [];
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch home page showrooms');
+      return rejectWithValue(
+        error.response?.data?.message || 'Failed to fetch home page showrooms'
+      );
     }
   }
 );
@@ -36,9 +42,14 @@ export const addShowroom = createAsyncThunk(
   'showrooms/addShowroom',
   async (showroomData, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.post('/ShowRoom/Setup-Showroom', showroomData, {
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const response = await axiosInstance.post(
+        '/',                     // Lambda root
+        showroomData,
+        {
+          params: { endpoint: '/ShowRoom/Setup-Showroom' },
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to add showroom');
@@ -52,9 +63,12 @@ export const updateShowroom = createAsyncThunk(
   async ({ Showroomid, ...showroomData }, { rejectWithValue }) => {
     try {
       const response = await axiosInstance.post(
-        `/ShowRoom/Showroom-Put/${Showroomid}`,
+        '/',                     // Lambda root
         showroomData,
-        { headers: { 'Content-Type': 'application/json' } }
+        {
+          params: { endpoint: `/ShowRoom/Showroom-Put/${Showroomid}` },
+          headers: { 'Content-Type': 'application/json' },
+        }
       );
       return response.data;
     } catch (error) {

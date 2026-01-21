@@ -1,15 +1,20 @@
+// AxiosInstance.js
 import axios from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const API_KEY_NAME = import.meta.env.VITE_API_KEY_NAME;
-const API_KEY_VALUE = import.meta.env.VITE_API_KEY_VALUE;
+const LAMBDA_BASE_URL = import.meta.env.VITE_LAMBDA_BASE_URL;
+const LAMBDA_HEADER_NAME =
+  import.meta.env.VITE_LAMBDA_HEADER_NAME || "Identifier";
+const LAMBDA_HEADER_VALUE =
+  import.meta.env.VITE_LAMBDA_HEADER_VALUE || "Franko";
 
 const axiosInstance = axios.create({
-  baseURL: API_BASE_URL, // Directly points to your production API
+  baseURL: LAMBDA_BASE_URL,
   headers: {
-    "Content-Type": "application/json",
-    [API_KEY_NAME]: API_KEY_VALUE, // Dynamically set API key
+    // ❌ do not set Content-Type globally; let each request decide
+    [LAMBDA_HEADER_NAME]: LAMBDA_HEADER_VALUE,
   },
 });
+
+// For JSON requests, axios will set Content-Type automatically when you send an object.
 
 export default axiosInstance;

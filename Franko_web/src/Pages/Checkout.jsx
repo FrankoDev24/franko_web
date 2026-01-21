@@ -250,14 +250,14 @@ const storeCheckoutDetailsInLocalStorage = (checkoutDetails, addressDetails) => 
 };
 
  const initiatePayment = async (totalAmount, cartItems, orderId) => {
-  const username = "RMWBWl0";
-  const password = "3c42a596cd044fed81b492e74da4ae30";
+  const username = "E9wVrO0";
+  const password = "2efa9167761c4fa89245356e0ed3159e";
   const encodedCredentials = btoa(`${username}:${password}`);
 
   const payload = {
     totalAmount,
     description: `Payment for ${cartItems.map((item) => item.productName).join(", ")}`,
-    callbackUrl: "https://smfteapi.salesmate.app/PaymentSystem/PostHubtelCallBack",
+    callbackUrl: "https://02yo3gbfxe.execute-api.us-east-1.amazonaws.com/default/FrankoAPI/PaymentSystem/PostHubtelCallBack",
     returnUrl: `https://www.frankotrading.com/payment-success/${orderId}`,
     cancellationUrl: "https://www.frankotrading.com/order-cancelled",
     merchantAccountNumber: "2020892",

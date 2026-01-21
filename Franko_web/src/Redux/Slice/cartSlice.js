@@ -48,7 +48,7 @@ const initialState = {
 };
 
 /* ===========================
-   ASYNC THUNKS
+   ASYNC THUNKS (via Lambda)
 =========================== */
 
 export const addToCart = createAsyncThunk(
@@ -65,8 +65,13 @@ export const addToCart = createAsyncThunk(
       };
 
       const response = await axiosInstance.post(
-        "/Cart/Add-To-Cart",
-        cartItem
+        "/",            // Lambda root
+        cartItem,
+        {
+          params: {
+            endpoint: "/Cart/Add-To-Cart",
+          },
+        }
       );
 
       return { ...cartItem, ...response.data };
@@ -85,8 +90,13 @@ export const createCartItem = createAsyncThunk(
       const cartId = getOrCreateCartId();
 
       const response = await axiosInstance.post(
-        "/Cart/Add-To-Cart",
-        { ...item, cartId }
+        "/",            // Lambda root
+        { ...item, cartId },
+        {
+          params: {
+            endpoint: "/Cart/Add-To-Cart",
+          },
+        }
       );
 
       return { ...item, ...response.data };
@@ -104,9 +114,11 @@ export const getCartById = createAsyncThunk(
     try {
       const cartId = getOrCreateCartId();
 
-      const response = await axiosInstance.get(
-        `/Cart/Cart-GetbyID/${cartId}`
-      );
+      const response = await axiosInstance.get("/", {
+        params: {
+          endpoint: `/Cart/Cart-GetbyID/${cartId}`,
+        },
+      });
 
       return response.data;
     } catch (error) {
@@ -124,7 +136,13 @@ export const updateCartItem = createAsyncThunk(
       const cartId = getOrCreateCartId();
 
       await axiosInstance.post(
-        `/Cart/Cart-Update/${cartId}/${productId}/${quantity}`
+        "/",           // Lambda root
+        null,
+        {
+          params: {
+            endpoint: `/Cart/Cart-Update/${cartId}/${productId}/${quantity}`,
+          },
+        }
       );
 
       return { cartId, productId, quantity };
@@ -143,7 +161,13 @@ export const deleteCartItem = createAsyncThunk(
       const cartId = getOrCreateCartId();
 
       await axiosInstance.post(
-        `/Cart/Cart-Delete/${cartId}/${productId}`
+        "/",          // Lambda root
+        null,
+        {
+          params: {
+            endpoint: `/Cart/Cart-Delete/${cartId}/${productId}`,
+          },
+        }
       );
 
       return { cartId, productId };
@@ -152,23 +176,37 @@ export const deleteCartItem = createAsyncThunk(
     }
   }
 );
-// --- Slice ---
+
+/* ===========================
+   SLICE
+=========================== */
+
 const cartSlice = createSlice({
-  name: 'cart',
+  name: "cart",
   initialState,
   reducers: {
     addCart: (state, action) => {
-      const existingItemIndex = state.cart.findIndex(item => item.productId === action.payload.productId);
+      const existingItemIndex = state.cart.findIndex(
+        (item) => item.productId === action.payload.productId
+      );
       if (existingItemIndex >= 0) {
         state.cart[existingItemIndex].quantity += action.payload.quantity;
       } else {
-        state.cart.push({ ...action.payload, quantity: action.payload.quantity || 1 });
+        state.cart.push({
+          ...action.payload,
+          quantity: action.payload.quantity || 1,
+        });
       }
-      state.totalItems = state.cart.reduce((total, item) => total + item.quantity, 0);
+      state.totalItems = state.cart.reduce(
+        (total, item) => total + item.quantity,
+        0
+      );
       saveCartToLocalStorage(state.cart);
     },
     removeFromCart: (state, action) => {
-      const index = state.cart.findIndex(item => item.productId === action.payload.productId);
+      const index = state.cart.findIndex(
+        (item) => item.productId === action.payload.productId
+      );
       if (index >= 0) {
         state.totalItems -= state.cart[index].quantity;
         state.cart.splice(index, 1);
@@ -189,47 +227,69 @@ const cartSlice = createSlice({
     },
     setCartItems: (state, action) => {
       state.cart = action.payload;
-      state.totalItems = action.payload.reduce((total, item) => total + item.quantity, 0);
+      state.totalItems = action.payload.reduce(
+        (total, item) => total + item.quantity,
+        0
+      );
       saveCartToLocalStorage(state.cart);
     },
   },
   extraReducers: (builder) => {
     builder
-      .addCase(addToCart.pending, state => { state.loading = true; })
+      .addCase(addToCart.pending, (state) => {
+        state.loading = true;
+      })
       .addCase(addToCart.fulfilled, (state, action) => {
         state.loading = false;
-        const index = state.cart.findIndex(item => item.productId === action.payload.productId);
+        const index = state.cart.findIndex(
+          (item) => item.productId === action.payload.productId
+        );
         if (index >= 0) {
           state.cart[index].quantity += action.payload.quantity;
         } else {
           state.cart.push(action.payload);
         }
-        state.totalItems = state.cart.reduce((total, item) => total + item.quantity, 0);
+        state.totalItems = state.cart.reduce(
+          (total, item) => total + item.quantity,
+          0
+        );
         saveCartToLocalStorage(state.cart);
       })
       .addCase(addToCart.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || action.error.message;
       })
-      .addCase(getCartById.pending, state => { state.loading = true; })
+      .addCase(getCartById.pending, (state) => {
+        state.loading = true;
+      })
       .addCase(getCartById.fulfilled, (state, action) => {
         state.loading = false;
         state.cart = action.payload;
-        state.totalItems = action.payload.reduce((total, item) => total + item.quantity, 0);
+        state.totalItems = action.payload.reduce(
+          (total, item) => total + item.quantity,
+          0
+        );
         saveCartToLocalStorage(state.cart);
       })
       .addCase(getCartById.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || action.error.message;
       })
-      .addCase(updateCartItem.pending, state => { state.loading = true; })
+      .addCase(updateCartItem.pending, (state) => {
+        state.loading = true;
+      })
       .addCase(updateCartItem.fulfilled, (state, action) => {
         const { productId, quantity } = action.payload;
-        const index = state.cart.findIndex(item => item.productId === productId);
+        const index = state.cart.findIndex(
+          (item) => item.productId === productId
+        );
         if (index !== -1) {
           state.cart[index].quantity = quantity;
         }
-        state.totalItems = state.cart.reduce((total, item) => total + item.quantity, 0);
+        state.totalItems = state.cart.reduce(
+          (total, item) => total + item.quantity,
+          0
+        );
         saveCartToLocalStorage(state.cart);
         state.loading = false;
       })
@@ -237,10 +297,17 @@ const cartSlice = createSlice({
         state.loading = false;
         state.error = action.payload || action.error.message;
       })
-      .addCase(deleteCartItem.pending, state => { state.loading = true; })
+      .addCase(deleteCartItem.pending, (state) => {
+        state.loading = true;
+      })
       .addCase(deleteCartItem.fulfilled, (state, action) => {
-        state.cart = state.cart.filter(item => item.productId !== action.payload.productId);
-        state.totalItems = state.cart.reduce((total, item) => total + item.quantity, 0);
+        state.cart = state.cart.filter(
+          (item) => item.productId !== action.payload.productId
+        );
+        state.totalItems = state.cart.reduce(
+          (total, item) => total + item.quantity,
+          0
+        );
         saveCartToLocalStorage(state.cart);
         if (state.cart.length === 0) {
           localStorage.removeItem(CART_KEY);
@@ -253,15 +320,22 @@ const cartSlice = createSlice({
         state.loading = false;
         state.error = action.payload || action.error.message;
       })
-      .addCase(createCartItem.pending, state => { state.loading = true; })
+      .addCase(createCartItem.pending, (state) => {
+        state.loading = true;
+      })
       .addCase(createCartItem.fulfilled, (state, action) => {
-        const index = state.cart.findIndex(item => item.productId === action.payload.productId);
+        const index = state.cart.findIndex(
+          (item) => item.productId === action.payload.productId
+        );
         if (index >= 0) {
           state.cart[index].quantity += action.payload.quantity;
         } else {
           state.cart.push(action.payload);
         }
-        state.totalItems = state.cart.reduce((total, item) => total + item.quantity, 0);
+        state.totalItems = state.cart.reduce(
+          (total, item) => total + item.quantity,
+          0
+        );
         saveCartToLocalStorage(state.cart);
         state.loading = false;
       })
@@ -269,9 +343,10 @@ const cartSlice = createSlice({
         state.loading = false;
         state.error = action.payload || action.error.message;
       });
-  }
+  },
 });
 
 // --- Exports ---
-export const { clearCart, addCart, removeFromCart, setCartItems } = cartSlice.actions;
+export const { clearCart, addCart, removeFromCart, setCartItems } =
+  cartSlice.actions;
 export default cartSlice.reducer;

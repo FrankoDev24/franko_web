@@ -2,14 +2,24 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "./AxiosInstance";
 
+// Optional helper to normalize error payloads (same pattern as adverts/products)
+const toErrorPayload = (error, fallback) => {
+  const server =
+    error.response?.data?.message ??
+    (typeof error.response?.data === "string" ? error.response.data : null);
+  return server || error.message || fallback;
+};
+
 // Async thunks
 export const fetchOrdersByDate = createAsyncThunk(
   "orders/fetchOrdersByDate",
   async ({ from, to }, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get(
-        `/Order/GetOrdersByDate/${from}/${to}`
-      );
+      const { data } = await axiosInstance.get("/", {
+        params: {
+          endpoint: `/Order/GetOrdersByDate/${from}/${to}`,
+        },
+      });
       return data;
     } catch (error) {
       return rejectWithValue(
@@ -19,30 +29,46 @@ export const fetchOrdersByDate = createAsyncThunk(
   }
 );
 
-
 export const checkOutOrder = createAsyncThunk(
-  'orders/checkOutOrder',
+  "orders/checkOutOrder",
   async (payload, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.post(`/Order/CheckOutDbCart`, payload);
+      const { data } = await axiosInstance.post(
+        "/",
+        payload,
+        {
+          params: {
+            endpoint: "/Order/CheckOutDbCart",
+          },
+        }
+      );
       return data;
     } catch (error) {
-      return rejectWithValue(toErrorPayload(error, 'Failed to checkout order'));
+      return rejectWithValue(
+        toErrorPayload(error, "Failed to checkout order")
+      );
     }
   }
 );
-// New async thunk for fetching orders by customer or agent
+
 // Fetch orders by customer/agent
 export const fetchOrdersByCustomer = createAsyncThunk(
   "orders/fetchOrdersByCustomerOrAgent",
   async ({ from, to, customerId }, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get(`/Order/GetOrderByCustomer`, {
-        params: { from, to, customerId },
+      const { data } = await axiosInstance.get("/", {
+        params: {
+          endpoint: "/Order/GetOrderByCustomer",
+          from,
+          to,
+          customerId,
+        },
       });
       return data || [];
     } catch (error) {
-      return rejectWithValue(error.response?.data || "Failed to fetch orders");
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch orders"
+      );
     }
   }
 );
@@ -52,23 +78,35 @@ export const fetchOrdersByThirdParty = createAsyncThunk(
   "orders/fetchOrdersByThirdParty",
   async ({ from, to, ThirdPartyAccountNumber }, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get(`/Order/GetOrderByThirdParty`, {
-        params: { from, to, ThirdPartyAccountNumber },
+      const { data } = await axiosInstance.get("/", {
+        params: {
+          endpoint: "/Order/GetOrderByThirdParty",
+          from,
+          to,
+          ThirdPartyAccountNumber,
+        },
       });
       return data || [];
     } catch (error) {
-      return rejectWithValue(error.response?.data || "Failed to fetch orders ");
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch orders "
+      );
     }
   }
 );
-
 
 export const updateOrderTransition = createAsyncThunk(
   "orders/updateOrderTransition",
   async ({ CycleName, OrderId }, { rejectWithValue }) => {
     try {
       const { data } = await axiosInstance.post(
-        `/Order/UpdateOrderTransition/${CycleName}/${OrderId}`
+        "/",
+        null,
+        {
+          params: {
+            endpoint: `/Order/UpdateOrderTransition/${CycleName}/${OrderId}`,
+          },
+        }
       );
       return data;
     } catch (error) {
@@ -83,9 +121,11 @@ export const fetchOrderLifeCycle = createAsyncThunk(
   "orders/fetchOrderLifeCycle",
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get(
-        `/Order/OrderLifeCycle-Get`
-      );
+      const { data } = await axiosInstance.get("/", {
+        params: {
+          endpoint: "/Order/OrderLifeCycle-Get",
+        },
+      });
       return data;
     } catch (error) {
       return rejectWithValue(
@@ -95,14 +135,15 @@ export const fetchOrderLifeCycle = createAsyncThunk(
   }
 );
 
-
 export const fetchSalesOrderById = createAsyncThunk(
   "orders/fetchSalesOrderById",
   async (orderId, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get(
-        `/Order/SalesOrderGet/${orderId}`
-      );
+      const { data } = await axiosInstance.get("/", {
+        params: {
+          endpoint: `/Order/SalesOrderGet/${orderId}`,
+        },
+      });
       return data;
     } catch (error) {
       return rejectWithValue(
@@ -112,21 +153,32 @@ export const fetchSalesOrderById = createAsyncThunk(
   }
 );
 
-
 export const updateOrderDelivery = createAsyncThunk(
-  'orders/updateOrderDelivery',
+  "orders/updateOrderDelivery",
   async ({ orderCode, ...payload }, { rejectWithValue }) => {
     try {
       const OrderCode = payload?.OrderCode ?? orderCode;
       if (!OrderCode) {
-        throw new Error('OrderCode is required.');
+        throw new Error("OrderCode is required.");
       }
+
       // Include OrderCode in the body with correct casing
       const body = { ...payload, OrderCode };
-      const { data } = await axiosInstance.post(`/Order/OrderDeliveryUpdate/${OrderCode}`, body);
+
+      const { data } = await axiosInstance.post(
+        "/",
+        body,
+        {
+          params: {
+            endpoint: `/Order/OrderDeliveryUpdate/${OrderCode}`,
+          },
+        }
+      );
       return data;
     } catch (error) {
-      return rejectWithValue(toErrorPayload(error, 'Failed to update order delivery'));
+      return rejectWithValue(
+        toErrorPayload(error, "Failed to update order delivery")
+      );
     }
   }
 );
@@ -136,8 +188,13 @@ export const orderAddress = createAsyncThunk(
   async (payload, { rejectWithValue }) => {
     try {
       const { data } = await axiosInstance.post(
-        `/Order/OrderAddress`,
-        payload
+        "/",
+        payload,
+        {
+          params: {
+            endpoint: "/Order/OrderAddress",
+          },
+        }
       );
       return data;
     } catch (error) {
@@ -148,14 +205,15 @@ export const orderAddress = createAsyncThunk(
   }
 );
 
-
 export const fetchOrderDeliveryAddress = createAsyncThunk(
   "orders/fetchOrderDeliveryAddress",
   async (OrderCode, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get(
-        `/Order/GetOrderDeliveryAddress/${OrderCode}`
-      );
+      const { data } = await axiosInstance.get("/", {
+        params: {
+          endpoint: `/Order/GetOrderDeliveryAddress/${OrderCode}`,
+        },
+      });
       return data;
     } catch (error) {
       return rejectWithValue(
@@ -164,7 +222,6 @@ export const fetchOrderDeliveryAddress = createAsyncThunk(
     }
   }
 );
-
 
 // Slice
 const orderSlice = createSlice({
@@ -206,8 +263,6 @@ const orderSlice = createSlice({
     saveCheckoutDetails: (state, action) => {
       const checkoutDetails = action.payload;
       state.checkoutDetails = checkoutDetails;
-
-      // Persist in localStorage
       localStorage.setItem("checkoutDetails", checkoutDetails);
     },
 
@@ -215,8 +270,6 @@ const orderSlice = createSlice({
     saveAddressDetails: (state, action) => {
       const orderAddressDetails = action.payload;
       state.orderAddressDetails = orderAddressDetails;
-
-      // Persist in localStorage
       localStorage.setItem("orderAddressDetails", orderAddressDetails);
     },
 
@@ -313,7 +366,7 @@ const orderSlice = createSlice({
         state.loading.lifeCycle = false;
         state.error.lifeCycle = action.payload;
       })
-     .addCase(checkOutOrder.pending, (state) => {
+      .addCase(checkOutOrder.pending, (state) => {
         state.loading.orders = true;
         state.error.orders = null;
       })
@@ -323,7 +376,10 @@ const orderSlice = createSlice({
       })
       .addCase(checkOutOrder.rejected, (state, action) => {
         state.loading.orders = false;
-        state.error.orders = action.payload || action.error?.message || 'Failed to checkout order';
+        state.error.orders =
+          action.payload ||
+          action.error?.message ||
+          "Failed to checkout order";
       })
       .addCase(orderAddress.pending, (state) => {
         state.loading.deliveryAddress = true;
@@ -347,7 +403,7 @@ const orderSlice = createSlice({
       .addCase(fetchOrderDeliveryAddress.rejected, (state, action) => {
         state.error = action.payload;
       })
-        .addCase(updateOrderDelivery.pending, (state) => {
+      .addCase(updateOrderDelivery.pending, (state) => {
         state.loading.deliveryUpdate = true;
         state.error.deliveryUpdate = null;
       })
@@ -358,7 +414,9 @@ const orderSlice = createSlice({
       .addCase(updateOrderDelivery.rejected, (state, action) => {
         state.loading.deliveryUpdate = false;
         state.error.deliveryUpdate =
-          action.payload || action.error?.message || 'Failed to update order delivery';
+          action.payload ||
+          action.error?.message ||
+          "Failed to update order delivery";
       })
       .addCase(fetchSalesOrderById.pending, (state) => {
         state.loading = true;
@@ -370,7 +428,8 @@ const orderSlice = createSlice({
       })
       .addCase(fetchSalesOrderById.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || "Failed to fetch sales order";
+        state.error =
+          action.payload || "Failed to fetch sales order";
       })
       .addCase(fetchOrdersByCustomer.pending, (state) => {
         state.loading = true;
@@ -406,6 +465,7 @@ export const {
   saveCheckoutDetails,
   updateOrder,
   saveAddressDetails,
+  clearLocalStorage,
 } = orderSlice.actions;
 
 export default orderSlice.reducer;

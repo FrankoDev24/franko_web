@@ -1,6 +1,6 @@
-import { Modal, Input, Typography, Space, Divider} from "antd";
+import { Modal, Input, Typography, Space, Divider } from "antd";
 import {
-UserOutlined,
+  UserOutlined,
   LockOutlined,
   HomeOutlined,
   PhoneOutlined,
@@ -8,24 +8,32 @@ UserOutlined,
 } from "@ant-design/icons";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
-import { createCustomer, loginCustomer ,getCustomerById} from "../Redux/Slice/customerSlice";
+import {
+  createCustomer,
+  loginCustomer,
+  setCurrentCustomer,
+} from "../Redux/Slice/customerSlice";
 import { v4 as uuidv4 } from "uuid";
 import logo from "../assets/frankoIcon.png";
 
 const { Title, Text } = Typography;
 
-// Notification Component
+/* ===========================
+   Notification Component
+=========================== */
+
 const Notification = ({ message, type, isVisible, onClose }) => {
   const timeoutRef = useRef(null);
 
-  useEffect(() => {
-    return () => {
+  useEffect(
+    () => () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
       }
-    };
-  }, []);
+    },
+    []
+  );
 
   useEffect(() => {
     if (timeoutRef.current) {
@@ -42,20 +50,30 @@ const Notification = ({ message, type, isVisible, onClose }) => {
 
   if (!isVisible || !message) return null;
 
-  const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
-  const iconColor = type === 'success' ? 'text-green-100' : 'text-red-100';
+  const bgColor = type === "success" ? "bg-green-500" : "bg-red-500";
+  const iconColor = type === "success" ? "text-green-100" : "text-red-100";
 
   return (
     <div className="fixed top-4 right-4 z-[9999] animate-slide-in">
-      <div className={`${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 min-w-[320px] max-w-md`}>
+      <div
+        className={`${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 min-w-[320px] max-w-md`}
+      >
         <div className={`flex-shrink-0 ${iconColor}`}>
-          {type === 'success' ? (
+          {type === "success" ? (
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                clipRule="evenodd"
+              />
             </svg>
           ) : (
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                clipRule="evenodd"
+              />
             </svg>
           )}
         </div>
@@ -71,15 +89,19 @@ const Notification = ({ message, type, isVisible, onClose }) => {
   );
 };
 
+/* ===========================
+   AuthModal
+=========================== */
+
 const AuthModal = ({ open, onClose, onSuccess }) => {
   const dispatch = useDispatch();
 
-  const [authMode, setAuthMode] = useState('signup');
+  const [authMode, setAuthMode] = useState("signup");
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState({
-    message: '',
-    type: 'success',
-    isVisible: false
+    message: "",
+    type: "success",
+    isVisible: false,
   });
 
   const [signupData, setSignupData] = useState({
@@ -103,31 +125,22 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
     contactNumber: "",
   });
 
-  const generateCustomerAccountNumber = () => {
-    return uuidv4();
-  };
+  const generateCustomerAccountNumber = () => uuidv4();
 
-  const hideNotification = useCallback(() => {
-    setNotification(prev => ({ 
-      ...prev, 
-      isVisible: false 
-    }));
-  }, []);
+  const hideNotification = useCallback(
+    () => setNotification((prev) => ({ ...prev, isVisible: false })),
+    []
+  );
 
-  const showNotification = useCallback((message, type = 'success') => {
-    setNotification({ message: '', type: 'success', isVisible: false });
-    
+  const showNotification = useCallback((message, type = "success") => {
+    setNotification({ message: "", type: "success", isVisible: false });
     requestAnimationFrame(() => {
-      setNotification({
-        message,
-        type,
-        isVisible: true
-      });
+      setNotification({ message, type, isVisible: true });
     });
   }, []);
 
   useEffect(() => {
-    if (open && authMode === 'signup') {
+    if (open && authMode === "signup") {
       setSignupData((prev) => ({
         ...prev,
         customerAccountNumber: generateCustomerAccountNumber(),
@@ -135,17 +148,16 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
     }
   }, [open, authMode]);
 
-  const handleEscapeKey = useCallback((e) => {
-    if (e.key === "Escape" && open) {
-      onClose();
-    }
-  }, [onClose, open]);
+  const handleEscapeKey = useCallback(
+    (e) => {
+      if (e.key === "Escape" && open) onClose();
+    },
+    [open, onClose]
+  );
 
   useEffect(() => {
     document.addEventListener("keydown", handleEscapeKey);
-    return () => {
-      document.removeEventListener("keydown", handleEscapeKey);
-    };
+    return () => document.removeEventListener("keydown", handleEscapeKey);
   }, [handleEscapeKey]);
 
   const handleSignupChange = (e) => {
@@ -163,9 +175,13 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
     setGuestData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Helper to normalize phone (strip non-digits)
+  const normalizePhone = (value = "") => value.replace(/\D/g, "");
+
   const validateSignupForm = () => {
     const { firstName, lastName, contactNumber, password } = signupData;
-    
+    const normalizedContact = normalizePhone(contactNumber);
+
     if (!firstName.trim()) {
       showNotification("First name is required", "error");
       return false;
@@ -174,12 +190,12 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
       showNotification("Last name is required", "error");
       return false;
     }
-    if (!contactNumber.trim()) {
+    if (!normalizedContact) {
       showNotification("Contact number is required", "error");
       return false;
     }
-    if (contactNumber.length < 10) {
-      showNotification("Contact number must be at least 10 digits", "error");
+    if (normalizedContact.length !== 10) {
+      showNotification("Contact number must be exactly 10 digits", "error");
       return false;
     }
     if (!password.trim()) {
@@ -190,188 +206,182 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
       showNotification("Password must be at least 6 characters long", "error");
       return false;
     }
-    
     return true;
   };
 
   const validateLoginForm = () => {
     const { contactNumber, password } = loginData;
-    
-    if (!contactNumber.trim()) {
+    const normalizedContact = normalizePhone(contactNumber);
+
+    if (!normalizedContact) {
       showNotification("Contact number is required", "error");
+      return false;
+    }
+    if (normalizedContact.length !== 10) {
+      showNotification("Contact number must be exactly 10 digits", "error");
       return false;
     }
     if (!password.trim()) {
       showNotification("Password is required", "error");
       return false;
     }
-    
     return true;
   };
 
   const validateGuestForm = () => {
     const { contactNumber } = guestData;
-    
-    if (!contactNumber.trim()) {
+    const normalizedContact = normalizePhone(contactNumber);
+
+    if (!normalizedContact) {
       showNotification("Contact number is required", "error");
       return false;
     }
-    if (contactNumber.length < 10) {
-      showNotification("Contact number must be at least 10 digits", "error");
+    if (normalizedContact.length !== 10) {
+      showNotification("Contact number must be exactly 10 digits", "error");
       return false;
     }
-    
     return true;
   };
 
+  /* ===========================
+     SIGNUP
+  ============================ */
+
   const handleSignup = async () => {
     if (!validateSignupForm()) return;
-    
     setLoading(true);
+
     try {
-      const result = await dispatch(createCustomer(signupData)).unwrap();
-      
-      if (result?.ResponseCode === '2') {
-        const message = result.ResponseMessage || 'Account already exists';
-        showNotification(`${message}. Please login with your existing account.`, "error");
-        
-        setTimeout(() => {
-          setAuthMode('login');
-          setLoginData(prev => ({
-            ...prev,
-            contactNumber: signupData.contactNumber
-          }));
-        }, 2500);
-        
-        return;
+      let result = await dispatch(createCustomer(signupData)).unwrap();
+
+      // Normalize string responses
+      if (typeof result === "string") {
+        try {
+          result = JSON.parse(result);
+        } catch {
+          // leave as is
+        }
       }
 
-      if (result?.ResponseCode && result.ResponseCode !== '1' && result.ResponseCode !== '0') {
-        const errorMessage = result.ResponseMessage || 'Registration failed';
-        showNotification(errorMessage, "error");
-        return;
+      // Handle ResponseCode if present
+      if (result && typeof result === "object" && "ResponseCode" in result) {
+        if (result.ResponseCode === "2") {
+          const message = result.ResponseMessage || "Account already exists";
+          showNotification(
+            `${message}. Please login with your existing account.`,
+            "error"
+          );
+          setTimeout(() => {
+            setAuthMode("login");
+            setLoginData((prev) => ({
+              ...prev,
+              contactNumber: signupData.contactNumber,
+            }));
+          }, 2500);
+          return;
+        }
+
+        if (
+          result.ResponseCode &&
+          result.ResponseCode !== "1" &&
+          result.ResponseCode !== "0"
+        ) {
+          const errorMessage = result.ResponseMessage || "Registration failed";
+          showNotification(errorMessage, "error");
+          return;
+        }
       }
+
+      // Build effective customer object
+      const customer =
+        result &&
+        typeof result === "object" &&
+        result.customerAccountNumber
+          ? result
+          : { ...signupData, ...(result || {}) };
+
+      dispatch(setCurrentCustomer(customer));
 
       try {
-        const customerDataForStorage = {
-          ...signupData,
-          ...(result && typeof result === 'object' ? result : {}),
-          isGuest: false,
-          customerAccountNumber: signupData.customerAccountNumber,
-          contactNumber: signupData.contactNumber,
-          firstName: signupData.firstName,
-          lastName: signupData.lastName,
-          email: signupData.email,
-          accountType: "customer",
-          accountStatus: "1",
-          createdAt: new Date().toISOString(),
-          registeredAt: new Date().toISOString(),
-        };
-        
-        localStorage.setItem('customer', JSON.stringify(customerDataForStorage));
-
-      } catch (storageError) {
-        console.warn('Failed to store registration data in localStorage:', storageError);
-      }
-      
-      if (typeof window.fbq === "function") {
-        window.fbq("track", "CompleteRegistration", {
-          content_name: "Customer Registration",
-          status: "success",
-          currency: "GHS",
-          email: signupData.email,
-          customer_type: "registered",
-          contact_number: signupData.contactNumber,
-        });
+        localStorage.setItem("customer", JSON.stringify(customer));
+      } catch (e) {
+        console.warn("Failed to write customer to localStorage:", e);
       }
 
-      if (typeof window.gtag === "function") {
-        window.gtag('event', 'sign_up', {
-          method: 'email',
-          customer_type: 'registered',
-          contact_number: signupData.contactNumber,
-        });
-      }
-      
-      showNotification("Registration successful! ", "success");
-      
-      setTimeout(() => {
-        // CRITICAL: Call onSuccess callback if provided
-        if (onSuccess && typeof onSuccess === 'function') {
-
-          onSuccess();
-        } else {
-          // Fallback: just close the modal
-
-          onClose();
+      // Tracking (optional)
+      try {
+        if (typeof window.fbq === "function") {
+          window.fbq("track", "CompleteRegistration", {
+            content_name: "Customer Registration",
+            status: "success",
+            currency: "GHS",
+            email: signupData.email,
+            customer_type: "registered",
+            contact_number: signupData.contactNumber,
+          });
         }
+        if (typeof window.gtag === "function") {
+          window.gtag("event", "sign_up", {
+            method: "email",
+            customer_type: "registered",
+            contact_number: signupData.contactNumber,
+          });
+        }
+      } catch {}
+
+      showNotification("Registration successful!", "success");
+
+      setTimeout(() => {
+        if (onSuccess && typeof onSuccess === "function") onSuccess();
+        else onClose();
       }, 1500);
-      
     } catch (error) {
       console.error("Registration error:", error);
-      
       let errorMessage = "Registration failed. Please try again.";
-      
-      if (error?.message) {
-        errorMessage = error.message;
-      } else if (error?.response?.data?.message) {
+      if (error?.message) errorMessage = error.message;
+      else if (error?.response?.data?.message)
         errorMessage = error.response.data.message;
-      } else if (error?.response?.data?.error) {
+      else if (error?.response?.data?.error)
         errorMessage = error.response.data.error;
-      }
-      
       showNotification(errorMessage, "error");
-      
     } finally {
       setLoading(false);
     }
   };
 
+  /* ===========================
+     LOGIN
+  ============================ */
+
   const handleLogin = async () => {
     if (!validateLoginForm()) return;
-
     setLoading(true);
+
     try {
-      const loginResult = await dispatch(loginCustomer(loginData)).unwrap();
+      const customer = await dispatch(loginCustomer(loginData)).unwrap();
 
-      if (!loginResult || !loginResult.contactNumber) {
-        showNotification("No customer found with the provided contact number.", "error");
+      if (!customer || !customer.contactNumber) {
+        showNotification(
+          "No customer found with the provided contact number.",
+          "error"
+        );
         return;
       }
 
-      const contactNumber = loginResult.contactNumber;
-      const fullCustomerData = await dispatch(getCustomerById(contactNumber)).unwrap();
+      dispatch(setCurrentCustomer(customer));
 
-      const customer = Array.isArray(fullCustomerData) ? fullCustomerData[0] : fullCustomerData;
-
-      if (!customer || !customer.customerAccountNumber) {
-        showNotification("Failed to retrieve customer details.", "error");
-        return;
+      try {
+        localStorage.setItem("customer", JSON.stringify(customer));
+      } catch (e) {
+        console.warn("Failed to write customer to localStorage:", e);
       }
-
-      const customerToStore = {
-        ...customer,
-        isGuest: false,
-        loggedInAt: new Date().toISOString(),
-      };
-
-      localStorage.setItem("customer", JSON.stringify(customerToStore));
-
 
       showNotification("Login successful!", "success");
-      
-      setTimeout(() => {
-        // CRITICAL: Call onSuccess callback if provided
-        if (onSuccess && typeof onSuccess === 'function') {
-     
-          onSuccess();
-        } else {
-          // Fallback: just close the modal
 
-          onClose();
-        }
+      setTimeout(() => {
+        if (onSuccess && typeof onSuccess === "function") onSuccess();
+        else onClose();
       }, 1500);
-      
     } catch (error) {
       console.error("Login error:", error);
       const message =
@@ -384,11 +394,14 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
     }
   };
 
+  /* ===========================
+     GUEST
+  ============================ */
+
   const handleGuestContinue = async () => {
     if (!validateGuestForm()) return;
-    
     setLoading(true);
-    
+
     const guestCustomerData = {
       customerAccountNumber: generateCustomerAccountNumber(),
       firstName: "Guest",
@@ -404,70 +417,79 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
       guestCreatedAt: new Date().toISOString(),
     };
 
-    let dbResult = null;
+    let dbResult;
 
     try {
       dbResult = await dispatch(createCustomer(guestCustomerData)).unwrap();
-    
     } catch (error) {
-
       setLoading(false);
-      
       let errorMessage = "Failed to create guest account. Please try again.";
-      
-      if (error?.message) {
-        errorMessage = error.message;
-      } else if (error?.response?.data?.message) {
+      if (error?.message) errorMessage = error.message;
+      else if (error?.response?.data?.message)
         errorMessage = error.response.data.message;
-      } else if (error?.response?.data?.error) {
+      else if (error?.response?.data?.error)
         errorMessage = error.response.data.error;
+      showNotification(errorMessage, "error");
+      return;
+    }
+
+    // Normalize string responses
+    if (typeof dbResult === "string") {
+      try {
+        dbResult = JSON.parse(dbResult);
+      } catch {
+        // leave as is
       }
-      
-      showNotification(errorMessage, "error");
-      return;
     }
 
-    if (dbResult?.ResponseCode === '2') {
-      setLoading(false);
-      const message = dbResult.ResponseMessage || 'Account already exists';
-      showNotification(`${message}. Please login with your existing account.`, "error");
-      
-      setTimeout(() => {
-        setAuthMode('login');
-        setLoginData(prev => ({
-          ...prev,
-          contactNumber: guestData.contactNumber
-        }));
-      }, 2500);
-      
-      return;
+    // If API says account already exists
+    if (dbResult && typeof dbResult === "object" && "ResponseCode" in dbResult) {
+      if (dbResult.ResponseCode === "2") {
+        setLoading(false);
+        const message = dbResult.ResponseMessage || "Account already exists";
+        showNotification(
+          `${message}. Please login with your existing account.`,
+          "error"
+        );
+        setTimeout(() => {
+          setAuthMode("login");
+          setLoginData((prev) => ({
+            ...prev,
+            contactNumber: guestData.contactNumber,
+          }));
+        }, 2500);
+        return;
+      }
+
+      // Explicit error code
+      if (
+        dbResult.ResponseCode &&
+        dbResult.ResponseCode !== "1" &&
+        dbResult.ResponseCode !== "0"
+      ) {
+        setLoading(false);
+        const errorMessage =
+          dbResult.ResponseMessage || "Failed to create guest account";
+        showNotification(errorMessage, "error");
+        return;
+      }
+      // Else: ResponseCode is 1 or 0 → treat as success and fall through
     }
 
-    if (dbResult?.ResponseCode !== '1') {
-      setLoading(false);
-      const errorMessage = dbResult?.ResponseMessage || 'Failed to create guest account';
-      showNotification(errorMessage, "error");
-      return;
-    }
+    // Successful guest creation: dbResult may be full customer object
+    const guestCustomer =
+      dbResult &&
+      typeof dbResult === "object" &&
+      dbResult.customerAccountNumber
+        ? dbResult
+        : { ...guestCustomerData, ...(dbResult || {}) };
+
+    dispatch(setCurrentCustomer(guestCustomer));
 
     try {
-      const guestCustomerForStorage = {
-        ...guestCustomerData,
-        ...(dbResult && typeof dbResult === 'object' ? dbResult : {}),
-        isGuest: true,
-        customerAccountNumber: guestCustomerData.customerAccountNumber,
-        contactNumber: guestData.contactNumber,
-        firstName: guestCustomerData.firstName,
-        lastName: guestCustomerData.lastName,
-        email: guestCustomerData.email,
-        accountType: "customer",
-        accountStatus: "1"
-      };
-      
-      localStorage.setItem('customer', JSON.stringify(guestCustomerForStorage));
-
-    } catch (storageError) {
-      console.error('Failed to save to localStorage:', storageError);
+      localStorage.setItem("customer", JSON.stringify(guestCustomer));
+    } catch (e) {
+      console.warn("Failed to write guest customer to localStorage:", e);
     }
 
     try {
@@ -476,37 +498,32 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
           content_name: "Guest Registration",
           status: "success",
           currency: "GHS",
-          email: guestCustomerData.email,
+          email: guestCustomer.email,
           customer_type: "guest",
-          contact_number: guestCustomerData.contactNumber,
+          contact_number: guestCustomer.contactNumber,
         });
       }
-
       if (typeof window.gtag === "function") {
-        window.gtag('event', 'sign_up', {
-          method: 'guest',
-          customer_type: 'guest',
-          contact_number: guestCustomerData.contactNumber,
+        window.gtag("event", "sign_up", {
+          method: "guest",
+          customer_type: "guest",
+          contact_number: guestCustomer.contactNumber,
         });
       }
-    } catch (analyticsError) {
-     
-    }
-    
+    } catch {}
+
     setLoading(false);
     showNotification("Guest account created!", "success");
-    
-    setTimeout(() => {
-      // CRITICAL: Call onSuccess callback if provided
-      if (onSuccess && typeof onSuccess === 'function') {
 
-        onSuccess();
-      } else {
-     
-        onClose();
-      }
+    setTimeout(() => {
+      if (onSuccess && typeof onSuccess === "function") onSuccess();
+      else onClose();
     }, 1500);
   };
+
+  /* ===========================
+     UI helpers
+  ============================ */
 
   useEffect(() => {
     hideNotification();
@@ -515,13 +532,13 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
   useEffect(() => {
     if (!open) {
       hideNotification();
-      setAuthMode('signup');
+      setAuthMode("signup");
     }
   }, [open, hideNotification]);
 
   const renderAuthContent = () => {
     switch (authMode) {
-      case 'login':
+      case "login":
         return (
           <>
             <Input
@@ -540,8 +557,7 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
             />
           </>
         );
-      
-      case 'signup':
+      case "signup":
         return (
           <>
             <Input
@@ -589,8 +605,7 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
             />
           </>
         );
-      
-      case 'guest':
+      case "guest":
         return (
           <div className="space-y-4">
             <div className="text-center mb-4">
@@ -611,7 +626,6 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
             </div>
           </div>
         );
-      
       default:
         return null;
     }
@@ -619,42 +633,23 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
 
   const getButtonText = () => {
     if (loading) return "Processing...";
-    switch (authMode) {
-      case 'login':
-        return "Login";
-      case 'signup':
-        return "Register";
-      case 'guest':
-        return "Continue as Guest";
-      default:
-        return "Continue";
-    }
+    if (authMode === "login") return "Login";
+    if (authMode === "signup") return "Register";
+    if (authMode === "guest") return "Continue as Guest";
+    return "Continue";
   };
 
   const handleMainAction = () => {
-    switch (authMode) {
-      case 'login':
-        return handleLogin();
-      case 'signup':
-        return handleSignup();
-      case 'guest':
-        return handleGuestContinue();
-      default:
-        return;
-    }
+    if (authMode === "login") return handleLogin();
+    if (authMode === "signup") return handleSignup();
+    if (authMode === "guest") return handleGuestContinue();
   };
 
   const getModalTitle = () => {
-    switch (authMode) {
-      case 'login':
-        return "Login";
-      case 'signup':
-        return "Create Your Account";
-      case 'guest':
-        return "Continue as Guest";
-      default:
-        return "Login";
-    }
+    if (authMode === "login") return "Login";
+    if (authMode === "signup") return "Create Your Account";
+    if (authMode === "guest") return "Continue as Guest";
+    return "Login";
   };
 
   return (
@@ -665,7 +660,7 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
         isVisible={notification.isVisible}
         onClose={hideNotification}
       />
-      
+
       <Modal
         open={open}
         onCancel={onClose}
@@ -675,14 +670,8 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
         maskClosable={true}
       >
         <div className="text-center mb-4">
-          <img
-            src={logo}
-            alt="Logo"
-            className="h-16 mx-auto mb-2"
-          />
-          <Title level={4}>
-            {getModalTitle()}
-          </Title>
+          <img src={logo} alt="Logo" className="h-16 mx-auto mb-2" />
+          <Title level={4}>{getModalTitle()}</Title>
         </div>
 
         <Space direction="vertical" size="middle" style={{ width: "100%" }}>
@@ -727,15 +716,15 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
           )}
         </button>
 
-        {authMode !== 'guest' && (
+        {authMode !== "guest" && (
           <>
             <Divider className="my-4">
               <Text className="text-gray-400 text-xs">OR</Text>
             </Divider>
-            
+
             <button
               type="button"
-              onClick={() => setAuthMode('guest')}
+              onClick={() => setAuthMode("guest")}
               className="w-full py-2 px-4 rounded-md border border-gray-300 text-gray-700 font-medium transition duration-200 ease-in-out hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
             >
               Continue as Guest
@@ -744,23 +733,23 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
         )}
 
         <div className="text-center mt-4 text-sm text-gray-600">
-          {authMode === 'login' ? (
+          {authMode === "login" ? (
             <>
               Don't have an account?{" "}
               <button
                 type="button"
-                onClick={() => setAuthMode('signup')}
+                onClick={() => setAuthMode("signup")}
                 className="text-blue-600 underline underline-offset-4 hover:text-blue-700 font-medium transition duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-400"
               >
                 Register here
               </button>
             </>
-          ) : authMode === 'signup' ? (
+          ) : authMode === "signup" ? (
             <>
               Already have an account?{" "}
               <button
                 type="button"
-                onClick={() => setAuthMode('login')}
+                onClick={() => setAuthMode("login")}
                 className="text-blue-600 underline underline-offset-4 hover:text-blue-700 font-medium transition duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-400"
               >
                 Login
@@ -771,7 +760,7 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
               Need a customer account?{" "}
               <button
                 type="button"
-                onClick={() => setAuthMode('signup')}
+                onClick={() => setAuthMode("signup")}
                 className="text-blue-600 underline underline-offset-4 hover:text-blue-700 font-medium transition duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-400 mr-2"
               >
                 Register
@@ -779,7 +768,7 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
               or{" "}
               <button
                 type="button"
-                onClick={() => setAuthMode('login')}
+                onClick={() => setAuthMode("login")}
                 className="text-blue-600 underline underline-offset-4 hover:text-blue-700 font-medium transition duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-400"
               >
                 Login

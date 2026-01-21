@@ -2,16 +2,18 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "./AxiosInstance";
 
 /* ===========================
-   ASYNC THUNKS
+   ASYNC THUNKS (via Lambda)
 =========================== */
 
 export const fetchCategories = createAsyncThunk(
   "Category/fetchCategories",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get(
-        "/Category/Category-Get"
-      );
+      const response = await axiosInstance.get("/", {
+        params: {
+          endpoint: "/Category/Category-Get",
+        },
+      });
       return response.data;
     } catch (error) {
       return rejectWithValue(
@@ -26,8 +28,13 @@ export const addCategory = createAsyncThunk(
   async (categoryData, { rejectWithValue }) => {
     try {
       const response = await axiosInstance.post(
-        "/Category/Setup-Category",
-        categoryData
+        "/",               // Lambda root
+        categoryData,
+        {
+          params: {
+            endpoint: "/Category/Setup-Category",
+          },
+        }
       );
       return response.data;
     } catch (error) {
@@ -44,8 +51,13 @@ export const updateCategory = createAsyncThunk(
   async ({ categoryId, categoryData }, { rejectWithValue }) => {
     try {
       const response = await axiosInstance.post(
-        `/Category/Category-Put/${categoryId}`,
-        categoryData
+        "/",               // Lambda root
+        categoryData,
+        {
+          params: {
+            endpoint: `/Category/Category-Put/${categoryId}`,
+          },
+        }
       );
       return response.data;
     } catch (error) {
