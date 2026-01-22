@@ -1,3 +1,4 @@
+// src/pages/Checkout.jsx
 import { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -9,13 +10,24 @@ import {
 } from "../Redux/Slice/orderSlice";
 import { getHubtelCallbackById } from "../Redux/Slice/paymentSlice";
 import { clearCart } from "../Redux/Slice/cartSlice";
-import { message, Card, Typography, Radio, Divider, Modal, Alert } from "antd";
+import { message, Card, Typography, Radio, Divider, Modal } from "antd";
 import CheckoutForm from "../Component/CheckoutForm";
 import locations from "../Component/Locations";
-import { ShoppingBagIcon, ExclamationTriangleIcon, CreditCardIcon, MapPinIcon, UserIcon, PhoneIcon, XMarkIcon } from "@heroicons/react/24/outline";
-
+import {
+  ShoppingBagIcon,
+  ExclamationTriangleIcon,
+  CreditCardIcon,
+  MapPinIcon,
+  UserIcon,
+  PhoneIcon,
+} from "@heroicons/react/24/outline";
 
 const { Text, Title } = Typography;
+
+// Lambda payment initiation URL
+const PAYMENT_API_URL =
+  import.meta.env.VITE_PAYMENT_API_URL ||
+  "https://02yo3gbfxe.execute-api.us-east-1.amazonaws.com/default/FrankoAPI/?endpoint=%2FPaymentSystem%2FInitiateHubtel";
 
 const Checkout = () => {
   const dispatch = useDispatch();
@@ -26,209 +38,127 @@ const Checkout = () => {
   const [paymentMethod, setPaymentMethod] = useState(null);
 
   const [deliveryFee, setDeliveryFee] = useState(0);
-  const [deliveryInfo, setDeliveryInfo] = useState(() => {
-    const saved = localStorage.getItem("deliveryInfo");
-    return saved ? (saved) : { address: "", fee: null };
+  const [deliveryInfo, setDeliveryInfo] = useState({
+    address: "",
+    fee: 0,
+    feeDisplay: "",
   });
 
-  // Validation modal states
-  const [isValidationModalVisible, setIsValidationModalVisible] = useState(false);
+  const [isValidationModalVisible, setIsValidationModalVisible] =
+    useState(false);
 
-  // Electronics alert modal
-  const [isElectronicsAlertVisible, setIsElectronicsAlertVisible] = useState(false);
-  
-  // Payment iframe modal states
-  const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
+  const [isPaymentModalVisible, setIsPaymentModalVisible] =
+    useState(false);
   const [paymentUrl, setPaymentUrl] = useState(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [currentOrderId, setCurrentOrderId] = useState(null);
 
-  // Get cart items from localStorage
-const getCartItems = () => {
-  try {
-    let cartData = localStorage.getItem("cart");
-
-    // Handle legacy (unencrypted or plain stringified) values
-    if (typeof cartData === "string") {
-      try {
-        cartData = (cartData);
-      } catch {
-        // If it's not valid JSON, just leave it as is
-      }
+  // --- Encrypted localStorage helpers ---
+  const safeGet = (key, fallback) => {
+    try {
+      const v = localStorage.getItem(key); // already decrypted & parsed
+      return v == null ? fallback : v;
+    } catch {
+      return fallback;
     }
-
-    return Array.isArray(cartData) ? cartData : [];
-  } catch (error) {
-   
-    return [];
-  }
-};
-
-
-  const [cartItems, setCartItems] = useState(getCartItems());
-
-  // Get cart ID
-  const getCartId = () => {
-    return localStorage.getItem("cartId") || `cart_${Date.now()}`;
   };
 
-  // Get customer data
-  const customerData = (() => {
-    try {
-      const data = localStorage.getItem("customer");
-      return data ? (data) : null;
-    } catch (error) {
-    
-      return null;
-    }
-  })();
-  
+  const getCartItems = () => {
+    const stored = safeGet("cart", []);
+    return Array.isArray(stored) ? stored : [];
+  };
+
+  const [cartItems, setCartItems] = useState(getCartItems);
+
+  const getCartId = () =>
+    localStorage.getItem("cartId") || `cart_${Date.now()}`;
+
+  const customerData = safeGet("customer", null);
+
   const [customerName, setCustomerName] = useState("");
   const [customerNumber, setCustomerNumber] = useState("");
   const customerId = customerData?.customerAccountNumber;
   const customerAccountType = customerData?.accountType;
-  const selectedAddress = deliveryInfo?.address;
+  const selectedAddress = deliveryInfo?.address || "";
 
-  // Check if user is an agent
   const isAgent = customerAccountType === "agent";
 
-  // Check if delivery is free (case-insensitive check for "free")
-  const isFreeDelivery = deliveryInfo?.fee === 0 && 
-    (typeof deliveryInfo?.feeDisplay === 'string' && 
-     deliveryInfo.feeDisplay.toLowerCase().includes('free'));
+  const isFreeDelivery =
+    deliveryInfo?.fee === 0 &&
+    typeof deliveryInfo?.feeDisplay === "string" &&
+    deliveryInfo.feeDisplay.toLowerCase().includes("free");
 
-  // Also update the isNADelivery check
-  const isNADelivery = deliveryInfo?.fee === 0 && 
-    (!deliveryInfo?.feeDisplay || 
-     deliveryInfo?.feeDisplay === 'N/A' || 
-     deliveryInfo?.feeDisplay === '' ||
-     (typeof deliveryInfo?.feeDisplay === 'string' && 
-      deliveryInfo.feeDisplay.toLowerCase() === 'n/a'));
+  const isNADelivery =
+    deliveryInfo?.fee === 0 &&
+    (!deliveryInfo?.feeDisplay ||
+      deliveryInfo?.feeDisplay === "N/A" ||
+      deliveryInfo?.feeDisplay === "" ||
+      (typeof deliveryInfo?.feeDisplay === "string" &&
+        deliveryInfo.feeDisplay.toLowerCase() === "n/a"));
 
-  // Update delivery info initialization
+  // ---- Initialize from customer + deliveryInfo once ----
   useEffect(() => {
     if (customerData) {
-      setCustomerName(`${customerData.firstName || ""} ${customerData.lastName || ""}`.trim());
-      setCustomerNumber(customerData.contactNumber || customerData.ContactNumber || "");
-
-      const storedInfo = (localStorage.getItem("deliveryInfo") || "{}");
-      const address = storedInfo?.address || customerData.address || "";
-      const fee = storedInfo?.fee || 0;
-      const feeDisplay = storedInfo?.feeDisplay || storedInfo?.feeText || "";
-      setDeliveryInfo({ address, fee, feeDisplay });
-      setDeliveryFee(Number(fee));
+      setCustomerName(
+        `${customerData.firstName || ""} ${
+          customerData.lastName || ""
+        }`.trim()
+      );
+      setCustomerNumber(
+        customerData.contactNumber || customerData.ContactNumber || ""
+      );
     }
-  }, []);
 
-  // Update delivery fee when deliveryInfo changes
+    try {
+      const storedInfo = safeGet("deliveryInfo", {});
+      const addr =
+        storedInfo?.address || customerData?.address || "";
+      const fee = storedInfo?.fee ?? 0;
+      const feeDisplay =
+        storedInfo?.feeDisplay || storedInfo?.feeText || "";
+      setDeliveryInfo({ address: addr, fee, feeDisplay });
+      setDeliveryFee(Number(fee) || 0);
+    } catch {
+      // ignore
+    }
+  }, []); // run once
+
   useEffect(() => {
-    if (deliveryInfo?.fee !== undefined && !isNaN(Number(deliveryInfo.fee))) {
+    if (
+      deliveryInfo?.fee !== undefined &&
+      !Number.isNaN(Number(deliveryInfo.fee))
+    ) {
       setDeliveryFee(Number(deliveryInfo.fee));
     }
   }, [deliveryInfo]);
 
-
-
-  // Monitor cart changes
+  // Monitor cart changes once
   useEffect(() => {
-    const handleStorageChange = () => {
-      const newItems = getCartItems();
-      setCartItems(newItems);
+    const handleStorageChange = (e) => {
+      if (e.key === "cart") {
+        setCartItems(getCartItems());
+      }
     };
 
-    window.addEventListener('storage', handleStorageChange);
-    
-    const interval = setInterval(() => {
-      const newItems = getCartItems();
-      if ((newItems) !== (cartItems)) {
-        setCartItems(newItems);
-      }
+    window.addEventListener("storage", handleStorageChange);
+    const intervalId = setInterval(() => {
+      setCartItems(getCartItems());
     }, 2000);
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
+      window.removeEventListener("storage", handleStorageChange);
+      clearInterval(intervalId);
     };
-  }, [cartItems]);
+  }, []);
 
-  // Enhanced Hubtel payment status check with iframe communication
-  useEffect(() => {
-    if (isAgent || !currentOrderId) return;
+  // --- Shared helpers ---
 
-    let intervalId;
-    
-    // Listen for messages from the iframe
-    const handleIframeMessage = (event) => {
-      // Ensure we're listening to the right origin (Hubtel payment gateway)
-      if (!event.origin.includes('hubtel.com') && !event.origin.includes('payproxyapi.hubtel.com')) {
-        return;
-      }
-
-      const { type, data } = event.data || {};
-      
-      if (type === 'PAYMENT_SUCCESS') {
-        clearInterval(intervalId);
-        setIsPaymentModalVisible(false);
-        setPaymentUrl(null);
-        localStorage.removeItem("pendingOrderId");
-        message.success("Payment completed successfully!");
-        navigate(`/order-success/${currentOrderId}`);
-      } else if (type === 'PAYMENT_CANCELLED' || type === 'PAYMENT_FAILED') {
-        clearInterval(intervalId);
-        setIsPaymentModalVisible(false);
-        setPaymentUrl(null);
-        localStorage.removeItem("pendingOrderId");
-        message.error("Payment was cancelled or failed. Please try again.");
-      }
-    };
-
-    const checkHubtelStatus = async () => {
-      if (!currentOrderId) return;
-
-      try {
-        const action = await dispatch(getHubtelCallbackById(currentOrderId));
-        const response = action?.payload;
-
-        if (response?.responseCode === "0000") {
-          clearInterval(intervalId);
-          setIsPaymentModalVisible(false);
-          setPaymentUrl(null);
-          localStorage.removeItem("pendingOrderId");
-          message.success("Payment completed successfully!");
-          navigate(`/order-success/${currentOrderId}`);
-        } else if (response?.responseCode === "2001") {
-          clearInterval(intervalId);
-          setIsPaymentModalVisible(false);
-          setPaymentUrl(null);
-          localStorage.removeItem("pendingOrderId");
-          message.error("Payment was cancelled.");
-          navigate("/order-cancelled");
-        }
-      } catch (error) {
-
-      }
-    };
-
-    if (["Mobile Money", "Credit Card"].includes(paymentMethod) && isPaymentModalVisible) {
-      // Add iframe message listener
-      window.addEventListener('message', handleIframeMessage);
-      
-      // Start polling for payment status
-      intervalId = setInterval(checkHubtelStatus, 3000);
-    }
-
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-      window.removeEventListener('message', handleIframeMessage);
-    };
-  }, [paymentMethod, dispatch, navigate, isAgent, currentOrderId, isPaymentModalVisible]);
-  
   const calculateTotalAmount = () => {
     const subtotal = cartItems.reduce((total, item) => {
-      const itemTotal = item.total || (item.price * item.quantity) || 0;
+      const itemTotal =
+        item.total || item.price * (item.quantity || 1) || 0;
       return total + itemTotal;
     }, 0);
-
     return subtotal + deliveryFee;
   };
 
@@ -239,340 +169,422 @@ const getCartItems = () => {
     return `${prefix}-${timestamp}-${randomNum}`;
   };
 
-const storeCheckoutDetailsInLocalStorage = (checkoutDetails, addressDetails) => {
-  try {
-    localStorage.setItem("checkoutDetails", checkoutDetails);
-    localStorage.setItem("orderAddressDetails", addressDetails);
-    
-  } catch (error) {
+  const initiatePayment = async (totalAmount, cartItems, orderId) => {
+    const payload = { totalAmount, cartItems, orderId };
 
-  }
-};
-
- const initiatePayment = async (totalAmount, cartItems, orderId) => {
-  const username = "E9wVrO0";
-  const password = "2efa9167761c4fa89245356e0ed3159e";
-  const encodedCredentials = btoa(`${username}:${password}`);
-
-  const payload = {
-    totalAmount,
-    description: `Payment for ${cartItems.map((item) => item.productName).join(", ")}`,
-    callbackUrl: "https://02yo3gbfxe.execute-api.us-east-1.amazonaws.com/default/FrankoAPI/PaymentSystem/PostHubtelCallBack",
-    returnUrl: `https://www.frankotrading.com/payment-success/${orderId}`,
-    cancellationUrl: "https://www.frankotrading.com/order-cancelled",
-    merchantAccountNumber: "2020892",
-    clientReference: orderId,
-  };
-
-  try {
-    const response = await fetch("https://payproxyapi.hubtel.com/items/initiate", {
+    const res = await fetch(PAYMENT_API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Basic ${encodedCredentials}`,
+        Identifier: "Franko", // must match Lambda CUSTOM_HEADER_NAME/VALUE
       },
-      body: JSON.stringify(payload), // ✅ FIXED: must stringify payload
+      body: JSON.stringify(payload),
     });
 
-    // Check if response has body
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`HTTP Error: ${response.status} - ${text}`);
-    }
+    const text = await res.text();
+    if (!res.ok) throw new Error(`HTTP Error: ${res.status} - ${text}`);
+    if (!text) throw new Error("Empty response from payment API");
 
-    // Try to parse JSON safely
-    const text = await response.text();
-    if (!text) throw new Error("Empty response from Hubtel API");
-    
     const result = JSON.parse(text);
-
-    if (result.status === "Success") {
+    if (result.checkoutUrl) {
       localStorage.setItem("pendingOrderId", orderId);
-      return result.data.checkoutUrl;
-    } else {
-      throw new Error(`Hubtel Error: ${result.message || "Unknown error"}`);
+      return result.checkoutUrl;
     }
-  } catch (error) {
-
-    throw error;
-  }
-};
-
-
-  // ENHANCED: More robust direct checkout processing with better error handling and retry mechanism
-  const processDirectCheckout = async (orderId, checkoutDetails, addressDetails) => {
-
-    
-    try {
-
-      await dispatchOrderCheckoutWithRetry(orderId, checkoutDetails);
-   
-      await dispatchOrderAddressWithRetry(orderId, addressDetails);
-
-      
-    } catch (error) {
-
-      throw new Error(`Checkout failed: ${error.message}`);
-    }
+    throw new Error(
+      result.message || "Payment API did not return a checkoutUrl"
+    );
   };
 
-  // ENHANCED: Checkout order dispatch with retry mechanism and better error handling
-  const dispatchOrderCheckoutWithRetry = async (orderId, checkoutDetails, maxRetries = 3) => {
+  const dispatchOrderCheckoutWithRetry = async (
+    orderId,
+    checkoutDetails,
+    maxRetries = 3
+  ) => {
     let lastError;
-    
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-     
         const checkoutPayload = {
           cartId: getCartId(),
           ...checkoutDetails,
         };
-
-     
-        
-        const result = await dispatch(checkOutOrder(checkoutPayload)).unwrap();
- 
-        
-        // If we get here, the dispatch was successful
+        const result = await dispatch(
+          checkOutOrder(checkoutPayload)
+        ).unwrap();
         return result;
-        
       } catch (error) {
-        
         lastError = error;
-        
-        // If it's the last attempt, don't wait
         if (attempt < maxRetries) {
-          // Wait before retrying (exponential backoff)
-          const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
-          
-          await new Promise(resolve => setTimeout(resolve, waitTime));
+          const waitTime = Math.pow(2, attempt) * 1000;
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
         }
       }
     }
-    
-    // If we get here, all attempts failed
-    throw new Error(`Checkout failed after ${maxRetries} attempts: ${lastError?.message || 'Unknown error'}`);
+    throw new Error(
+      `Checkout failed after ${maxRetries} attempts: ${
+        lastError?.message || "Unknown error"
+      }`
+    );
   };
 
-  // ENHANCED: Address dispatch with retry mechanism and better error handling
-  const dispatchOrderAddressWithRetry = async (orderId, addressDetails, maxRetries = 3) => {
+  const dispatchOrderAddressWithRetry = async (
+    orderId,
+    addressDetails,
+    maxRetries = 3
+  ) => {
     let lastError;
-    
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        
-        const result = await dispatch(updateOrderDelivery(addressDetails)).unwrap();
-  
-        
-        // If successful, clear cart and local storage
+        const result = await dispatch(
+          updateOrderDelivery(addressDetails)
+        ).unwrap();
+
+        // Clear cart when address updated successfully
         dispatch(clearCart());
         localStorage.removeItem("cart");
         localStorage.removeItem("cartId");
-       
-        
+
         return result;
-        
       } catch (error) {
- 
         lastError = error;
-        
-        // If it's the last attempt, don't wait
         if (attempt < maxRetries) {
-          // Wait before retrying (exponential backoff)
-          const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
-        
-          await new Promise(resolve => setTimeout(resolve, waitTime));
+          const waitTime = Math.pow(2, attempt) * 1000;
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
         }
       }
     }
-    
-    // If we get here, all attempts failed
-    throw new Error(`Address update failed after ${maxRetries} attempts: ${lastError?.message || 'Unknown error'}`);
+    throw new Error(
+      `Address update failed after ${maxRetries} attempts: ${
+        lastError?.message || "Unknown error"
+      }`
+    );
   };
 
-  // Handle payment method selection
+  const processDirectCheckout = async (
+    orderId,
+    checkoutDetails,
+    addressDetails
+  ) => {
+    await dispatchOrderCheckoutWithRetry(orderId, checkoutDetails);
+    await dispatchOrderAddressWithRetry(orderId, addressDetails);
+  };
+
+  const storeCheckoutDetailsInLocalStorage = (
+    checkoutDetails,
+    addressDetails
+  ) => {
+    try {
+      // setItem will encrypt and stringify for you
+      localStorage.setItem("checkoutDetails", checkoutDetails);
+      localStorage.setItem("orderAddressDetails", addressDetails);
+    } catch {
+      // ignore
+    }
+  };
+
+  // --- Hubtel callback polling: clear cart & process order on 0000 ---
+
+  useEffect(() => {
+    if (isAgent || !currentOrderId) return;
+
+    let intervalId;
+
+    const handleIframeMessage = (event) => {
+      if (
+        !event.origin.includes("hubtel.com") &&
+        !event.origin.includes("payproxyapi.hubtel.com")
+      ) {
+        return;
+      }
+      const { type } = event.data || {};
+      // We rely on polling rather than iframe messages to process the order,
+      // so just close modal / show feedback if needed.
+      if (type === "PAYMENT_SUCCESS") {
+        // Let polling handle the rest
+        message.success("Payment completed, finalizing order...");
+      } else if (
+        type === "PAYMENT_CANCELLED" ||
+        type === "PAYMENT_FAILED"
+      ) {
+        setIsPaymentModalVisible(false);
+        setPaymentUrl(null);
+        localStorage.removeItem("pendingOrderId");
+        message.error("Payment was cancelled or failed. Please try again.");
+      }
+    };
+
+    const checkHubtelStatus = async () => {
+      if (!currentOrderId) return;
+      try {
+        const action = await dispatch(
+          getHubtelCallbackById(currentOrderId)
+        );
+        const response = action?.payload;
+
+        if (response?.responseCode === "0000") {
+          // SUCCESSFUL PAYMENT
+          clearInterval(intervalId);
+          setIsPaymentModalVisible(false);
+          setPaymentUrl(null);
+          localStorage.removeItem("pendingOrderId");
+
+          try {
+            const storedCheckout = safeGet(
+              "checkoutDetails",
+              null
+            );
+            const storedAddress = safeGet(
+              "orderAddressDetails",
+              null
+            );
+
+            if (storedCheckout && storedAddress) {
+              await processDirectCheckout(
+                currentOrderId,
+                storedCheckout,
+                storedAddress
+              );
+
+              // Clear stored details once processed
+              localStorage.removeItem("checkoutDetails");
+              localStorage.removeItem("orderAddressDetails");
+
+              message.success(
+                "Payment and order processed successfully!"
+              );
+              navigate(`/order-success/${currentOrderId}`);
+            } else {
+              console.warn(
+                "Payment success but no stored order details for",
+                currentOrderId
+              );
+              message.warning(
+                "Payment succeeded, but we could not find your order details. Please contact support."
+              );
+            }
+          } catch (e) {
+            console.error(
+              "Error processing order after payment:",
+              e
+            );
+            message.error(
+              "Payment succeeded, but we could not process your order. Please contact support."
+            );
+          }
+        } else if (response?.responseCode === "2001") {
+          // CANCELLED PAYMENT
+          clearInterval(intervalId);
+          setIsPaymentModalVisible(false);
+          setPaymentUrl(null);
+          localStorage.removeItem("pendingOrderId");
+          // Cart & stored details remain for retry
+          message.error("Payment was cancelled.");
+          navigate("/order-cancelled");
+        }
+      } catch {
+        // ignore polling errors
+      }
+    };
+
+    if (
+      ["Mobile Money", "Credit Card"].includes(paymentMethod) &&
+      isPaymentModalVisible
+    ) {
+      window.addEventListener("message", handleIframeMessage);
+      intervalId = setInterval(checkHubtelStatus, 3000);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      window.removeEventListener("message", handleIframeMessage);
+    };
+  }, [
+    paymentMethod,
+    dispatch,
+    navigate,
+    isAgent,
+    currentOrderId,
+    isPaymentModalVisible,
+  ]);
+
+  // --- Validation & main checkout ---
+
   const handlePaymentMethodChange = (e) => {
-    const selectedMethod = e.target.value;
-    setPaymentMethod(selectedMethod);
+    setPaymentMethod(e.target.value);
   };
 
-  // Validation function to check required fields
   const validateRequiredFields = () => {
     const errors = [];
-    
     if (!customerName?.trim()) {
-      errors.push({ field: 'name', message: 'Recipient name is required' });
+      errors.push({ field: "name", message: "Recipient name is required" });
     }
-    
     if (!customerNumber?.trim()) {
-      errors.push({ field: 'phone', message: 'Recipient contact number is required' });
+      errors.push({
+        field: "phone",
+        message: "Recipient contact number is required",
+      });
     }
-    
     if (!selectedAddress?.trim()) {
-      errors.push({ field: 'address', message: 'Delivery address is required' });
+      errors.push({
+        field: "address",
+        message: "Delivery address is required",
+      });
     }
-    
     if (!paymentMethod) {
-      errors.push({ field: 'payment', message: 'Payment method is required' });
+      errors.push({
+        field: "payment",
+        message: "Payment method is required",
+      });
     }
-    
     return errors;
   };
-  // ✅ Safe getter to guarantee fullname & contact number
-const getSafeCustomerDetails = () => {
-  let name = customerName?.trim();
-  let number = customerNumber?.trim();
 
-  // fallback from customerData
-  if (!name && customerData) {
-    name = `${customerData.firstName || ""} ${customerData.lastName || ""}`.trim();
-  }
-  if (!number && customerData) {
-    number = customerData.contactNumber || customerData.ContactNumber || "";
-  }
+  const getSafeCustomerDetails = () => {
+    let name = customerName?.trim();
+    let number = customerNumber?.trim();
 
-  // last fallback → guest
-  if (!name) {
-    name = `Guest ${Math.floor(1000 + Math.random() * 9000)}`;
-  }
-  if (!number) {
-    number = "0000000000"; // or force input before checkout
-  }
+    if (!name && customerData) {
+      name = `${customerData.firstName || ""} ${
+        customerData.lastName || ""
+      }`.trim();
+    }
+    if (!number && customerData) {
+      number =
+        customerData.contactNumber || customerData.ContactNumber || "";
+    }
 
-  return { name, number };
-};
+    if (!name) {
+      name = `Guest ${Math.floor(1000 + Math.random() * 9000)}`;
+    }
+    if (!number) {
+      number = "0000000000";
+    }
 
-  
-  // ENHANCED: Main checkout handler with better error handling and logging
-const handleCheckout = async () => {
-
-
-  // ✅ Always fetch guaranteed name & number
-  const { name: safeName, number: safeNumber } = getSafeCustomerDetails();
-
-  // overwrite state so UI also updates
-  setCustomerName(safeName);
-  setCustomerNumber(safeNumber);
-
-  // Validate required fields
-  const validationErrors = validateRequiredFields();
-  if (validationErrors.length > 0) {
-   
-    setIsValidationModalVisible(true);
-    return;
-  }
-
-  const orderId = generateOrderId();
-  setCurrentOrderId(orderId);
-  const orderDate = new Date().toISOString();
-  const totalAmount = calculateTotalAmount();
-  const cartId = getCartId();
-
-  // ✅ Use safe values in payloads
-  const checkoutDetails = {
-    Cartid: cartId,
-    customerId,
-    orderCode: orderId,
-    PaymentMode: paymentMethod,
-    PaymentAccountNumber: safeNumber || "0000000000",
-    customerAccountType,
-    paymentService: "Mtn",
-    totalAmount,
-    recipientName: safeName || `Guest ${Math.floor(1000 + Math.random() * 9000)}`,
-    recipientContactNumber: safeNumber || "0000000000", 
-    orderNote: orderNote || "N/A",
-    orderDate,
+    return { name, number };
   };
 
-  const addressDetails = {
-    orderCode: orderId,
-    address: selectedAddress,
-    Customerid: customerId,
-    recipientName: safeName,
-    recipientContactNumber: safeNumber,
-    orderNote: orderNote || "N/A",
-    geoLocation: "N/A",
-  };
+  const handleCheckout = async () => {
+    const { name: safeName, number: safeNumber } =
+      getSafeCustomerDetails();
+    setCustomerName(safeName);
+    setCustomerNumber(safeNumber);
+
+    const validationErrors = validateRequiredFields();
+    if (validationErrors.length > 0) {
+      setIsValidationModalVisible(true);
+      return;
+    }
+
+    const orderId = generateOrderId();
+    setCurrentOrderId(orderId);
+    const orderDate = new Date().toISOString();
+    const totalAmount = calculateTotalAmount();
+    const cartId = getCartId();
+
+    const checkoutDetails = {
+      Cartid: cartId,
+      customerId,
+      orderCode: orderId,
+      PaymentMode: paymentMethod,
+      PaymentAccountNumber: safeNumber || "0000000000",
+      customerAccountType,
+      paymentService: "Mtn",
+      totalAmount,
+      recipientName: safeName,
+      recipientContactNumber: safeNumber,
+      orderNote: orderNote || "N/A",
+      orderDate,
+    };
+
+    const addressDetails = {
+      orderCode: orderId,
+      address: selectedAddress,
+      Customerid: customerId,
+      recipientName: safeName,
+      recipientContactNumber: safeNumber,
+      orderNote: orderNote || "N/A",
+      geoLocation: "N/A",
+    };
 
     try {
       setLoading(true);
-      
-      // For agents or non-Hubtel payment methods, process direct checkout
-      if (isAgent || !["Mobile Money", "Credit Card"].includes(paymentMethod)) {
-   
-        
+
+      if (
+        isAgent ||
+        !["Mobile Money", "Credit Card"].includes(paymentMethod)
+      ) {
         await processDirectCheckout(orderId, checkoutDetails, addressDetails);
-   
         message.success("Your order has been placed successfully!");
         navigate("/order-received");
-        
       } else {
-     
-        
-        // Store details for later processing after payment
-        storeCheckoutDetailsInLocalStorage(checkoutDetails, addressDetails);
+        // Store for callback processing
+        storeCheckoutDetailsInLocalStorage(
+          checkoutDetails,
+          addressDetails
+        );
         dispatch(saveCheckoutDetails(checkoutDetails));
         dispatch(saveAddressDetails(addressDetails));
-        
+
         setPaymentLoading(true);
-        const paymentUrl = await initiatePayment(totalAmount, cartItems, orderId);
-        if (paymentUrl) {
-         
-          setPaymentUrl(paymentUrl);
+        const url = await initiatePayment(
+          totalAmount,
+          cartItems,
+          orderId
+        );
+        if (url) {
+          setPaymentUrl(url);
           setIsPaymentModalVisible(true);
         }
         setPaymentLoading(false);
       }
-      
     } catch (error) {
-   
-      
-      // Show specific error message if available
-      const errorMessage = error.message || "An error occurred during checkout.";
-      message.error(errorMessage);
-      
-
-      
+      console.error("Checkout error:", error);
+      message.error(
+        error.message || "An error occurred during checkout."
+      );
     } finally {
       setLoading(false);
-   
     }
   };
 
   const renderImage = (imagePath) => {
     if (!imagePath) {
-      return <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
-        <span className="text-gray-400 text-xs">No Image</span>
-      </div>;
+      return (
+        <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
+          <span className="text-gray-400 text-xs">No Image</span>
+        </div>
+      );
     }
-    
     const backendBaseURL = "https://fte002n1.salesmate.app";
-    const imageUrl = `${backendBaseURL}/Media/Products_Images/${imagePath.split("\\").pop()}`;
-    
+    const imageUrl = `${backendBaseURL}/Media/Products_Images/${imagePath
+      .split("\\")
+      .pop()}`;
     return (
-      <img 
-        src={imageUrl} 
-        alt="Product" 
+      <img
+        src={imageUrl}
+        alt="Product"
         className="w-16 h-16 object-cover rounded-lg"
         onError={(e) => {
-          e.target.style.display = 'none';
-          e.target.nextSibling.style.display = 'flex';
+          e.target.style.display = "none";
+          e.target.nextSibling.style.display = "flex";
         }}
       />
     );
   };
 
-  // Show empty state if no items
   if (!cartItems || cartItems.length === 0) {
     return (
       <div className="p-4 text-center min-h-[400px] flex flex-col items-center justify-center">
         <div className="flex items-center justify-center mb-4">
           <ShoppingBagIcon className="w-12 h-12 text-gray-400 mr-3" />
-          <h2 className="text-2xl font-bold text-gray-700">Your cart is empty</h2>
+          <h2 className="text-2xl font-bold text-gray-700">
+            Your cart is empty
+          </h2>
         </div>
-        <p className="text-gray-500 mb-6">Add some items to your cart to proceed with checkout.</p>
+        <p className="text-gray-500 mb-6">
+          Add some items to your cart to proceed with checkout.
+        </p>
         <div className="flex gap-4 justify-center">
-          <button 
+          <button
             onClick={() => navigate("/")}
             className="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors duration-200 font-medium"
           >
@@ -585,7 +597,6 @@ const handleCheckout = async () => {
 
   return (
     <div className="p-4 mx-auto">
-      {/* Loading overlay */}
       {loading && (
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
           <div className="animate-spin h-10 w-10 border-4 border-t-4 border-gray-300 rounded-full"></div>
@@ -601,11 +612,13 @@ const handleCheckout = async () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Customer Details Form */}
+        {/* Billing Info */}
         <div className="lg:col-span-1">
           <Card className="h-fit">
             <div className="mb-4">
-              <h2 className="text-lg font-semibold text-gray-800">Billing Information</h2>
+              <h2 className="text-lg font-semibold text-gray-800">
+                Billing Information
+              </h2>
               <div className="relative mt-1">
                 <div className="absolute w-24 h-1 bg-red-300 rounded"></div>
                 <div className="border-b border-gray-300"></div>
@@ -627,60 +640,91 @@ const handleCheckout = async () => {
           </Card>
         </div>
 
-        {/* Order Summary */}
+        {/* Summary & Payment */}
         <div className="lg:col-span-2">
           <Card bordered={false} className="rounded-xl shadow-sm">
             <div className="mb-4">
-              <h2 className="text-lg font-semibold text-gray-800">Order Summary</h2>
+              <h2 className="text-lg font-semibold text-gray-800">
+                Order Summary
+              </h2>
               <div className="relative mt-1">
                 <div className="absolute w-24 h-1 bg-red-300 rounded"></div>
                 <div className="border-b border-gray-300"></div>
               </div>
             </div>
-            
-            {/* Cart Items List */}
+
+            {/* Cart items */}
             <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
               {cartItems.map((item, index) => (
-                <div key={item.productId || index} className="flex justify-between items-start py-4 gap-4">
+                <div
+                  key={item.productId || index}
+                  className="flex justify-between items-start py-4 gap-4"
+                >
                   <div className="flex gap-4 flex-1">
                     <div className="w-16 h-16 flex-shrink-0 relative">
                       {renderImage(item.imagePath)}
                       <div className="w-16 h-16 bg-gray-200 rounded-lg items-center justify-center hidden">
-                        <span className="text-gray-400 text-xs">No Image</span>
+                        <span className="text-gray-400 text-xs">
+                          No Image
+                        </span>
                       </div>
                     </div>
                     <div className="text-sm flex-1">
-                      <p className="font-medium text-gray-800 mb-1">{item.productName || 'Product Name'}</p>
-                      <p className="text-xs text-gray-500">Qty: {item.quantity || 1}</p>
-                      <p className="text-xs text-gray-500">₵{(item.price || 0).toFixed(2)}</p>
+                      <p className="font-medium text-gray-800 mb-1">
+                        {item.productName || "Product Name"}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Qty: {item.quantity || 1}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        ₵{(item.price || 0).toFixed(2)}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="text-md font-semibold text-gray-800">
-                      ₵{(item.total || (item.price * item.quantity) || 0).toFixed(2)}
+                      ₵
+                      {(
+                        item.total ||
+                        item.price * (item.quantity || 1) ||
+                        0
+                      ).toFixed(2)}
                     </p>
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Subtotal */}
+            {/* Subtotal & Total */}
             <div className="flex justify-between items-center pt-4 border-t text-md font-medium text-gray-900">
               <span>Subtotal</span>
               <span>
-                ₵{cartItems.reduce((acc, item) => acc + (item.total || (item.price * item.quantity) || 0), 0).toFixed(2)}
+                ₵
+                {cartItems
+                  .reduce(
+                    (acc, item) =>
+                      acc +
+                      (item.total ||
+                        item.price * (item.quantity || 1) ||
+                        0),
+                    0
+                  )
+                  .toFixed(2)}
               </span>
             </div>
 
-            {/* Summary Section */}
             <div className="mt-4 space-y-2 text-sm">
               <div className="flex justify-between items-center">
                 <Text>Shipping Fee:</Text>
                 {isFreeDelivery ? (
-                  <Text className="text-green-600 font-semibold">FREE DELIVERY</Text>
+                  <Text className="text-green-600 font-semibold">
+                    FREE DELIVERY
+                  </Text>
                 ) : isNADelivery ? (
                   <Text type="warning" className="text-amber-600">
-                    {isAgent ? "Agent delivery" : "Delivery charges apply"}
+                    {isAgent
+                      ? "Agent delivery"
+                      : "Delivery charges apply"}
                   </Text>
                 ) : deliveryFee > 0 ? (
                   <Text strong>₵{deliveryFee.toFixed(2)}</Text>
@@ -692,16 +736,18 @@ const handleCheckout = async () => {
               </div>
 
               <div className="flex justify-between items-center pt-2 border-t">
-                <Text className="text-red-500 font-bold text-lg">Total Amount:</Text>
+                <Text className="text-red-500 font-bold text-lg">
+                  Total Amount:
+                </Text>
                 <Text className="text-red-500 font-bold text-lg">
                   ₵{calculateTotalAmount().toFixed(2)}
                 </Text>
               </div>
             </div>
-            
-            <Divider className="my-6"/>
 
-            {/* Payment Method Selection */}
+            <Divider className="my-6" />
+
+            {/* Payment method */}
             <div>
               <Text strong className="text-sm block mb-3">
                 Payment Method
@@ -711,18 +757,14 @@ const handleCheckout = async () => {
                 onChange={handlePaymentMethodChange}
                 className="flex flex-col gap-3"
               >
-                {/* Cash on Delivery - Available for:
-                    - Agents (always)
-                    - Non-agents with free delivery
-                    - Non-agents with paid delivery (not N/A)
-                */}
-                {(isAgent || isFreeDelivery || (deliveryFee > 0 && !isNADelivery)) && (
+                {(isAgent ||
+                  isFreeDelivery ||
+                  (deliveryFee > 0 && !isNADelivery)) && (
                   <Radio value="Cash on Delivery" className="text-sm">
                     Cash on Delivery
                   </Radio>
                 )}
-                
-                {/* Mobile Money and Credit Card - ONLY for non-agents */}
+
                 {!isAgent && (
                   <>
                     <Radio value="Mobile Money" className="text-sm">
@@ -734,7 +776,6 @@ const handleCheckout = async () => {
                   </>
                 )}
 
-                {/* Agent-specific payment methods */}
                 {isAgent && (
                   <>
                     <Radio value="Pick Up" className="text-sm">
@@ -747,31 +788,27 @@ const handleCheckout = async () => {
                 )}
               </Radio.Group>
             </div>
-            
-            {/* Place Order Button - Always enabled */}
+
+            {/* Place order */}
             <div className="mt-6 space-y-3">
               <button
                 type="button"
                 onClick={handleCheckout}
                 disabled={loading}
-                className={`
-                  relative w-full text-white font-semibold text-base py-4 rounded-xl 
+                className={`relative w-full text-white font-semibold text-base py-4 rounded-xl 
                   transition-all duration-500 ease-in-out transform overflow-hidden
                   shadow-lg focus:outline-none focus:ring-4 focus:ring-opacity-50
-                  ${loading 
-                    ? 'bg-gray-400 cursor-wait' 
-                    : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 hover:scale-[1.02] hover:shadow-xl focus:ring-green-300 active:scale-[0.98]'
-                  }
-                `}
+                  ${
+                    loading
+                      ? "bg-gray-400 cursor-wait"
+                      : "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 hover:scale-[1.02] hover:shadow-xl focus:ring-green-300 active:scale-[0.98]"
+                  }`}
               >
-                {/* Loading overlay */}
                 {loading && (
                   <div className="absolute inset-0 bg-gray-500 bg-opacity-20 flex items-center justify-center">
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white animate-pulse opacity-20"></div>
                   </div>
                 )}
-
-                {/* Button content */}
                 <div className="relative flex items-center justify-center gap-3">
                   {loading ? (
                     <>
@@ -805,8 +842,6 @@ const handleCheckout = async () => {
                   )}
                 </div>
               </button>
-
-            
             </div>
           </Card>
         </div>
@@ -834,30 +869,56 @@ const handleCheckout = async () => {
         ]}
       >
         <div className="space-y-3 mt-4">
-          <p className="text-gray-600 mb-4">Please fill in the following required fields to place your order:</p>
+          <p className="text-gray-600 mb-4">
+            Please fill in the following required fields to place your
+            order:
+          </p>
           {validateRequiredFields().map((error, index) => {
             const getIcon = (field) => {
               switch (field) {
-                case 'name': return <UserIcon className="w-4 h-4 text-red-500" />;
-                case 'phone': return <PhoneIcon className="w-4 h-4 text-red-500" />;
-                case 'address': return <MapPinIcon className="w-4 h-4 text-red-500" />;
-                case 'payment': return <CreditCardIcon className="w-4 h-4 text-red-500" />;
-                default: return <ExclamationTriangleIcon className="w-4 h-4 text-red-500" />;
+                case "name":
+                  return (
+                    <UserIcon className="w-4 h-4 text-red-500" />
+                  );
+                case "phone":
+                  return (
+                    <PhoneIcon className="w-4 h-4 text-red-500" />
+                  );
+                case "address":
+                  return (
+                    <MapPinIcon className="w-4 h-4 text-red-500" />
+                  );
+                case "payment":
+                  return (
+                    <CreditCardIcon className="w-4 h-4 text-red-500" />
+                  );
+                default:
+                  return (
+                    <ExclamationTriangleIcon className="w-4 h-4 text-red-500" />
+                  );
               }
             };
 
             const getFieldName = (field) => {
               switch (field) {
-                case 'name': return 'Recipient Name';
-                case 'phone': return 'Contact Number';
-                case 'address': return 'Delivery Address';
-                case 'payment': return 'Payment Method';
-                default: return 'Required Field';
+                case "name":
+                  return "Recipient Name";
+                case "phone":
+                  return "Contact Number";
+                case "address":
+                  return "Delivery Address";
+                case "payment":
+                  return "Payment Method";
+                default:
+                  return "Required Field";
               }
             };
 
             return (
-              <div key={index} className="flex items-center gap-3 p-2 bg-red-50 rounded-lg border border-red-200">
+              <div
+                key={index}
+                className="flex items-center gap-3 p-2 bg-red-50 rounded-lg border border-red-200"
+              >
                 {getIcon(error.field)}
                 <span className="text-sm font-medium text-red-700">
                   {getFieldName(error.field)}
@@ -868,9 +929,7 @@ const handleCheckout = async () => {
         </div>
       </Modal>
 
-
-      {/* Payment Iframe Modal */}
-      {/* Payment Modal - ONLY for non-agents */}
+      {/* Payment Iframe Modal (non-agents only) */}
       {!isAgent && (
         <Modal
           open={isPaymentModalVisible}
@@ -888,8 +947,10 @@ const handleCheckout = async () => {
               height="700px"
               frameBorder="0"
             />
-          ) : (
+          ) : paymentLoading ? (
             <p>Loading payment interface...</p>
+          ) : (
+            <p>Unable to load payment interface.</p>
           )}
         </Modal>
       )}
