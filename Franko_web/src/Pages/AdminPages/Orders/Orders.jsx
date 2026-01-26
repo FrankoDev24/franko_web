@@ -20,8 +20,8 @@ const Orders = () => {
 
   // Agent names for filtering
   const agentNames = [
-    "Dorothy Boadu", "Peggy Andoh", "sarah koffie", "Fredous Zakari",
-    "Florence Gbeve", "Regina Baah", "Gideon Obiri", "Hannah Jethro", "Mavis Attipoe", "Sadam Ansamah","Perpetual Ayimedu"
+ "Peggy Andoh", "sarah koffie", 
+    "Florence Gbeve", "Regina Baah", "Gideon Obiri", "Hannah Jethro", "Mavis Attipoe", "Sadam Ansamah","Judith Tsegah"
   ];
 
   // State management
