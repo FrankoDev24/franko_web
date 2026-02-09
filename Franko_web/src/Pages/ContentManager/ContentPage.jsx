@@ -9,6 +9,7 @@ import Contentbrand from './ContentManagerPage/Contentbrand';
 import ContentCategory from './ContentManagerPage/ContentCategory';
 import ContentBanner from './ContentManagerPage/ContentBanner';
 import ContentHome from './ContentHome';
+import ContentBranchProduct from './ContentManagerPage/ContentBranchProduct';
 
 
 const ContentPage = () => {
