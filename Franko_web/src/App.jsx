@@ -73,6 +73,8 @@ import ScrollToTop from './Pages/ScrollToTop'
 import DigiPage from './Pages/DigitalMarketer/DigiPage'
 import DigiOrders from './Pages/DigitalMarketer/Digi/DigiOrders'
 import DigiProducts from './Pages/DigitalMarketer/Digi/DigiProducts'
+import ContentBranchProduct from './Pages/ContentManager/ContentManagerPage/ContentBranchProduct'
+import BranchProductsPage from './Pages/AdminPages/BranchProductsPage'
 
 // Utility to fetch customer role
 
@@ -271,13 +273,14 @@ function App() {
               </AdminPage>
             </ProtectedRoute>
           } 
+
         />
         <Route 
-          path="/admin/users" 
+          path="/admin/branch-products" 
           element={
             <ProtectedRoute allowedRoles={['admin', 'Supervisor']}>
               <AdminPage>
-                <Users />
+                <BranchProductsPage />
               </AdminPage>
             </ProtectedRoute>
           } 
@@ -433,11 +436,11 @@ function App() {
           } 
         />
         <Route 
-          path="/content/banner" 
+          path="/content/branch-products" 
           element={
             <ProtectedRoute allowedRoles={['Webcontentmanager']}>
               <ContentPage>
-                <ContentBanner />
+                <ContentBranchProduct />
               </ContentPage>
             </ProtectedRoute>
           } 

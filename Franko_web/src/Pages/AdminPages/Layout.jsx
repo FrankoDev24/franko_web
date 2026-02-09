@@ -65,6 +65,7 @@ const AdminLayout = ({ children }) => {
     { key: '/admin/banner', icon: Image, label: 'Banner', link: '/admin/banner' },
     { key: '/admin/users', icon: User, label: 'Users', link: '/admin/users' },
     { key: '/admin/customers', icon: Users, label: 'Customers', link: '/admin/customers' },
+    { key: '/admin/branch-products', icon: Tag, label: 'Branch Products', link: '/admin/branch-products' },
     { key: 'logout', icon: LogOut, label: 'Logout', action: showLogoutModal },
   ];
 

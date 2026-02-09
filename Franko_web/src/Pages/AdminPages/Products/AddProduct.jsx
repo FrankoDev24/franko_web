@@ -10,17 +10,22 @@ import {
   Row, 
   Col, 
   Divider, 
-  Typography
+  Typography,
+  Card,
+  Space,
+  Spin,
+  Tag
 } from 'antd';
-import { UploadOutlined } from '@ant-design/icons';
+import { UploadOutlined, CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import PropTypes from 'prop-types';
 import { useDispatch, useSelector } from 'react-redux';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { addProduct, fetchProducts } from '../../../Redux/Slice/productSlice';
 import { fetchBrands } from '../../../Redux/Slice/brandSlice';
 import { fetchShowrooms } from '../../../Redux/Slice/showRoomSlice';
 import { fetchCategories } from '../../../Redux/Slice/categorySlice';
+import { fetchBranchProducts } from '../../../Redux/Slice/branchProductSlice';
 
 const { Option } = Select;
 const { Text, Title } = Typography;
@@ -34,6 +39,10 @@ const AddProduct = ({ visible, onClose }) => {
   const [imagePreview, setImagePreview] = useState(null);
   const [charCount, setCharCount] = useState(0);
   
+  // Branch product lookup state
+  const [branchLookupResult, setBranchLookupResult] = useState(null);
+  const [isLookingUp, setIsLookingUp] = useState(false);
+  
   // Search states for dropdowns
   const [brandSearchValue, setBrandSearchValue] = useState('');
   const [showroomSearchValue, setShowroomSearchValue] = useState('');
@@ -46,13 +55,35 @@ const AddProduct = ({ visible, onClose }) => {
   const showroomsLoading = useSelector((state) => state.showrooms.loading);
   const categoriesLoading = useSelector((state) => state.categories.loading);
 
-  useEffect(() => {
-    dispatch(fetchBrands());
-    dispatch(fetchShowrooms());
-    dispatch(fetchCategories());
-  }, [dispatch]);
+  // Branch products from Redux
+  const { 
+    data: branchProducts = [], 
+    loading: branchLoading 
+  } = useSelector((state) => state.branchProducts || {});
 
-  // Memoized filtered options for better performance
+  useEffect(() => {
+    if (visible) {
+      dispatch(fetchBrands());
+      dispatch(fetchShowrooms());
+      dispatch(fetchCategories());
+      dispatch(fetchBranchProducts());
+    }
+  }, [dispatch, visible]);
+
+  // Create lookup map: productCode -> product details
+  const branchProductsByCode = useMemo(() => {
+    const map = new Map();
+    const list = Array.isArray(branchProducts) ? branchProducts : [];
+    
+    for (const bp of list) {
+      if (bp?.productCode) {
+        map.set(String(bp.productCode).trim(), bp);
+      }
+    }
+    return map;
+  }, [branchProducts]);
+
+  // Memoized filtered options
   const filteredBrands = useMemo(() => {
     if (!brandSearchValue) return brands;
     return brands.filter(brand =>
@@ -74,10 +105,54 @@ const AddProduct = ({ visible, onClose }) => {
     );
   }, [categories, categorySearchValue]);
 
+  // Handle ProductId2 (Branch Code) change - lookup product
+  const handleProductId2Change = useCallback((e) => {
+    const code = e.target.value?.trim();
+    
+    if (!code) {
+      setBranchLookupResult(null);
+      return;
+    }
+
+    setIsLookingUp(true);
+
+    setTimeout(() => {
+      const foundProduct = branchProductsByCode.get(code);
+      
+      if (foundProduct) {
+        setBranchLookupResult({
+          found: true,
+          product: foundProduct
+        });
+      } else {
+        setBranchLookupResult({
+          found: false,
+          product: null
+        });
+      }
+      setIsLookingUp(false);
+    }, 300);
+  }, [branchProductsByCode]);
+
+  // Auto-fill product details from branch product
+  const handleAutoFillFromBranch = useCallback(() => {
+    if (branchLookupResult?.found && branchLookupResult.product) {
+      const bp = branchLookupResult.product;
+      
+      form.setFieldsValue({
+        productName: bp.productName || '',
+        price: bp.sellingPrice || '',
+        sellingPrice: bp.sellingPrice || '',
+        Quantity: bp.quantity || bp.stockQuantity || 0,
+      });
+      
+      message.success("Product details auto-filled from branch product!");
+    }
+  }, [branchLookupResult, form]);
+
   const generateRandomId = () => Math.floor(10000 + Math.random() * 90000).toString();
 
   const onFinish = async (values) => {
-    // Build values in the exact casing the API expects
     const apiValues = {
       ProductName: values.productName,
       Price: values.price ? Number(values.price) : 0,
@@ -90,12 +165,12 @@ const AddProduct = ({ visible, onClose }) => {
       BrandId: values.brandId,
       ShowRoomId: values.showRoomId,
       CategoryId: values.categoryId,
-      Status: values.status !== undefined ? Number(values.status) : 0, // 1 or 0
+      Status: values.status !== undefined ? Number(values.status) : 0,
       ProductId2: values.ProductId2 || generateRandomId(),
       ProductId3: values.ProductId3 || generateRandomId(),
       ProductID: uuidv4(),
       DateCreated: new Date().toISOString(),
-      Userid: 'user-uuid', // TODO: replace with actual logged-in user id
+      Userid: 'user-uuid',
     };
 
     const formData = new FormData();
@@ -109,18 +184,16 @@ const AddProduct = ({ visible, onClose }) => {
       message.error('Please upload a product image.');
       return;
     }
-    // Match API field name
     formData.append('ProductImage', productImageFile);
 
     try {
       setUploading(true);
       await dispatch(addProduct(formData)).unwrap();
-      message.success('Product added successfully!');
+      message.success(`Product added successfully with code: ${apiValues.ProductId2}`);
       await dispatch(fetchProducts());
       handleReset();
       onClose();
     } catch (err) {
-      // err is the payload from rejectWithValue
       console.error(err);
       if (typeof err === 'string') {
         message.error(err);
@@ -146,6 +219,7 @@ const AddProduct = ({ visible, onClose }) => {
     setBrandSearchValue('');
     setShowroomSearchValue('');
     setCategorySearchValue('');
+    setBranchLookupResult(null);
   };
 
   const handleUploadChange = (info) => {
@@ -189,17 +263,146 @@ const AddProduct = ({ visible, onClose }) => {
     onClose();
   };
 
+  // Render branch product lookup result
+  const renderBranchLookupResult = () => {
+    if (isLookingUp) {
+      return (
+        <Card size="small" style={{ marginTop: 8, backgroundColor: '#fafafa' }}>
+          <Space>
+            <Spin size="small" />
+            <Text type="secondary">Looking up branch product...</Text>
+          </Space>
+        </Card>
+      );
+    }
+
+    if (!branchLookupResult) return null;
+
+    if (branchLookupResult.found && branchLookupResult.product) {
+      const bp = branchLookupResult.product;
+      return (
+        <Card 
+          size="small" 
+          style={{ 
+            marginTop: 8, 
+            backgroundColor: '#f6ffed', 
+            border: '1px solid #b7eb8f' 
+          }}
+        >
+          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+            <Space>
+              <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 16 }} />
+              <Text strong style={{ color: '#52c41a' }}>Branch Product Found!</Text>
+            </Space>
+            
+            <div style={{ paddingLeft: 24 }}>
+              <Row gutter={[16, 4]}>
+                <Col span={24}>
+                  <Text strong>Product Name: </Text>
+                  <Text>{bp.productName || '-'}</Text>
+                </Col>
+                <Col span={12}>
+                  <Text strong>Product Code: </Text>
+                  <Tag color="blue">{bp.productCode || '-'}</Tag>
+                </Col>
+                <Col span={12}>
+                  <Text strong>Price </Text>
+                  <Tag color={bp.sellingPrice > 0 ? 'green' : 'red'}>
+                    {bp.sellingPrice ? `₵${parseFloat(bp.sellingPrice).toFixed(2)}` : '-'}
+                  </Tag>
+                </Col>
+                {bp.price && (
+                  <Col span={12}>
+                    <Text strong>Price: </Text>
+                    <Text>₵{parseFloat(bp.price).toFixed(2)}</Text>
+                  </Col>
+                )}
+              </Row>
+              
+              <Button 
+                type="primary" 
+                size="small" 
+                onClick={handleAutoFillFromBranch}
+                style={{ marginTop: 8 }}
+                icon={<CheckCircleOutlined />}
+              >
+                Auto-fill product details
+              </Button>
+            </div>
+          </Space>
+        </Card>
+      );
+    }
+
+    return (
+      <Card 
+        size="small" 
+        style={{ 
+          marginTop: 8, 
+          backgroundColor: '#fff2e8', 
+          border: '1px solid #ffbb96' 
+        }}
+      >
+        <Space>
+          <WarningOutlined style={{ color: '#fa8c16', fontSize: 16 }} />
+          <Text type="warning">
+            No branch product found with this code. You can still add the product manually.
+          </Text>
+        </Space>
+      </Card>
+    );
+  };
+
   return (
     <Modal
       title={<Title level={4}>Add New Product</Title>}
       open={visible}
       onCancel={handleModalClose}
       footer={null}
-      width={750}
+      width={850}
       centered
       destroyOnClose
     >
       <Form form={form} layout="vertical" onFinish={onFinish}>
+        {/* Branch Code Section */}
+        <Card 
+          size="small" 
+          style={{ 
+            marginBottom: 16, 
+            backgroundColor: '#e6f7ff', 
+            border: '1px solid #91d5ff' 
+          }}
+          title={
+            <Space>
+              <span>Branch Product Lookup</span>
+            </Space>
+          }
+        >
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item 
+                name="ProductId2" 
+                label="Product Code (ProductId2)"
+                rules={[{ required: true, message: 'Product code is required!' }]}
+                extra={branchLoading ? "Loading branch products..." : `${branchProductsByCode.size} branch products available`}
+              >
+                <Input 
+                  placeholder="Enter branch product code" 
+                  onChange={handleProductId2Change}
+                  suffix={isLookingUp ? <Spin size="small" /> : null}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="ProductId3" label="MPN">
+                <Input placeholder="Auto-generated if empty" />
+              </Form.Item>
+            </Col>
+          </Row>
+          
+          {renderBranchLookupResult()}
+        </Card>
+
         <Row gutter={[16, 16]}>
           <Col span={16}>
             <Form.Item
@@ -233,22 +436,24 @@ const AddProduct = ({ visible, onClose }) => {
                 { pattern: /^\d+(\.\d{1,2})?$/, message: 'Please enter a valid price.' }
               ]}
             >
-              <Input type="number" prefix="₵" placeholder="0.00 (optional)" min="0" step="0.01" />
+              <Input type="number" prefix="₵" placeholder="0.00" min="0" step="0.01" />
             </Form.Item>
           </Col>
-          <Col span={4}>
+        </Row>
+
+        <Row gutter={16}>
+          <Col span={6}>
             <Form.Item
               name="ProductDiscount"
               label="Discount (₵)"
               rules={[
-                { pattern: /^\d+(\.\d{1,2})?$/, message: 'Enter a valid discount amount.' }
+                { pattern: /^\d+(\.\d{1,2})?$/, message: 'Enter a valid discount.' }
               ]}
             >
               <Input type="number" prefix="₵" placeholder="0.00" min="0" step="0.01" />
             </Form.Item>
           </Col>
-
-          <Col span={8}>
+          <Col span={6}>
             <Form.Item 
               name="Quantity" 
               label="Quantity" 
@@ -260,7 +465,7 @@ const AddProduct = ({ visible, onClose }) => {
               <Input type="number" placeholder="Enter quantity" min="0" />
             </Form.Item>
           </Col>
-          <Col span={8}>
+          <Col span={6}>
             <Form.Item 
               name="Color" 
               label="Color" 
@@ -269,26 +474,18 @@ const AddProduct = ({ visible, onClose }) => {
               <Input placeholder="e.g., Red, Blue" />
             </Form.Item>
           </Col>
-          <Col span={8}>
+          <Col span={6}>
             <Form.Item 
               name="Tag" 
               label="Tag" 
               rules={[{ required: true, message: 'Please enter a tag.' }]}
             >
-              <Input placeholder="e.g., Trending, New" />
+              <Input placeholder="e.g., Trending" />
             </Form.Item>
           </Col>
+        </Row>
 
-          <Col span={8}>
-            <Form.Item name="ProductId2" label="EAN">
-              <Input placeholder="Optional - auto-generated if empty" />
-            </Form.Item>
-          </Col>
-          <Col span={8}>
-            <Form.Item name="ProductId3" label="MPN">
-              <Input placeholder="Optional - auto-generated if empty" />
-            </Form.Item>
-          </Col>
+        <Row gutter={16}>
           <Col span={8}>
             <Form.Item 
               name="status" 
@@ -318,11 +515,9 @@ const AddProduct = ({ visible, onClose }) => {
             autoSize={{ minRows: 3, maxRows: 5 }}
             maxLength={1000}
             onChange={(e) => setCharCount(e.target.value.length)}
+            showCount
           />
         </Form.Item>
-        <Text type="secondary" style={{ float: 'right', marginBottom: 10 }}>
-          {charCount} / 1000
-        </Text>
 
         <Row gutter={16}>
           <Col span={8}>
@@ -413,7 +608,6 @@ const AddProduct = ({ visible, onClose }) => {
                   maxHeight: 250,
                   objectFit: 'cover',
                   borderRadius: 8,
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
                 }}
               />
             </div>
@@ -434,12 +628,15 @@ const AddProduct = ({ visible, onClose }) => {
             </Col>
             <Col span={12}>
               <Button
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-medium"
+                type="primary"
                 htmlType="submit"
                 loading={uploading}
                 block
                 size="large"
-                type="primary"
+                style={{
+                  backgroundColor: '#52c41a',
+                  borderColor: '#52c41a'
+                }}
               >
                 Add Product
               </Button>

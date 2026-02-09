@@ -1,5 +1,6 @@
+// store.js
 import { configureStore } from "@reduxjs/toolkit";
-import storage from "redux-persist/lib/storage"; // localStorage (already encrypted globally)
+import storage from "redux-persist/lib/storage";
 import { persistStore, persistReducer } from "redux-persist";
 import { combineReducers } from "redux";
 
@@ -14,13 +15,15 @@ import cartReducer from "./Slice/cartSlice";
 import advertismentReducer from "./Slice/advertismentSlice";
 import wishlistReducer from "./Slice/wishlistSlice";
 import paymentReducer from "./Slice/paymentSlice";
+import branchProductReducer from "./Slice/branchProductSlice";
+import branchOrderReducer from "./Slice/branchOrderSlice";
 
 // --- Combine all reducers
 const rootReducer = combineReducers({
   categories: categoryReducer,
   wishlist: wishlistReducer,
   brands: brandReducer,
-  products: productReducer,
+  products: productReducer, // Product codes handled separately via productCodesStorage
   showrooms: showroomReducer,
   orders: orderReducer,
   user: userReducer,
@@ -28,19 +31,21 @@ const rootReducer = combineReducers({
   cart: cartReducer,
   advertisment: advertismentReducer,
   payment: paymentReducer,
+  branchProducts: branchProductReducer,
+  branchOrders: branchOrderReducer,
 });
 
 // --- Redux Persist config
 const persistConfig = {
   key: "root",
-  storage, // ✅ This storage is now your globally encrypted localStorage
+  storage,
   whitelist: [
     "categories",
     "brands",
-    "products",
     "showrooms",
     "advertisment",
   ],
+  // Products NOT in whitelist - codes are handled by productCodesStorage
 };
 
 // --- Persisted reducer
@@ -51,7 +56,7 @@ export const store = configureStore({
   reducer: persistedReducer,
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
-      serializableCheck: false, // Required for redux-persist
+      serializableCheck: false,
     }),
 });
 

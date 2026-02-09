@@ -104,6 +104,12 @@ const ContentHome = ({ children }) => {
       path: '/content/showroom'
     },
     {
+      key: '/content/branch-products',
+      icon: <ClusterOutlined />,
+      label: 'Branch Products',
+      path: '/content/branch-products'
+    },
+    {
       key: '/content/banner',
       icon: <FileImageOutlined />,
       label: 'Banners',

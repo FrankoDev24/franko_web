@@ -5,29 +5,20 @@ import { useNavigate } from "react-router-dom";
 import {
   checkOutOrder,
   updateOrderDelivery,
-  saveCheckoutDetails,
-  saveAddressDetails,
 } from "../Redux/Slice/orderSlice";
-import { getHubtelCallbackById } from "../Redux/Slice/paymentSlice";
 import { clearCart } from "../Redux/Slice/cartSlice";
-import { message, Card, Typography, Radio, Divider, Modal } from "antd";
+import { message, Card, Typography, Radio, Divider,Modal  } from "antd";
 import CheckoutForm from "../Component/CheckoutForm";
 import locations from "../Component/Locations";
 import {
   ShoppingBagIcon,
   ExclamationTriangleIcon,
-  CreditCardIcon,
   MapPinIcon,
   UserIcon,
   PhoneIcon,
 } from "@heroicons/react/24/outline";
 
 const { Text, Title } = Typography;
-
-// Lambda payment initiation URL
-const PAYMENT_API_URL =
-  import.meta.env.VITE_PAYMENT_API_URL ||
-  "https://02yo3gbfxe.execute-api.us-east-1.amazonaws.com/default/FrankoAPI/?endpoint=%2FPaymentSystem%2FInitiateHubtel";
 
 const Checkout = () => {
   const dispatch = useDispatch();
@@ -47,16 +38,10 @@ const Checkout = () => {
   const [isValidationModalVisible, setIsValidationModalVisible] =
     useState(false);
 
-  const [isPaymentModalVisible, setIsPaymentModalVisible] =
-    useState(false);
-  const [paymentUrl, setPaymentUrl] = useState(null);
-  const [paymentLoading, setPaymentLoading] = useState(false);
-  const [currentOrderId, setCurrentOrderId] = useState(null);
-
   // --- Encrypted localStorage helpers ---
   const safeGet = (key, fallback) => {
     try {
-      const v = localStorage.getItem(key); // already decrypted & parsed
+      const v = localStorage.getItem(key);
       return v == null ? fallback : v;
     } catch {
       return fallback;
@@ -121,7 +106,7 @@ const Checkout = () => {
     } catch {
       // ignore
     }
-  }, []); // run once
+  }, []);
 
   useEffect(() => {
     if (
@@ -167,32 +152,6 @@ const Checkout = () => {
     const timestamp = new Date().getTime() % 10000;
     const randomNum = Math.floor(Math.random() * 1000);
     return `${prefix}-${timestamp}-${randomNum}`;
-  };
-
-  const initiatePayment = async (totalAmount, cartItems, orderId) => {
-    const payload = { totalAmount, cartItems, orderId };
-
-    const res = await fetch(PAYMENT_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Identifier: "Franko", // must match Lambda CUSTOM_HEADER_NAME/VALUE
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const text = await res.text();
-    if (!res.ok) throw new Error(`HTTP Error: ${res.status} - ${text}`);
-    if (!text) throw new Error("Empty response from payment API");
-
-    const result = JSON.parse(text);
-    if (result.checkoutUrl) {
-      localStorage.setItem("pendingOrderId", orderId);
-      return result.checkoutUrl;
-    }
-    throw new Error(
-      result.message || "Payment API did not return a checkoutUrl"
-    );
   };
 
   const dispatchOrderCheckoutWithRetry = async (
@@ -268,144 +227,6 @@ const Checkout = () => {
     await dispatchOrderAddressWithRetry(orderId, addressDetails);
   };
 
-  const storeCheckoutDetailsInLocalStorage = (
-    checkoutDetails,
-    addressDetails
-  ) => {
-    try {
-      // setItem will encrypt and stringify for you
-      localStorage.setItem("checkoutDetails", checkoutDetails);
-      localStorage.setItem("orderAddressDetails", addressDetails);
-    } catch {
-      // ignore
-    }
-  };
-
-  // --- Hubtel callback polling: clear cart & process order on 0000 ---
-
-  useEffect(() => {
-    if (isAgent || !currentOrderId) return;
-
-    let intervalId;
-
-    const handleIframeMessage = (event) => {
-      if (
-        !event.origin.includes("hubtel.com") &&
-        !event.origin.includes("payproxyapi.hubtel.com")
-      ) {
-        return;
-      }
-      const { type } = event.data || {};
-      // We rely on polling rather than iframe messages to process the order,
-      // so just close modal / show feedback if needed.
-      if (type === "PAYMENT_SUCCESS") {
-        // Let polling handle the rest
-        message.success("Payment completed, finalizing order...");
-      } else if (
-        type === "PAYMENT_CANCELLED" ||
-        type === "PAYMENT_FAILED"
-      ) {
-        setIsPaymentModalVisible(false);
-        setPaymentUrl(null);
-        localStorage.removeItem("pendingOrderId");
-        message.error("Payment was cancelled or failed. Please try again.");
-      }
-    };
-
-    const checkHubtelStatus = async () => {
-      if (!currentOrderId) return;
-      try {
-        const action = await dispatch(
-          getHubtelCallbackById(currentOrderId)
-        );
-        const response = action?.payload;
-
-        if (response?.responseCode === "0000") {
-          // SUCCESSFUL PAYMENT
-          clearInterval(intervalId);
-          setIsPaymentModalVisible(false);
-          setPaymentUrl(null);
-          localStorage.removeItem("pendingOrderId");
-
-          try {
-            const storedCheckout = safeGet(
-              "checkoutDetails",
-              null
-            );
-            const storedAddress = safeGet(
-              "orderAddressDetails",
-              null
-            );
-
-            if (storedCheckout && storedAddress) {
-              await processDirectCheckout(
-                currentOrderId,
-                storedCheckout,
-                storedAddress
-              );
-
-              // Clear stored details once processed
-              localStorage.removeItem("checkoutDetails");
-              localStorage.removeItem("orderAddressDetails");
-
-              message.success(
-                "Payment and order processed successfully!"
-              );
-              navigate(`/order-success/${currentOrderId}`);
-            } else {
-              console.warn(
-                "Payment success but no stored order details for",
-                currentOrderId
-              );
-              message.warning(
-                "Payment succeeded, but we could not find your order details. Please contact support."
-              );
-            }
-          } catch (e) {
-            console.error(
-              "Error processing order after payment:",
-              e
-            );
-            message.error(
-              "Payment succeeded, but we could not process your order. Please contact support."
-            );
-          }
-        } else if (response?.responseCode === "2001") {
-          // CANCELLED PAYMENT
-          clearInterval(intervalId);
-          setIsPaymentModalVisible(false);
-          setPaymentUrl(null);
-          localStorage.removeItem("pendingOrderId");
-          // Cart & stored details remain for retry
-          message.error("Payment was cancelled.");
-          navigate("/order-cancelled");
-        }
-      } catch {
-        // ignore polling errors
-      }
-    };
-
-    if (
-      ["Mobile Money", "Credit Card"].includes(paymentMethod) &&
-      isPaymentModalVisible
-    ) {
-      window.addEventListener("message", handleIframeMessage);
-      intervalId = setInterval(checkHubtelStatus, 3000);
-    }
-
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-      window.removeEventListener("message", handleIframeMessage);
-    };
-  }, [
-    paymentMethod,
-    dispatch,
-    navigate,
-    isAgent,
-    currentOrderId,
-    isPaymentModalVisible,
-  ]);
-
   // --- Validation & main checkout ---
 
   const handlePaymentMethodChange = (e) => {
@@ -475,7 +296,6 @@ const Checkout = () => {
     }
 
     const orderId = generateOrderId();
-    setCurrentOrderId(orderId);
     const orderDate = new Date().toISOString();
     const totalAmount = calculateTotalAmount();
     const cartId = getCartId();
@@ -507,35 +327,9 @@ const Checkout = () => {
 
     try {
       setLoading(true);
-
-      if (
-        isAgent ||
-        !["Mobile Money", "Credit Card"].includes(paymentMethod)
-      ) {
-        await processDirectCheckout(orderId, checkoutDetails, addressDetails);
-        message.success("Your order has been placed successfully!");
-        navigate("/order-received");
-      } else {
-        // Store for callback processing
-        storeCheckoutDetailsInLocalStorage(
-          checkoutDetails,
-          addressDetails
-        );
-        dispatch(saveCheckoutDetails(checkoutDetails));
-        dispatch(saveAddressDetails(addressDetails));
-
-        setPaymentLoading(true);
-        const url = await initiatePayment(
-          totalAmount,
-          cartItems,
-          orderId
-        );
-        if (url) {
-          setPaymentUrl(url);
-          setIsPaymentModalVisible(true);
-        }
-        setPaymentLoading(false);
-      }
+      await processDirectCheckout(orderId, checkoutDetails, addressDetails);
+      message.success("Your order has been placed successfully!");
+      navigate("/order-received");
     } catch (error) {
       console.error("Checkout error:", error);
       message.error(
@@ -757,27 +551,19 @@ const Checkout = () => {
                 onChange={handlePaymentMethodChange}
                 className="flex flex-col gap-3"
               >
-                {(isAgent ||
-                  isFreeDelivery ||
-                  (deliveryFee > 0 && !isNADelivery)) && (
+                {/* Non-agents: Cash on Delivery ONLY */}
+                {!isAgent && (
                   <Radio value="Cash on Delivery" className="text-sm">
                     Cash on Delivery
                   </Radio>
                 )}
 
-                {!isAgent && (
-                  <>
-                    <Radio value="Mobile Money" className="text-sm">
-                      Mobile Money
-                    </Radio>
-                    <Radio value="Credit Card" className="text-sm">
-                      Credit Card
-                    </Radio>
-                  </>
-                )}
-
+                {/* Agents get their own options */}
                 {isAgent && (
                   <>
+                    <Radio value="Cash on Delivery" className="text-sm">
+                      Cash on Delivery
+                    </Radio>
                     <Radio value="Pick Up" className="text-sm">
                       Pick Up
                     </Radio>
@@ -890,7 +676,7 @@ const Checkout = () => {
                   );
                 case "payment":
                   return (
-                    <CreditCardIcon className="w-4 h-4 text-red-500" />
+                    <ExclamationTriangleIcon className="w-4 h-4 text-red-500" />
                   );
                 default:
                   return (
@@ -928,32 +714,6 @@ const Checkout = () => {
           })}
         </div>
       </Modal>
-
-      {/* Payment Iframe Modal (non-agents only) */}
-      {!isAgent && (
-        <Modal
-          open={isPaymentModalVisible}
-          onCancel={() => setIsPaymentModalVisible(false)}
-          footer={null}
-          closable
-          centered
-          width={600}
-        >
-          {paymentUrl ? (
-            <iframe
-              src={paymentUrl}
-              title="Hubtel Payment"
-              width="100%"
-              height="700px"
-              frameBorder="0"
-            />
-          ) : paymentLoading ? (
-            <p>Loading payment interface...</p>
-          ) : (
-            <p>Unable to load payment interface.</p>
-          )}
-        </Modal>
-      )}
     </div>
   );
 };

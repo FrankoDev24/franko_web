@@ -10,6 +10,8 @@ import ShowRoom from "./AdminShowroom.jsx";
 import Users from './Users';
 import Customers from './Customers';
 import AdvertisementPage from './Advertisement';
+import BranchProductsPage from './BranchProductsPage.jsx';
+
 
 const AdminPage = () => {
   const location = useLocation();
@@ -32,6 +34,8 @@ const AdminPage = () => {
         return <ShowRoom />;
         case "/admin/banner":
         return <AdvertisementPage />;
+        case '/admin/branch-products':
+        return <BranchProductsPage />;
       case '/admin/users':
         return <Users />;
       case '/admin/customers':

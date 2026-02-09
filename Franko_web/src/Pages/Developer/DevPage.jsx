@@ -14,6 +14,7 @@ import Payments from './Dev/Payments';
 import DevShowroom from './Dev/DevShowroom';
 import DevLayout from './DevLayout';
 import DevCustomers from './Dev/DevCustomers';
+import DevBranchProducts from './Dev/DevBranchProducts';
 
 const DevPage = () => {
   const location = useLocation();
@@ -36,6 +37,8 @@ const DevPage = () => {
         return <DevShowroom />;
         case "/dev/banner":
         return <DevBanners/>;
+        case '/dev/branch-products':
+        return <DevBranchProducts/>;
       case '/dev/users':
         return <DevUsers />;
       case '/dev/customers':

@@ -14,13 +14,15 @@ import {
   Row, 
   Col, 
   Typography,
-  Divider 
+  Divider,
+  Space
 } from "antd";
 import PropTypes from "prop-types";
 
 const { Option } = Select;
 const { Text, Title } = Typography;
 
+// Generate 8-digit code
 const generate8DigitCode = () => {
   return Math.floor(10000000 + Math.random() * 90000000).toString();
 };
@@ -79,11 +81,11 @@ const UpdateProduct = ({ visible, onClose, product }) => {
   useEffect(() => {
     if (product && Object.keys(product).length > 0) {
       const formValues = {
-        Productid: product.productID,
+        Productid: product.productID || product.Productid,
         ProductName: product.productName,
         price: product.price,
-        oldPrice: product.oldPrice,
-        ProductDiscount: product.ProductDiscount ?? 0, // 👈 Add this line
+        oldPrice: product.oldPrice || 0,
+        ProductDiscount: product.ProductDiscount ?? product.productDiscount ?? 0,
         Description: product.description,
         BrandId: product.brandId,
         ShowRoomId: product.showRoomId,
@@ -91,7 +93,7 @@ const UpdateProduct = ({ visible, onClose, product }) => {
         status: product.status?.toString(),
         tag: product.tag || "",
         productColor: product.productColor || "",
-        productId2: product.productId2 || "",
+        ProductId2: product.ProductId2 || product.productId2 || "",  // ✅ Capital P and I
         productId3: product.productId3 || "",
         quantity: product.quantity || 0,
       };
@@ -116,14 +118,14 @@ const UpdateProduct = ({ visible, onClose, product }) => {
       description: values.Description,
       price: parseFloat(values.price),
       oldPrice: values.oldPrice ? parseFloat(values.oldPrice) : 0,
-       ProductDiscount: values.ProductDiscount ? parseFloat(values.ProductDiscount) : 0, // 👈 Add this
+      ProductDiscount: values.ProductDiscount ? parseFloat(values.ProductDiscount) : 0,
       brandId: values.BrandId,
       showRoomId: values.ShowRoomId,
       categoryId: values.CategoryId,
       status: values.status === "1" ? "1" : "0",
       tag: values.tag,
       productColor: values.productColor,
-      productId2: values.productId2 || generate8DigitCode(),
+      ProductId2: values.ProductId2 || generate8DigitCode(),  // ✅ Capital P and I
       productId3: values.productId3 || generate8DigitCode(),
       quantity: parseInt(values.quantity) || 0,
     };
@@ -133,6 +135,8 @@ const UpdateProduct = ({ visible, onClose, product }) => {
       return;
     }
 
+    console.log("📦 Submitting payload:", payload);
+
     try {
       setLoading(true);
       await dispatch(updateProduct(payload)).unwrap();
@@ -140,8 +144,19 @@ const UpdateProduct = ({ visible, onClose, product }) => {
       handleReset();
       onClose();
     } catch (err) {
-      console.error("Error updating product:", err);
-      message.error("Failed to update product.");
+      console.error("❌ Error updating product:", err);
+      
+      // Display detailed error message
+      if (err?.errors) {
+        const errorMessages = Object.entries(err.errors)
+          .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+          .join('\n');
+        message.error(`Validation failed:\n${errorMessages}`);
+      } else if (err?.title) {
+        message.error(`Failed: ${err.title}`);
+      } else {
+        message.error("Failed to update product.");
+      }
     } finally {
       setLoading(false);
     }
@@ -158,7 +173,7 @@ const UpdateProduct = ({ visible, onClose, product }) => {
       open={visible}
       onCancel={handleModalClose}
       footer={null}
-      width={750}
+      width={800}
       centered
       destroyOnClose
     >
@@ -166,14 +181,16 @@ const UpdateProduct = ({ visible, onClose, product }) => {
         form={form}
         layout="vertical"
         onFinish={onFinish}
-        initialValues={{ Productid: product?.productID }}
+        initialValues={{ Productid: product?.productID || product?.Productid }}
       >
+        {/* Hidden Product ID */}
         <Form.Item name="Productid" style={{ display: "none" }}>
           <Input type="hidden" />
         </Form.Item>
 
-        <Row gutter={[16, 16]}>
-          <Col span={16}>
+        {/* Product Name, Price, Old Price */}
+        <Row gutter={16}>
+          <Col span={12}>
             <Form.Item
               label="Product Name"
               name="ProductName"
@@ -182,11 +199,11 @@ const UpdateProduct = ({ visible, onClose, product }) => {
                 { min: 3, message: "Product name must be at least 3 characters." }
               ]}
             >
-              <Input placeholder="Enter product name" />
+              <Input placeholder="Enter product name" size="large" />
             </Form.Item>
           </Col>
 
-          <Col span={4}>
+          <Col span={6}>
             <Form.Item
               label="Price (₵)"
               name="price"
@@ -195,11 +212,18 @@ const UpdateProduct = ({ visible, onClose, product }) => {
                 { pattern: /^\d+(\.\d{1,2})?$/, message: "Please enter a valid price." }
               ]}
             >
-              <Input type="number" prefix="₵" placeholder="0.00" min="0" step="0.01" />
+              <Input 
+                type="number" 
+                prefix="₵" 
+                placeholder="0.00" 
+                min="0" 
+                step="0.01" 
+                size="large"
+              />
             </Form.Item>
           </Col>
 
-          <Col span={4}>
+          <Col span={6}>
             <Form.Item
               label="Old Price (₵)"
               name="oldPrice"
@@ -207,25 +231,40 @@ const UpdateProduct = ({ visible, onClose, product }) => {
                 { pattern: /^\d+(\.\d{1,2})?$/, message: "Please enter a valid price." }
               ]}
             >
-              <Input type="number" prefix="₵" placeholder="0.00" min="0" step="0.01" />
+              <Input 
+                type="number" 
+                prefix="₵" 
+                placeholder="0.00" 
+                min="0" 
+                step="0.01" 
+                size="large"
+              />
             </Form.Item>
           </Col>
         </Row>
-        <Col span={4}>
-  <Form.Item
-    label="Discount (₵)"
-    name="ProductDiscount"
-    rules={[
-      { pattern: /^\d+(\.\d{1,2})?$/, message: "Please enter a valid discount." }
-    ]}
-  >
-    <Input type="number" prefix="₵" placeholder="0.00" min="0" step="0.01" />
-  </Form.Item>
-</Col>
 
-
+        {/* Discount, Quantity, Color, Tag */}
         <Row gutter={16}>
-          <Col span={8}>
+          <Col span={6}>
+            <Form.Item
+              label="Discount (₵)"
+              name="ProductDiscount"
+              rules={[
+                { pattern: /^\d+(\.\d{1,2})?$/, message: "Please enter a valid discount." }
+              ]}
+            >
+              <Input 
+                type="number" 
+                prefix="₵" 
+                placeholder="0.00" 
+                min="0" 
+                step="0.01" 
+                size="large"
+              />
+            </Form.Item>
+          </Col>
+
+          <Col span={6}>
             <Form.Item
               label="Quantity"
               name="quantity"
@@ -234,41 +273,56 @@ const UpdateProduct = ({ visible, onClose, product }) => {
                 { pattern: /^\d+$/, message: "Please enter a valid number." }
               ]}
             >
-              <Input type="number" placeholder="Enter quantity" min="0" />
+              <Input 
+                type="number" 
+                placeholder="Enter quantity" 
+                min="0" 
+                size="large"
+              />
             </Form.Item>
           </Col>
 
-          <Col span={8}>
+          <Col span={6}>
             <Form.Item
               label="Color"
               name="productColor"
               rules={[{ required: true, message: "Please input a color!" }]}
             >
-              <Input placeholder="Enter product color" />
+              <Input placeholder="Enter product color" size="large" />
             </Form.Item>
           </Col>
 
-          <Col span={8}>
+          <Col span={6}>
             <Form.Item
               label="Tag"
               name="tag"
               rules={[{ required: true, message: "Please input a tag!" }]}
             >
-              <Input placeholder="Enter tag (e.g., Featured, New)" />
+              <Input placeholder="e.g., Featured, New" size="large" />
             </Form.Item>
           </Col>
         </Row>
 
+        {/* Product Code (ProductId2), MPN, Status */}
         <Row gutter={16}>
           <Col span={8}>
-            <Form.Item label="EAN" name="productId2">
-              <Input placeholder="Enter EAN (auto-generated if empty)" />
+            <Form.Item 
+              label="Product Code (ProductId2)" 
+              name="ProductId2"  
+              rules={[{ required: true, message: 'Product code is required!' }]}
+              tooltip="This is the unique product code (ProductId2)"
+            >
+              <Input placeholder="Enter Product Code" size="large" />
             </Form.Item>
           </Col>
 
           <Col span={8}>
-            <Form.Item label="MPN" name="productId3">
-              <Input placeholder="Enter MPN (auto-generated if empty)" />
+            <Form.Item 
+              label="MPN (Product ID 3)" 
+              name="productId3"
+              tooltip="Manufacturer Part Number (auto-generated if empty)"
+            >
+              <Input placeholder="Enter MPN" size="large" />
             </Form.Item>
           </Col>
 
@@ -278,7 +332,7 @@ const UpdateProduct = ({ visible, onClose, product }) => {
               name="status"
               rules={[{ required: true, message: "Please select a status!" }]}
             >
-              <Select placeholder="Select status">
+              <Select placeholder="Select status" size="large">
                 <Option value="1">In Stock</Option>
                 <Option value="0">Out of Stock</Option>
               </Select>
@@ -288,6 +342,7 @@ const UpdateProduct = ({ visible, onClose, product }) => {
 
         <Divider />
 
+        {/* Description */}
         <Form.Item
           label="Description"
           name="Description"
@@ -298,15 +353,15 @@ const UpdateProduct = ({ visible, onClose, product }) => {
         >
           <Input.TextArea
             placeholder="Enter product description (max 1000 characters)"
-            autoSize={{ minRows: 3, maxRows: 5 }}
+            autoSize={{ minRows: 4, maxRows: 6 }}
             maxLength={1000}
             onChange={(e) => setCharCount(e.target.value.length)}
+            showCount
           />
         </Form.Item>
-        <Text type="secondary" style={{ float: 'right', marginBottom: 10 }}>
-          {charCount} / 1000
-        </Text>
+ 
 
+        {/* Brand, Showroom, Category */}
         <Row gutter={16}>
           <Col span={8}>
             <Form.Item
@@ -321,6 +376,7 @@ const UpdateProduct = ({ visible, onClose, product }) => {
                 onSearch={setBrandSearchValue}
                 loading={brandsLoading}
                 notFoundContent={brandsLoading ? 'Loading...' : 'No brands found'}
+                size="large"
               >
                 {filteredBrands.map((brand) => (
                   <Option key={brand.brandId} value={brand.brandId}>
@@ -344,6 +400,7 @@ const UpdateProduct = ({ visible, onClose, product }) => {
                 onSearch={setShowroomSearchValue}
                 loading={showroomsLoading}
                 notFoundContent={showroomsLoading ? 'Loading...' : 'No showrooms found'}
+                size="large"
               >
                 {filteredShowrooms.map((showroom) => (
                   <Option key={showroom.showRoomID} value={showroom.showRoomID}>
@@ -367,6 +424,7 @@ const UpdateProduct = ({ visible, onClose, product }) => {
                 onSearch={setCategorySearchValue}
                 loading={categoriesLoading}
                 notFoundContent={categoriesLoading ? 'Loading...' : 'No categories found'}
+                size="large"
               >
                 {filteredCategories.map((category) => (
                   <Option key={category.categoryId} value={category.categoryId}>
@@ -378,31 +436,31 @@ const UpdateProduct = ({ visible, onClose, product }) => {
           </Col>
         </Row>
 
+        <Divider />
+
+        {/* Form Actions */}
         <Form.Item>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Button
-                size="large"
-                block
-                onClick={handleModalClose}
-                disabled={loading}
-              >
-                Cancel
-              </Button>
-            </Col>
-            <Col span={12}>
-              <Button
-                htmlType="submit"
-                className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold"
-                loading={loading}
-                block
-                size="large"
-                type="primary"
-              >
-                Update Product
-              </Button>
-            </Col>
-          </Row>
+          <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+            <Button
+              size="large"
+              onClick={handleModalClose}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              htmlType="submit"
+              type="primary"
+              loading={loading}
+              size="large"
+              style={{ 
+                backgroundColor: '#52c41a',
+                borderColor: '#52c41a'
+              }}
+            >
+              Update Product
+            </Button>
+          </Space>
         </Form.Item>
       </Form>
     </Modal>

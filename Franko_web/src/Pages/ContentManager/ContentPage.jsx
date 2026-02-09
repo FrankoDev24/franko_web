@@ -28,6 +28,8 @@ const ContentPage = () => {
         return <Contentbrand />;
       case '/content/category':
         return <ContentCategory/>;
+      case '/content/branch-products':
+        return <ContentBranchProduct/>;
         case "/content/banner":
         return <ContentBanner/>;
       case '/content':

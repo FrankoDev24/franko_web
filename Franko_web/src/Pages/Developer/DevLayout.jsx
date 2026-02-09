@@ -64,6 +64,7 @@ const DevLayout = ({ children }) => {
     { key: '/dev/brands', icon: Award, label: 'Brands', link: '/dev/brands' },
     { key: '/dev/showroom', icon: Store, label: 'Showroom', link: '/dev/showroom' },
     { key: '/dev/banner', icon: Image, label: 'Banner', link: '/dev/banner' },
+    { key: '/dev/branch-products', icon: Users, label: 'Branch Products', link: '/dev/branch-products' },
     { key: '/dev/users', icon: User, label: 'Users', link: '/dev/users' },
     { key: '/dev/customers', icon: Users, label: 'Customers', link: '/dev/customers' },
 
