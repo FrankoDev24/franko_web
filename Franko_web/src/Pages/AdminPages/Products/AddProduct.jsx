@@ -383,7 +383,7 @@ const AddProduct = ({ visible, onClose }) => {
               <Form.Item 
                 name="ProductId2" 
                 label="Product Code (ProductId2)"
-                rules={[{ required: true, message: 'Product code is required!' }]}
+            
                 extra={branchLoading ? "Loading branch products..." : `${branchProductsByCode.size} branch products available`}
               >
                 <Input 
