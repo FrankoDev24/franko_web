@@ -296,11 +296,11 @@ const Phones = () => {
         <meta property="og:description" content="Explore the newest smartphones in Ghana at Franko Trading. From budget to flagship devices, find phones from Samsung, Apple, Infinix, and Tecno — fast shipping and secure checkout." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content={window.location.href} />
-        <meta property="og:image" content={filteredProducts.length > 0 ? `https://fte002n1.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+        <meta property="og:image" content={filteredProducts.length > 0 ? `https://ct002.frankotrading.com:444/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="smartphones in Ghana | Latest Phones & Great Prices – Franko Trading" />
         <meta name="twitter:description" content="Explore the newest smartphones in Ghana at Franko Trading. From budget to flagship devices, find phones from Samsung, Apple, Infinix, and Tecno — fast shipping and secure checkout." />
-        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://fte002n1.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://ct002.frankotrading.com:444/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
         <link rel="canonical" href="https://www.frankotrading.com/phones" />
         {/* JSON-LD Structured Data for Schema.org */}
         <script type="application/ld+json">
@@ -316,7 +316,7 @@ const Phones = () => {
               "name": item.productName,
               "description": item.productDescription,
               "sku": item.productID,
-              "image": `https://fte002n1.salesmate.app/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+              "image": `https://ct002.frankotrading.com:444/Media/Products_Images/${item.productImage.split("\\").pop()}`,
               "brand": {
                 "@type": "Brand",
                 "name": item.brandName

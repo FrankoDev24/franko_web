@@ -80,7 +80,7 @@ const AdminProducts = () => {
   const [refreshLoading, setRefreshLoading] = useState(false)
   const [dataLoaded, setDataLoaded] = useState(false)
 
-  const backendBaseURL = "https://fte002n1.salesmate.app/"
+  const backendBaseURL = "https://ct002.frankotrading.com:444/"
 
   const isLoading =
     productsLoading ||

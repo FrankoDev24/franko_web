@@ -21,7 +21,7 @@ import { v4 as uuidv4 } from "uuid";
 const { Title, Text } = Typography;
 const { Dragger } = Upload;
 
-const backendBaseURL = "https://fte002n1.salesmate.app/";
+const backendBaseURL = "https://ct002.frankotrading.com:444/";
 
 const Adminbrands = () => {
   const dispatch = useDispatch();

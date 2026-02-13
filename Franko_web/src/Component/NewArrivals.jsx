@@ -21,7 +21,7 @@ import { useNavigate, Link } from "react-router-dom";
 const getValidImageUrl = (imagePath) => {
   if (!imagePath) return "https://via.placeholder.com/150";
   return imagePath.includes("\\")
-    ? `https://fte002n1.salesmate.app/Media/Products_Images/${imagePath.split("\\").pop()}`
+    ? `https://ct002.frankotrading.com:444/Media/Products_Images/${imagePath.split("\\").pop()}`
     : imagePath;
 };
 

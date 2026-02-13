@@ -348,7 +348,7 @@ const Checkout = () => {
         </div>
       );
     }
-    const backendBaseURL = "https://fte002n1.salesmate.app";
+    const backendBaseURL = "https://ct002.frankotrading.com:444";
     const imageUrl = `${backendBaseURL}/Media/Products_Images/${imagePath
       .split("\\")
       .pop()}`;

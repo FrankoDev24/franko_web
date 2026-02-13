@@ -181,7 +181,7 @@ const isInWishlist = (id) =>
 
   const getImageUrl = (path) =>
     path?.includes("\\")
-      ? `https://fte002n1.salesmate.app/Media/Products_Images/${path.split("\\").pop()}`
+      ? `https://ct002.frankotrading.com:444/Media/Products_Images/${path.split("\\").pop()}`
       : path || "https://via.placeholder.com/150";
 
   const formatPrice = (price) =>

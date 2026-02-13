@@ -301,7 +301,7 @@ const Cart = () => {
     if (!imagePath) {
       return <img src="path/to/placeholder/image.png" alt="Placeholder" className="w-full h-full object-cover rounded-lg" />;
     }
-    const backendBaseURL = "https://fte002n1.salesmate.app"; // Replace with your actual backend URL
+    const backendBaseURL = "https://ct002.frankotrading.com:444"; // Replace with your actual backend URL
     const imageUrl = `${backendBaseURL}/Media/Products_Images/${imagePath.split("\\").pop()}`;
     return <img src={imageUrl} alt="Product" className="w-full h-full object-cover rounded-lg" />;
   };

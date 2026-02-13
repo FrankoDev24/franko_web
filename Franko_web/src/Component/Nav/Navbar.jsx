@@ -43,7 +43,7 @@ import { setCurrentCustomer } from "../../Redux/Slice/customerSlice";
 
 import AuthModal from "../AuthModal";
 
-const backendBaseURL = "https://fte002n1.salesmate.app";
+const backendBaseURL = "https://ct002.frankotrading.com:444";
 
 const Nav = () => {
   const [openDrawer, setOpenDrawer] = useState(false);
