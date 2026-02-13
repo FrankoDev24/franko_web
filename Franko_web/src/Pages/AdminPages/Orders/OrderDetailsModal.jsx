@@ -83,7 +83,7 @@ const OrderDetailsModal = ({ orderId, onClose }) => {
   if (error) return <div className='hidden'>Error loading order: {error.message || 'An error occurred'}</div>;
   if (!salesOrder || salesOrder.length === 0) return <div>No order details found.</div>;
 
-  const backendBaseURL = 'https://fte002n1.salesmate.app';
+  const backendBaseURL = 'https://ct002.frankotrading.com:444';
   const totalAmount = salesOrder.reduce((acc, order) => acc + order.total, 0);
   const address = deliveryAddress?.[0] || {};
 
