@@ -1,10 +1,12 @@
+// UserRegistration.jsx
 import React, { useState } from 'react';
 import { Form, Input, Button, message } from 'antd';
 import { useDispatch } from 'react-redux';
 import { v4 as uuidv4 } from 'uuid';
-import { createUser } from '../../Redux/Slice/userSlice'; // Adjust path as per your file structure
+import { createUser } from '../../Redux/Slice/userSlice';
 import { useNavigate, Link } from 'react-router-dom';
-import Franko from "../../assets/frankoIcon.png"
+import Franko from "../../assets/frankoIcon.png";
+import withAccessCode from '../../Component/withAccessCode';
 
 const UserRegistration = () => {
   const [form] = Form.useForm();
@@ -22,7 +24,7 @@ const UserRegistration = () => {
     }
 
     const newUser = {
-      uuserid: uuidv4(), // Generate a unique user ID
+      uuserid: uuidv4(),
       fullName: values.fullName,
       email: values.email,
       password: values.password,
@@ -39,7 +41,7 @@ const UserRegistration = () => {
         navigate('/admin/login');
       })
       .catch((error) => {
-        message.error(`Registration failed: ${error.message}`);
+        message.error(`Registration failed: ${error.message || error}`);
       })
       .finally(() => {
         setLoading(false);
@@ -51,6 +53,7 @@ const UserRegistration = () => {
     message.error('Please fill in all required fields!');
   };
 
+  // Just render the registration form - HOC handles access code
   return (
     <div className="max-w-lg mx-auto px-4 py-8 bg-white shadow-lg rounded-lg mt-20">
       {/* Logo */}
@@ -131,7 +134,7 @@ const UserRegistration = () => {
             type="primary"
             htmlType="submit"
             loading={loading}
-            className="w-full bg-green-800 text-white p-2 rounded-md "
+            className="w-full bg-green-800 text-white p-2 rounded-md"
           >
             Register
           </Button>
@@ -151,4 +154,5 @@ const UserRegistration = () => {
   );
 };
 
-export default UserRegistration;
+// HOC handles all access code logic automatically
+export default withAccessCode(UserRegistration);
