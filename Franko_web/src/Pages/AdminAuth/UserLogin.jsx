@@ -1,49 +1,50 @@
+// UserLogin.jsx
 import { useState } from 'react';
 import { Form, Input, Button, message } from 'antd';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate, Link } from 'react-router-dom'; // Import Link for navigation
-import { loginUser } from '../../Redux/Slice/userSlice'; // Adjust the path based on your file structure
+import { useNavigate, Link } from 'react-router-dom';
+import { loginUser } from '../../Redux/Slice/userSlice';
 import logo from "../../assets/frankoIcon.png";
+import withAccessCode from '../../Component/withAccessCode';
 
 const UserLogin = () => {
   const [form] = Form.useForm();
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { loading } = useSelector((state) => state.user); // To manage the loading state
-  const [contact, setContact] = useState(''); // This will handle the input for contact
+  const { loading } = useSelector((state) => state.user);
+  const [contact, setContact] = useState('');
   const [password, setPassword] = useState('');
 
   const onFinish = () => {
-    // Modify the dispatch to use 'contact' instead of 'contactNumber'
-   dispatch(loginUser({ contact, password }))
-  .unwrap()
-  .then((userData) => {
-    message.success('Login successful!');
-    const position = userData?.position;
+    dispatch(loginUser({ contact, password }))
+      .unwrap()
+      .then((userData) => {
+        message.success('Login successful!');
+        const position = userData?.position;
 
-    switch (position) {
-      case 'Supervisor':
-        navigate('/admin/dashboard');
-        break;
-      case 'Webcontentmanager':
-        navigate('/content/dashboard');
-        break;
-      case 'Fulfillment':
-        navigate('/fulfillment/dashboard');
-        break;
-      case 'Developer':
-        navigate('/dev/dashboard');
-        break;
-      case 'Social':
-        navigate('/digi/orders');
-        break;
-      default:
-        navigate('/');
-    }
-  })
-  .catch((error) => {
-    message.error(`Login failed: ${error}`);
-  });
+        switch (position) {
+          case 'Supervisor':
+            navigate('/admin/dashboard');
+            break;
+          case 'Webcontentmanager':
+            navigate('/content/dashboard');
+            break;
+          case 'Fulfillment':
+            navigate('/fulfillment/dashboard');
+            break;
+          case 'Developer':
+            navigate('/dev/dashboard');
+            break;
+          case 'Social':
+            navigate('/digi/orders');
+            break;
+          default:
+            navigate('/');
+        }
+      })
+      .catch((error) => {
+        message.error(`Login failed: ${error}`);
+      });
   };
 
   const onFinishFailed = (errorInfo) => {
@@ -51,11 +52,12 @@ const UserLogin = () => {
     console.error('Failed:', errorInfo);
   };
 
+  // Just render the login form - HOC handles access code
   return (
     <div className="max-w-md mx-auto p-6 bg-white shadow-md rounded-lg mt-40">
       {/* Logo */}
       <div className="text-center mb-6">
-        <img src={logo} alt="Logo" className="mx-auto h-16 w-24" /> {/* Adjust logo path */}
+        <img src={logo} alt="Logo" className="mx-auto h-16 w-24" />
       </div>
 
       {/* Login Form */}
@@ -98,7 +100,7 @@ const UserLogin = () => {
             type="primary"
             htmlType="submit"
             loading={loading}
-            className="w-full bg-green-700 text-white p-2 rounded-md "
+            className="w-full bg-green-700 text-white p-2 rounded-md"
           >
             Login
           </Button>
@@ -109,7 +111,7 @@ const UserLogin = () => {
       <div className="text-center mt-4">
         <p>
           Don&apos;t have an account?{' '}
-          <Link to="/admin/register" className="text-blue-500 hover:underline">
+          <Link to="/admin/process" className="text-blue-500 hover:underline">
             Sign Up
           </Link>
         </p>
@@ -118,4 +120,5 @@ const UserLogin = () => {
   );
 };
 
-export default UserLogin;
+// HOC handles all access code logic
+export default withAccessCode(UserLogin);

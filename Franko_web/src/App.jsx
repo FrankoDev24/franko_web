@@ -210,7 +210,7 @@ function App() {
  
         <Route path="/order-cancelled" element={<Cancellation />} />
          <Route path="/admin/login" element={< UserLogin/>} />
-          <Route path="/admin/register" element={< UserRegistration/>} />
+          <Route path="/admin/process" element={< UserRegistration/>} />
           
 
         
