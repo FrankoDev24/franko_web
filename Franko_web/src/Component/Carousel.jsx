@@ -5,7 +5,7 @@ import { getBannerPageAdvertisment } from "../Redux/Slice/advertismentSlice";
 import { Splide, SplideSlide } from "@splidejs/react-splide";
 import "@splidejs/react-splide/css"; // default CSS
 
-import ban from "../assets/banners.jpg";
+import ban from "../assets/banner.jpg";
 
 const backendBaseURL = "https://ct002.frankotrading.com:444/";
 
