@@ -1,5 +1,4 @@
 import { useRef, useState, useEffect } from "react";
-import { Typography, IconButton } from "@material-tailwind/react";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { useNavigate } from "react-router-dom";
 import phone from "../assets/phone.jpg";
@@ -9,7 +8,7 @@ import tv from "../assets/tv.jpg";
 import speaker from "../assets/speaker.jpg";
 import blender from "../assets/blender.jpg";
 import ac from "../assets/ac.jpg";
-import combo from "../assets/machine.jpg";
+
 import accessories from "../assets/acce.png";
 
 const categories = [
@@ -20,7 +19,8 @@ const categories = [
   { name: "Speakers", img: speaker, route: "/speakers" },
   { name: "Appliances", img: blender, route: "/appliances" },
   { name: "Air-conditioners", img: ac, route: "/air-condition" },
-  { name: "Washing Machine", img: combo, route: "/washing-machine" },
+
+
   { name: "Accessories", img: accessories, route: "/accessories" },
 ];
 
@@ -90,91 +90,296 @@ const CategoryComponent = () => {
   }, [autoScrollDir, isHovered]);
 
   return (
-    <section >
-      <div className="mx-auto px-4 md:px-16 py-6">
-        {/* Header with improved styling */}
-        <div className="mb-2">
-          <h2 className="text-md md:text-lg font-bold text-gray-900 relative inline-block mt-2">
-            Shop by Category
-            <span className="absolute -bottom-2 left-0 w-20 h-1 bg-gradient-to-r from-red-500 to-red-400 rounded-full"></span>
-          </h2>
-          <p className="text-sm md:text-sm text-gray-700 mt-3">
-            Explore our wide range of electronics and appliances
-          </p>
-        </div>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap');
 
-        {/* Horizontal Divider */}
-        <div className="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent" />
+        .category-section * {
+          font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+        }
 
-        <div 
-          className="relative flex items-center"
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-        >
-          {/* Left Arrow with improved styling */}
-          <IconButton
-            aria-label="Scroll left"
-            onClick={() => scroll("left")}
-            className={`absolute left-0 z-20 bg-white shadow-lg hover:shadow-xl w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 border border-gray-200 hover:border-red-300 ${
-              canScrollLeft ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2"
-            }`}
-            style={{ top: "50%", transform: "translateY(-50%)" }}
+        .category-scroll::-webkit-scrollbar {
+          display: none;
+        }
+
+        .category-scroll {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+
+        .nav-button {
+          background: white;
+          border: 1.5px solid #e5e7eb;
+          width: 42px;
+          height: 42px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+
+        .nav-button:hover {
+          background: #14532d;
+          border-color: #14532d;
+          box-shadow: 0 4px 12px rgba(20, 83, 45, 0.25);
+        }
+
+        .nav-button:hover svg {
+          color: white;
+        }
+
+        .nav-button:active {
+          transform: scale(0.95);
+        }
+
+        .nav-button.disabled {
+          opacity: 0;
+          pointer-events: none;
+          transform: scale(0.9);
+        }
+
+        .category-card {
+          cursor: pointer;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          padding: 1px 4px;
+          border-radius: 12px;
+          position: relative;
+        }
+
+        .category-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(135deg, #dcfce7 0%, #fff 100%);
+          border-radius: 12px;
+          opacity: 0;
+          transition: opacity 0.3s ease;
+          z-index: -1;
+        }
+
+        .category-card:hover::before {
+          opacity: 1;
+        }
+
+        .category-card:hover {
+          transform: translateY(-4px);
+        }
+
+        .category-icon-wrapper {
+          width: 80px;
+          height: 80px;
+          background: white;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 10px;
+          position: relative;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+          transition: all 0.3s ease;
+          border: 2px solid #f3f4f6;
+        }
+
+        @media (min-width: 768px) {
+          .category-icon-wrapper {
+            width: 96px;
+            height: 96px;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .category-icon-wrapper {
+            width: 108px;
+            height: 108px;
+          }
+        }
+
+        .category-card:hover .category-icon-wrapper {
+          border-color: #14532d;
+          box-shadow: 0 6px 20px rgba(20, 83, 45, 0.15);
+        }
+
+        .category-icon {
+          width: 60%;
+          height: 60%;
+          object-fit: contain;
+          transition: transform 0.3s ease;
+        }
+
+        .category-card:hover .category-icon {
+          transform: scale(1.1) rotate(5deg);
+        }
+
+        .category-name {
+          font-size: 13px;
+          font-weight: 600;
+          color: #374151;
+          text-align: center;
+          transition: color 0.3s ease;
+          letter-spacing: -0.01em;
+        }
+
+        @media (min-width: 768px) {
+          .category-name {
+            font-size: 14px;
+          }
+        }
+
+        .category-card:hover .category-name {
+          color: #14532d;
+        }
+
+        .section-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: linear-gradient(135deg, #14532d 0%, #166534 100%);
+          color: white;
+          padding: 6px 14px;
+          border-radius: 20px;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.5px;
+          text-transform: uppercase;
+          box-shadow: 0 2px 8px rgba(20, 83, 45, 0.2);
+        }
+
+        .section-title {
+          font-size: 28px;
+          font-weight: 800;
+          background: linear-gradient(135deg, #1a1a1a 0%, #374151 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          letter-spacing: -0.02em;
+          margin-bottom: 4px;
+        }
+
+        @media (max-width: 768px) {
+          .section-title {
+            font-size: 22px;
+          }
+        }
+
+        .browse-all-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 8px 16px;
+          font-size: 13px;
+          font-weight: 600;
+          color: #dc2626;
+          background: white;
+          border: 1.5px solid #dc2626;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .browse-all-btn:hover {
+          background: #dc2626;
+          color: white;
+          transform: translateX(2px);
+          box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);
+        }
+
+        .category-dot {
+          width: 4px;
+          height: 4px;
+          background: #dc2626;
+          border-radius: 50%;
+          margin: 4px auto 0;
+          opacity: 0;
+          transition: opacity 0.3s ease;
+        }
+
+        .category-card:hover .category-dot {
+          opacity: 1;
+        }
+      `}</style>
+
+      <section className="category-section bg-gradient-to-b from-gray-50/50 to-white">
+        <div className="mx-auto px-1 md:px-8 lg:px-16 py-2 md:py-10">
+          {/* Modern Header */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-2">
+            <div>
+             
+              <h2 className="section-title">Shop by Category</h2>
+              <p className="text-sm md:text-base text-gray-600 font-medium">
+                Discover premium electronics & home appliances
+              </p>
+            </div>
+
+          </div>
+
+          {/* Categories Slider */}
+          <div 
+            className="relative"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
           >
-            <ChevronLeftIcon className="w-6 h-6 text-gray-700 hover:text-red-500 transition-colors duration-300" />
-          </IconButton>
+            {/* Left Navigation */}
+            <button
+              onClick={() => scroll("left")}
+              className={`nav-button absolute left-0 z-20 ${!canScrollLeft ? 'disabled' : ''}`}
+              style={{ top: "50%", transform: "translateY(-50%)" }}
+              aria-label="Scroll left"
+            >
+              <ChevronLeftIcon className="w-5 h-5 text-gray-600" />
+            </button>
 
-          {/* Scrollable Categories with improved spacing */}
-          <div
-            ref={scrollRef}
-            className="flex gap-4 md:gap-6 lg:gap-8 overflow-x-auto scroll-smooth scrollbar-hide px-1 py-2"
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-          >
-            {categories.map((cat, idx) => (
-              <div
-                key={idx}
-                onClick={() => handleCategoryClick(cat)}
-                className="flex-shrink-0 w-24 md:w-32 lg:w-36 flex flex-col items-center text-center cursor-pointer group transition-all duration-300 hover:scale-105 p-2 rounded-xl hover:bg-white hover:shadow-md"
-              >
-                {/* Improved image container with better hover effects */}
-                <div className="w-20 h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 rounded-full bg-white shadow-md group-hover:shadow-xl ring-2 ring-gray-100 group-hover:ring-red-300 flex items-center justify-center mb-3 transition-all duration-300 overflow-hidden relative">
-                  <div className="w-14 h-14 md:w-16 md:h-16 lg:w-20 lg:h-20 flex items-center justify-center">
+            {/* Categories Container */}
+            <div
+              ref={scrollRef}
+              className="category-scroll flex gap-2 md:gap-8 lg:gap-10 overflow-x-aut md:px-4 lg:px24 "
+            >
+              {categories.map((cat, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => handleCategoryClick(cat)}
+                  className="category-card flex-shrink-0 w-[100px] md:w-[120px] lg:w-[140px]"
+                >
+                  <div className="category-icon-wrapper">
                     <img
                       src={cat.img}
                       alt={cat.name}
-                      className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110"
+                      className="category-icon"
                       loading="lazy"
                     />
                   </div>
-                  {/* Subtle gradient overlay on hover */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-red-50 to-transparent opacity-0 group-hover:opacity-30 transition-opacity duration-300 rounded-full"></div>
+                  
+                  <p className="category-name">
+                    {cat.name}
+                  </p>
+                  
+                  <div className="category-dot" />
                 </div>
-                
-                {/* Improved typography */}
-                <Typography className="text-xs md:text-sm lg:text-base text-gray-800 font-semibold group-hover:text-red-600 transition-colors duration-300 text-center leading-tight">
-                  {cat.name}
-                </Typography>
-                
-                {/* Subtle indicator dot */}
-                <div className="w-1 h-1 bg-red-400 rounded-full mt-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              </div>
-            ))}
+              ))}
+            </div>
+
+            {/* Right Navigation */}
+            <button
+              onClick={() => scroll("right")}
+              className={`nav-button absolute right-0 z-20 ${!canScrollRight ? 'disabled' : ''}`}
+              style={{ top: "50%", transform: "translateY(-50%)" }}
+              aria-label="Scroll right"
+            >
+              <ChevronRightIcon className="w-5 h-5 text-gray-600" />
+            </button>
           </div>
 
-          {/* Right Arrow with improved styling */}
-          <IconButton
-            aria-label="Scroll right"
-            onClick={() => scroll("right")}
-            className={`absolute right-0 z-20 bg-white shadow-lg hover:shadow-xl w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 border border-gray-200 hover:border-red-300 ${
-              canScrollRight ? "opacity-100 translate-x-0" : "opacity-0 translate-x-2"
-            }`}
-            style={{ top: "50%", transform: "translateY(-50%)" }}
-          >
-            <ChevronRightIcon className="w-6 h-6 text-gray-700 hover:text-red-500 transition-colors duration-300" />
-          </IconButton>
+          
         </div>
-
-      </div>
-    </section>
+      </section>
+    </>
   );
 };
 
