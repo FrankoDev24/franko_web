@@ -18,12 +18,8 @@ const YT_EMBED = `https://www.youtube.com/embed/${YT_ID}?autoplay=1&rel=0&modest
 const LIVE_URL = "https://www.samsung.com/";
 
 // "Live in 5 days at 6:00pm" => dynamic target: now + 5 days, time set to 6:00 PM
-const getTargetDate = () => {
-  const d = new Date();
-  d.setDate(d.getDate() + 5);
-  d.setHours(18, 0, 0, 0); // 6:00 PM
-  return d;
-};
+// ✅ FIXED REAL DATE — Feb 25, 2026 at 6:00 PM (GMT+0)
+const TARGET_DATE = new Date("2026-02-25T18:00:00+00:00");
 
 export default function Carousel() {
   const dispatch = useDispatch();
@@ -37,15 +33,14 @@ export default function Carousel() {
   const [heightRatio, setHeightRatio] = useState(0.0);
 
   const [now, setNow] = useState(Date.now());
-  const [targetDate] = useState(() => getTargetDate());
+
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
-
-  const msLeft = targetDate.getTime() - now;
-  const isLive = msLeft <= 0;
+const msLeft = TARGET_DATE.getTime() - now;
+const isLive = now >= TARGET_DATE.getTime();
 
   const formatCountdown = (ms) => {
     const total = Math.max(0, Math.floor(ms / 1000));
@@ -308,8 +303,8 @@ export default function Carousel() {
                       </>
                     ) : (
                       <span>
-                        Live in 5 days at {formatTime12h(targetDate)} •{" "}
-                        {formatCountdown(msLeft)}
+               
+live in {formatCountdown(msLeft)}
                       </span>
                     )}
                   </div>
