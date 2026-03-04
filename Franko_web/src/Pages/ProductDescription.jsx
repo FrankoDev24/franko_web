@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
 import { Image } from "antd";
 import { fetchProductById, fetchProducts } from "../Redux/Slice/productSlice";
-import { updateCartItem, deleteCartItem, getCartById } from '../Redux/Slice/cartSlice';
+import { updateCartItem, deleteCartItem, getCartById, addToCart } from '../Redux/Slice/cartSlice';
 import ProductDetailSkeleton from "../Component/ProductDetailSkeleton";
 import { Button, Tooltip, IconButton, Drawer } from "@material-tailwind/react";
 import { 
@@ -23,18 +23,74 @@ import {
   ExclamationTriangleIcon 
 } from "@heroicons/react/24/outline";
 import ProductCard from "../Component/ProductCard";
-import useAddToCart from "../Component/Cart";
 import AuthModal from "../Component/AuthModal";
 import { Helmet } from "react-helmet";
+import { Divider } from "antd";
 
 const formatPrice = (price) => {
   if (!price || isNaN(price)) return "0";
   return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 };
 
+// Safe localStorage helper - works with encrypted localStorage
+const safeLocalStorage = {
+  getItem: (key, defaultValue = null) => {
+    try {
+      // The encrypted localStorage will handle decryption automatically
+      const item = localStorage.getItem(key);
+      
+      if (item === null || item === undefined) {
+        return defaultValue;
+      }
+      
+      // The encrypted localStorage already parses JSON if possible
+      // So item should be either an object (already parsed) or a string
+      if (typeof item === 'object') {
+        return item;
+      }
+      
+      // If it's a string, try to parse it
+      if (typeof item === 'string') {
+        try {
+          return JSON.parse(item);
+        } catch (e) {
+          // It's a plain string, return as is
+          return item;
+        }
+      }
+      
+      return defaultValue;
+    } catch (error) {
+    
+      return defaultValue;
+    }
+  },
+  
+  setItem: (key, value) => {
+    try {
+      // The encrypted localStorage will handle encryption automatically
+      // Just pass the value directly - don't stringify
+      localStorage.setItem(key, value);
+      return true;
+    } catch (error) {
+    
+      return false;
+    }
+  },
+  
+  removeItem: (key) => {
+    try {
+      localStorage.removeItem(key);
+      return true;
+    } catch (error) {
+ 
+      return false;
+    }
+  }
+};
+
 const ProductDescription = () => {
   const { productID } = useParams();
-  const { addProductToCart, loading: cartLoading } = useAddToCart();
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -50,6 +106,8 @@ const ProductDescription = () => {
   const [cartSyncError, setCartSyncError] = useState(null);
   const [networkStatus, setNetworkStatus] = useState(navigator.onLine);
   const [pendingCheckout, setPendingCheckout] = useState(false);
+  const [viewedProducts, setViewedProducts] = useState([]);
+  const [localCart, setLocalCart] = useState([]);
 
   // Refs
   const productDetailsRef = useRef(null);
@@ -58,7 +116,6 @@ const ProductDescription = () => {
   // Redux selectors
   const { currentProduct, products, loading } = useSelector((state) => state.products);
   const { cart, loading: cartLoadingState, error: cartError, cartId } = useSelector((state) => state.cart);
-  const [viewedProducts, setViewedProducts] = useState([]);
 
   // Network status monitoring
   useEffect(() => {
@@ -72,7 +129,7 @@ const ProductDescription = () => {
     
     const handleOffline = () => {
       setNetworkStatus(false);
-      setCartSyncError("You're offline. Cart changes will sync when connection is restored.");
+      setCartSyncError("You're offline. Changes will sync when connection is restored.");
     };
 
     window.addEventListener('online', handleOnline);
@@ -110,21 +167,50 @@ const ProductDescription = () => {
       const result = await dispatch(getCartById(cartId)).unwrap();
       
       if (result && Array.isArray(result)) {
-        localStorage.setItem("selectedCart", JSON.stringify(result));
+        // Normalize the cart items
+        const normalizedCart = result.map(item => ({
+          ...item,
+          productId: item.productId || item.ProductId,
+          productName: item.productName || item.ProductName,
+          imagePath: item.imagePath || item.ImagePath,
+          price: parseFloat(item.price || item.Price || 0),
+          quantity: parseInt(item.quantity || item.Quantity || 1)
+        }));
+        
+        // Save to localStorage - encrypted localStorage will handle it
+        safeLocalStorage.setItem("cart", normalizedCart);
+        setLocalCart(normalizedCart);
         setCartSyncError(null);
       }
     } catch (error) {
-      console.error('Cart sync error:', error);
+  
       setCartSyncError("Failed to sync cart. Changes saved locally.");
     }
   };
 
-  // Fetch cart data when component mounts or cartId changes
+  // Initialize cart from database on mount
   useEffect(() => {
-    if (cartId) {
+    const storedCartId = cartId || safeLocalStorage.getItem('cartId');
+    if (storedCartId && typeof storedCartId === 'string') {
       syncCartWithDatabase();
     }
-  }, [dispatch, cartId]);
+  }, [cartId]);
+
+  // Sync cart to localStorage whenever Redux cart changes
+  useEffect(() => {
+    if (Array.isArray(cart) && cart.length >= 0) {
+      const normalizedCart = cart.map(item => ({
+        ...item,
+        productId: item.productId || item.ProductId,
+        productName: item.productName || item.ProductName,
+        imagePath: item.imagePath || item.ImagePath,
+        price: parseFloat(item.price || item.Price || 0),
+        quantity: parseInt(item.quantity || item.Quantity || 1)
+      }));
+      safeLocalStorage.setItem('cart', normalizedCart);
+      setLocalCart(normalizedCart);
+    }
+  }, [cart]);
 
   useEffect(() => {
     dispatch(fetchProducts());
@@ -153,39 +239,25 @@ const ProductDescription = () => {
         viewedAt: new Date().toISOString()
       };
 
-      // Get existing viewed products from localStorage
-      const stored = localStorage.getItem("viewedProducts") || "[]";
-      let parsed = [];
-      try {
-        parsed = JSON.parse(stored);
-        if (!Array.isArray(parsed)) parsed = [];
-      } catch (e) {
-        parsed = [];
-      }
-
+      // Get existing viewed products
+      const parsed = safeLocalStorage.getItem("viewedProducts", []);
+      const existingProducts = Array.isArray(parsed) ? parsed : [];
+      
       // Remove duplicate if exists and add new item to the beginning
-      const filtered = parsed.filter((item) => item.id !== viewedItem.id);
-      const updated = [viewedItem, ...filtered].slice(0, 4); // Keep only 4 most recent
+      const filtered = existingProducts.filter((item) => item?.id !== viewedItem.id);
+      const updated = [viewedItem, ...filtered].slice(0, 4);
 
       // Save to localStorage
-      localStorage.setItem("viewedProducts", JSON.stringify(updated));
+      safeLocalStorage.setItem("viewedProducts", updated);
       setViewedProducts(updated);
     }
   }, [currentProduct]);
 
   // Load viewed products on component mount
   useEffect(() => {
-    const stored = localStorage.getItem("viewedProducts");
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          setViewedProducts(parsed.slice(0, 4));
-        }
-      } catch (e) {
-        console.error('Error parsing viewed products:', e);
-      }
-    }
+    const stored = safeLocalStorage.getItem("viewedProducts", []);
+    const validProducts = Array.isArray(stored) ? stored : [];
+    setViewedProducts(validProducts.slice(0, 4));
   }, []);
 
   // Preload Flix Media Integration
@@ -433,7 +505,7 @@ const ProductDescription = () => {
     return false;
   };
 
-  // Enhanced Add to Cart with proper synchronization
+  // Add to cart
   const handleAddToCartAndOpenSidebar = async (product) => {
     if (isOutOfStock(product)) {
       return;
@@ -448,30 +520,75 @@ const ProductDescription = () => {
     setCartSyncError(null);
     
     try {
-      const result = await addProductToCart(product);
+      // Get customer - encrypted localStorage returns parsed object
+      const customer = safeLocalStorage.getItem('customer', null);
+      const customerId = customer?.customerAccountNumber || null;
       
-      if (cartId) {
+      let storedCartId = cartId || safeLocalStorage.getItem('cartId');
+      
+      if (!storedCartId || typeof storedCartId !== 'string') {
+        storedCartId = `cart_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        safeLocalStorage.setItem('cartId', storedCartId);
+      }
+
+      // Get the productId
+      const productId = product.productID || product.productId || product.id;
+      
+      if (!productId) {
+        throw new Error('Product ID is missing');
+      }
+
+
+
+      // Create cart item payload
+      const cartItemPayload = {
+        CartId: storedCartId,
+        ProductId: String(productId),
+        ProductName: product.productName || product.name,
+        ImagePath: product.productImage || product.imagePath,
+        Price: parseFloat(product.price),
+        Quantity: 1,
+        CustomerId: customerId
+      };
+
+      // Dispatch the addToCart action
+      const result = await dispatch(addToCart(cartItemPayload)).unwrap();
+
+      
+      // Fetch updated cart from database
+      if (storedCartId) {
         try {
-          const updatedCart = await dispatch(getCartById(cartId)).unwrap();
+          const updatedCart = await dispatch(getCartById(storedCartId)).unwrap();
           
           if (updatedCart && Array.isArray(updatedCart)) {
-            localStorage.setItem("selectedCart", JSON.stringify(updatedCart));
+            const normalizedCart = updatedCart.map(item => ({
+              ...item,
+              productId: item.productId || item.ProductId,
+              productName: item.productName || item.ProductName,
+              imagePath: item.imagePath || item.ImagePath,
+              price: parseFloat(item.price || item.Price || 0),
+              quantity: parseInt(item.quantity || item.Quantity || 1)
+            }));
+            
+            safeLocalStorage.setItem('cart', normalizedCart);
+            setLocalCart(normalizedCart);
           }
           
           setCartSyncError(null);
         } catch (syncError) {
-          console.error('Cart sync error:', syncError);
-          setCartSyncError("Added to cart, but sync failed. Changes saved locally.");
+         
+          setCartSyncError("Added to cart successfully!");
         }
       }
       
+      // Open sidebar
       setCartSidebarOpen(true);
       
     } catch (error) {
-      console.error('Error adding to cart:', error);
+
       
       if (!navigator.onLine) {
-        setCartSyncError('No internet connection. Please check your network and try again.');
+        setCartSyncError('No internet connection. Please check your network.');
       } else if (error.message) {
         setCartSyncError(`Failed to add to cart: ${error.message}`);
       } else {
@@ -482,78 +599,151 @@ const ProductDescription = () => {
     }
   };
 
-  // Cart quantity update handler with proper sync
-  const handleQuantityChange = async (productId, newQuantity) => {
-    if (newQuantity < 1 || !cartId) return;
+// Cart quantity update handler - FIXED
+const handleQuantityChange = async (productId, newQuantity) => {
+ 
+  if (newQuantity < 1) return;
+  
+  // Get cartId from Redux or localStorage
+  const activeCartId = cartId || safeLocalStorage.getItem('cartId');
+  
+  if (!activeCartId) {
+    setCartSyncError("Cart ID not found. Please refresh the page.");
+    return;
+  }
+  
+  const previousLocalCart = [...localCart];
+  setUpdatingQuantity(prev => ({ ...prev, [productId]: true }));
+  setCartSyncError(null);
+  
+  try {
+    // Optimistically update local state
+    const optimisticCart = localCart.map(item => 
+      item.productId === productId ? { ...item, quantity: newQuantity } : item
+    );
+    safeLocalStorage.setItem('cart', optimisticCart);
+    setLocalCart(optimisticCart);
     
-    if (!networkStatus) {
-      setCartSyncError("No internet connection. Changes will sync when connection is restored.");
-      const localCart = JSON.parse(localStorage.getItem("selectedCart") || "[]");
-      const updatedLocalCart = localCart.map(item => 
-        item.productId === productId ? { ...item, quantity: newQuantity } : item
-      );
-      localStorage.setItem("selectedCart", JSON.stringify(updatedLocalCart));
-      return;
+    // Prepare payload with correct casing
+    const updatePayload = {
+      CartId: activeCartId,
+      ProductId: String(productId),
+      Quantity: newQuantity
+    };
+
+    // Dispatch update
+    const updateResult = await dispatch(updateCartItem(updatePayload)).unwrap();
+
+    
+    // Fetch updated cart from database
+    const updatedCart = await dispatch(getCartById(activeCartId)).unwrap();
+
+    
+    if (updatedCart && Array.isArray(updatedCart)) {
+      const normalizedCart = updatedCart.map(item => ({
+        ...item,
+        productId: item.productId || item.ProductId,
+        productName: item.productName || item.ProductName,
+        imagePath: item.imagePath || item.ImagePath,
+        price: parseFloat(item.price || item.Price || 0),
+        quantity: parseInt(item.quantity || item.Quantity || 1)
+      }));
+      safeLocalStorage.setItem('cart', normalizedCart);
+      setLocalCart(normalizedCart);
+      setCartSyncError(null);
     }
     
-    setUpdatingQuantity(prev => ({ ...prev, [productId]: true }));
-    setCartSyncError(null);
+  } catch (error) {
+
+    safeLocalStorage.setItem('cart', previousLocalCart);
+    setLocalCart(previousLocalCart);
+    setCartSyncError(`Failed to update quantity: ${error?.message || 'Unknown error'}`);
     
     try {
-      await dispatch(updateCartItem({ 
-        cartId, 
-        productId, 
-        quantity: newQuantity 
-      })).unwrap();
-      
-      const updatedCart = await dispatch(getCartById(cartId)).unwrap();
-      
-      if (updatedCart && Array.isArray(updatedCart)) {
-        localStorage.setItem("selectedCart", JSON.stringify(updatedCart));
+      const activeCartId = cartId || safeLocalStorage.getItem('cartId');
+      if (activeCartId) {
+        await dispatch(getCartById(activeCartId)).unwrap();
       }
-      
-    } catch (error) {
-      console.error('Error updating cart quantity:', error);
-      setCartSyncError("Failed to update quantity. Please try again.");
-    } finally {
-      setUpdatingQuantity(prev => ({ ...prev, [productId]: false }));
+    } catch (refetchError) {
+ 
     }
-  };
+  } finally {
+    setUpdatingQuantity(prev => ({ ...prev, [productId]: false }));
+  }
+};
 
-  // Remove item handler with proper sync
-  const handleRemoveItem = async (productId) => {
-    if (!cartId) return;
+// Remove item handler - FIXED
+const handleRemoveItem = async (productId) => {
+ 
+  
+  // Get cartId from Redux or localStorage
+  const activeCartId = cartId || safeLocalStorage.getItem('cartId');
+  
+  if (!activeCartId) {
+    setCartSyncError("Cart ID not found. Please refresh the page.");
+    return;
+  }
+  
+  const previousLocalCart = [...localCart];
+  setRemovingItem(prev => ({ ...prev, [productId]: true }));
+  setCartSyncError(null);
+  
+  try {
+    // Optimistically update local state
+    const optimisticCart = localCart.filter(item => item.productId !== productId);
+    safeLocalStorage.setItem('cart', optimisticCart);
+    setLocalCart(optimisticCart);
     
-    if (!networkStatus) {
-      setCartSyncError("No internet connection. Changes will sync when connection is restored.");
-      const localCart = JSON.parse(localStorage.getItem("selectedCart") || "[]");
-      const updatedLocalCart = localCart.filter(item => item.productId !== productId);
-      localStorage.setItem("selectedCart", JSON.stringify(updatedLocalCart));
-      return;
+    // Prepare payload with correct casing
+    const deletePayload = {
+      CartId: activeCartId,
+      ProductId: String(productId)
+    };
+
+
+
+    // Dispatch delete
+    const deleteResult = await dispatch(deleteCartItem(deletePayload)).unwrap();
+
+    
+    // Fetch updated cart from database
+    const updatedCart = await dispatch(getCartById(activeCartId)).unwrap();
+ 
+    
+    if (updatedCart && Array.isArray(updatedCart)) {
+      const normalizedCart = updatedCart.map(item => ({
+        ...item,
+        productId: item.productId || item.ProductId,
+        productName: item.productName || item.ProductName,
+        imagePath: item.imagePath || item.ImagePath,
+        price: parseFloat(item.price || item.Price || 0),
+        quantity: parseInt(item.quantity || item.Quantity || 1)
+      }));
+      safeLocalStorage.setItem('cart', normalizedCart);
+      setLocalCart(normalizedCart);
+      setCartSyncError(null);
     }
     
-    setRemovingItem(prev => ({ ...prev, [productId]: true }));
-    setCartSyncError(null);
+  } catch (error) {
+
+    safeLocalStorage.setItem('cart', previousLocalCart);
+    setLocalCart(previousLocalCart);
+    setCartSyncError(`Failed to remove item: ${error?.message || 'Unknown error'}`);
     
     try {
-      await dispatch(deleteCartItem({ cartId, productId })).unwrap();
-      
-      const updatedCart = await dispatch(getCartById(cartId)).unwrap();
-      
-      if (updatedCart && Array.isArray(updatedCart)) {
-        localStorage.setItem("selectedCart", JSON.stringify(updatedCart));
+      const activeCartId = cartId || safeLocalStorage.getItem('cartId');
+      if (activeCartId) {
+        await dispatch(getCartById(activeCartId)).unwrap();
       }
-      
-    } catch (error) {
-      console.error('Error removing cart item:', error);
-      setCartSyncError("Failed to remove item. Please try again.");
-    } finally {
-      setRemovingItem(prev => ({ ...prev, [productId]: false }));
+    } catch (refetchError) {
+   
     }
-  };
-
+  } finally {
+    setRemovingItem(prev => ({ ...prev, [productId]: false }));
+  }
+};
   const handleCheckout = () => {
-    const storedCustomer = localStorage.getItem("customer");
+    const storedCustomer = safeLocalStorage.getItem("customer");
 
     if (!storedCustomer) {
       setPendingCheckout(true);
@@ -568,7 +758,7 @@ const ProductDescription = () => {
     window.dataLayer.push({
       event: "proceed_to_checkout",
       cartValue: cartTotal.toFixed(2),
-      cartItems: cart.map(item => ({
+      cartItems: localCart.map(item => ({
         productId: item.productId,
         name: item.productName,
         price: item.price,
@@ -576,7 +766,7 @@ const ProductDescription = () => {
       }))
     });
     
-    localStorage.setItem("selectedCart", JSON.stringify(cart));
+    safeLocalStorage.setItem("selectedCart", localCart);
     navigate("/checkout");
   };
 
@@ -601,9 +791,7 @@ const ProductDescription = () => {
     }
   };
 
-  const renderCartImage = (item) => {
-    let imagePath = item.imagePath || item.productImage || item.image;
-    
+  const renderImage = (imagePath) => {
     if (!imagePath) {
       return (
         <img 
@@ -619,7 +807,7 @@ const ProductDescription = () => {
     return (
       <img 
         src={imageUrl} 
-        alt={item.productName || "Product"} 
+        alt="Product" 
         className="w-full h-full object-cover rounded-lg"
         onError={(e) => {
           e.target.src = "https://via.placeholder.com/150";
@@ -628,18 +816,18 @@ const ProductDescription = () => {
     );
   };
 
-  const cartTotal = Array.isArray(cart) ? cart.reduce((acc, item) => {
+  const cartTotal = Array.isArray(localCart) ? localCart.reduce((acc, item) => {
     const price = parseFloat(item.price) || 0;
     const quantity = parseInt(item.quantity) || 0;
     return acc + (price * quantity);
   }, 0) : 0;
 
-  const totalCartItems = Array.isArray(cart) ? cart.reduce((acc, item) => {
+  const totalCartItems = Array.isArray(localCart) ? localCart.reduce((acc, item) => {
     const quantity = parseInt(item.quantity) || 0;
     return acc + quantity;
   }, 0) : 0;
 
-  const isCartButtonLoading = cartLoading || isAddingToCart;
+  const isCartButtonLoading = isAddingToCart;
 
   const handleAuthModalClose = () => {
     setAuthModalOpen(false);
@@ -649,15 +837,15 @@ const ProductDescription = () => {
   const handleAuthSuccess = () => {
     setAuthModalOpen(false);
     
-    if (cart && cart.length > 0) {
-      localStorage.setItem("selectedCart", JSON.stringify(cart));
+    if (localCart && localCart.length > 0) {
+      safeLocalStorage.setItem("selectedCart", localCart);
     }
     
     window.dataLayer = window.dataLayer || [];
     window.dataLayer.push({
       event: "authenticated_checkout",
       cartValue: cartTotal.toFixed(2),
-      cartItems: cart.map(item => ({
+      cartItems: localCart.map(item => ({
         productId: item.productId,
         name: item.productName,
         price: item.price,
@@ -665,10 +853,13 @@ const ProductDescription = () => {
       }))
     });
     
-    // Automatically redirect to checkout after successful authentication
     setTimeout(() => {
       navigate("/checkout");
     }, 100);
+  };
+
+  const handleContinueShopping = () => {
+    setCartSidebarOpen(false);
   };
 
   if (loading || !currentProduct?.length) {
@@ -691,79 +882,16 @@ const ProductDescription = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-10">
-         <Helmet>
+      <Helmet>
         <title>{`${product?.productName || "Product"} - Best Price`}</title>
         <meta name="description" content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}. High-quality and best prices available.`} />
-        <meta  property="og:title" content={product?.productName || "Product"} />
+        <meta property="og:title" content={product?.productName || "Product"} />
         <meta property="og:description" content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}.`} />
         <meta property="og:image" content={imageUrl || "https://www.frankotrading.com/frankoIcon.png"} />
         <meta property="og:url" content={productUrl || "https://www.frankotrading.com"} />
         <meta name="twitter:card" content="summary_large_image" />
-        <link rel="canonical" href={`https://www.frankotrading.com/product/${product?.productID || "https://www.frankotrading.com"}`} />
+        <link rel="canonical" href={`https://www.frankotrading.com/product/${product?.productID || ""}`} />
       </Helmet>
-
-      <script type="application/ld+json">
-        {JSON.stringify({
-          "@context": "https://schema.org/",
-          "@type": "Product",
-          "name": product.productName,
-          "image": imageUrl,
-          "description": product.description,
-          "sku": product.productID,
-          "brand": {
-            "@type": "Brand",
-            "name": product.brandName
-          },
-          "offers": {
-            "@type": "Offer",
-            "priceCurrency": "GHS",
-            "price": product.price,
-            "priceValidUntil": "2025-12-31",
-            "itemCondition": "https://schema.org/NewCondition",
-            "availability": "https://schema.org/InStock",
-            "url": `https://www.frankotrading.com/product/${product.productID}`,
-            "seller": {
-              "@type": "Organization",
-              "name": "Franko Trading"
-            },
-            "shippingDetails": {
-              "@type": "OfferShippingDetails",
-              "shippingRate": {
-                "@type": "MonetaryAmount",
-                "currency": "GHS",
-                "value": "40.00"
-              },
-              "shippingDestination": {
-                "@type": "DefinedRegion",
-                "addressCountry": "GH"
-              },
-              "deliveryTime": {
-                "@type": "ShippingDeliveryTime",
-                "handlingTime": {
-                  "@type": "QuantitativeValue",
-                  "minValue": 1,
-                  "maxValue": 2,
-                  "unitCode": "DAY"
-                },
-                "transitTime": {
-                  "@type": "QuantitativeValue",
-                  "minValue": 3,
-                  "maxValue": 5,
-                  "unitCode": "DAY"
-                }
-              }
-            },
-            "hasMerchantReturnPolicy": {
-              "@type": "MerchantReturnPolicy",
-              "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
-              "merchantReturnDays": 7,
-              "returnMethod": "https://schema.org/ReturnByMail",
-              "returnFees": "https://schema.org/FreeReturn",
-              "applicableCountry": "GH"
-            }
-          }
-        })}
-      </script>
 
       {/* Sticky Add to Cart Bar */}
       <div 
@@ -836,7 +964,7 @@ const ProductDescription = () => {
               <button
                 onClick={() => setCartSidebarOpen(true)}
                 className="relative bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg p-3 transition-colors duration-200"
-                disabled={!cart || cart.length === 0}
+                disabled={!localCart || localCart.length === 0}
               >
                 <ShoppingCartIcon className="w-5 h-5" />
                 {totalCartItems > 0 && (
@@ -852,10 +980,22 @@ const ProductDescription = () => {
 
       {/* Network Status Alert */}
       {cartSyncError && (
-        <div className="mb-4 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
+        <div className={`mb-4 p-4 rounded-lg border-l-4 ${
+          cartSyncError.includes('successfully') 
+            ? 'bg-green-50 border-green-400' 
+            : 'bg-yellow-50 border-yellow-400'
+        }`}>
           <div className="flex items-center">
-            <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600 mr-2" />
-            <p className="text-sm text-yellow-800">{cartSyncError}</p>
+            <ExclamationTriangleIcon className={`w-5 h-5 mr-2 ${
+              cartSyncError.includes('successfully') 
+                ? 'text-green-600' 
+                : 'text-yellow-600'
+            }`} />
+            <p className={`text-sm ${
+              cartSyncError.includes('successfully') 
+                ? 'text-green-800' 
+                : 'text-yellow-800'
+            }`}>{cartSyncError}</p>
           </div>
         </div>
       )}
@@ -894,7 +1034,7 @@ const ProductDescription = () => {
                 <div className="bg-gradient-to-r from-orange-400 to-red-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-md">
                   {product.tag}
                 </div>
-                )}
+              )}
               {product.productColor && (
                 <div className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-medium border">
                   Color: {product.productColor}
@@ -1020,20 +1160,13 @@ const ProductDescription = () => {
                     </>
                   )}
                 </Button>
-                <button
-                  onClick={() => setCartSidebarOpen(true)}
-                  className="relative bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg p-3 transition-colors duration-200"
-                  disabled={!cart || cart.length === 0}
-                >
-                 
-                </button>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Flix Media Section - Displayed at the top */}
+      {/* Flix Media Section */}
       {showFlixMedia && (
         <div 
           id="flix-media-section" 
@@ -1077,7 +1210,7 @@ const ProductDescription = () => {
         ))}
       </div>
 
-      {/* Recently Viewed Products */}
+      {/* Recently Viewed Products Section */}
       {viewedProducts.length > 0 && (
         <section className="mt-16">
           <div className="mb-6 flex items-center gap-4 flex-wrap md:flex-nowrap">
@@ -1090,6 +1223,8 @@ const ProductDescription = () => {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
             {viewedProducts.map((product, index) => {
+              if (!product || !product.id) return null;
+              
               const productOutOfStock = isOutOfStock(product);
               const discount =
                 product.oldPrice > 0
@@ -1100,7 +1235,7 @@ const ProductDescription = () => {
 
               return (
                 <div
-                  key={product.id || index}
+                  key={`viewed-${product.id}-${index}`}
                   className={`group bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden ${
                     productOutOfStock ? 'opacity-75' : ''
                   }`}
@@ -1145,7 +1280,7 @@ const ProductDescription = () => {
                           className="p-2 bg-white/10 hover:bg-white/20 rounded-full"
                           onClick={() => navigate(`/product/${product.id}`)}
                         >
-                          <EyeIcon className="w-5 h-5 text-white hover:text-green-400" /> 
+                          <EyeIcon className="w-5 h-5 text-white hover:text-green-400" />
                         </button>
                       </Tooltip>
                     </div>
@@ -1203,7 +1338,7 @@ const ProductDescription = () => {
               <h2 className="text-lg font-bold text-gray-800">Shopping Cart</h2>
             </div>
             <div className="flex items-center gap-2">
-              {cart.length > 0 && (
+              {localCart.length > 0 && (
                 <div className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">
                   {totalCartItems} Item{totalCartItems !== 1 ? 's' : ''}
                 </div>
@@ -1220,11 +1355,7 @@ const ProductDescription = () => {
 
           {/* Cart Content */}
           <div className="flex-1 overflow-y-auto">
-            {cartLoadingState ? (
-              <div className="flex items-center justify-center h-40">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
-              </div>
-            ) : !Array.isArray(cart) || cart.length === 0 ? (
+            {!Array.isArray(localCart) || localCart.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full p-6 text-center">
                 <ShoppingCartIcon className="w-16 h-16 text-gray-300 mb-4" />
                 <h3 className="text-lg font-semibold text-gray-600 mb-2">Your cart is empty</h3>
@@ -1232,7 +1363,7 @@ const ProductDescription = () => {
               </div>
             ) : (
               <div className="p-4 space-y-4">
-                {cart.map((item, index) => {
+                {localCart.map((item, index) => {
                   const isUpdating = updatingQuantity[item.productId];
                   const isRemoving = removingItem[item.productId];
                   
@@ -1240,7 +1371,7 @@ const ProductDescription = () => {
                     <div key={`${item.productId}-${index}`} className="bg-white border rounded-lg p-3 shadow-sm">
                       <div className="flex items-center gap-3">
                         <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                          {renderCartImage(item)}
+                          {renderImage(item.imagePath)}
                         </div>
                         
                         <div className="flex-1 min-w-0">
@@ -1315,7 +1446,7 @@ const ProductDescription = () => {
           </div>
 
           {/* Cart Footer */}
-          {Array.isArray(cart) && cart.length > 0 && (
+          {Array.isArray(localCart) && localCart.length > 0 && (
             <div className="border-t bg-white p-4">
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
@@ -1329,31 +1460,24 @@ const ProductDescription = () => {
                   * Taxes & shipping calculated at checkout
                 </p>
                 
+                <Divider className="my-2" />
+                
                 <div className="space-y-2">
                   <Button
                     fullWidth
                     className="bg-red-500 hover:bg-red-600 text-white font-semibold py-3 rounded-lg shadow-md transition duration-200"
                     onClick={handleCheckout}
-                    disabled={cartLoadingState}
                   >
-                    {cartLoadingState ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Processing...
-                      </div>
-                    ) : (
-                      'Proceed to Checkout'
-                    )}
+                    Proceed to Checkout
                   </Button>
                   
                   <Button
                     fullWidth
                     variant="outlined"
-                    className="border-gray-300 text-gray-700 py-2 rounded-lg"
-                    onClick={() => navigate(`/cart/${cartId}`)}
-                    disabled={!cartId}
+                    className="border-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-50"
+                    onClick={handleContinueShopping}
                   >
-                    View Cart Page
+                    Continue Shopping
                   </Button>
                 </div>
               </div>

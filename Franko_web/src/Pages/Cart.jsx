@@ -1,11 +1,39 @@
+// src/pages/Cart.jsx
 import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import {updateCartItem,deleteCartItem,getCartById} from '../Redux/Slice/cartSlice';
-import {Button,Checkbox,Dialog,DialogHeader,DialogBody,DialogFooter} from '@material-tailwind/react';
+import { updateCartItem, deleteCartItem, getCartById } from '../Redux/Slice/cartSlice';
+import { Button, Checkbox, Dialog, DialogHeader, DialogBody, DialogFooter } from '@material-tailwind/react';
 import AuthModal from "../Component/AuthModal";
-import {TrashIcon,MinusIcon,PlusIcon,ShoppingBagIcon,ArrowLeftIcon} from '@heroicons/react/24/outline';
+import { TrashIcon, MinusIcon, PlusIcon, ShoppingBagIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import { Divider } from 'antd';
+
+// ==================== UTILITY FUNCTIONS ====================
+
+/**
+ * Format amount with commas for thousands
+ * @param {number} amount - The amount to format
+ * @param {number} decimals - Number of decimal places (default: 2)
+ * @returns {string} Formatted amount like "1,234.56"
+ */
+const formatCurrency = (amount, decimals = 2) => {
+  const num = parseFloat(amount) || 0;
+  return num.toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+};
+
+/**
+ * Format amount with Ghanaian Cedi symbol and commas
+ * @param {number} amount - The amount to format
+ * @returns {string} Formatted amount like "₵1,234.56"
+ */
+const formatGHS = (amount) => {
+  return `₵${formatCurrency(amount, 2)}`;
+};
+
+// ==================== MAIN COMPONENT ====================
 
 const Cart = () => {
   const dispatch = useDispatch();
@@ -29,6 +57,8 @@ const Cart = () => {
     show: false,
     message: ''
   });
+
+  // ==================== EFFECTS ====================
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -58,6 +88,8 @@ const Cart = () => {
     setSelectAll(false);
   }, [cart]);
 
+  // ==================== SELECTION HANDLERS ====================
+
   const toggleSelectAll = () => {
     const allSelected = !selectAll;
     setSelectAll(allSelected);
@@ -77,8 +109,10 @@ const Cart = () => {
     });
   };
 
+  // ==================== NAVIGATION HANDLERS ====================
+
   const handleCheckout = () => {
-    const storedCustomer = (localStorage.getItem("customer"));
+    const storedCustomer = localStorage.getItem("customer");
 
     if (!storedCustomer) {
       setAuthModalOpen(true);
@@ -107,10 +141,13 @@ const Cart = () => {
     navigate("/products");
   };
 
-  // Enhanced quantity change with rollback on failure
+  // ==================== CART MODIFICATION HANDLERS ====================
+
+  /**
+   * Handle quantity change with optimistic updates and rollback
+   */
   const handleQuantityChange = async (productId, quantity) => {
     if (quantity >= 1) {
-      // Store current cart state for rollback
       const previousCart = [...cart];
       const previousLocalStorage = localStorage.getItem('cart');
 
@@ -123,14 +160,20 @@ const Cart = () => {
         // Update localStorage optimistically
         localStorage.setItem('cart', JSON.stringify(optimisticCart));
 
-        // Attempt database update
-        const result = await dispatch(updateCartItem({ cartId, productId, quantity })).unwrap();
+        // Attempt database update with correct payload structure
+        const updatePayload = {
+          CartId: cartId,
+          ProductId: String(productId),
+          Quantity: quantity
+        };
+
+        await dispatch(updateCartItem(updatePayload)).unwrap();
 
         // Sync with database after successful update
         await dispatch(getCartById(cartId)).unwrap();
 
       } catch (error) {
-        console.error('Failed to update cart:', error);
+        console.error('Error updating quantity:', error);
 
         // Rollback localStorage
         if (previousLocalStorage) {
@@ -158,7 +201,9 @@ const Cart = () => {
     }
   };
 
-  // Updated function to show confirmation modal instead of direct deletion
+  /**
+   * Show confirmation modal for individual item removal
+   */
   const handleRemoveItemClick = (productId, productName) => {
     setDeleteModal({
       open: true,
@@ -167,7 +212,9 @@ const Cart = () => {
     });
   };
 
-  // Enhanced individual deletion with rollback on failure
+  /**
+   * Handle individual item deletion with optimistic updates and rollback
+   */
   const handleConfirmRemoveItem = async () => {
     const previousCart = [...cart];
     const previousLocalStorage = localStorage.getItem('cart');
@@ -178,13 +225,16 @@ const Cart = () => {
       const optimisticCart = cart.filter(item => item.productId !== productIdToDelete);
       localStorage.setItem('cart', JSON.stringify(optimisticCart));
 
-      // Attempt database deletion
-      await dispatch(deleteCartItem({ cartId, productId: productIdToDelete })).unwrap();
+      // Attempt database deletion with correct payload structure
+      const deletePayload = {
+        CartId: cartId,
+        ProductId: String(productIdToDelete)
+      };
+
+      await dispatch(deleteCartItem(deletePayload)).unwrap();
 
       // Update selected items
       setSelectedItems(prev => prev.filter(id => id !== productIdToDelete));
-
-      console.log('Item removed from cart');
 
       // Close the modal
       setDeleteModal({
@@ -197,7 +247,7 @@ const Cart = () => {
       await dispatch(getCartById(cartId)).unwrap();
 
     } catch (error) {
-      console.error('Delete failed:', error);
+      console.error('Error removing item:', error);
 
       // Rollback localStorage
       if (previousLocalStorage) {
@@ -231,7 +281,9 @@ const Cart = () => {
     }
   };
 
-  // Enhanced batch delete with rollback on failure
+  /**
+   * Handle batch deletion with optimistic updates and rollback
+   */
   const handleBatchDelete = async () => {
     const previousCart = [...cart];
     const previousLocalStorage = localStorage.getItem('cart');
@@ -243,9 +295,13 @@ const Cart = () => {
       localStorage.setItem('cart', JSON.stringify(optimisticCart));
 
       // Attempt to delete all items from database
-      const deletePromises = itemsToDelete.map((id) =>
-        dispatch(deleteCartItem({ cartId, productId: id })).unwrap()
-      );
+      const deletePromises = itemsToDelete.map((id) => {
+        const deletePayload = {
+          CartId: cartId,
+          ProductId: String(id)
+        };
+        return dispatch(deleteCartItem(deletePayload)).unwrap();
+      });
 
       await Promise.all(deletePromises);
 
@@ -254,13 +310,11 @@ const Cart = () => {
       setSelectAll(false);
       setOpenModal(false);
 
-      console.log('Items removed from cart');
-
       // Sync with database
       await dispatch(getCartById(cartId)).unwrap();
 
     } catch (error) {
-      console.error('Batch delete failed:', error);
+      console.error('Error removing items:', error);
 
       // Rollback localStorage
       if (previousLocalStorage) {
@@ -290,23 +344,45 @@ const Cart = () => {
     }
   };
 
-  // Calculate totals for the entire cart
-  const cartTotal = cart.reduce(
-    (acc, item) => acc + item.price * item.quantity, 0
-  );
+  // ==================== CALCULATION FUNCTIONS ====================
+
+  const calculateSubtotal = () => {
+    return cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  };
+
+  const cartTotal = calculateSubtotal();
 
   const totalCartItems = cart.reduce((acc, item) => acc + item.quantity, 0);
+
+  // ==================== IMAGE RENDERING ====================
   
   const renderImage = (imagePath) => {
     if (!imagePath) {
-      return <img src="path/to/placeholder/image.png" alt="Placeholder" className="w-full h-full object-cover rounded-lg" />;
+      return (
+        <div className="w-full h-full bg-gray-200 rounded-lg flex items-center justify-center">
+          <span className="text-gray-400 text-xs">No Image</span>
+        </div>
+      );
     }
-    const backendBaseURL = "https://ct002.frankotrading.com:444"; // Replace with your actual backend URL
+    const backendBaseURL = "https://ct002.frankotrading.com:444";
     const imageUrl = `${backendBaseURL}/Media/Products_Images/${imagePath.split("\\").pop()}`;
-    return <img src={imageUrl} alt="Product" className="w-full h-full object-cover rounded-lg" />;
+    return (
+      <img 
+        src={imageUrl} 
+        alt="Product" 
+        className="w-full h-full object-cover rounded-lg"
+        onError={(e) => {
+          e.target.style.display = "none";
+          if (e.target.nextSibling) {
+            e.target.nextSibling.style.display = "flex";
+          }
+        }}
+      />
+    );
   };
 
-  // Loading state
+  // ==================== LOADING STATE ====================
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -318,7 +394,8 @@ const Cart = () => {
     );
   }
 
-  // Error state
+  // ==================== ERROR STATE ====================
+
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -335,6 +412,8 @@ const Cart = () => {
       </div>
     );
   }
+
+  // ==================== MAIN RENDER ====================
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -366,7 +445,7 @@ const Cart = () => {
 
       {/* Header */}
       <div className="bg-white shadow-sm border-b sticky top-0 z-40">
-        <div className=" px-4 py-2">
+        <div className="mx-auto px-4 py-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
@@ -391,9 +470,9 @@ const Cart = () => {
         </div>
       </div>
 
-      <div className=" px-4 py-6">
+      <div className=" mx-auto px-4 py-6">
+        {/* EMPTY CART STATE */}
         {cart.length === 0 ? (
-          // Empty Cart State
           <div className="flex items-center justify-center min-h-[60vh]">
             <div className="text-center bg-white p-8 md:p-12 rounded-2xl shadow-lg max-w-md">
               <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -421,9 +500,9 @@ const Cart = () => {
             </div>
           </div>
         ) : (
-          // Cart with items
+          // CART WITH ITEMS
           <>
-            {/* Cart Controls - Only show when there are items */}
+            {/* Cart Controls */}
             <div className="bg-white rounded-xl shadow-sm p-2 mb-2">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
@@ -448,14 +527,14 @@ const Cart = () => {
                     className="flex items-center gap-2 hover:bg-red-50"
                   >
                     <TrashIcon className="w-4 h-4" />
-                    Delete Selected
+                    Delete Selected ({selectedItems.length})
                   </Button>
                 )}
               </div>
             </div>
 
             <div className="flex flex-col lg:flex-row gap-4">
-              {/* Cart Items */}
+              {/* CART ITEMS SECTION */}
               <div className="flex-1">
                 <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                   {cart.map((item, index) => (
@@ -477,7 +556,7 @@ const Cart = () => {
                               <h4 className="font-semibold text-gray-600 text-xs md:text-sm line-clamp-2 mb-1">
                                 {item.productName}
                               </h4>
-                              <p className="text-red-400 text-xs md:text-sm font-bold">₵{item.price}.00</p>
+                              <p className="text-red-500 text-xs md:text-sm font-bold">{formatGHS(item.price)}</p>
                             </div>
                           </div>
 
@@ -508,9 +587,9 @@ const Cart = () => {
                             </div>
 
                             {/* Total Price */}
-                            <div className="text-right">
+                            <div className="text-right min-w-fit">
                               <div className="text-gray-700 font-bold text-sm">
-                                ₵{(item.price * item.quantity).toFixed(2)}
+                                {formatGHS(item.price * item.quantity)}
                               </div>
                             </div>
 
@@ -533,7 +612,7 @@ const Cart = () => {
                 </div>
               </div>
 
-              {/* Order Summary - Desktop */}
+              {/* ORDER SUMMARY - DESKTOP */}
               <div className="hidden lg:block w-96">
                 <div className="bg-white rounded-xl shadow-sm p-6 sticky top-24">
                   <div className="flex items-center gap-2 mb-6">
@@ -546,12 +625,12 @@ const Cart = () => {
                   <div className="space-y-3 mb-6">
                     <div className="flex justify-between items-center text-gray-600">
                       <span>Subtotal ({totalCartItems} items):</span>
-                      <span className="font-medium">₵{cartTotal.toFixed(2)}</span>
+                      <span className="font-medium">{formatGHS(cartTotal)}</span>
                     </div>
                     <Divider className="my-3" />
                     <div className="flex justify-between items-center text-lg font-bold text-gray-800">
                       <span>Total:</span>
-                      <span className="text-red-600">₵{cartTotal.toFixed(2)}</span>
+                      <span className="text-red-600">{formatGHS(cartTotal)}</span>
                     </div>
                   </div>
 
@@ -562,7 +641,7 @@ const Cart = () => {
                   <div className="space-y-3">
                     <button
                       onClick={handleCheckout}
-                      className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white font-semibold py-3 px-4 rounded-xl shadow-md transition duration-200 ease-in-out transform hover:scale-105"
+                      className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold py-3 px-4 rounded-xl shadow-md transition duration-200 ease-in-out transform hover:scale-105"
                     >
                       Proceed to Checkout
                     </button>
@@ -580,19 +659,19 @@ const Cart = () => {
         )}
       </div>
 
-      {/* Mobile Order Summary - Fixed Bottom */}
+      {/* MOBILE ORDER SUMMARY - FIXED BOTTOM */}
       {cart.length > 0 && (
         <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50">
-          <div className="p-4">
+          <div className=" mx-auto px-4 py-4">
             <div className="flex justify-between items-center mb-3">
               <span className="text-gray-600 font-medium">Cart Total:</span>
               <span className="text-lg font-bold text-red-600">
-                ₵{cartTotal.toFixed(2)}
+                {formatGHS(cartTotal)}
               </span>
             </div>
             <button
               onClick={handleCheckout}
-              className="w-full bg-gradient-to-r from-red-500 to-red-700 hover:from-red-500 hover:to-red-700 text-white font-semibold py-3 px-4 rounded-xl shadow-md transition duration-200"
+              className="w-full bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white font-semibold py-3 px-4 rounded-xl shadow-md transition duration-200"
             >
               Proceed to Checkout
             </button>
@@ -600,7 +679,7 @@ const Cart = () => {
         </div>
       )}
 
-      {/* Batch Delete Confirmation Modal */}
+      {/* BATCH DELETE CONFIRMATION MODAL */}
       <Dialog open={openModal} handler={setOpenModal} className="bg-white rounded-2xl">
         <DialogHeader className="text-gray-800">
           <div className="flex items-center gap-2">
@@ -629,7 +708,7 @@ const Cart = () => {
         </DialogFooter>
       </Dialog>
 
-      {/* Individual Delete Confirmation Modal */}
+      {/* INDIVIDUAL DELETE CONFIRMATION MODAL */}
       <Dialog 
         open={deleteModal.open} 
         handler={() => setDeleteModal({ open: false, productId: null, productName: '' })} 
@@ -642,7 +721,7 @@ const Cart = () => {
           </div>
         </DialogHeader>
         <DialogBody className="text-gray-600">
-          Are you sure you want to remove "{deleteModal.productName}" from your cart? This action cannot be undone.
+          Are you sure you want to remove "<strong>{deleteModal.productName}</strong>" from your cart? This action cannot be undone.
         </DialogBody>
         <DialogFooter className="space-x-2">
           <Button 
@@ -662,10 +741,10 @@ const Cart = () => {
         </DialogFooter>
       </Dialog>
 
-      {/* Auth Modal */}
+      {/* AUTH MODAL */}
       <AuthModal open={authModalOpen} onClose={() => setAuthModalOpen(false)} />
     </div>
-  )
+  );
 };
 
 export default Cart;

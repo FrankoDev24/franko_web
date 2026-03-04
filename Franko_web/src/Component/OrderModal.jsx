@@ -535,7 +535,7 @@ const OrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
         }, 500);
       };
 
-      message.success('Invoice ready for printing. Use your browser\'s print dialog to save as PDF.');
+    
       
     } catch (error) {
       console.error('Error generating invoice:', error);

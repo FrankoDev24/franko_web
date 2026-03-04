@@ -26,7 +26,7 @@ import {
   ChevronRight,
   MoreHorizontal
 } from 'lucide-react';
-import { getAllHubtelCallbackRecords } from "../../../Redux/Slice/paymentSlice";
+import { getAllHubtelCallbackRecords } from "../../../Redux/Slice/paymentsSlice";
 import dayjs from 'dayjs';
 import * as XLSX from 'xlsx';
 

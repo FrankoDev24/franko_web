@@ -28,7 +28,7 @@ function Cancellation() {
 
   // Animated failure icon component
   const FailureAnimation = () => (
-    <div className="relative mb-6">
+    <div className="relative mb-2">
       <div className="animate-pulse">
         <XCircle className="w-20 h-20 text-red-500 mx-auto" />
       </div>
@@ -60,7 +60,7 @@ function Cancellation() {
               Payment <span className="text-red-600">Failed</span>
             </h1>
             
-            <p className="text-gray-600 text-sm md:text-lg mb-3 leading-relaxed max-w-lg mx-auto">
+            <p className="text-gray-600 text-sm md:text-sm mb-3 leading-relaxed max-w-lg mx-auto">
               We couldn't process your payment. Don't worry - no charges have been made to your account.
             </p>
 

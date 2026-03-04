@@ -471,9 +471,8 @@ const Nav = () => {
         }
 
         .nav-inner {
-          max-width: 1320px;
+          max-width: 1750px;
           margin: 0 auto;
-          padding: 0 8px;
         }
 
         @media (min-width: 1024px) {
@@ -484,7 +483,7 @@ const Nav = () => {
           display: flex;
           align-items: center;
           justify-between;
-          height: 60px;
+          height: 50px;
         }
 
         @media (max-width: 1023px) {

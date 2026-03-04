@@ -1,0 +1,142 @@
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import axiosInstance from "./AxiosInstance";
+
+/* ===========================
+   ASYNC THUNKS (via Lambda)
+=========================== */
+
+// Post Hubtel callback
+export const postHubtelCallback = createAsyncThunk(
+  "payment/postHubtelCallback",
+  async (responseData, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.post(
+        "/",                      // Lambda root
+        { responseData },
+        {
+          params: {
+            endpoint: "/PaymentSystem/PostHubtelCallBack",
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Something went wrong"
+      );
+    }
+  }
+);
+
+// Get Hubtel callback by Order ID (clientReference)
+export const getHubtelCallbackById = createAsyncThunk(
+  "payment/getHubtelCallbackById",
+  async (orderId, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.get("/", {
+        params: {
+          endpoint: "/PaymentSystem/GetHubtelCallBackById",
+          Orderid: orderId,
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Something went wrong"
+      );
+    }
+  }
+);
+
+// Get all Hubtel callback records
+export const getAllHubtelCallbackRecords = createAsyncThunk(
+  "payment/getAllHubtelCallbackRecords",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.get("/", {
+        params: {
+          endpoint: "/PaymentSystem/GetHubtelCallBackAllRecords",
+        },
+      });
+
+      // Maintain original logic: newest → oldest
+      const sortedData = response.data?.slice().reverse();
+
+      return sortedData;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Something went wrong"
+      );
+    }
+  }
+);
+
+/* ===========================
+   SLICE
+=========================== */
+
+const paymentsSlice = createSlice({
+  name: "payments",
+  initialState: {
+    callbackData: null,
+    loading: false,
+    error: null,
+  },
+  reducers: {
+    clearPaymentState: (state) => {
+      state.callbackData = null;
+      state.loading = false;
+      state.error = null;
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      // postHubtelCallback
+      .addCase(postHubtelCallback.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(postHubtelCallback.fulfilled, (state, action) => {
+        state.loading = false;
+        state.callbackData = action.payload;
+      })
+      .addCase(postHubtelCallback.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // getHubtelCallbackById
+      .addCase(getHubtelCallbackById.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getHubtelCallbackById.fulfilled, (state, action) => {
+        state.loading = false;
+        state.callbackData = action.payload;
+      })
+      .addCase(getHubtelCallbackById.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // getAllHubtelCallbackRecords
+      .addCase(getAllHubtelCallbackRecords.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getAllHubtelCallbackRecords.fulfilled, (state, action) => {
+        state.loading = false;
+        state.callbackData = action.payload;
+      })
+      .addCase(getAllHubtelCallbackRecords.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      });
+  },
+});
+
+export const { clearPaymentState } = paymentsSlice.actions;
+
+export default paymentsSlice.reducer;

@@ -14,9 +14,12 @@ import customerReducer from "./Slice/customerSlice";
 import cartReducer from "./Slice/cartSlice";
 import advertismentReducer from "./Slice/advertismentSlice";
 import wishlistReducer from "./Slice/wishlistSlice";
-import paymentReducer from "./Slice/paymentSlice";
+import paymentsReducer from "./Slice/paymentsSlice";
 import branchProductReducer from "./Slice/branchProductSlice";
 import branchOrderReducer from "./Slice/branchOrderSlice";
+import paymentReducer from "./Slice/paymentSlice";
+
+
 
 // --- Combine all reducers
 const rootReducer = combineReducers({
@@ -30,9 +33,10 @@ const rootReducer = combineReducers({
   customer: customerReducer,
   cart: cartReducer,
   advertisment: advertismentReducer,
-  payment: paymentReducer,
+  payments: paymentsReducer,
   branchProducts: branchProductReducer,
   branchOrders: branchOrderReducer,
+  payment: paymentReducer,
 });
 
 // --- Redux Persist config
