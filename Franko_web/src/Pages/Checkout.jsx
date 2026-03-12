@@ -26,49 +26,60 @@ import {
   CheckCircleIcon,
 } from "@heroicons/react/24/outline";
 
-// Import logos from assets folder
 import frankoLogo from "../assets/frankoIcon.png";
 import mtnLogo from "../assets/momo.png";
 import vodafoneLogo from "../assets/voda.jpeg";
 import airteltigoLogo from "../assets/AT.png";
 
-const { Text, Title } = Typography;
-const { Option } = Select;
+const { Text } = Typography;
 
 // ==================== CONSTANTS ====================
 
-const SERVICE_CHARGE_RATE = 0.01; // 1%
-const SERVICE_CHARGE_CAP = 20.0;  // Fixed ₵20.00 cap for amounts above ₵2,000
+const SERVICE_CHARGE_RATE = 0.01;
+const SERVICE_CHARGE_CAP = 20.0;
 
 // ==================== UTILITY FUNCTIONS ====================
 
-/**
- * Format amount with commas for thousands
- */
 const formatCurrency = (amount, decimals = 2) => {
   const num = parseFloat(amount) || 0;
-  return num.toLocaleString('en-US', {
+  return num.toLocaleString("en-US", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });
 };
 
-/**
- * Format amount with Ghanaian Cedi symbol and commas
- */
-const formatGHS = (amount) => {
-  return `₵${formatCurrency(amount, 2)}`;
-};
+const formatGHS = (amount) => `₵${formatCurrency(amount, 2)}`;
+
+const getItemUnitPrice = (item) =>
+  parseFloat(item.unitPrice) || parseFloat(item.price) || 0;
+
+const getItemQuantity = (item) => parseInt(item.quantity, 10) || 1;
+
+const getItemLineTotal = (item) =>
+  getItemUnitPrice(item) * getItemQuantity(item);
 
 /**
- * ✅ FIX: Safely calculate the true line total for a cart item.
- * Always uses price × quantity — never trusts a pre-stored `item.total`
- * which may have been computed incorrectly (e.g. wrong quantity multiplier).
+ * ✅ FIX: Build a human-readable narration string from cart items.
+ * Example output: "Tecno T528 (x1), Samsung A15 (x2)"
+ * Truncated to maxLen characters to stay within API limits.
  */
-const getItemLineTotal = (item) => {
-  const price = parseFloat(item.price) || 0;
-  const quantity = parseInt(item.quantity, 10) || 1;
-  return price * quantity;
+const buildCartNarration = (items, maxLen = 120) => {
+  if (!items || items.length === 0) return "Franko Trading Purchase";
+
+  const parts = items.map((item) => {
+    const name = (item.productName || item.ProductName || "Item").trim();
+    const qty = getItemQuantity(item);
+    return qty > 1 ? `${name} (x${qty})` : name;
+  });
+
+  let narration = parts.join(", ");
+
+  // Truncate if too long — keep it API-friendly
+  if (narration.length > maxLen) {
+    narration = narration.substring(0, maxLen - 3) + "...";
+  }
+
+  return narration;
 };
 
 // ==================== MAIN COMPONENT ====================
@@ -103,15 +114,14 @@ const Checkout = () => {
   const [selectedNetwork, setSelectedNetwork] = useState(null);
   const [payButtonLoading, setPayButtonLoading] = useState(false);
 
-  // ==================== CART SOURCE: REDUX FIRST ====================
+  // ==================== CART SOURCE ====================
 
-  // ✅ FIX: Read cart AND cartId from Redux — the single source of truth.
-  // localStorage is only a fallback for page-reload before Redux rehydrates.
-  const { cart: reduxCart, cartId: reduxCartId } = useSelector((state) => state.cart);
+  const { cart: reduxCart, cartId: reduxCartId } = useSelector(
+    (state) => state.cart
+  );
 
   const getCartItemsFromLocalStorage = () => {
     try {
-      // ✅ Encrypted localStorage auto-parses JSON — returns array directly
       const stored = localStorage.getItem("cart");
       if (!stored) return [];
       return Array.isArray(stored) ? stored : [];
@@ -120,7 +130,6 @@ const Checkout = () => {
     }
   };
 
-  // Redux is authoritative; fall back to localStorage only if Redux is empty
   const resolveCartItems = () => {
     if (Array.isArray(reduxCart) && reduxCart.length > 0) return reduxCart;
     return getCartItemsFromLocalStorage();
@@ -128,18 +137,14 @@ const Checkout = () => {
 
   const [cartItems, setCartItems] = useState(resolveCartItems);
 
-  // ✅ FIX: Prefer Redux cartId, then localStorage, then generate one
   const getCartId = () =>
     reduxCartId || localStorage.getItem("cartId") || `cart_${Date.now()}`;
 
-  // ✅ Load customer from localStorage into state so it's always available
   const [customerData, setCustomerData] = useState(null);
-
   const [isDifferentRecipient, setIsDifferentRecipient] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerNumber, setCustomerNumber] = useState("");
 
-  // Derived from customerData state — updates reactively
   const accountName = customerData
     ? `${customerData.firstName || ""} ${customerData.lastName || ""}`.trim()
     : "";
@@ -167,34 +172,32 @@ const Checkout = () => {
 
   // ==================== EFFECTS ====================
 
-  // ✅ Load customer from localStorage on mount — drives accountName/accountNumber reactively
   useEffect(() => {
     try {
-      // ✅ Encrypted localStorage returns already-parsed objects — no JSON.parse needed
       const customerObj = localStorage.getItem("customer");
       if (customerObj && typeof customerObj === "object") {
         setCustomerData(customerObj);
-        const name = `${customerObj.firstName || ""} ${customerObj.lastName || ""}`.trim();
-        const number = customerObj.contactNumber || customerObj.ContactNumber || "";
+        const name = `${customerObj.firstName || ""} ${
+          customerObj.lastName || ""
+        }`.trim();
+        const number =
+          customerObj.contactNumber || customerObj.ContactNumber || "";
         setCustomerName(name);
         setCustomerNumber(number);
       }
     } catch {}
 
-    // Load delivery info
     try {
-      // ✅ Encrypted localStorage returns object directly
       const storedInfo = localStorage.getItem("deliveryInfo") || {};
       const addr = storedInfo?.address || "";
       const fee = storedInfo?.fee ?? 0;
-      const feeDisplay = storedInfo?.feeDisplay || storedInfo?.feeText || "";
+      const feeDisplay =
+        storedInfo?.feeDisplay || storedInfo?.feeText || "";
       setDeliveryInfo({ address: addr, fee, feeDisplay });
       setDeliveryFee(Number(fee) || 0);
     } catch {}
   }, []);
 
-  // ✅ FIX: On mount, fetch cart from DB so Redux is always populated,
-  // even when the user navigates directly to /checkout.
   useEffect(() => {
     const activeCartId = reduxCartId || localStorage.getItem("cartId");
     if (activeCartId) {
@@ -202,19 +205,18 @@ const Checkout = () => {
     }
   }, []);
 
-  // When toggle switches: clear fields for different recipient, restore account data when toggled back
   useEffect(() => {
     if (isDifferentRecipient) {
       setCustomerName("");
       setCustomerNumber("");
-    } else {
-      // Restore from localStorage customer data
-      if (customerData) {
-        const name = `${customerData.firstName || ""} ${customerData.lastName || ""}`.trim();
-        const number = customerData.contactNumber || customerData.ContactNumber || "";
-        setCustomerName(name);
-        setCustomerNumber(number);
-      }
+    } else if (customerData) {
+      const name = `${customerData.firstName || ""} ${
+        customerData.lastName || ""
+      }`.trim();
+      const number =
+        customerData.contactNumber || customerData.ContactNumber || "";
+      setCustomerName(name);
+      setCustomerNumber(number);
     }
   }, [isDifferentRecipient]);
 
@@ -227,13 +229,10 @@ const Checkout = () => {
     }
   }, [deliveryInfo]);
 
-  // ✅ FIX: Sync cartItems from Redux whenever it changes.
-  // Redux is the single source of truth — no localStorage polling needed.
   useEffect(() => {
     if (Array.isArray(reduxCart) && reduxCart.length > 0) {
       setCartItems(reduxCart);
     } else {
-      // Redux empty on first render — try localStorage as a one-time fallback
       const fallback = getCartItemsFromLocalStorage();
       if (fallback.length > 0) setCartItems(fallback);
     }
@@ -246,71 +245,55 @@ const Checkout = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (cartItems.length > 0) {
+      console.group("🛒 CHECKOUT - Cart Items Verification");
+      cartItems.forEach((item, i) => {
+        const up = getItemUnitPrice(item);
+        const qty = getItemQuantity(item);
+        console.log(
+          `${i + 1}. "${item.productName}" → unitPrice=${up}, qty=${qty}, lineTotal=${
+            up * qty
+          }`
+        );
+      });
+      console.log("Subtotal:", calculateSubtotal());
+      console.log("Narration:", buildCartNarration(cartItems));
+      console.groupEnd();
+    }
+  }, [cartItems]);
+
   // ==================== MOMO NUMBER HANDLERS ====================
 
   const handleMomoNumberChange = (e) => {
-    let value = e.target.value;
-    value = value.replace(/[^0-9]/g, "");
-
-    if (value.startsWith("0")) {
-      value = "233" + value.slice(1);
-    }
-
-    if (!value.startsWith("233")) {
-      value = "233";
-    }
-
-    if (value.length > 12) {
-      value = value.slice(0, 12);
-    }
-
+    let value = e.target.value.replace(/[^0-9]/g, "");
+    if (value.startsWith("0")) value = "233" + value.slice(1);
+    if (!value.startsWith("233")) value = "233";
+    if (value.length > 12) value = value.slice(0, 12);
     setMomoNumber(value);
   };
 
-  const isValidMomoNumber = () => {
-    return /^233[1-9]\d{8}$/.test(momoNumber);
-  };
+  const isValidMomoNumber = () => /^233[1-9]\d{8}$/.test(momoNumber);
 
-  const startsWithZeroAfter233 = () => {
-    return momoNumber.length > 3 && momoNumber[3] === "0";
-  };
+  const startsWithZeroAfter233 = () =>
+    momoNumber.length > 3 && momoNumber[3] === "0";
 
   // ==================== CALCULATION FUNCTIONS ====================
 
-  /**
-   * ✅ FIX: Subtotal always recomputes from price × quantity.
-   * Never relies on item.total which may carry a stale or wrong value.
-   */
-  const calculateSubtotal = () => {
-    return cartItems.reduce((total, item) => {
-      return total + getItemLineTotal(item);
-    }, 0);
-  };
+  const calculateSubtotal = () =>
+    cartItems.reduce((sum, item) => sum + getItemLineTotal(item), 0);
 
-  const calculateTotalAmount = () => {
-    return calculateSubtotal() + deliveryFee;
-  };
+  const calculateTotalAmount = () => calculateSubtotal() + deliveryFee;
 
-  /**
-   * Service charge logic (DISPLAY ONLY — backend handles the actual charge):
-   * - Amount <= ₵2,000 -> 1% of the total
-   * - Amount > ₵2,000 -> fixed flat ₵20.00 (capped, no further increase)
-   */
   const calculateServiceCharge = () => {
     const baseAmount = calculateTotalAmount();
-    if (baseAmount > 2000) {
-      return SERVICE_CHARGE_CAP; // flat ₵20.00
-    }
-    return baseAmount * SERVICE_CHARGE_RATE; // 1%
+    return baseAmount > 2000
+      ? SERVICE_CHARGE_CAP
+      : baseAmount * SERVICE_CHARGE_RATE;
   };
 
-  /**
-   * Display-only total (amount + service charge) — shown to user so they
-   * know what the MoMo prompt will look like. NOT sent to backend.
-   */
-  const calculateDisplayTotalWithCharge = () => {
-    return calculateTotalAmount() + calculateServiceCharge();
-  };
+  const calculateDisplayTotalWithCharge = () =>
+    calculateTotalAmount() + calculateServiceCharge();
 
   // ==================== ORDER GENERATION ====================
 
@@ -323,34 +306,43 @@ const Checkout = () => {
 
   // ==================== API CALLS WITH RETRY ====================
 
-  const dispatchOrderCheckoutWithRetry = async (orderId, checkoutDetails, maxRetries = 3) => {
+  const dispatchOrderCheckoutWithRetry = async (
+    orderId,
+    checkoutDetails,
+    maxRetries = 3
+  ) => {
     let lastError;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const checkoutPayload = {
-          cartId: getCartId(),
-          ...checkoutDetails,
-        };
-        const result = await dispatch(checkOutOrder(checkoutPayload)).unwrap();
-        return result;
+        const checkoutPayload = { cartId: getCartId(), ...checkoutDetails };
+        return await dispatch(checkOutOrder(checkoutPayload)).unwrap();
       } catch (error) {
         lastError = error;
         if (attempt < maxRetries) {
-          const waitTime = Math.pow(2, attempt) * 1000;
-          await new Promise((resolve) => setTimeout(resolve, waitTime));
+          await new Promise((r) =>
+            setTimeout(r, Math.pow(2, attempt) * 1000)
+          );
         }
       }
     }
     throw new Error(
-      `Checkout failed after ${maxRetries} attempts: ${lastError?.message || "Unknown error"}`
+      `Checkout failed after ${maxRetries} attempts: ${
+        lastError?.message || "Unknown error"
+      }`
     );
   };
 
-  const dispatchOrderAddressWithRetry = async (orderId, addressDetails, maxRetries = 3) => {
+  const dispatchOrderAddressWithRetry = async (
+    orderId,
+    addressDetails,
+    maxRetries = 3
+  ) => {
     let lastError;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const result = await dispatch(updateOrderDelivery(addressDetails)).unwrap();
+        const result = await dispatch(
+          updateOrderDelivery(addressDetails)
+        ).unwrap();
         dispatch(clearCart());
         localStorage.removeItem("cart");
         localStorage.removeItem("cartId");
@@ -358,17 +350,24 @@ const Checkout = () => {
       } catch (error) {
         lastError = error;
         if (attempt < maxRetries) {
-          const waitTime = Math.pow(2, attempt) * 1000;
-          await new Promise((resolve) => setTimeout(resolve, waitTime));
+          await new Promise((r) =>
+            setTimeout(r, Math.pow(2, attempt) * 1000)
+          );
         }
       }
     }
     throw new Error(
-      `Address update failed after ${maxRetries} attempts: ${lastError?.message || "Unknown error"}`
+      `Address update failed after ${maxRetries} attempts: ${
+        lastError?.message || "Unknown error"
+      }`
     );
   };
 
-  const processDirectCheckout = async (orderId, checkoutDetails, addressDetails) => {
+  const processDirectCheckout = async (
+    orderId,
+    checkoutDetails,
+    addressDetails
+  ) => {
     await dispatchOrderCheckoutWithRetry(orderId, checkoutDetails);
     await dispatchOrderAddressWithRetry(orderId, addressDetails);
   };
@@ -378,12 +377,7 @@ const Checkout = () => {
     setTimeoutCountdown(25);
 
     countdownRef.current = setInterval(() => {
-      setTimeoutCountdown((prev) => {
-        if (prev <= 1) {
-          return 0;
-        }
-        return prev - 1;
-      });
+      setTimeoutCountdown((prev) => (prev <= 1 ? 0 : prev - 1));
     }, 1000);
 
     pollingRef.current = setInterval(async () => {
@@ -394,22 +388,28 @@ const Checkout = () => {
           checkTransactionStatus({ refNo: orderId })
         ).unwrap();
 
-        if (response?.responseMessage === "Successfully Processed Transaction") {
+        if (
+          response?.responseMessage ===
+          "Successfully Processed Transaction"
+        ) {
           clearInterval(pollingRef.current);
           clearInterval(countdownRef.current);
           setPaymentStatus("success");
 
           try {
-            await processDirectCheckout(orderId, checkoutDetails, addressDetails);
+            await processDirectCheckout(
+              orderId,
+              checkoutDetails,
+              addressDetails
+            );
             localStorage.removeItem("checkoutDetails");
             localStorage.removeItem("orderAddressDetails");
             message.success("Payment and order processed successfully!");
-
             setTimeout(() => {
               setIsPaymentModalVisible(false);
               navigate(`/order-success/${orderId}`);
             }, 1500);
-          } catch (e) {
+          } catch {
             message.error(
               "Payment succeeded, but we could not process your order. Please contact support."
             );
@@ -421,7 +421,6 @@ const Checkout = () => {
         clearInterval(pollingRef.current);
         clearInterval(countdownRef.current);
         setPaymentStatus("failed");
-
         setTimeout(() => {
           setIsPaymentModalVisible(false);
           localStorage.removeItem("checkoutDetails");
@@ -435,52 +434,50 @@ const Checkout = () => {
 
   // ==================== PAYMENT HANDLERS ====================
 
-  const handlePaymentMethodChange = (e) => {
-    setPaymentMethod(e.target.value);
-  };
+  const handlePaymentMethodChange = (e) => setPaymentMethod(e.target.value);
 
   const validateRequiredFields = () => {
     const errors = [];
-    if (!customerName?.trim()) {
+    if (!customerName?.trim())
       errors.push({ field: "name", message: "Recipient name is required" });
-    }
-    if (!customerNumber?.trim()) {
-      errors.push({ field: "phone", message: "Recipient contact number is required" });
-    }
-    if (!selectedAddress?.trim()) {
-      errors.push({ field: "address", message: "Delivery address is required" });
-    }
-    if (!paymentMethod) {
-      errors.push({ field: "payment", message: "Payment method is required" });
-    }
+    if (!customerNumber?.trim())
+      errors.push({
+        field: "phone",
+        message: "Recipient contact number is required",
+      });
+    if (!selectedAddress?.trim())
+      errors.push({
+        field: "address",
+        message: "Delivery address is required",
+      });
+    if (!paymentMethod)
+      errors.push({
+        field: "payment",
+        message: "Payment method is required",
+      });
     return errors;
   };
 
   const getSafeCustomerDetails = () => {
     let name = customerName?.trim();
     let number = customerNumber?.trim();
-
-    if (!name && customerData) {
-      name = `${customerData.firstName || ""} ${customerData.lastName || ""}`.trim();
-    }
-    if (!number && customerData) {
-      number = customerData.contactNumber || customerData.ContactNumber || "";
-    }
-    // ✅ Don't auto-generate a Guest name — let validation catch a missing name instead
-    // (a generated "Guest XXXX" would immediately trigger the guest name block below)
-    if (!number) {
-      number = "0000000000";
-    }
-
+    if (!name && customerData)
+      name = `${customerData.firstName || ""} ${
+        customerData.lastName || ""
+      }`.trim();
+    if (!number && customerData)
+      number =
+        customerData.contactNumber || customerData.ContactNumber || "";
+    if (!number) number = "0000000000";
     return { name, number };
   };
 
   const handleCheckout = async () => {
-    const { name: safeName, number: safeNumber } = getSafeCustomerDetails();
+    const { name: safeName, number: safeNumber } =
+      getSafeCustomerDetails();
     setCustomerName(safeName);
     setCustomerNumber(safeNumber);
 
-    // ✅ Block checkout if recipient name looks like a guest placeholder
     const nameLower = safeName.toLowerCase().trim();
     if (
       nameLower === "guest" ||
@@ -500,8 +497,6 @@ const Checkout = () => {
     const orderId = generateOrderId();
     setCurrentOrderId(orderId);
     const orderDate = new Date().toISOString();
-
-    // ✅ Send ONLY the cart subtotal to the backend — no delivery fee, no service charge added
     const totalAmount = calculateSubtotal();
     const cartId = getCartId();
 
@@ -513,7 +508,7 @@ const Checkout = () => {
       PaymentAccountNumber: safeNumber || "0000000000",
       customerAccountType,
       paymentService: "Mtn",
-      totalAmount, // pure cart subtotal — exactly what is in the cart
+      totalAmount,
       recipientName: safeName,
       recipientContactNumber: safeNumber,
       orderNote: orderNote || "N/A",
@@ -534,26 +529,29 @@ const Checkout = () => {
       setLoading(true);
 
       if (isAgent || !["Mobile Money"].includes(paymentMethod)) {
-        await processDirectCheckout(orderId, checkoutDetails, addressDetails);
+        await processDirectCheckout(
+          orderId,
+          checkoutDetails,
+          addressDetails
+        );
         message.success("Your order has been placed successfully!");
         navigate("/order-received");
       } else {
-        // ✅ Encrypted localStorage auto-encrypts — no JSON.stringify needed
         localStorage.setItem("checkoutDetails", checkoutDetails);
         localStorage.setItem("orderAddressDetails", addressDetails);
         dispatch(saveCheckoutDetails(checkoutDetails));
         dispatch(saveAddressDetails(addressDetails));
-
         setPendingCheckoutDetails(checkoutDetails);
         setPendingAddressDetails(addressDetails);
-
         setMomoNumber("233");
         setSelectedNetwork(null);
         setPaymentStatus("input");
         setIsPaymentModalVisible(true);
       }
     } catch (error) {
-      message.error(error.message || "An error occurred during checkout.");
+      message.error(
+        error.message || "An error occurred during checkout."
+      );
     } finally {
       setLoading(false);
     }
@@ -564,31 +562,42 @@ const Checkout = () => {
       message.error("Please enter a valid 9-digit number after 233");
       return;
     }
-
     if (!selectedNetwork) {
       message.error("Please select your network provider");
       return;
     }
 
+    const paymentAmount = calculateSubtotal();
+
+    // ✅ FIX: Build narration from actual cart item names + quantities
+    const narration = buildCartNarration(cartItems);
+
+    console.log("=== PAYMENT REQUEST ===");
+    console.log("Amount:", paymentAmount);
+    console.log("Narration:", narration);
+    console.log("=======================");
+
     try {
       setPayButtonLoading(true);
       setPaymentStatus("pending");
 
-      // Send only the base amount to debitCustomer — backend adds service charge itself
       await dispatch(
         debitCustomer({
           refNo: currentOrderId,
           msisdn: momoNumber,
-          amount: calculateSubtotal(), // pure cart subtotal — no delivery fee, no service charge
+          amount: paymentAmount,
           network: selectedNetwork,
-          narration: "franko",
+          narration, // ✅ Now contains: "Tecno T528 (x1), Samsung A15 (x2)"
         })
       ).unwrap();
 
-      startPolling(currentOrderId, pendingCheckoutDetails, pendingAddressDetails);
+      startPolling(
+        currentOrderId,
+        pendingCheckoutDetails,
+        pendingAddressDetails
+      );
     } catch (error) {
       setPaymentStatus("failed");
-
       setTimeout(() => {
         setIsPaymentModalVisible(false);
         message.error("Payment initiation failed.");
@@ -620,80 +629,40 @@ const Checkout = () => {
         className="w-16 h-16 object-cover rounded-lg"
         onError={(e) => {
           e.target.style.display = "none";
-          if (e.target.nextSibling) e.target.nextSibling.style.display = "flex";
+          if (e.target.nextSibling)
+            e.target.nextSibling.style.display = "flex";
         }}
       />
     );
   };
 
-  // Helper to build service charge label text
   const getServiceChargeLabel = () => {
     const baseAmount = calculateTotalAmount();
-    if (baseAmount > 2000) {
-      return "Momo Service Charge :";
-    }
-    return "Momo Service Charge (1%):";
+    return baseAmount > 2000
+      ? "Momo Service Charge :"
+      : "Momo Service Charge (1%):";
   };
 
-  // ==================== EMPTY CART RENDER ====================
+  // ==================== EMPTY CART ====================
 
   if (!cartItems || cartItems.length === 0) {
-    // --- DEBUG: shows all localStorage keys & values so you can find the real cart key ---
-    const debugEntries = (() => {
-      try {
-        return Object.keys(localStorage).map((k) => {
-          const raw = localStorage.getItem(k);
-          let preview = raw?.slice(0, 120) ?? "";
-          return { k, preview };
-        });
-      } catch { return []; }
-    })();
-
     return (
       <div className="p-4 text-center min-h-[400px] flex flex-col items-center justify-center">
         <div className="flex items-center justify-center mb-4">
           <ShoppingBagIcon className="w-12 h-12 text-gray-400 mr-3" />
-          <h2 className="text-2xl font-bold text-gray-700">Your cart is empty</h2>
+          <h2 className="text-2xl font-bold text-gray-700">
+            Your cart is empty
+          </h2>
         </div>
         <p className="text-gray-500 mb-6">
           Add some items to your cart to proceed with checkout.
         </p>
-        <div className="flex gap-4 justify-center mb-6">
-          <button
-            onClick={() => navigate("/")}
-            className="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors duration-200 font-medium"
-          >
-            Continue Shopping
-          </button>
-        </div>
-
-        {/* ===== TEMPORARY DEBUG PANEL — remove once cart key is confirmed ===== */}
-        {debugEntries.length > 0 && (
-          <div className="w-full max-w-2xl text-left bg-yellow-50 border border-yellow-300 rounded-lg p-4 mt-2">
-            <p className="text-xs font-bold text-yellow-800 mb-2">
-              🛠 DEBUG: localStorage keys ({debugEntries.length} found) — share this with your developer
-            </p>
-            <div className="space-y-1 max-h-60 overflow-y-auto">
-              {debugEntries.map(({ k, preview }) => (
-                <div key={k} className="text-xs font-mono break-all">
-                  <span className="font-bold text-yellow-900">{k}:</span>{" "}
-                  <span className="text-gray-600">{preview}</span>
-                </div>
-              ))}
-            </div>
-            {debugEntries.length === 0 && (
-              <p className="text-xs text-gray-500">localStorage is empty — cart may be stored only in Redux memory (not persisted).</p>
-            )}
-          </div>
-        )}
-        {debugEntries.length === 0 && (
-          <div className="w-full max-w-2xl text-left bg-yellow-50 border border-yellow-300 rounded-lg p-4 mt-2">
-            <p className="text-xs font-bold text-yellow-800">
-              🛠 DEBUG: localStorage is completely empty. Cart is likely in Redux only (redux-persist may be disabled or using a different storage engine).
-            </p>
-          </div>
-        )}
-        {/* ===== END DEBUG PANEL ===== */}
+        <button
+          onClick={() => navigate("/")}
+          className="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors duration-200 font-medium"
+        >
+          Continue Shopping
+        </button>
       </div>
     );
   }
@@ -717,18 +686,19 @@ const Checkout = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* BILLING INFORMATION SECTION */}
+        {/* BILLING INFORMATION */}
         <div className="lg:col-span-1">
           <Card className="h-fit">
             <div className="mb-4">
-              <h2 className="text-lg font-semibold text-gray-800">Billing Information</h2>
+              <h2 className="text-lg font-semibold text-gray-800">
+                Billing Information
+              </h2>
               <div className="relative mt-1">
                 <div className="absolute w-24 h-1 bg-red-300 rounded"></div>
                 <div className="border-b border-gray-300"></div>
               </div>
             </div>
 
-            {/* ── RECIPIENT TOGGLE ── */}
             <div
               className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 mb-4 cursor-pointer select-none"
               onClick={() => setIsDifferentRecipient((v) => !v)}
@@ -739,7 +709,6 @@ const Checkout = () => {
                   Different recipient?
                 </span>
               </div>
-              {/* Toggle pill */}
               <div
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
                   isDifferentRecipient ? "bg-green-500" : "bg-gray-300"
@@ -747,13 +716,14 @@ const Checkout = () => {
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
-                    isDifferentRecipient ? "translate-x-6" : "translate-x-1"
+                    isDifferentRecipient
+                      ? "translate-x-6"
+                      : "translate-x-1"
                   }`}
                 />
               </div>
             </div>
 
-            {/* ── ACCOUNT HOLDER INFO (shown when same recipient) ── */}
             {!isDifferentRecipient && (
               <div className="mb-4 bg-green-50 border border-green-200 rounded-xl px-4 py-3 space-y-1">
                 <p className="text-xs text-green-700 font-semibold uppercase tracking-wide mb-1">
@@ -774,7 +744,6 @@ const Checkout = () => {
               </div>
             )}
 
-            {/* ── DIFFERENT RECIPIENT NOTICE ── */}
             {isDifferentRecipient && (
               <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
                 <p className="text-xs text-amber-700 font-medium">
@@ -795,29 +764,32 @@ const Checkout = () => {
               locations={locations}
               customerAccountType={customerAccountType}
               firstName={customerData?.firstName || "Guest"}
-              // Pass through so CheckoutForm can lock fields when not different recipient
               isDifferentRecipient={isDifferentRecipient}
               readOnlyRecipient={!isDifferentRecipient}
             />
           </Card>
         </div>
 
-        {/* ORDER SUMMARY SECTION */}
+        {/* ORDER SUMMARY */}
         <div className="lg:col-span-2">
           <Card bordered={false} className="rounded-xl shadow-sm">
             <div className="mb-4">
-              <h2 className="text-lg font-semibold text-gray-800">Order Summary</h2>
+              <h2 className="text-lg font-semibold text-gray-800">
+                Order Summary
+              </h2>
               <div className="relative mt-1">
                 <div className="absolute w-24 h-1 bg-red-300 rounded"></div>
                 <div className="border-b border-gray-300"></div>
               </div>
             </div>
 
-            {/* CART ITEMS LIST */}
+            {/* CART ITEMS */}
             <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
               {cartItems.map((item, index) => {
-                // ✅ FIX: Always compute line total from price × quantity
-                const lineTotal = getItemLineTotal(item);
+                const unitPrice = getItemUnitPrice(item);
+                const qty = getItemQuantity(item);
+                const lineTotal = unitPrice * qty;
+
                 return (
                   <div
                     key={item.productId || index}
@@ -827,19 +799,25 @@ const Checkout = () => {
                       <div className="w-16 h-16 flex-shrink-0 relative">
                         {renderImage(item.imagePath)}
                         <div className="w-16 h-16 bg-gray-200 rounded-lg items-center justify-center hidden">
-                          <span className="text-gray-400 text-xs">No Image</span>
+                          <span className="text-gray-400 text-xs">
+                            No Image
+                          </span>
                         </div>
                       </div>
                       <div className="text-sm flex-1">
                         <p className="font-medium text-gray-800 mb-1">
                           {item.productName || "Product Name"}
                         </p>
-                        <p className="text-xs text-gray-500">Qty: {item.quantity || 1}</p>
-                        <p className="text-xs text-gray-500">{formatGHS(item.price || 0)}</p>
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <span>Qty: {qty}</span>
+                          <span>×</span>
+                          <span>
+                            Unit Price: {formatGHS(unitPrice)}
+                          </span>
+                        </div>
                       </div>
                     </div>
                     <div className="text-right">
-                      {/* ✅ FIX: Display correctly calculated line total */}
                       <p className="text-md font-semibold text-gray-800">
                         {formatGHS(lineTotal)}
                       </p>
@@ -855,16 +833,19 @@ const Checkout = () => {
               <span>{formatGHS(calculateSubtotal())}</span>
             </div>
 
-            {/* CHARGES BREAKDOWN */}
+            {/* CHARGES */}
             <div className="mt-4 space-y-2 text-sm">
-              {/* Shipping Fee */}
               <div className="flex justify-between items-center">
                 <Text>Shipping Fee:</Text>
                 {isFreeDelivery ? (
-                  <Text className="text-green-600 font-semibold">FREE DELIVERY</Text>
+                  <Text className="text-green-600 font-semibold">
+                    FREE DELIVERY
+                  </Text>
                 ) : isNADelivery ? (
                   <Text type="warning" className="text-amber-600">
-                    {isAgent ? "Agent delivery" : "Delivery charges apply"}
+                    {isAgent
+                      ? "Agent delivery"
+                      : "Delivery charges apply"}
                   </Text>
                 ) : deliveryFee > 0 ? (
                   <Text strong>{formatGHS(deliveryFee)}</Text>
@@ -875,53 +856,68 @@ const Checkout = () => {
                 )}
               </div>
 
-              {/* Service Charge for Mobile Money (display only) */}
               {paymentMethod === "Mobile Money" && (
                 <div className="flex justify-between items-center bg-blue-50 p-2 rounded-lg">
-                  <Text className="text-gray-700 font-medium">{getServiceChargeLabel()}</Text>
-                  <Text className="text-gray-700 font-medium">{formatGHS(calculateServiceCharge())}</Text>
+                  <Text className="text-gray-700 font-medium">
+                    {getServiceChargeLabel()}
+                  </Text>
+                  <Text className="text-gray-700 font-medium">
+                    {formatGHS(calculateServiceCharge())}
+                  </Text>
                 </div>
               )}
 
-              {/* TOTAL AMOUNT */}
               <div className="flex justify-between items-center pt-2 border-t border-gray-300 bg-gradient-to-r from-red-50 to-orange-50 p-3 rounded-lg">
-                <Text className="text-red-600 font-bold text-lg">Total Amount:</Text>
                 <Text className="text-red-600 font-bold text-lg">
-                  {paymentMethod === "Mobile Money" 
+                  Total Amount:
+                </Text>
+                <Text className="text-red-600 font-bold text-lg">
+                  {paymentMethod === "Mobile Money"
                     ? formatGHS(calculateDisplayTotalWithCharge())
-                    : formatGHS(calculateTotalAmount())
-                  }
+                    : formatGHS(calculateTotalAmount())}
                 </Text>
               </div>
 
-              {/* Informational note for Mobile Money */}
               {paymentMethod === "Mobile Money" && (
                 <p className="text-xs text-gray-500 italic text-center mt-1">
-                  * Service charge is applied by your mobile money provider. You will be prompted to pay {formatGHS(calculateDisplayTotalWithCharge())} on your phone.
+                  * Service charge is applied by your mobile money
+                  provider.
                 </p>
               )}
             </div>
 
             <Divider className="my-6" />
 
-            {/* PAYMENT METHOD SELECTION */}
+            {/* PAYMENT METHOD */}
             <div>
-              <Text strong className="text-sm block mb-3">Payment Method</Text>
+              <Text strong className="text-sm block mb-3">
+                Payment Method
+              </Text>
               <Radio.Group
                 value={paymentMethod}
                 onChange={handlePaymentMethodChange}
                 className="flex flex-col gap-3"
               >
-                {(isAgent || isFreeDelivery || (deliveryFee > 0 && !isNADelivery)) && (
-                  <Radio value="Cash on Delivery" className="text-sm">Cash on Delivery</Radio>
+                {(isAgent ||
+                  isFreeDelivery ||
+                  (deliveryFee > 0 && !isNADelivery)) && (
+                  <Radio value="Cash on Delivery" className="text-sm">
+                    Cash on Delivery
+                  </Radio>
                 )}
                 {!isAgent && (
-                  <Radio value="Mobile Money" className="text-sm">Mobile Money</Radio>
+                  <Radio value="Mobile Money" className="text-sm">
+                    Mobile Money
+                  </Radio>
                 )}
                 {isAgent && (
                   <>
-                    <Radio value="Pick Up" className="text-sm">Pick Up</Radio>
-                    <Radio value="Paid Already" className="text-sm">Paid Already</Radio>
+                    <Radio value="Pick Up" className="text-sm">
+                      Pick Up
+                    </Radio>
+                    <Radio value="Paid Already" className="text-sm">
+                      Paid Already
+                    </Radio>
                   </>
                 )}
               </Radio.Group>
@@ -950,9 +946,25 @@ const Checkout = () => {
                 <div className="relative flex items-center justify-center gap-3">
                   {loading ? (
                     <>
-                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                      <svg
+                        className="animate-spin h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                        />
                       </svg>
                       <span>Processing Order...</span>
                     </>
@@ -982,16 +994,20 @@ const Checkout = () => {
             <ExclamationTriangleIcon className="w-8 h-8 text-amber-500" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-gray-800 mb-1">Real name required</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-1">
+              Real name required
+            </h3>
             <p className="text-sm text-gray-500 leading-relaxed">
               Please enter your actual full name before placing an order.
               <br />
-              <span className="text-amber-600 font-medium">Guest accounts must provide a real name.</span>
+              <span className="text-amber-600 font-medium">
+                Guest accounts must provide a real name.
+              </span>
             </p>
           </div>
           <button
             onClick={() => setIsGuestWarningVisible(false)}
-            className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold transition-colors"
+            className="w-full py-2.5 rounded-xl bg-red-500 hover:bg-red-300 text-white font-semibold transition-colors"
           >
             OK, I'll update my name
           </button>
@@ -1021,40 +1037,64 @@ const Checkout = () => {
       >
         <div className="space-y-3 mt-4">
           <p className="text-gray-600 mb-4">
-            Please fill in the following required fields to place your order:
+            Please fill in the following required fields to place your
+            order:
           </p>
           {validateRequiredFields().map((error, index) => {
             const getIcon = (field) => {
               switch (field) {
-                case "name": return <UserIcon className="w-4 h-4 text-red-500" />;
-                case "phone": return <PhoneIcon className="w-4 h-4 text-red-500" />;
-                case "address": return <MapPinIcon className="w-4 h-4 text-red-500" />;
-                case "payment": return <CreditCardIcon className="w-4 h-4 text-red-500" />;
-                default: return <ExclamationTriangleIcon className="w-4 h-4 text-red-500" />;
+                case "name":
+                  return (
+                    <UserIcon className="w-4 h-4 text-red-500" />
+                  );
+                case "phone":
+                  return (
+                    <PhoneIcon className="w-4 h-4 text-red-500" />
+                  );
+                case "address":
+                  return (
+                    <MapPinIcon className="w-4 h-4 text-red-500" />
+                  );
+                case "payment":
+                  return (
+                    <CreditCardIcon className="w-4 h-4 text-red-500" />
+                  );
+                default:
+                  return (
+                    <ExclamationTriangleIcon className="w-4 h-4 text-red-500" />
+                  );
               }
             };
-
             const getFieldName = (field) => {
               switch (field) {
-                case "name": return "Recipient Name";
-                case "phone": return "Contact Number";
-                case "address": return "Delivery Address";
-                case "payment": return "Payment Method";
-                default: return "Required Field";
+                case "name":
+                  return "Recipient Name";
+                case "phone":
+                  return "Contact Number";
+                case "address":
+                  return "Delivery Address";
+                case "payment":
+                  return "Payment Method";
+                default:
+                  return "Required Field";
               }
             };
-
             return (
-              <div key={index} className="flex items-center gap-3 p-2 bg-red-50 rounded-lg border border-red-200">
+              <div
+                key={index}
+                className="flex items-center gap-3 p-2 bg-red-50 rounded-lg border border-red-200"
+              >
                 {getIcon(error.field)}
-                <span className="text-sm font-medium text-red-700">{getFieldName(error.field)}</span>
+                <span className="text-sm font-medium text-red-700">
+                  {getFieldName(error.field)}
+                </span>
               </div>
             );
           })}
         </div>
       </Modal>
 
-      {/* PAYMENT MODAL (for Mobile Money) */}
+      {/* PAYMENT MODAL */}
       {!isAgent && (
         <Modal
           open={isPaymentModalVisible}
@@ -1073,69 +1113,110 @@ const Checkout = () => {
           <div className="py-2 space-y-5">
             {/* HEADER */}
             <div className="text-center mb-1">
-              <img 
-                src={frankoLogo} 
-                alt="Franko Trading" 
+              <img
+                src={frankoLogo}
+                alt="Franko Trading"
                 className="h-12 mx-auto mb-2"
                 onError={(e) => {
-                  e.target.style.display = 'none';
+                  e.target.style.display = "none";
                 }}
               />
-              <p className="text-md text-gray-600 font-black">Franko Trading Limited</p>
+              <p className="text-md text-gray-600 font-black">
+                Franko Trading Limited
+              </p>
             </div>
 
             {/* AMOUNT DISPLAY */}
             <div className="bg-gradient-to-r from-green-50 to-green-100 p-2 rounded-xl text-center border border-green-200">
-              <p className="text-gray-600 text-sm font-medium">You will be prompted to pay</p>
+              <p className="text-gray-600 text-sm font-medium">
+                You will be prompted to pay
+              </p>
               <p className="text-xl font-bold text-green-700 mt-1">
                 {formatGHS(calculateDisplayTotalWithCharge())}
               </p>
               {calculateServiceCharge() > 0 && (
                 <p className="text-xs text-gray-500 mt-1">
-                  (Includes {formatGHS(calculateServiceCharge())} service fee)
+                 
                 </p>
               )}
-              <p className="text-xs text-gray-400 mt-1">Order Ref: {currentOrderId}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Order Ref: {currentOrderId}
+              </p>
+            </div>
+
+            {/* ✅ NEW: Cart items description shown in the payment modal */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
+                Order Items
+              </p>
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {cartItems.map((item, index) => {
+                  const qty = getItemQuantity(item);
+                  const unitPrice = getItemUnitPrice(item);
+                  return (
+                    <div
+                      key={item.productId || index}
+                      className="flex justify-between items-center text-xs"
+                    >
+                      <span className="text-gray-700 truncate mr-2 flex-1">
+                        {item.productName || "Item"}
+                        {qty > 1 && (
+                          <span className="text-gray-400 ml-1">
+                            ×{qty}
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-gray-800 font-medium whitespace-nowrap">
+                        {formatGHS(unitPrice * qty)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="border-t border-gray-200 mt-2 pt-2 flex justify-between text-xs font-bold text-gray-800">
+                <span>Subtotal</span>
+                <span>{formatGHS(calculateSubtotal())}</span>
+              </div>
             </div>
 
             {/* INPUT STAGE */}
             {paymentStatus === "input" && (
               <>
-                {/* STEP 1: PHONE NUMBER */}
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <label className="text-sm font-bold text-gray-800 block mb-2 flex items-center gap-2">
-                    <span className="bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">1</span>
+                    <span className="bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">
+                      1
+                    </span>
                     Enter Your Mobile Money Number
                   </label>
                   <Input
                     placeholder="233XXXXXXXXX"
                     value={momoNumber}
                     onChange={handleMomoNumberChange}
-                    prefix={<PhoneIcon className="w-4 h-4 text-gray-400" />}
+                    prefix={
+                      <PhoneIcon className="w-4 h-4 text-gray-400" />
+                    }
                     size="large"
                     maxLength={12}
                     className="rounded-lg font-semibold text-lg"
-                    style={{ fontSize: '18px' }}
+                    style={{ fontSize: "18px" }}
                   />
                   <div className="mt-2 space-y-1">
                     <p className="text-xs text-gray-600">
                       Enter the phone number registered for Mobile Money
                     </p>
-
                     {startsWithZeroAfter233() && (
                       <p className="text-xs text-red-500 font-medium animate-pulse">
                         Do not begin the number with 0 after 233
                       </p>
                     )}
-
                     {momoNumber.length === 12 &&
                       !isValidMomoNumber() &&
                       !startsWithZeroAfter233() && (
                         <p className="text-xs text-red-500 font-medium animate-pulse">
                           Please enter a valid 9-digit number after 233
                         </p>
-                    )}
-
+                      )}
                     {isValidMomoNumber() && (
                       <p className="text-xs text-green-600 font-medium flex items-center gap-1">
                         <CheckCircleIcon className="w-4 h-4" />
@@ -1145,21 +1226,24 @@ const Checkout = () => {
                   </div>
                 </div>
 
-                {/* STEP 2: NETWORK SELECTION */}
                 <div className="bg-gray-50 p-2 rounded-lg">
                   <label className="text-sm font-bold text-gray-800 block mb-2 flex items-center gap-2">
-                    <span className="bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">2</span>
+                    <span className="bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">
+                      2
+                    </span>
                     Select your Mobile Money Network
                   </label>
-                  
-                  <Radio.Group 
+
+                  <Radio.Group
                     value={selectedNetwork}
-                    onChange={(e) => setSelectedNetwork(e.target.value)}
+                    onChange={(e) =>
+                      setSelectedNetwork(e.target.value)
+                    }
                     className="w-full"
                   >
                     <div className="space-y-3">
                       {/* MTN */}
-                      <label 
+                      <label
                         className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${
                           selectedNetwork === "mtn"
                             ? "border-yellow-500 bg-yellow-50"
@@ -1168,21 +1252,28 @@ const Checkout = () => {
                       >
                         <Radio value="mtn" />
                         <div className="flex items-center gap-3 ml-3 flex-1">
-                          <img 
-                            src={mtnLogo} 
-                            alt="MTN" 
+                          <img
+                            src={mtnLogo}
+                            alt="MTN"
                             className="h-10 w-10 object-contain"
                             onError={(e) => {
-                              e.target.style.display = 'none';
-                              e.target.nextSibling.style.display = 'flex';
+                              e.target.style.display = "none";
+                              e.target.nextSibling.style.display =
+                                "flex";
                             }}
                           />
                           <div className="w-10 h-10 rounded-full bg-yellow-400 items-center justify-center hidden">
-                            <span className="text-xs font-bold">MTN</span>
+                            <span className="text-xs font-bold">
+                              MTN
+                            </span>
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-gray-800">MTN</p>
-                            <p className="text-xs text-gray-500">MTN Mobile Money</p>
+                            <p className="text-sm font-semibold text-gray-800">
+                              MTN
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              MTN Mobile Money
+                            </p>
                           </div>
                         </div>
                         {selectedNetwork === "mtn" && (
@@ -1190,8 +1281,8 @@ const Checkout = () => {
                         )}
                       </label>
 
-                      {/* VODAFONE */}
-                      <label 
+                      {/* Vodafone */}
+                      <label
                         className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${
                           selectedNetwork === "vodafone"
                             ? "border-red-500 bg-red-50"
@@ -1200,21 +1291,28 @@ const Checkout = () => {
                       >
                         <Radio value="vodafone" />
                         <div className="flex items-center gap-3 ml-3 flex-1">
-                          <img 
-                            src={vodafoneLogo} 
-                            alt="Vodafone" 
+                          <img
+                            src={vodafoneLogo}
+                            alt="Vodafone"
                             className="h-10 w-10 object-contain"
                             onError={(e) => {
-                              e.target.style.display = 'none';
-                              e.target.nextSibling.style.display = 'flex';
+                              e.target.style.display = "none";
+                              e.target.nextSibling.style.display =
+                                "flex";
                             }}
                           />
                           <div className="w-10 h-10 rounded-full bg-red-500 items-center justify-center hidden">
-                            <span className="text-xs font-bold text-white">VOD</span>
+                            <span className="text-xs font-bold text-white">
+                              VOD
+                            </span>
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-gray-800">Vodafone</p>
-                            <p className="text-xs text-gray-500">Vodafone Cash</p>
+                            <p className="text-sm font-semibold text-gray-800">
+                              Vodafone
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Vodafone Cash
+                            </p>
                           </div>
                         </div>
                         {selectedNetwork === "vodafone" && (
@@ -1222,8 +1320,8 @@ const Checkout = () => {
                         )}
                       </label>
 
-                      {/* AIRTELTIGO */}
-                      <label 
+                      {/* AirtelTigo */}
+                      <label
                         className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${
                           selectedNetwork === "airteltigo"
                             ? "border-blue-500 bg-blue-50"
@@ -1232,21 +1330,28 @@ const Checkout = () => {
                       >
                         <Radio value="airteltigo" />
                         <div className="flex items-center gap-3 ml-3 flex-1">
-                          <img 
-                            src={airteltigoLogo} 
-                            alt="AirtelTigo" 
+                          <img
+                            src={airteltigoLogo}
+                            alt="AirtelTigo"
                             className="h-10 w-10 object-contain"
                             onError={(e) => {
-                              e.target.style.display = 'none';
-                              e.target.nextSibling.style.display = 'flex';
+                              e.target.style.display = "none";
+                              e.target.nextSibling.style.display =
+                                "flex";
                             }}
                           />
                           <div className="w-10 h-10 rounded-full bg-blue-500 items-center justify-center hidden">
-                            <span className="text-xs font-bold text-white">AT</span>
+                            <span className="text-xs font-bold text-white">
+                              AT
+                            </span>
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-gray-800">AirtelTigo</p>
-                            <p className="text-xs text-gray-500">AirtelTigo Money</p>
+                            <p className="text-sm font-semibold text-gray-800">
+                              AirtelTigo
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              AirtelTigo Money
+                            </p>
                           </div>
                         </div>
                         {selectedNetwork === "airteltigo" && (
@@ -1260,37 +1365,72 @@ const Checkout = () => {
                 {/* PAY BUTTON */}
                 <button
                   onClick={handlePayNow}
-                  disabled={!isValidMomoNumber() || !selectedNetwork || payButtonLoading}
+                  disabled={
+                    !isValidMomoNumber() ||
+                    !selectedNetwork ||
+                    payButtonLoading
+                  }
                   className={`w-full py-4 rounded-xl font-bold text-white text-lg transition-all duration-300 ${
-                    !isValidMomoNumber() || !selectedNetwork || payButtonLoading
+                    !isValidMomoNumber() ||
+                    !selectedNetwork ||
+                    payButtonLoading
                       ? "bg-gray-400 cursor-not-allowed"
                       : "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 hover:shadow-lg active:scale-[0.98]"
                   }`}
                 >
                   {payButtonLoading ? (
                     <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                      <svg
+                        className="animate-spin h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                        />
                       </svg>
                       Sending payment request...
                     </span>
                   ) : (
                     <span className="flex items-center justify-center gap-2">
                       <CreditCardIcon className="w-6 h-6" />
-                      Pay {formatGHS(calculateDisplayTotalWithCharge())}
+                      Pay{" "}
+                      {formatGHS(calculateDisplayTotalWithCharge())}
                     </span>
                   )}
                 </button>
 
                 {/* INSTRUCTIONS */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm font-semibold text-blue-800 mb-2">What happens next?</p>
+                  <p className="text-sm font-semibold text-blue-800 mb-2">
+                    What happens next?
+                  </p>
                   <ol className="text-xs text-blue-700 space-y-1 list-decimal list-inside">
-                    <li>You will receive a payment prompt on your phone</li>
-                    <li>Enter your Mobile Money PIN to approve</li>
-                    <li>Wait for confirmation (usually takes 10-25 seconds)</li>
-                    <li>Your order will be processed immediately after payment</li>
+                    <li>
+                      You will receive a payment prompt on your phone
+                    </li>
+                    <li>
+                      Enter your Mobile Money PIN to approve
+                    </li>
+                    <li>
+                      Wait for confirmation (usually takes 10-25
+                      seconds)
+                    </li>
+                    <li>
+                      Your order will be processed immediately after
+                      payment
+                    </li>
                   </ol>
                   <p className="text-xs text-blue-600 mt-2 font-medium">
                     Tip: Keep your phone nearby to approve the payment
@@ -1307,8 +1447,12 @@ const Checkout = () => {
                   <PhoneIcon className="absolute w-8 h-8 text-green-600 animate-pulse" />
                 </div>
                 <div>
-                  <p className="font-bold text-gray-800 text-lg">Payment Request Sent!</p>
-                  <p className="text-gray-600 mt-2">Check your phone now</p>
+                  <p className="font-bold text-gray-800 text-lg">
+                    Payment Request Sent!
+                  </p>
+                  <p className="text-gray-600 mt-2">
+                    Check your phone now
+                  </p>
                   <p className="text-sm text-gray-500 mt-1">
                     A payment prompt has been sent to
                   </p>
@@ -1317,13 +1461,26 @@ const Checkout = () => {
                       {momoNumber}
                     </p>
                     <p className="text-xs text-gray-600">
-                      Network: {selectedNetwork?.toUpperCase()}
+                      Network:{" "}
+                      {selectedNetwork?.toUpperCase()}
                     </p>
                     <p className="text-sm font-bold text-green-700 mt-2">
-                      Amount: {formatGHS(calculateDisplayTotalWithCharge())}
+                      Amount:{" "}
+                      {formatGHS(
+                        calculateDisplayTotalWithCharge()
+                      )}
                     </p>
                     <p className="text-xs text-gray-500">
-                      (includes {formatGHS(calculateServiceCharge())} service fee)
+                      (includes{" "}
+                      {formatGHS(calculateServiceCharge())}{" "}
+                      service fee)
+                    </p>
+                  </div>
+                  {/* ✅ Show what the payment is for during pending */}
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mt-3">
+                    <p className="text-xs text-amber-700 font-medium">
+                      Payment for:{" "}
+                      {buildCartNarration(cartItems, 80)}
                     </p>
                   </div>
                 </div>
@@ -1333,9 +1490,15 @@ const Checkout = () => {
             {/* SUCCESS STAGE */}
             {paymentStatus === "success" && (
               <div className="text-center space-y-4 py-6">
-                <div className="text-green-500 text-7xl animate-bounce">✅</div>
-                <p className="font-bold text-green-600 text-2xl">Payment Successful!</p>
-                <p className="text-gray-600">Your order is being processed...</p>
+                <div className="text-green-500 text-7xl animate-bounce">
+                  ✅
+                </div>
+                <p className="font-bold text-green-600 text-2xl">
+                  Payment Successful!
+                </p>
+                <p className="text-gray-600">
+                  Your order is being processed...
+                </p>
               </div>
             )}
 
@@ -1343,8 +1506,12 @@ const Checkout = () => {
             {paymentStatus === "failed" && (
               <div className="text-center space-y-4 py-6">
                 <div className="text-red-500 text-7xl">❌</div>
-                <p className="font-bold text-red-600 text-2xl">Payment Failed</p>
-                <p className="text-gray-600">The transaction was not completed</p>
+                <p className="font-bold text-red-600 text-2xl">
+                  Payment Failed
+                </p>
+                <p className="text-gray-600">
+                  The transaction was not completed
+                </p>
               </div>
             )}
           </div>
