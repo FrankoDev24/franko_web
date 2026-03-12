@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Form, Input, Select, Modal, InputNumber, Checkbox} from "antd";
-import { EnvironmentOutlined, PhoneOutlined,UserOutlined, AimOutlined,PushpinOutlined, SaveOutlined, DollarOutlined, SearchOutlined} from "@ant-design/icons";
+import { EnvironmentOutlined, PhoneOutlined, UserOutlined, AimOutlined, PushpinOutlined, SaveOutlined, DollarOutlined, SearchOutlined } from "@ant-design/icons";
 const { TextArea } = Input;
 const { Option } = Select;
 
@@ -14,67 +14,45 @@ const CheckoutForm = ({
   orderNote,
   setOrderNote,
   locations,
-  customerAccountType, // ✅ New prop
+  customerAccountType,
+  isDifferentRecipient,   // ✅ NEW: from Checkout — is the recipient different from account holder?
+  readOnlyRecipient,      // ✅ NEW: true = name/number fields are locked (same recipient)
 }) => {
   const [region, setRegion] = useState(null);
   const [town, setTown] = useState(null);
   const [fee, setFee] = useState(null);
-  const [manualAddress, setManualAddress] = useState(""); // ✅ Manual address input
-  const [agentManualAddress, setAgentManualAddress] = useState(""); // ✅ New field for agent manual address
-  const [agentDeliveryFee, setAgentDeliveryFee] = useState(0); // ✅ New field for agent delivery fee
-  const [isManualMode, setIsManualMode] = useState(false); // ✅ Toggle manual entry
+  const [manualAddress, setManualAddress] = useState("");
+  const [agentManualAddress, setAgentManualAddress] = useState("");
+  const [agentDeliveryFee, setAgentDeliveryFee] = useState(0);
+  const [isManualMode, setIsManualMode] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [searchText, setSearchText] = useState(""); // ✅ Search functionality
-  const [locationNotFound, setLocationNotFound] = useState(false); // ✅ Toggle for location not found
+  const [searchText, setSearchText] = useState("");
+  const [locationNotFound, setLocationNotFound] = useState(false);
 
-  // ✅ Helper function to check if delivery is explicitly free
-  const isDeliveryFree = (deliveryFee) => {
-    return deliveryFee === "Free delivery";
-  };
+  const isDeliveryFree = (deliveryFee) => deliveryFee === "Free delivery";
 
-  // ✅ Helper function to format delivery fee display
   const formatDeliveryFee = (deliveryFee) => {
-    if (deliveryFee === "Free delivery") {
-      return "Free delivery";
-    }
-    if (deliveryFee === 0) {
-      return "N/A";
-    }
-    return typeof deliveryFee === 'number' ? `₵${deliveryFee}` : deliveryFee;
+    if (deliveryFee === "Free delivery") return "Free delivery";
+    if (deliveryFee === 0) return "N/A";
+    return typeof deliveryFee === "number" ? `₵${deliveryFee}` : deliveryFee;
   };
 
-  // ✅ Helper function to get numeric fee value for calculations
   const getNumericFee = (deliveryFee) => {
-    if (deliveryFee === "Free delivery") {
-      return 0; // Free delivery counts as 0 for calculations
-    }
-    return typeof deliveryFee === 'number' ? deliveryFee : 0;
+    if (deliveryFee === "Free delivery") return 0;
+    return typeof deliveryFee === "number" ? deliveryFee : 0;
   };
 
   useEffect(() => {
     if (!modalVisible) {
+      // ✅ Encrypted localStorage auto-parses JSON — returns object directly, never a raw string
       const saved = localStorage.getItem("deliveryInfo");
-      if (saved) {
-        const parsed = (saved);
-        if (parsed?.address && parsed?.fee !== undefined) {
-          setDeliveryInfo(parsed);
-          setFee(parsed.fee);
-        }
+      if (saved && typeof saved === "object" && saved.address && saved.fee !== undefined) {
+        setDeliveryInfo(saved);
+        setFee(saved.fee);
       }
     }
   }, [modalVisible, setDeliveryInfo]);
 
-  // ✅ Don't load customer name from localStorage for guest users
-  useEffect(() => {
-    if (customerAccountType !== "guest") {
-      const savedName = localStorage.getItem("customerName");
-      if (savedName && !customerName) {
-        setCustomerName(savedName);
-      }
-    }
-  }, [customerAccountType, customerName, setCustomerName]);
-
-  // ✅ Update delivery info when agent manual address or fee changes
   useEffect(() => {
     if (customerAccountType === "agent" && agentManualAddress) {
       const info = { address: agentManualAddress, fee: agentDeliveryFee };
@@ -97,28 +75,22 @@ const CheckoutForm = ({
     }
   };
 
-  // ✅ Filter locations based on search text - FIXED: Added null checking
   const getFilteredLocations = () => {
-    // Add null/undefined check for locations
     if (!locations || !Array.isArray(locations)) return [];
     if (!searchText) return locations;
-    
     return locations.map(region => ({
       ...region,
-      towns: region.towns?.filter(town => 
+      towns: region.towns?.filter(town =>
         town.name?.toLowerCase().includes(searchText.toLowerCase()) ||
         region.region?.toLowerCase().includes(searchText.toLowerCase())
       ) || []
     })).filter(region => region.towns.length > 0);
   };
 
-  // ✅ Handle direct town selection from search
   const handleTownSelect = (townName, regionName) => {
     if (!locations || !Array.isArray(locations)) return;
-    
     const selectedRegion = locations.find(r => r.region === regionName);
     const selectedTown = selectedRegion?.towns?.find(t => t.name === townName);
-    
     if (selectedTown) {
       setRegion(regionName);
       setTown(townName);
@@ -133,28 +105,20 @@ const CheckoutForm = ({
     let feeDisplay = "";
 
     if (isManualMode || locationNotFound) {
-      const addressToUse = locationNotFound ? manualAddress : 
+      const addressToUse = locationNotFound ? manualAddress :
                           customerAccountType === "agent" ? agentManualAddress : manualAddress;
-      
       if (!addressToUse) return;
-      
       address = addressToUse;
-      // For manual addresses, fee is 0 unless it's an agent setting their own fee
       finalFee = (customerAccountType === "agent" && !locationNotFound) ? agentDeliveryFee : 0;
-      
-      // Set display for manual addresses
       if (customerAccountType === "agent" && !locationNotFound) {
         feeDisplay = finalFee === 0 ? "N/A" : `₵${finalFee}`;
       } else {
-        feeDisplay = "N/A"; // Manual addresses default to N/A
+        feeDisplay = "N/A";
       }
     } else {
       if (!region || !town || fee === null) return;
       address = `${town} (${region})`;
-      // ✅ Convert delivery fee to numeric value for storage
       finalFee = getNumericFee(fee);
-      
-      // Set display based on original fee value
       if (fee === "Free delivery") {
         feeDisplay = "Free delivery";
       } else if (fee === 0) {
@@ -164,18 +128,18 @@ const CheckoutForm = ({
       }
     }
 
-    const info = { 
-      address, 
+    const info = {
+      address,
       fee: finalFee,
       isManual: isManualMode || locationNotFound,
-      feeDisplay: feeDisplay // ✅ Store proper display format
+      feeDisplay,
     };
-    
+
     setDeliveryInfo(info);
-    localStorage.setItem("deliveryInfo", (info));
+    // ✅ Encrypted localStorage handles serialisation automatically
+    localStorage.setItem("deliveryInfo", info);
     window.dispatchEvent(new Event("storage"));
-    
-    // Reset modal state
+
     setModalVisible(false);
     setManualAddress("");
     setAgentDeliveryFee(0);
@@ -202,29 +166,33 @@ const CheckoutForm = ({
   return (
     <Form layout="vertical" className="p-2 rounded-2xl max-w-2xl mx-auto space-y-6">
 
-      {/* Full Name */}
-      <Form.Item label="Recipient Name" required>
+      {/* ── Recipient Name ── */}
+      <Form.Item
+        label="Recipient Name" 
+        required
+      >
         <Input
           prefix={<UserOutlined className="text-gray-400" />}
           value={customerName}
           onChange={(e) => setCustomerName(e.target.value)}
-          placeholder="Enter your full name"
-          allowClear
+          placeholder="Enter recipient name"
         />
       </Form.Item>
 
-      {/* Phone Number */}
-      <Form.Item label="Recipient contact" required>
+      {/* ── Recipient Contact ── */}
+      <Form.Item
+        label="Recipient Contact" 
+        required
+      >
         <Input
           prefix={<PhoneOutlined className="text-gray-400" />}
           value={customerNumber}
           onChange={(e) => setCustomerNumber(e.target.value)}
-          placeholder="Enter your phone number"
-          allowClear
+          placeholder="Enter phone number"
         />
       </Form.Item>
 
-      {/* Agent Manual Address Input - Only shown for agents */}
+      {/* ── Agent Delivery Address ── */}
       {customerAccountType === "agent" && (
         <Form.Item label={<span className="text-sm text-gray-700">Delivery Address</span>} required>
           <div className="space-y-3">
@@ -254,49 +222,100 @@ const CheckoutForm = ({
         </Form.Item>
       )}
 
+      {/* ── Customer Delivery Address ── */}
       {customerAccountType !== "agent" && (
-        <Form.Item label={<span className=" text-sm text-gray-700">Delivery Address</span>}>
-          <div className="flex flex-col lg:flex-row lg:items-center md:justify-between gap-4 bg-white p-5 rounded-xl border border-gray-200 shadow-sm transition-shadow hover:shadow-md">
-            <div className="flex-1 text-sm text-gray-800">
-              {deliveryInfo?.address ? (
-                <>
-                  <p className="flex items-center gap-2 mb-2 text-gray-700">
-                    <EnvironmentOutlined className="text-green-500 text-lg" />
-                    <span className="font-medium">{deliveryInfo.address}</span>
-                  </p>
-                  <p className="text-green-600 text-sm flex items-center gap-2">
-                    Delivery Fee:&nbsp;
-                    <strong className="text-green-700">
-                      {deliveryInfo.feeDisplay || formatDeliveryFee(deliveryInfo.fee)}
-                    </strong>
-                  
-                   
-                  </p>
-                </>
-              ) : (
-                <p className="text-gray-500 italic">No address selected</p>
-              )}
-            </div>
+        <Form.Item
+          label={
+            <span className="flex items-center gap-1 text-sm font-semibold text-gray-700">
+              Delivery Address
+              <span className="text-red-500 ml-0.5">*</span>
+            </span>
+          }
+          required
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setIsManualMode(false);
+              setLocationNotFound(false);
+              setModalVisible(true);
+            }}
+            className={`
+              w-full text-left transition-all duration-200 rounded-2xl border-2 overflow-hidden
+              focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-1
+              ${deliveryInfo?.address
+                ? "border-green-400 bg-gradient-to-br from-green-50 to-emerald-50 hover:border-green-500 hover:shadow-md"
+                : "border-dashed border-gray-300 bg-gray-50 hover:border-green-400 hover:bg-green-50"
+              }
+            `}
+          >
+            {deliveryInfo?.address ? (
+              /* ── Address selected state ── */
+              <div className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    {/* Pin icon badge */}
+                    <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-green-500 flex items-center justify-center shadow-sm mt-0.5">
+                      <EnvironmentOutlined className="text-white text-base" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-green-600 uppercase tracking-wider mb-0.5">
+                        Delivering to
+                      </p>
+                      <p className="text-sm font-bold text-gray-800 leading-snug truncate">
+                        {deliveryInfo.address}
+                      </p>
+                      {/* Fee pill */}
+                      <span className={`
+                        inline-flex items-center gap-1 mt-2 px-2.5 py-0.5 rounded-full text-xs font-semibold
+                        ${deliveryInfo.feeDisplay === "Free delivery" || deliveryInfo.fee === 0
+                          ? "bg-green-100 text-green-700"
+                          : "bg-blue-100 text-blue-700"
+                        }
+                      `}>
+                        🚚&nbsp;
+                        {deliveryInfo.feeDisplay
+                          ? deliveryInfo.feeDisplay === "Free delivery" ? "Free Delivery" : `Delivery: ${deliveryInfo.feeDisplay}`
+                          : deliveryInfo.fee === 0 ? "Delivery: N/A" : `Delivery: ₵${deliveryInfo.fee}`
+                        }
+                      </span>
+                    </div>
+                  </div>
+                  {/* Change chevron */}
+                  <div className="flex-shrink-0 flex items-center gap-1 text-green-600 bg-white border border-green-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold shadow-sm hover:bg-green-50 transition-colors">
+                    <AimOutlined className="text-sm" />
+                    Change
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* ── Empty / prompt state ── */
+              <div className="p-5 flex flex-col items-center justify-center gap-2 text-center">
+                <div className="w-12 h-12 rounded-2xl bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center mb-1">
+                  <EnvironmentOutlined className="text-gray-400 text-xl" />
+                </div>
+                <p className="text-sm font-semibold text-gray-700">Select delivery address</p>
+                <p className="text-xs text-gray-400 leading-relaxed max-w-[200px]">
+                  Tap to choose your region &amp; town for accurate delivery fee
+                </p>
+                <div className="mt-1 inline-flex items-center gap-1.5 bg-green-500 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-sm">
+                  <AimOutlined />
+                  Choose Location
+                </div>
+              </div>
+            )}
+          </button>
 
-            <div className="flex flex-col gap-2 md:items-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsManualMode(false);
-                  setLocationNotFound(false);
-                  setModalVisible(true);
-                }}
-                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-2 py-1.5 rounded-lg shadow-md transition transform hover:scale-105 flex items-center gap-2"
-              >
-                <AimOutlined className="text-md" />
-                <span className="font-medium">Select Location</span>
-              </button>
-            </div>
-          </div>
+          {/* Required hint when empty */}
+          {!deliveryInfo?.address && (
+            <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1">
+              <span className="text-red-400">⚠</span> Required — please select a delivery location
+            </p>
+          )}
         </Form.Item>
       )}
 
-      {/* Order Note */}
+      {/* ── Order Note ── */}
       <Form.Item label="Order Note (Optional)">
         <TextArea
           rows={4}
@@ -306,7 +325,7 @@ const CheckoutForm = ({
         />
       </Form.Item>
 
-      {/* Modal */}
+      {/* ── Location Modal ── */}
       <Modal
         title={<span className="flex items-center gap-2 text-lg"><PushpinOutlined /> Select Delivery Location</span>}
         open={modalVisible}
@@ -315,12 +334,8 @@ const CheckoutForm = ({
         width={600}
       >
         <Form layout="vertical" className="space-y-4">
-          
-        
-          
           {!locationNotFound && (
             <>
-              {/* Search Input */}
               <Form.Item label="Search for your location">
                 <Input
                   prefix={<SearchOutlined className="text-gray-400" />}
@@ -332,13 +347,12 @@ const CheckoutForm = ({
                 />
               </Form.Item>
 
-              {/* Show search results or region/town selectors */}
               {searchText ? (
                 <div className="max-h-60 overflow-y-auto border rounded-lg">
                   <div className="p-2">
                     <h4 className="text-sm font-medium text-gray-600 mb-2">Search Results:</h4>
                     {getFilteredLocations().length > 0 ? (
-                      getFilteredLocations().map(region => 
+                      getFilteredLocations().map(region =>
                         region.towns?.map(town => (
                           <div
                             key={`${region.region}-${town.name}`}
@@ -349,10 +363,10 @@ const CheckoutForm = ({
                               <strong>{town.name}</strong> ({region.region})
                             </span>
                             <span className={`text-sm font-medium px-2 py-1 rounded ${
-                              town.delivery_fee === "Free delivery" 
+                              town.delivery_fee === "Free delivery"
                                 ? "text-green-600 bg-green-100"
                                 : town.delivery_fee === 0
-                                ? "text-gray-600 bg-gray-100"  
+                                ? "text-gray-600 bg-gray-100"
                                 : "text-blue-600 bg-blue-100"
                             }`}>
                               {formatDeliveryFee(town.delivery_fee)}
@@ -367,7 +381,6 @@ const CheckoutForm = ({
                 </div>
               ) : (
                 <>
-                  {/* Region */}
                   <Form.Item label="Select Region">
                     <Select
                       placeholder="Choose region"
@@ -376,18 +389,15 @@ const CheckoutForm = ({
                       size="large"
                       showSearch
                       filterOption={(input, option) =>
-                        (option?.children || option?.label || '').toString().toLowerCase().includes(input.toLowerCase())
+                        (option?.children || option?.label || "").toString().toLowerCase().includes(input.toLowerCase())
                       }
                     >
                       {locations && Array.isArray(locations) && locations.map((loc) => (
-                        <Option key={loc.region} value={loc.region}>
-                          {loc.region}
-                        </Option>
+                        <Option key={loc.region} value={loc.region}>{loc.region}</Option>
                       ))}
                     </Select>
                   </Form.Item>
 
-                  {/* Town */}
                   {region && (
                     <Form.Item label="Select Town">
                       <Select
@@ -397,7 +407,7 @@ const CheckoutForm = ({
                         size="large"
                         showSearch
                         filterOption={(input, option) =>
-                          (option?.children || option?.label || '').toString().toLowerCase().includes(input.toLowerCase())
+                          (option?.children || option?.label || "").toString().toLowerCase().includes(input.toLowerCase())
                         }
                       >
                         {locations
@@ -407,7 +417,7 @@ const CheckoutForm = ({
                               <div className="flex justify-between items-center">
                                 <span>{t.name}</span>
                                 <span className={`font-medium ${
-                                  t.delivery_fee === "Free delivery" 
+                                  t.delivery_fee === "Free delivery"
                                     ? "text-green-600"
                                     : t.delivery_fee === 0
                                     ? "text-gray-600"
@@ -424,7 +434,6 @@ const CheckoutForm = ({
                 </>
               )}
 
-              {/* Checkbox for location not found */}
               <div className="border-t pt-4">
                 <Checkbox
                   checked={locationNotFound}
@@ -445,7 +454,6 @@ const CheckoutForm = ({
             </>
           )}
 
-          {/* Manual Address Input */}
           {locationNotFound && (
             <>
               <Form.Item label="Enter your location manually">
@@ -456,23 +464,18 @@ const CheckoutForm = ({
                   onChange={(e) => setManualAddress(e.target.value)}
                 />
               </Form.Item>
-              
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                 <p className="text-sm text-gray-800">
-                  <strong>Note:</strong> For manual addresses, delivery fee will be marked as N/A. 
+                  <strong>Note:</strong> For manual addresses, delivery fee will be marked as N/A.
                   Our delivery team will contact you to confirm pricing and location.
                 </p>
               </div>
-
-              {/* Back to search option */}
               <div className="border-t pt-4">
                 <Checkbox
                   checked={!locationNotFound}
                   onChange={(e) => {
                     setLocationNotFound(!e.target.checked);
-                    if (e.target.checked) {
-                      setManualAddress("");
-                    }
+                    if (e.target.checked) setManualAddress("");
                   }}
                   className="text-sm"
                 >
@@ -482,7 +485,6 @@ const CheckoutForm = ({
             </>
           )}
 
-          {/* Save Button */}
           <div className="flex justify-end gap-3 border-t pt-4">
             <button
               type="button"
@@ -495,7 +497,7 @@ const CheckoutForm = ({
               type="button"
               onClick={handleSave}
               disabled={
-                (!locationNotFound && !region && !town) || 
+                (!locationNotFound && !region && !town) ||
                 (locationNotFound && !manualAddress)
               }
               className="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md flex items-center gap-2"

@@ -10,6 +10,7 @@ import speaker from "../assets/speaker.jpg";
 import blender from "../assets/blender.jpg";
 import ac from "../assets/ac.jpg";
 import accessories from "../assets/acce.png";
+import machine from "../assets/machine.jpg";
 
 const categories = [
   { name: "Phones", img: phone, route: "/phones" },
@@ -20,6 +21,7 @@ const categories = [
   { name: "Appliances", img: blender, route: "/appliances" },
   { name: "Air-conditioners", img: ac, route: "/air-condition" },
   { name: "Accessories", img: accessories, route: "/accessories" },
+  { name: "Washing Machine", img: machine, route: "/washing-machine" },
 ];
 
 const CategoryComponent = () => {
@@ -274,7 +276,7 @@ const CategoryComponent = () => {
 
             <div
               ref={scrollRef}
-              className="category-scroll flex gap-2 md:gap-8 lg:gap-10 overflow-x-auto md:px-4 lg:px-24"
+              className="category-scroll flex gap-2 md:gap-8 lg:gap-10 overflow-x-auto md:px-4 lg:px-10"
             >
               {categories.map((cat, idx) => (
                 <div

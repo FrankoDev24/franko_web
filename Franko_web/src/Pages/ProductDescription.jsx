@@ -6,95 +6,104 @@ import { fetchProductById, fetchProducts } from "../Redux/Slice/productSlice";
 import { updateCartItem, deleteCartItem, getCartById, addToCart } from '../Redux/Slice/cartSlice';
 import ProductDetailSkeleton from "../Component/ProductDetailSkeleton";
 import { Button, Tooltip, IconButton, Drawer } from "@material-tailwind/react";
-import { 
-  ShoppingCartIcon, 
-  CheckCircleIcon, 
-  HeartIcon as SolidHeartIcon, 
-  EyeIcon, 
-  TruckIcon, 
-  ShieldCheckIcon, 
-  PhoneIcon, 
+import {
+  ShoppingCartIcon,
+  CheckCircleIcon,
+  HeartIcon as SolidHeartIcon,
+  EyeIcon,
+  TruckIcon,
+  ShieldCheckIcon,
+  PhoneIcon,
   CreditCardIcon,
   ShareIcon,
   TrashIcon,
   MinusIcon,
   PlusIcon,
   XMarkIcon,
-  ExclamationTriangleIcon 
+  ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
 import ProductCard from "../Component/ProductCard";
 import AuthModal from "../Component/AuthModal";
 import { Helmet } from "react-helmet";
 import { Divider } from "antd";
 
+// ==================== UTILITY FUNCTIONS ====================
+
 const formatPrice = (price) => {
   if (!price || isNaN(price)) return "0";
   return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 };
 
-// Safe localStorage helper - works with encrypted localStorage
+/**
+ * ✅ FIX: Always compute item total from price × quantity.
+ * Never store or trust a pre-computed `total` field from any source.
+ */
+const getItemLineTotal = (item) => {
+  const price = parseFloat(item.price) || 0;
+  const quantity = parseInt(item.quantity, 10) || 1;
+  return price * quantity;
+};
+
+/**
+ * Normalize a raw cart item (from API or localStorage) into a clean shape.
+ * total is always recomputed — never taken from the payload.
+ */
+const normalizeCartItem = (item) => {
+  const price = parseFloat(item.price || item.Price || 0);
+  const quantity = parseInt(item.quantity || item.Quantity || 1, 10);
+  return {
+    productId: item.productId || item.ProductId,
+    productName: item.productName || item.ProductName,
+    imagePath: item.imagePath || item.ImagePath,
+    price,
+    quantity,
+    total: price * quantity, // always recomputed
+    cartId: item.cartId || item.CartId,
+    customerId: item.customerId || item.CustomerId || null,
+  };
+};
+
+// ==================== SAFE LOCALSTORAGE ====================
+
 const safeLocalStorage = {
   getItem: (key, defaultValue = null) => {
     try {
-      // The encrypted localStorage will handle decryption automatically
       const item = localStorage.getItem(key);
-      
-      if (item === null || item === undefined) {
-        return defaultValue;
-      }
-      
-      // The encrypted localStorage already parses JSON if possible
-      // So item should be either an object (already parsed) or a string
-      if (typeof item === 'object') {
-        return item;
-      }
-      
-      // If it's a string, try to parse it
+      if (item === null || item === undefined) return defaultValue;
+      if (typeof item === 'object') return item;
       if (typeof item === 'string') {
-        try {
-          return JSON.parse(item);
-        } catch (e) {
-          // It's a plain string, return as is
-          return item;
-        }
+        try { return JSON.parse(item); } catch { return item; }
       }
-      
       return defaultValue;
-    } catch (error) {
-    
+    } catch {
       return defaultValue;
     }
   },
-  
   setItem: (key, value) => {
     try {
-      // The encrypted localStorage will handle encryption automatically
-      // Just pass the value directly - don't stringify
       localStorage.setItem(key, value);
       return true;
-    } catch (error) {
-    
+    } catch {
       return false;
     }
   },
-  
   removeItem: (key) => {
     try {
       localStorage.removeItem(key);
       return true;
-    } catch (error) {
- 
+    } catch {
       return false;
     }
   }
 };
+
+// ==================== MAIN COMPONENT ====================
 
 const ProductDescription = () => {
   const { productID } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  // State management
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [showStickyCart, setShowStickyCart] = useState(false);
   const [cartSidebarOpen, setCartSidebarOpen] = useState(false);
@@ -108,49 +117,44 @@ const ProductDescription = () => {
   const [pendingCheckout, setPendingCheckout] = useState(false);
   const [viewedProducts, setViewedProducts] = useState([]);
   const [localCart, setLocalCart] = useState([]);
+  const [cartLoading, setCartLoading] = useState(false); // true while fetching cart after add/remove
 
-  // Refs
   const productDetailsRef = useRef(null);
   const flixMediaSectionRef = useRef(null);
 
-  // Redux selectors
   const { currentProduct, products, loading } = useSelector((state) => state.products);
   const { cart, loading: cartLoadingState, error: cartError, cartId } = useSelector((state) => state.cart);
 
-  // Network status monitoring
+  // ==================== NETWORK STATUS ====================
+
   useEffect(() => {
     const handleOnline = () => {
       setNetworkStatus(true);
       setCartSyncError(null);
-      if (cartId) {
-        syncCartWithDatabase();
-      }
+      if (cartId) syncCartWithDatabase();
     };
-    
     const handleOffline = () => {
       setNetworkStatus(false);
       setCartSyncError("You're offline. Changes will sync when connection is restored.");
     };
-
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, [cartId]);
 
-  // STRICT validation - Only show Flix Media when MPN starts with "SM"
+  // ==================== SAMSUNG / FLIX MEDIA ====================
+
   const isValidSamsungProduct = () => {
     if (!currentProduct?.length) return false;
     const product = currentProduct[0];
-    
-    const hasValidMPN = product.productId3 && 
-                        typeof product.productId3 === 'string' && 
-                        product.productId3.trim().toUpperCase().startsWith('SM');
-    
-    return hasValidMPN;
+    return (
+      product.productId3 &&
+      typeof product.productId3 === 'string' &&
+      product.productId3.trim().toUpperCase().startsWith('SM')
+    );
   };
 
   const showFlixMedia = isValidSamsungProduct();
@@ -159,36 +163,27 @@ const ProductDescription = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  // Sync cart with database
+  // ==================== CART SYNC ====================
+
+  /**
+   * Fetches cart from the DB and normalizes every item.
+   * ✅ total is always recomputed via normalizeCartItem.
+   */
   const syncCartWithDatabase = async () => {
     if (!cartId || !networkStatus) return;
-    
     try {
       const result = await dispatch(getCartById(cartId)).unwrap();
-      
       if (result && Array.isArray(result)) {
-        // Normalize the cart items
-        const normalizedCart = result.map(item => ({
-          ...item,
-          productId: item.productId || item.ProductId,
-          productName: item.productName || item.ProductName,
-          imagePath: item.imagePath || item.ImagePath,
-          price: parseFloat(item.price || item.Price || 0),
-          quantity: parseInt(item.quantity || item.Quantity || 1)
-        }));
-        
-        // Save to localStorage - encrypted localStorage will handle it
+        const normalizedCart = result.map(normalizeCartItem);
         safeLocalStorage.setItem("cart", normalizedCart);
         setLocalCart(normalizedCart);
         setCartSyncError(null);
       }
-    } catch (error) {
-  
+    } catch {
       setCartSyncError("Failed to sync cart. Changes saved locally.");
     }
   };
 
-  // Initialize cart from database on mount
   useEffect(() => {
     const storedCartId = cartId || safeLocalStorage.getItem('cartId');
     if (storedCartId && typeof storedCartId === 'string') {
@@ -196,34 +191,28 @@ const ProductDescription = () => {
     }
   }, [cartId]);
 
-  // Sync cart to localStorage whenever Redux cart changes
+  // Keep localCart in sync whenever Redux cart changes
   useEffect(() => {
     if (Array.isArray(cart) && cart.length >= 0) {
-      const normalizedCart = cart.map(item => ({
-        ...item,
-        productId: item.productId || item.ProductId,
-        productName: item.productName || item.ProductName,
-        imagePath: item.imagePath || item.ImagePath,
-        price: parseFloat(item.price || item.Price || 0),
-        quantity: parseInt(item.quantity || item.Quantity || 1)
-      }));
+      // ✅ Always re-normalize so totals are always correct
+      const normalizedCart = cart.map(normalizeCartItem);
       safeLocalStorage.setItem('cart', normalizedCart);
       setLocalCart(normalizedCart);
     }
   }, [cart]);
+
+  // ==================== PRODUCT DATA ====================
 
   useEffect(() => {
     dispatch(fetchProducts());
     dispatch(fetchProductById(productID));
   }, [dispatch, productID]);
 
-  // Enhanced Recently Viewed Products Management
+  // Recently Viewed Products
   useEffect(() => {
     if (currentProduct?.length > 0) {
       const prod = currentProduct[0];
-      const image = `https://ct002.frankotrading.com:444/Media/Products_Images/${prod.productImage
-        .split("\\")
-        .pop()}`;
+      const image = `https://ct002.frankotrading.com:444/Media/Products_Images/${prod.productImage.split("\\").pop()}`;
 
       const viewedItem = {
         id: prod.productID,
@@ -239,36 +228,29 @@ const ProductDescription = () => {
         viewedAt: new Date().toISOString()
       };
 
-      // Get existing viewed products
       const parsed = safeLocalStorage.getItem("viewedProducts", []);
       const existingProducts = Array.isArray(parsed) ? parsed : [];
-      
-      // Remove duplicate if exists and add new item to the beginning
       const filtered = existingProducts.filter((item) => item?.id !== viewedItem.id);
       const updated = [viewedItem, ...filtered].slice(0, 4);
-
-      // Save to localStorage
       safeLocalStorage.setItem("viewedProducts", updated);
       setViewedProducts(updated);
     }
   }, [currentProduct]);
 
-  // Load viewed products on component mount
   useEffect(() => {
     const stored = safeLocalStorage.getItem("viewedProducts", []);
     const validProducts = Array.isArray(stored) ? stored : [];
     setViewedProducts(validProducts.slice(0, 4));
   }, []);
 
-  // Preload Flix Media Integration
+  // ==================== FLIX MEDIA INTEGRATION ====================
+
   useEffect(() => {
-    if (!showFlixMedia || !currentProduct?.length) {
-      return;
-    }
+    if (!showFlixMedia || !currentProduct?.length) return;
 
     const product = currentProduct[0];
     const mpn = product.productId3?.trim().toUpperCase();
-    
+
     if (!mpn || !mpn.startsWith('SM')) {
       setFlixMediaError(true);
       setFlixMediaLoaded(true);
@@ -285,15 +267,9 @@ const ProductDescription = () => {
     const productBrand = "Samsung";
 
     const cleanupFlixMedia = () => {
-      const existingFlixScripts = document.querySelectorAll('script[src*="flixfacts.com"]');
-      existingFlixScripts.forEach(script => script.remove());
-      
-      const existingFlixStyles = document.querySelectorAll('link[href*="flixfacts.com"], style[data-flix]');
-      existingFlixStyles.forEach(style => style.remove());
-      
-      const flixContainers = document.querySelectorAll('#flix-inpage, #flix-minisite, .flix-inpage, .flix-minisite');
-      flixContainers.forEach(container => container.remove());
-      
+      document.querySelectorAll('script[src*="flixfacts.com"]').forEach(s => s.remove());
+      document.querySelectorAll('link[href*="flixfacts.com"], style[data-flix]').forEach(s => s.remove());
+      document.querySelectorAll('#flix-inpage, #flix-minisite, .flix-inpage, .flix-minisite').forEach(s => s.remove());
       if (window.flixJsCallbacks) delete window.flixJsCallbacks;
       if (window.flixJs) delete window.flixJs;
     };
@@ -319,33 +295,15 @@ const ProductDescription = () => {
       const container = document.createElement('div');
       container.id = 'flix-media-isolated-container';
       container.className = 'flix-media-isolated w-full overflow-hidden';
-      container.style.cssText = `
-        position: relative;
-        width: 100%;
-        min-height: 400px;
-        border: none;
-        overflow: hidden;
-      `;
+      container.style.cssText = 'position: relative; width: 100%; min-height: 400px; border: none; overflow: hidden;';
 
       const iframe = document.createElement('iframe');
       iframe.id = 'flix-media-iframe';
-      iframe.style.cssText = `
-        width: 100%;
-        height: 800px;
-        border: none;
-        overflow: hidden;
-      `;
-      iframe.onload = () => {
-        setFlixMediaLoaded(true);
-        loadingDiv.remove();
-      };
-      iframe.onerror = () => {
-        setFlixMediaError(true);
-        setFlixMediaLoaded(true);
-        loadingDiv.remove();
-      };
+      iframe.style.cssText = 'width: 100%; height: 800px; border: none; overflow: hidden;';
+      iframe.onload = () => { setFlixMediaLoaded(true); loadingDiv.remove(); };
+      iframe.onerror = () => { setFlixMediaError(true); setFlixMediaLoaded(true); loadingDiv.remove(); };
 
-      const iframeScript = `
+      iframe.srcdoc = `
         <!DOCTYPE html>
         <html>
           <head>
@@ -375,12 +333,8 @@ const ProductDescription = () => {
                 script.setAttribute('data-flix-inpage', 'flix-inpage');
                 script.setAttribute('data-flix-button', 'flix-minisite');
                 script.src = 'https://media.flixfacts.com/js/loader.js';
-                script.onload = function() {
-                  window.parent.postMessage({ type: 'FLIX_MEDIA_LOADED' }, '*');
-                };
-                script.onerror = function() {
-                  window.parent.postMessage({ type: 'FLIX_MEDIA_ERROR' }, '*');
-                };
+                script.onload = function() { window.parent.postMessage({ type: 'FLIX_MEDIA_LOADED' }, '*'); };
+                script.onerror = function() { window.parent.postMessage({ type: 'FLIX_MEDIA_ERROR' }, '*'); };
                 document.head.appendChild(script);
               })();
             </script>
@@ -388,19 +342,13 @@ const ProductDescription = () => {
         </html>
       `;
 
-      iframe.srcdoc = iframeScript;
       container.appendChild(iframe);
       flixSection.appendChild(container);
 
       const messageHandler = (event) => {
-        if (event.data.type === 'FLIX_MEDIA_LOADED') {
-          setFlixMediaLoaded(true);
-        } else if (event.data.type === 'FLIX_MEDIA_ERROR') {
-          setFlixMediaError(true);
-          setFlixMediaLoaded(true);
-        }
+        if (event.data.type === 'FLIX_MEDIA_LOADED') setFlixMediaLoaded(true);
+        else if (event.data.type === 'FLIX_MEDIA_ERROR') { setFlixMediaError(true); setFlixMediaLoaded(true); }
       };
-
       window.addEventListener('message', messageHandler);
 
       return () => {
@@ -412,25 +360,10 @@ const ProductDescription = () => {
     const style = document.createElement('style');
     style.id = 'flix-media-containment';
     style.textContent = `
-      #flix-media-section {
-        isolation: isolate;
-        contain: layout style paint;
-        position: relative;
-        z-index: 1;
-      }
-      #flix-media-section * {
-        box-sizing: border-box;
-        max-width: 100%;
-      }
-      .flix-media-isolated {
-        position: relative !important;
-        overflow: hidden !important;
-        z-index: 1;
-      }
-      #flix-media-iframe {
-        position: relative !important;
-        z-index: 1;
-      }
+      #flix-media-section { isolation: isolate; contain: layout style paint; position: relative; z-index: 1; }
+      #flix-media-section * { box-sizing: border-box; max-width: 100%; }
+      .flix-media-isolated { position: relative !important; overflow: hidden !important; z-index: 1; }
+      #flix-media-iframe { position: relative !important; z-index: 1; }
     `;
     document.head.appendChild(style);
 
@@ -438,109 +371,67 @@ const ProductDescription = () => {
 
     return () => {
       cleanup?.();
-      const containmentStyle = document.getElementById('flix-media-containment');
-      if (containmentStyle) {
-        containmentStyle.remove();
-      }
+      document.getElementById('flix-media-containment')?.remove();
       cleanupFlixMedia();
     };
   }, [currentProduct, showFlixMedia]);
 
-  // Sticky cart scroll detection
+  // ==================== STICKY CART ====================
+
   useEffect(() => {
     const handleScroll = () => {
       if (productDetailsRef.current) {
-        const rect = productDetailsRef.current.getBoundingClientRect();
-        setShowStickyCart(rect.bottom < 0);
+        setShowStickyCart(productDetailsRef.current.getBoundingClientRect().bottom < 0);
       }
     };
-
     window.addEventListener('scroll', handleScroll, { passive: true });
     handleScroll();
-
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // ==================== STOCK CHECK ====================
+
   const isOutOfStock = (product) => {
     if (!product) return false;
-    
-    const outOfStockIndicators = [
-      "all brands",
-      "products out of stock",
-      "out of stock",
-      "unavailable",
-      "not available"
-    ];
-    
-    if (product.brandName && 
-        outOfStockIndicators.some(indicator => 
-          product.brandName.toLowerCase().includes(indicator.toLowerCase())
-        )) {
-      return true;
-    }
-    
-    if (product.categoryName && 
-        outOfStockIndicators.some(indicator => 
-          product.categoryName.toLowerCase().includes(indicator.toLowerCase())
-        )) {
-      return true;
-    }
-    
-    if (product.showRoomName && 
-        outOfStockIndicators.some(indicator => 
-          product.showRoomName.toLowerCase().includes(indicator.toLowerCase())
-        )) {
-      return true;
-    }
-    
-    if (product.stockStatus && 
-        product.stockStatus.toLowerCase() === 'out of stock') {
-      return true;
-    }
-    
-    if (product.quantity !== undefined && product.quantity <= 0) {
-      return true;
-    }
-    
-    return false;
+    const indicators = ["all brands", "products out of stock", "out of stock", "unavailable", "not available"];
+    const matchesAny = (field) =>
+      field && indicators.some(i => field.toLowerCase().includes(i.toLowerCase()));
+
+    return (
+      matchesAny(product.brandName) ||
+      matchesAny(product.categoryName) ||
+      matchesAny(product.showRoomName) ||
+      product.stockStatus?.toLowerCase() === 'out of stock' ||
+      (product.quantity !== undefined && product.quantity <= 0)
+    );
   };
 
-  // Add to cart
+  // ==================== CART ACTIONS ====================
+
   const handleAddToCartAndOpenSidebar = async (product) => {
-    if (isOutOfStock(product)) {
-      return;
-    }
-    
+    if (isOutOfStock(product)) return;
+
     if (!networkStatus) {
       setCartSyncError("No internet connection. Please check your network.");
       return;
     }
-    
+
     setIsAddingToCart(true);
     setCartSyncError(null);
-    
+
     try {
-      // Get customer - encrypted localStorage returns parsed object
       const customer = safeLocalStorage.getItem('customer', null);
       const customerId = customer?.customerAccountNumber || null;
-      
+
       let storedCartId = cartId || safeLocalStorage.getItem('cartId');
-      
       if (!storedCartId || typeof storedCartId !== 'string') {
         storedCartId = `cart_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         safeLocalStorage.setItem('cartId', storedCartId);
       }
 
-      // Get the productId
       const productId = product.productID || product.productId || product.id;
-      
-      if (!productId) {
-        throw new Error('Product ID is missing');
-      }
+      if (!productId) throw new Error('Product ID is missing');
 
-
-
-      // Create cart item payload
       const cartItemPayload = {
         CartId: storedCartId,
         ProductId: String(productId),
@@ -548,224 +439,156 @@ const ProductDescription = () => {
         ImagePath: product.productImage || product.imagePath,
         Price: parseFloat(product.price),
         Quantity: 1,
-        CustomerId: customerId
+        CustomerId: customerId,
       };
 
-      // Dispatch the addToCart action
-      const result = await dispatch(addToCart(cartItemPayload)).unwrap();
+      await dispatch(addToCart(cartItemPayload)).unwrap();
 
-      
-      // Fetch updated cart from database
+      // ✅ Open sidebar first so user sees immediate feedback, show spinner inside
+      setCartSidebarOpen(true);
+      setCartLoading(true);
+
       if (storedCartId) {
         try {
           const updatedCart = await dispatch(getCartById(storedCartId)).unwrap();
-          
           if (updatedCart && Array.isArray(updatedCart)) {
-            const normalizedCart = updatedCart.map(item => ({
-              ...item,
-              productId: item.productId || item.ProductId,
-              productName: item.productName || item.ProductName,
-              imagePath: item.imagePath || item.ImagePath,
-              price: parseFloat(item.price || item.Price || 0),
-              quantity: parseInt(item.quantity || item.Quantity || 1)
-            }));
-            
+            const normalizedCart = updatedCart.map(normalizeCartItem);
             safeLocalStorage.setItem('cart', normalizedCart);
             setLocalCart(normalizedCart);
           }
-          
           setCartSyncError(null);
-        } catch (syncError) {
-         
-          setCartSyncError("Added to cart successfully!");
+        } catch {
+          // cart may already be set from Redux — don't show error
+        } finally {
+          setCartLoading(false);
         }
+      } else {
+        setCartLoading(false);
       }
-      
-      // Open sidebar
-      setCartSidebarOpen(true);
-      
     } catch (error) {
-
-      
       if (!navigator.onLine) {
         setCartSyncError('No internet connection. Please check your network.');
-      } else if (error.message) {
-        setCartSyncError(`Failed to add to cart: ${error.message}`);
       } else {
-        setCartSyncError('Failed to add product to cart. Please try again.');
+        setCartSyncError(error.message ? `Failed to add to cart: ${error.message}` : 'Failed to add product to cart. Please try again.');
       }
     } finally {
       setIsAddingToCart(false);
     }
   };
 
-// Cart quantity update handler - FIXED
-const handleQuantityChange = async (productId, newQuantity) => {
- 
-  if (newQuantity < 1) return;
-  
-  // Get cartId from Redux or localStorage
-  const activeCartId = cartId || safeLocalStorage.getItem('cartId');
-  
-  if (!activeCartId) {
-    setCartSyncError("Cart ID not found. Please refresh the page.");
-    return;
-  }
-  
-  const previousLocalCart = [...localCart];
-  setUpdatingQuantity(prev => ({ ...prev, [productId]: true }));
-  setCartSyncError(null);
-  
-  try {
-    // Optimistically update local state
-    const optimisticCart = localCart.map(item => 
-      item.productId === productId ? { ...item, quantity: newQuantity } : item
-    );
-    safeLocalStorage.setItem('cart', optimisticCart);
-    setLocalCart(optimisticCart);
-    
-    // Prepare payload with correct casing
-    const updatePayload = {
-      CartId: activeCartId,
-      ProductId: String(productId),
-      Quantity: newQuantity
-    };
+  const handleQuantityChange = async (productId, newQuantity) => {
+    if (newQuantity < 1) return;
 
-    // Dispatch update
-    const updateResult = await dispatch(updateCartItem(updatePayload)).unwrap();
-
-    
-    // Fetch updated cart from database
-    const updatedCart = await dispatch(getCartById(activeCartId)).unwrap();
-
-    
-    if (updatedCart && Array.isArray(updatedCart)) {
-      const normalizedCart = updatedCart.map(item => ({
-        ...item,
-        productId: item.productId || item.ProductId,
-        productName: item.productName || item.ProductName,
-        imagePath: item.imagePath || item.ImagePath,
-        price: parseFloat(item.price || item.Price || 0),
-        quantity: parseInt(item.quantity || item.Quantity || 1)
-      }));
-      safeLocalStorage.setItem('cart', normalizedCart);
-      setLocalCart(normalizedCart);
-      setCartSyncError(null);
+    const activeCartId = cartId || safeLocalStorage.getItem('cartId');
+    if (!activeCartId) {
+      setCartSyncError("Cart ID not found. Please refresh the page.");
+      return;
     }
-    
-  } catch (error) {
 
-    safeLocalStorage.setItem('cart', previousLocalCart);
-    setLocalCart(previousLocalCart);
-    setCartSyncError(`Failed to update quantity: ${error?.message || 'Unknown error'}`);
-    
+    const previousLocalCart = [...localCart];
+    setUpdatingQuantity(prev => ({ ...prev, [productId]: true }));
+    setCartSyncError(null);
+
     try {
-      const activeCartId = cartId || safeLocalStorage.getItem('cartId');
-      if (activeCartId) {
-        await dispatch(getCartById(activeCartId)).unwrap();
+      // Optimistic update — recompute total immediately
+      const optimisticCart = localCart.map(item =>
+        item.productId === productId
+          ? { ...item, quantity: newQuantity, total: parseFloat(item.price) * newQuantity }
+          : item
+      );
+      safeLocalStorage.setItem('cart', optimisticCart);
+      setLocalCart(optimisticCart);
+
+      await dispatch(updateCartItem({
+        CartId: activeCartId,
+        ProductId: String(productId),
+        Quantity: newQuantity,
+      })).unwrap();
+
+      const updatedCart = await dispatch(getCartById(activeCartId)).unwrap();
+      if (updatedCart && Array.isArray(updatedCart)) {
+        // ✅ Normalize so total is always price × qty
+        const normalizedCart = updatedCart.map(normalizeCartItem);
+        safeLocalStorage.setItem('cart', normalizedCart);
+        setLocalCart(normalizedCart);
+        setCartSyncError(null);
       }
-    } catch (refetchError) {
- 
+    } catch (error) {
+      safeLocalStorage.setItem('cart', previousLocalCart);
+      setLocalCart(previousLocalCart);
+      setCartSyncError(`Failed to update quantity: ${error?.message || 'Unknown error'}`);
+
+      try {
+        await dispatch(getCartById(activeCartId)).unwrap();
+      } catch { /* silent */ }
+    } finally {
+      setUpdatingQuantity(prev => ({ ...prev, [productId]: false }));
     }
-  } finally {
-    setUpdatingQuantity(prev => ({ ...prev, [productId]: false }));
-  }
-};
+  };
 
-// Remove item handler - FIXED
-const handleRemoveItem = async (productId) => {
- 
-  
-  // Get cartId from Redux or localStorage
-  const activeCartId = cartId || safeLocalStorage.getItem('cartId');
-  
-  if (!activeCartId) {
-    setCartSyncError("Cart ID not found. Please refresh the page.");
-    return;
-  }
-  
-  const previousLocalCart = [...localCart];
-  setRemovingItem(prev => ({ ...prev, [productId]: true }));
-  setCartSyncError(null);
-  
-  try {
-    // Optimistically update local state
-    const optimisticCart = localCart.filter(item => item.productId !== productId);
-    safeLocalStorage.setItem('cart', optimisticCart);
-    setLocalCart(optimisticCart);
-    
-    // Prepare payload with correct casing
-    const deletePayload = {
-      CartId: activeCartId,
-      ProductId: String(productId)
-    };
-
-
-
-    // Dispatch delete
-    const deleteResult = await dispatch(deleteCartItem(deletePayload)).unwrap();
-
-    
-    // Fetch updated cart from database
-    const updatedCart = await dispatch(getCartById(activeCartId)).unwrap();
- 
-    
-    if (updatedCart && Array.isArray(updatedCart)) {
-      const normalizedCart = updatedCart.map(item => ({
-        ...item,
-        productId: item.productId || item.ProductId,
-        productName: item.productName || item.ProductName,
-        imagePath: item.imagePath || item.ImagePath,
-        price: parseFloat(item.price || item.Price || 0),
-        quantity: parseInt(item.quantity || item.Quantity || 1)
-      }));
-      safeLocalStorage.setItem('cart', normalizedCart);
-      setLocalCart(normalizedCart);
-      setCartSyncError(null);
+  const handleRemoveItem = async (productId) => {
+    const activeCartId = cartId || safeLocalStorage.getItem('cartId');
+    if (!activeCartId) {
+      setCartSyncError("Cart ID not found. Please refresh the page.");
+      return;
     }
-    
-  } catch (error) {
 
-    safeLocalStorage.setItem('cart', previousLocalCart);
-    setLocalCart(previousLocalCart);
-    setCartSyncError(`Failed to remove item: ${error?.message || 'Unknown error'}`);
-    
+    const previousLocalCart = [...localCart];
+    setRemovingItem(prev => ({ ...prev, [productId]: true }));
+    setCartSyncError(null);
+
     try {
-      const activeCartId = cartId || safeLocalStorage.getItem('cartId');
-      if (activeCartId) {
-        await dispatch(getCartById(activeCartId)).unwrap();
+      const optimisticCart = localCart.filter(item => item.productId !== productId);
+      safeLocalStorage.setItem('cart', optimisticCart);
+      setLocalCart(optimisticCart);
+
+      await dispatch(deleteCartItem({
+        CartId: activeCartId,
+        ProductId: String(productId),
+      })).unwrap();
+
+      // ✅ Always reload the full cart from DB after deletion
+      setCartLoading(true);
+      const updatedCart = await dispatch(getCartById(activeCartId)).unwrap();
+      if (updatedCart && Array.isArray(updatedCart)) {
+        const normalizedCart = updatedCart.map(normalizeCartItem);
+        safeLocalStorage.setItem('cart', normalizedCart);
+        setLocalCart(normalizedCart);
+        setCartSyncError(null);
       }
-    } catch (refetchError) {
-   
+    } catch (error) {
+      safeLocalStorage.setItem('cart', previousLocalCart);
+      setLocalCart(previousLocalCart);
+      setCartSyncError(`Failed to remove item: ${error?.message || 'Unknown error'}`);
+    } finally {
+      setRemovingItem(prev => ({ ...prev, [productId]: false }));
+      setCartLoading(false);
     }
-  } finally {
-    setRemovingItem(prev => ({ ...prev, [productId]: false }));
-  }
-};
+  };
+
   const handleCheckout = () => {
     const storedCustomer = safeLocalStorage.getItem("customer");
 
     if (!storedCustomer) {
       setPendingCheckout(true);
       setCartSidebarOpen(false);
-      setTimeout(() => {
-        setAuthModalOpen(true);
-      }, 300);
+      setTimeout(() => setAuthModalOpen(true), 300);
       return;
     }
-    
+
     window.dataLayer = window.dataLayer || [];
     window.dataLayer.push({
       event: "proceed_to_checkout",
+      // ✅ Use correctly computed cart total
       cartValue: cartTotal.toFixed(2),
       cartItems: localCart.map(item => ({
         productId: item.productId,
         name: item.productName,
         price: item.price,
-        quantity: item.quantity
-      }))
+        quantity: item.quantity,
+      })),
     });
-    
+
     safeLocalStorage.setItem("selectedCart", localCart);
     navigate("/checkout");
   };
@@ -781,53 +604,36 @@ const handleRemoveItem = async (productId) => {
 
   const getValidImageUrl = (imagePath) => {
     if (!imagePath) return "https://via.placeholder.com/150";
-    
-    if (imagePath.includes("\\")) {
-      return `https://ct002.frankotrading.com:444/Media/Products_Images/${imagePath.split("\\").pop()}`;
-    } else if (imagePath.includes("/")) {
-      return `https://ct002.frankotrading.com:444/Media/Products_Images/${imagePath.split("/").pop()}`;
-    } else {
-      return `https://ct002.frankotrading.com:444/Media/Products_Images/${imagePath}`;
-    }
+    const base = "https://ct002.frankotrading.com:444/Media/Products_Images/";
+    if (imagePath.includes("\\")) return base + imagePath.split("\\").pop();
+    if (imagePath.includes("/")) return base + imagePath.split("/").pop();
+    return base + imagePath;
   };
 
   const renderImage = (imagePath) => {
-    if (!imagePath) {
-      return (
-        <img 
-          src="https://via.placeholder.com/150" 
-          alt="Placeholder" 
-          className="w-full h-full object-cover rounded-lg" 
-        />
-      );
-    }
-    
     const imageUrl = getValidImageUrl(imagePath);
-    
     return (
-      <img 
-        src={imageUrl} 
-        alt="Product" 
+      <img
+        src={imageUrl}
+        alt="Product"
         className="w-full h-full object-cover rounded-lg"
-        onError={(e) => {
-          e.target.src = "https://via.placeholder.com/150";
-        }}
+        onError={(e) => { e.target.src = "https://via.placeholder.com/150"; }}
       />
     );
   };
 
-  const cartTotal = Array.isArray(localCart) ? localCart.reduce((acc, item) => {
-    const price = parseFloat(item.price) || 0;
-    const quantity = parseInt(item.quantity) || 0;
-    return acc + (price * quantity);
-  }, 0) : 0;
+  // ==================== TOTALS ====================
 
-  const totalCartItems = Array.isArray(localCart) ? localCart.reduce((acc, item) => {
-    const quantity = parseInt(item.quantity) || 0;
-    return acc + quantity;
-  }, 0) : 0;
+  /**
+   * ✅ FIX: Cart total always sums price × quantity — never item.total directly.
+   */
+  const cartTotal = Array.isArray(localCart)
+    ? localCart.reduce((acc, item) => acc + getItemLineTotal(item), 0)
+    : 0;
 
-  const isCartButtonLoading = isAddingToCart;
+  const totalCartItems = Array.isArray(localCart)
+    ? localCart.reduce((acc, item) => acc + (parseInt(item.quantity, 10) || 0), 0)
+    : 0;
 
   const handleAuthModalClose = () => {
     setAuthModalOpen(false);
@@ -836,11 +642,9 @@ const handleRemoveItem = async (productId) => {
 
   const handleAuthSuccess = () => {
     setAuthModalOpen(false);
-    
     if (localCart && localCart.length > 0) {
       safeLocalStorage.setItem("selectedCart", localCart);
     }
-    
     window.dataLayer = window.dataLayer || [];
     window.dataLayer.push({
       event: "authenticated_checkout",
@@ -849,18 +653,15 @@ const handleRemoveItem = async (productId) => {
         productId: item.productId,
         name: item.productName,
         price: item.price,
-        quantity: item.quantity
-      }))
+        quantity: item.quantity,
+      })),
     });
-    
-    setTimeout(() => {
-      navigate("/checkout");
-    }, 100);
+    setTimeout(() => navigate("/checkout"), 100);
   };
 
-  const handleContinueShopping = () => {
-    setCartSidebarOpen(false);
-  };
+  const handleContinueShopping = () => setCartSidebarOpen(false);
+
+  // ==================== LOADING STATE ====================
 
   if (loading || !currentProduct?.length) {
     return <ProductDetailSkeleton />;
@@ -868,29 +669,26 @@ const handleRemoveItem = async (productId) => {
 
   const product = currentProduct[0];
   const outOfStock = isOutOfStock(product);
-  const imageUrl = `https://ct002.frankotrading.com:444/Media/Products_Images/${product.productImage
-    .split("\\")
-    .pop()}`;
+  const imageUrl = `https://ct002.frankotrading.com:444/Media/Products_Images/${product.productImage.split("\\").pop()}`;
   const descriptionLines = product.description.split("\n").map((line, i) => (
-    <p key={i} className="text-sm text-gray-700 mb-1">
-      {line}
-    </p>
+    <p key={i} className="text-sm text-gray-700 mb-1">{line}</p>
   ));
   const productUrl = window.location.href;
-
   const related = products.slice(-12);
+
+  // ==================== RENDER ====================
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-10">
-      <Helmet>
+            <Helmet>
         <title>{`${product?.productName || "Product"} - Best Price`}</title>
         <meta name="description" content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}. High-quality and best prices available.`} />
-        <meta  property="og:title" content={product?.productName || "Product"} />
+        <meta property="og:title" content={product?.productName || "Product"} />
         <meta property="og:description" content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}.`} />
-        <meta property="og:image" content={imageUrl || "https://www.frankotrading.com/frankoIcon.png"} />
+        <meta property="og:image" content={imageUrl || "default-image-url.jpg"} />
         <meta property="og:url" content={productUrl || "https://www.frankotrading.com"} />
         <meta name="twitter:card" content="summary_large_image" />
-        <link rel="canonical" href={`https://www.frankotrading.com/product/${product?.productID || "https://www.frankotrading.com"}`} />
+        <link rel="canonical" href={`https://www.frankotrading.com/product/${product?.productID || "defaultID"}`} />
       </Helmet>
 
       <script type="application/ld+json">
@@ -905,61 +703,60 @@ const handleRemoveItem = async (productId) => {
             "@type": "Brand",
             "name": product.brandName
           },
-          "offers": {
-            "@type": "Offer",
-            "priceCurrency": "GHS",
-            "price": product.price,
-            "priceValidUntil": "2025-12-31",
-            "itemCondition": "https://schema.org/NewCondition",
-            "availability": "https://schema.org/InStock",
-            "url": `https://www.frankotrading.com/product/${product.productID}`,
-            "seller": {
-              "@type": "Organization",
-              "name": "Franko Trading"
-            },
-            "shippingDetails": {
-              "@type": "OfferShippingDetails",
-              "shippingRate": {
-                "@type": "MonetaryAmount",
-                "currency": "GHS",
-                "value": "40.00"
-              },
-              "shippingDestination": {
-                "@type": "DefinedRegion",
-                "addressCountry": "GH"
-              },
-              "deliveryTime": {
-                "@type": "ShippingDeliveryTime",
-                "handlingTime": {
-                  "@type": "QuantitativeValue",
-                  "minValue": 1,
-                  "maxValue": 2,
-                  "unitCode": "DAY"
-                },
-                "transitTime": {
-                  "@type": "QuantitativeValue",
-                  "minValue": 3,
-                  "maxValue": 5,
-                  "unitCode": "DAY"
-                }
-              }
-            },
-            "hasMerchantReturnPolicy": {
-              "@type": "MerchantReturnPolicy",
-              "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
-              "merchantReturnDays": 7,
-              "returnMethod": "https://schema.org/ReturnByMail",
-              "returnFees": "https://schema.org/FreeReturn",
-              "applicableCountry": "GH"
-            }
-          }
+         "offers": {
+  "@type": "Offer",
+  "priceCurrency": "GHS",
+  "price": product.price,
+  "priceValidUntil": "2025-12-31",
+  "itemCondition": "https://schema.org/NewCondition",
+  "availability": "https://schema.org/InStock",
+  "url": `https://www.frankotrading.com/product/${product.productID}`,
+  "seller": {
+    "@type": "Organization",
+    "name": "Franko Trading"
+  },
+  "shippingDetails": {
+    "@type": "OfferShippingDetails",
+    "shippingRate": {
+      "@type": "MonetaryAmount",
+      "currency": "GHS",
+      "value": "30.00"
+    },
+    "shippingDestination": {
+      "@type": "DefinedRegion",
+      "addressCountry": "GH"
+    },
+    "deliveryTime": {
+      "@type": "ShippingDeliveryTime",
+      "handlingTime": {
+        "@type": "QuantitativeValue",
+        "minValue": 1,
+        "maxValue": 2,
+        "unitCode": "DAY"
+      },
+      "transitTime": {
+        "@type": "QuantitativeValue",
+        "minValue": 3,
+        "maxValue": 5,
+        "unitCode": "DAY"
+      }
+    }
+  },
+  "hasMerchantReturnPolicy": {
+    "@type": "MerchantReturnPolicy",
+    "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+    "merchantReturnDays": 14,
+    "returnMethod": "https://schema.org/ReturnByMail",
+    "returnFees": "https://schema.org/FreeReturn",
+    "applicableCountry": "GH"
+  }
+}
+
         })}
       </script>
 
-
-
       {/* Sticky Add to Cart Bar */}
-      <div 
+      <div
         className={`fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-lg transition-all duration-300 ${
           showStickyCart ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
         }`}
@@ -972,60 +769,42 @@ const handleRemoveItem = async (productId) => {
                   src={imageUrl}
                   alt={product.productName}
                   className="w-16 h-16 object-contain rounded-lg border border-gray-200"
-                  onError={(e) => {
-                    e.target.src = "https://via.placeholder.com/150";
-                  }}
+                  onError={(e) => { e.target.src = "https://via.placeholder.com/150"; }}
                 />
               </div>
-              
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-gray-900 text-sm line-clamp-1 mb-1">
-                  {product.productName}
-                </h3>
+                <h3 className="font-semibold text-gray-900 text-sm line-clamp-1 mb-1">{product.productName}</h3>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-lg font-bold text-red-600">
-                    GH₵{formatPrice(product.price)}.00
-                  </span>
+                  <span className="text-lg font-bold text-red-600">GH₵{formatPrice(product.price)}.00</span>
                   {product.oldPrice > 0 && (
-                    <span className="text-sm text-gray-400 line-through">
-                      GH₵{formatPrice(product.oldPrice)}.00
-                    </span>
+                    <span className="text-sm text-gray-400 line-through">GH₵{formatPrice(product.oldPrice)}.00</span>
                   )}
                 </div>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-3 flex-shrink-0">
               <Button
                 size="sm"
                 className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold text-sm transition-all duration-200 ${
-                  outOfStock 
-                    ? 'bg-gray-100 text-gray-400 border border-gray-300 cursor-not-allowed' 
-                    : isCartButtonLoading
+                  outOfStock
+                    ? 'bg-gray-100 text-gray-400 border border-gray-300 cursor-not-allowed'
+                    : isAddingToCart
                     ? 'bg-red-400 text-white'
                     : 'bg-red-500 text-white hover:bg-red-600 shadow-md'
                 }`}
                 onClick={() => handleAddToCartAndOpenSidebar(product)}
-                disabled={isCartButtonLoading || outOfStock}
+                disabled={isAddingToCart || outOfStock}
               >
-                {isCartButtonLoading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Adding...</span>
-                  </>
+                {isAddingToCart ? (
+                  <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /><span>Adding...</span></>
                 ) : outOfStock ? (
-                  <>
-                    <ExclamationTriangleIcon className="w-4 h-4" />
-                    <span>Out of Stock</span>
-                  </>
+                  <><ExclamationTriangleIcon className="w-4 h-4" /><span>Out of Stock</span></>
                 ) : (
-                  <>
-                    <ShoppingCartIcon className="w-4 h-4" />
-                    <span>Add to Cart</span>
-                  </>
+                  <><ShoppingCartIcon className="w-4 h-4" /><span>Add to Cart</span></>
                 )}
               </Button>
-              
+
               <button
                 onClick={() => setCartSidebarOpen(true)}
                 className="relative bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg p-3 transition-colors duration-200"
@@ -1043,29 +822,21 @@ const handleRemoveItem = async (productId) => {
         </div>
       </div>
 
-      {/* Network Status Alert */}
+      {/* Network / Cart Error Alert */}
       {cartSyncError && (
         <div className={`mb-4 p-4 rounded-lg border-l-4 ${
-          cartSyncError.includes('successfully') 
-            ? 'bg-green-50 border-green-400' 
-            : 'bg-yellow-50 border-yellow-400'
+          cartSyncError.includes('successfully') ? 'bg-green-50 border-green-400' : 'bg-yellow-50 border-yellow-400'
         }`}>
           <div className="flex items-center">
-            <ExclamationTriangleIcon className={`w-5 h-5 mr-2 ${
-              cartSyncError.includes('successfully') 
-                ? 'text-green-600' 
-                : 'text-yellow-600'
-            }`} />
-            <p className={`text-sm ${
-              cartSyncError.includes('successfully') 
-                ? 'text-green-800' 
-                : 'text-yellow-800'
-            }`}>{cartSyncError}</p>
+            <ExclamationTriangleIcon className={`w-5 h-5 mr-2 ${cartSyncError.includes('successfully') ? 'text-green-600' : 'text-yellow-600'}`} />
+            <p className={`text-sm ${cartSyncError.includes('successfully') ? 'text-green-800' : 'text-yellow-800'}`}>
+              {cartSyncError}
+            </p>
           </div>
         </div>
       )}
 
-      {/* Main Product Details Section */}
+      {/* Main Product Details */}
       <div id="product-details-section" ref={productDetailsRef} className="grid lg:grid-cols-2 gap-12 pt-4">
         <div className="flex justify-center items-start">
           <Image.PreviewGroup>
@@ -1078,18 +849,12 @@ const handleRemoveItem = async (productId) => {
         </div>
 
         <div className="space-y-4">
-          <div className="font-bold text-gray-900 text-lg md:text-xl">
-            {product.productName}
-          </div>
-          
+          <div className="font-bold text-gray-900 text-lg md:text-xl">{product.productName}</div>
+
           <div className="flex items-center gap-4 text-red-500 bg-red-50 rounded-lg p-3 shadow-md">
-            <div className="text-lg md:text-xl font-bold">
-              GH₵{formatPrice(product.price)}.00
-            </div>
+            <div className="text-lg md:text-xl font-bold">GH₵{formatPrice(product.price)}.00</div>
             {product.oldPrice > 0 && (
-              <div className="text-sm text-gray-400 line-through">
-                GH₵ {formatPrice(product.oldPrice)}.00
-              </div>
+              <div className="text-sm text-gray-400 line-through">GH₵ {formatPrice(product.oldPrice)}.00</div>
             )}
           </div>
 
@@ -1106,7 +871,6 @@ const handleRemoveItem = async (productId) => {
                 </div>
               )}
             </div>
-
             <IconButton
               onClick={() => handleShare("general")}
               className="bg-red-400 text-white rounded-full p-3 shadow-lg transition duration-300 hover:scale-110"
@@ -1116,40 +880,28 @@ const handleRemoveItem = async (productId) => {
           </div>
 
           <div className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm border transition duration-200 w-max ${
-            outOfStock 
-              ? 'bg-red-50 text-red-800 border-red-200' 
-              : 'bg-green-50 text-green-800 border-green-200 hover:shadow-md'
+            outOfStock ? 'bg-red-50 text-red-800 border-red-200' : 'bg-green-50 text-green-800 border-green-200 hover:shadow-md'
           }`}>
             {outOfStock ? (
-              <>
-                <ExclamationTriangleIcon className="w-4 h-4 text-red-600" />
-                <span>Out of Stock</span>
-              </>
+              <><ExclamationTriangleIcon className="w-4 h-4 text-red-600" /><span>Out of Stock</span></>
             ) : (
-              <>
-                <CheckCircleIcon className="w-4 h-4 text-green-600" />
-                <span>In Stock</span>
-              </>
+              <><CheckCircleIcon className="w-4 h-4 text-green-600" /><span>In Stock</span></>
             )}
           </div>
 
           <div className="mt-2">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <h2 className="text-sm md:text-md font-bold text-gray-700 relative whitespace-nowrap mt-4 mb-3">
-                  Product Description
-                  <span className="absolute -bottom-1 left-0 w-16 h-1 bg-red-400 rounded-full"></span>
-                </h2>
-              </div>
+              <h2 className="text-sm md:text-md font-bold text-gray-700 relative whitespace-nowrap mt-4 mb-3">
+                Product Description
+                <span className="absolute -bottom-1 left-0 w-16 h-1 bg-red-400 rounded-full"></span>
+              </h2>
             </div>
-
-            <div className="bg-white p-2 max-h-72 overflow-y-auto transition-all duration-300 scrollbar-thin scrollbar-thumb-blue-400 scrollbar-track-gray-100">
-              <div className="space-y-4 text-gray-800 text-base leading-relaxed">
-                {descriptionLines}
-              </div>
+            <div className="bg-white p-2 max-h-72 overflow-y-auto scrollbar-thin scrollbar-thumb-blue-400 scrollbar-track-gray-100">
+              <div className="space-y-4 text-gray-800 text-base leading-relaxed">{descriptionLines}</div>
             </div>
           </div>
 
+          {/* Desktop Add to Cart */}
           <div className="pt-2">
             <div className="hidden md:flex flex-wrap gap-4 items-center">
               <Button
@@ -1157,72 +909,50 @@ const handleRemoveItem = async (productId) => {
                 className={`group relative flex items-center justify-center gap-2.5 px-6 py-3.5 w-full rounded-2xl font-semibold text-sm transition-all duration-300 ease-out shadow-xl shadow-red-200 hover:shadow-2xl hover:shadow-red-300 focus:outline-none focus:ring-3 focus:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:transform-none overflow-hidden ${
                   outOfStock
                     ? 'bg-gray-50 text-gray-400 border-2 border-gray-200 shadow-sm shadow-gray-200 cursor-not-allowed'
-                    : isCartButtonLoading
+                    : isAddingToCart
                     ? 'bg-red-300 text-white border-2 border-red-500 shadow-red-300'
                     : 'bg-red-500 text-white border-2 border-red-500 hover:bg-red-600 hover:border-red-600 focus:ring-red-300'
                 }`}
                 onClick={() => handleAddToCartAndOpenSidebar(product)}
-                disabled={isCartButtonLoading || outOfStock}
+                disabled={isAddingToCart || outOfStock}
               >
                 {!outOfStock && (
                   <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-red-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl" />
                 )}
-                
                 <div className="relative z-10 flex items-center gap-2.5">
-                  {isCartButtonLoading ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span className="font-medium">Adding to Cart...</span>
-                    </>
+                  {isAddingToCart ? (
+                    <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /><span className="font-medium">Adding to Cart...</span></>
                   ) : outOfStock ? (
-                    <>
-                      <ExclamationTriangleIcon className="w-5 h-5 text-gray-400 group-hover:scale-110 transition-transform duration-200" />
-                      <span className="font-medium">Out of Stock</span>
-                    </>
+                    <><ExclamationTriangleIcon className="w-5 h-5 text-gray-400 group-hover:scale-110 transition-transform duration-200" /><span className="font-medium">Out of Stock</span></>
                   ) : (
-                    <>
-                      <ShoppingCartIcon className="w-5 h-5 transition-all duration-300 group-hover:scale-110 text-white" />
-                      <span className="font-medium text-white transition-colors duration-300">
-                        Add to Cart
-                      </span>
-                    </>
+                    <><ShoppingCartIcon className="w-5 h-5 transition-all duration-300 group-hover:scale-110 text-white" /><span className="font-medium text-white transition-colors duration-300">Add to Cart</span></>
                   )}
                 </div>
-                
-                {!outOfStock && !isCartButtonLoading && (
+                {!outOfStock && !isAddingToCart && (
                   <div className="absolute inset-0 bg-green-400 rounded-2xl scale-0 opacity-0 group-active:scale-100 group-active:opacity-30 transition-all duration-150" />
                 )}
               </Button>
             </div>
 
-            {/* Mobile bottom cart button */}
+            {/* Mobile Add to Cart */}
             <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 shadow-xl z-40 flex items-center justify-between md:hidden">
               <div className="flex gap-2 w-full">
                 <Button
                   variant="outlined"
-                  className={`flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-2xl transition-all duration-300 ease-in-out shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex-1 ${
+                  className={`flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-2xl transition-all duration-300 ease-in-out shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-300 disabled:opacity-50 disabled:cursor-not-allowed flex-1 ${
                     outOfStock
                       ? 'bg-gray-100 text-gray-500 border border-gray-300'
                       : 'bg-red-500 text-white border border-red-500 hover:bg-red-600 hover:border-red-600'
                   }`}
                   onClick={() => handleAddToCartAndOpenSidebar(product)}
-                  disabled={isCartButtonLoading || outOfStock}
+                  disabled={isAddingToCart || outOfStock}
                 >
-                  {isCartButtonLoading ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span className="text-sm">Adding...</span>
-                    </>
+                  {isAddingToCart ? (
+                    <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /><span className="text-sm">Adding...</span></>
                   ) : outOfStock ? (
-                    <>
-                      <ExclamationTriangleIcon className="w-5 h-5" />
-                      <span className="text-sm">Out of Stock</span>
-                    </>
+                    <><ExclamationTriangleIcon className="w-5 h-5" /><span className="text-sm">Out of Stock</span></>
                   ) : (
-                    <>
-                      <ShoppingCartIcon className="w-5 h-5" />
-                      <span className="text-sm">Add to Cart</span>
-                    </>
+                    <><ShoppingCartIcon className="w-5 h-5" /><span className="text-sm">Add to Cart</span></>
                   )}
                 </Button>
               </div>
@@ -1231,10 +961,10 @@ const handleRemoveItem = async (productId) => {
         </div>
       </div>
 
-      {/* Flix Media Section */}
+      {/* Flix Media */}
       {showFlixMedia && (
-        <div 
-          id="flix-media-section" 
+        <div
+          id="flix-media-section"
           ref={flixMediaSectionRef}
           className="mt-8 bg-white rounded-2xl shadow-lg p-6 border border-gray-200 overflow-hidden"
           style={{ contain: 'layout style paint' }}
@@ -1245,7 +975,6 @@ const handleRemoveItem = async (productId) => {
               <span className="absolute -bottom-1 left-0 w-16 h-1 bg-red-400 rounded-full"></span>
             </h2>
           </div>
-          
           {flixMediaError && (
             <div className="text-center py-8 text-gray-500">
               <p>Unable to load additional product details at this time.</p>
@@ -1260,12 +989,9 @@ const handleRemoveItem = async (productId) => {
           { title: "Fast Shipping", subtitle: "All over Ghana", icon: <TruckIcon className="w-5 h-5 text-red-600" /> },
           { title: "Quality Assurance", subtitle: "certified products", icon: <ShieldCheckIcon className="w-5 h-5 text-green-600" /> },
           { title: "Customer Support", subtitle: "Dedicated support team", icon: <PhoneIcon className="w-5 h-5 text-red-400" /> },
-          { title: "Secure Payment", subtitle: "Safe Payment Processing", icon: <CreditCardIcon className="w-5 h-5 text-teal-500" /> }
+          { title: "Secure Payment", subtitle: "Safe Payment Processing", icon: <CreditCardIcon className="w-5 h-5 text-teal-500" /> },
         ].map((item, idx) => (
-          <div
-            key={idx}
-            className="flex items-start gap-2 hover:bg-gray-50 p-2 rounded-lg transition"
-          >
+          <div key={idx} className="flex items-start gap-2 hover:bg-gray-50 p-2 rounded-lg transition">
             {item.icon}
             <div>
               <p className="font-semibold">{item.title}</p>
@@ -1275,7 +1001,7 @@ const handleRemoveItem = async (productId) => {
         ))}
       </div>
 
-      {/* Recently Viewed Products Section */}
+      {/* Recently Viewed */}
       {viewedProducts.length > 0 && (
         <section className="mt-16">
           <div className="mb-6 flex items-center gap-4 flex-wrap md:flex-nowrap">
@@ -1285,54 +1011,42 @@ const handleRemoveItem = async (productId) => {
             </h2>
             <div className="flex-grow h-px bg-gray-300" />
           </div>
-
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
             {viewedProducts.map((product, index) => {
               if (!product || !product.id) return null;
-              
               const productOutOfStock = isOutOfStock(product);
-              const discount =
-                product.oldPrice > 0
-                  ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
-                  : 0;
-
-              const imageUrl = getValidImageUrl(product.image);
+              const discount = product.oldPrice > 0
+                ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
+                : 0;
+              const imgUrl = getValidImageUrl(product.image);
 
               return (
                 <div
                   key={`viewed-${product.id}-${index}`}
-                  className={`group bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden ${
-                    productOutOfStock ? 'opacity-75' : ''
-                  }`}
+                  className={`group bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden ${productOutOfStock ? 'opacity-75' : ''}`}
                 >
                   <div className="relative overflow-hidden">
                     {productOutOfStock && (
-                      <span className="absolute top-2 right-2 bg-red-500 text-white text-xs font-semibold px-2 py-1 rounded-full z-10">
-                        Out of Stock
-                      </span>
+                      <span className="absolute top-2 right-2 bg-red-500 text-white text-xs font-semibold px-2 py-1 rounded-full z-10">Out of Stock</span>
                     )}
                     {discount > 0 && !productOutOfStock && (
                       <span className="absolute top-2 left-2 bg-red-400 text-white text-xs font-semibold px-2 py-1 rounded-full z-10 w-10 h-10 flex items-center justify-center">
                         -{discount}%
                       </span>
                     )}
-
                     <div
-                      className="h-40 md:h-52 w-full flex items-center justify-center cursor-pointer transition-transform duration-300"
+                      className="h-40 md:h-52 w-full flex items-center justify-center cursor-pointer"
                       onClick={() => navigate(`/product/${product.id}`)}
                     >
                       <img
-                        src={imageUrl}
+                        src={imgUrl}
                         alt={product.name}
                         className="h-full object-contain transition-transform duration-300 group-hover:scale-105"
-                        onError={(e) => {
-                          e.target.src = "https://via.placeholder.com/150";
-                        }}
+                        onError={(e) => { e.target.src = "https://via.placeholder.com/150"; }}
                       />
                     </div>
-
                     <div
-                      className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20 transition-all cursor-pointer"
+                      className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20 cursor-pointer"
                       onClick={() => navigate(`/product/${product.id}`)}
                     >
                       <Tooltip content="Add to Wishlist" placement="top">
@@ -1341,28 +1055,18 @@ const handleRemoveItem = async (productId) => {
                         </button>
                       </Tooltip>
                       <Tooltip content="View Details" placement="top">
-                        <button
-                          className="p-2 bg-white/10 hover:bg-white/20 rounded-full"
-                          onClick={() => navigate(`/product/${product.id}`)}
-                        >
+                        <button className="p-2 bg-white/10 hover:bg-white/20 rounded-full" onClick={() => navigate(`/product/${product.id}`)}>
                           <EyeIcon className="w-5 h-5 text-white hover:text-green-400" />
                         </button>
                       </Tooltip>
                     </div>
                   </div>
-
                   <div className="p-3 text-center space-y-1">
-                    <h3 className="text-sm font-medium text-gray-800 line-clamp-2">
-                      {product.name || "Unnamed Product"}
-                    </h3>
+                    <h3 className="text-sm font-medium text-gray-800 line-clamp-2">{product.name || "Unnamed Product"}</h3>
                     <div className="flex items-center justify-center gap-1 mt-1">
-                      <span className="text-red-500 font-medium text-sm">
-                        ₵{formatPrice(product.price)}.00
-                      </span>
+                      <span className="text-red-500 font-medium text-sm">₵{formatPrice(product.price)}.00</span>
                       {product.oldPrice > 0 && (
-                        <span className="text-xs line-through text-gray-400">
-                          ₵{formatPrice(product.oldPrice)}.00
-                        </span>
+                        <span className="text-xs line-through text-gray-400">₵{formatPrice(product.oldPrice)}.00</span>
                       )}
                     </div>
                   </div>
@@ -1396,7 +1100,6 @@ const handleRemoveItem = async (productId) => {
         size={400}
       >
         <div className="flex flex-col h-full">
-          {/* Sidebar Header */}
           <div className="flex items-center justify-between p-4 border-b bg-white">
             <div className="flex items-center gap-2">
               <ShoppingCartIcon className="w-6 h-6 text-red-600" />
@@ -1408,19 +1111,19 @@ const handleRemoveItem = async (productId) => {
                   {totalCartItems} Item{totalCartItems !== 1 ? 's' : ''}
                 </div>
               )}
-              <IconButton
-                variant="text"
-                onClick={() => setCartSidebarOpen(false)}
-                className="rounded-full"
-              >
+              <IconButton variant="text" onClick={() => setCartSidebarOpen(false)} className="rounded-full">
                 <XMarkIcon className="w-5 h-5" />
               </IconButton>
             </div>
           </div>
 
-          {/* Cart Content */}
           <div className="flex-1 overflow-y-auto">
-            {!Array.isArray(localCart) || localCart.length === 0 ? (
+            {cartLoading ? (
+              <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+                <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin mb-4" />
+                <p className="text-gray-500 text-sm">Updating your cart...</p>
+              </div>
+            ) : !Array.isArray(localCart) || localCart.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full p-6 text-center">
                 <ShoppingCartIcon className="w-16 h-16 text-gray-300 mb-4" />
                 <h3 className="text-lg font-semibold text-gray-600 mb-2">Your cart is empty</h3>
@@ -1431,14 +1134,15 @@ const handleRemoveItem = async (productId) => {
                 {localCart.map((item, index) => {
                   const isUpdating = updatingQuantity[item.productId];
                   const isRemoving = removingItem[item.productId];
-                  
+                  // ✅ FIX: Always compute line total from price × quantity
+                  const lineTotal = getItemLineTotal(item);
+
                   return (
                     <div key={`${item.productId}-${index}`} className="bg-white border rounded-lg p-3 shadow-sm">
                       <div className="flex items-center gap-3">
                         <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                           {renderImage(item.imagePath)}
                         </div>
-                        
                         <div className="flex-1 min-w-0">
                           <h4 className="font-medium text-gray-800 text-sm line-clamp-2 mb-1">
                             {item.productName || "Product Name"}
@@ -1446,9 +1150,7 @@ const handleRemoveItem = async (productId) => {
                           <p className="text-red-500 font-bold text-sm">
                             ₵{formatPrice(item.price || 0)}.00
                           </p>
-                          
                           <div className="flex items-center justify-between mt-2">
-                            {/* Quantity Controls */}
                             <div className="flex items-center bg-gray-50 rounded border">
                               <Button
                                 size="sm"
@@ -1457,15 +1159,12 @@ const handleRemoveItem = async (productId) => {
                                 onClick={() => handleQuantityChange(item.productId, (item.quantity || 1) - 1)}
                                 disabled={isUpdating || isRemoving || (item.quantity || 1) <= 1}
                               >
-                                {isUpdating ? (
-                                  <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
-                                ) : (
-                                  <MinusIcon className="h-3 w-3" />
-                                )}
+                                {isUpdating
+                                  ? <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
+                                  : <MinusIcon className="h-3 w-3" />
+                                }
                               </Button>
-                              <span className="w-8 text-center text-xs font-semibold">
-                                {item.quantity || 1}
-                              </span>
+                              <span className="w-8 text-center text-xs font-semibold">{item.quantity || 1}</span>
                               <Button
                                 size="sm"
                                 variant="text"
@@ -1473,17 +1172,17 @@ const handleRemoveItem = async (productId) => {
                                 onClick={() => handleQuantityChange(item.productId, (item.quantity || 1) + 1)}
                                 disabled={isUpdating || isRemoving}
                               >
-                                {isUpdating ? (
-                                  <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
-                                ) : (
-                                  <PlusIcon className="h-3 w-3" />
-                                )}
+                                {isUpdating
+                                  ? <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
+                                  : <PlusIcon className="h-3 w-3" />
+                                }
                               </Button>
                             </div>
-                            
+
                             <div className="flex items-center gap-2">
+                              {/* ✅ FIX: Display correctly calculated line total */}
                               <span className="text-gray-700 font-bold text-sm">
-                                ₵{formatPrice((item.price || 0) * (item.quantity || 1))}.00
+                                ₵{formatPrice(lineTotal)}.00
                               </span>
                               <IconButton
                                 size="sm"
@@ -1493,11 +1192,10 @@ const handleRemoveItem = async (productId) => {
                                 onClick={() => handleRemoveItem(item.productId)}
                                 disabled={isUpdating || isRemoving}
                               >
-                                {isRemoving ? (
-                                  <div className="w-4 h-4 border border-red-500 border-t-transparent rounded-full animate-spin" />
-                                ) : (
-                                  <TrashIcon className="h-4 w-4" />
-                                )}
+                                {isRemoving
+                                  ? <div className="w-4 h-4 border border-red-500 border-t-transparent rounded-full animate-spin" />
+                                  : <TrashIcon className="h-4 w-4" />
+                                }
                               </IconButton>
                             </div>
                           </div>
@@ -1510,23 +1208,16 @@ const handleRemoveItem = async (productId) => {
             )}
           </div>
 
-          {/* Cart Footer */}
           {Array.isArray(localCart) && localCart.length > 0 && (
             <div className="border-t bg-white p-4">
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600 font-medium">Total:</span>
-                  <span className="text-lg font-bold text-red-600">
-                    ₵{formatPrice(cartTotal)}.00
-                  </span>
+                  {/* ✅ FIX: cartTotal is sum of price × qty */}
+                  <span className="text-lg font-bold text-red-600">₵{formatPrice(cartTotal)}.00</span>
                 </div>
-                
-                <p className="text-xs text-center text-gray-500">
-                  * Taxes & shipping calculated at checkout
-                </p>
-                
+                <p className="text-xs text-center text-gray-500">* Taxes & shipping calculated at checkout</p>
                 <Divider className="my-2" />
-                
                 <div className="space-y-2">
                   <Button
                     fullWidth
@@ -1535,7 +1226,6 @@ const handleRemoveItem = async (productId) => {
                   >
                     Proceed to Checkout
                   </Button>
-                  
                   <Button
                     fullWidth
                     variant="outlined"
@@ -1551,12 +1241,7 @@ const handleRemoveItem = async (productId) => {
         </div>
       </Drawer>
 
-      {/* Auth Modal */}
-      <AuthModal
-        open={authModalOpen}
-        onClose={handleAuthModalClose}
-        onSuccess={handleAuthSuccess}
-      />
+      <AuthModal open={authModalOpen} onClose={handleAuthModalClose} onSuccess={handleAuthSuccess} />
     </div>
   );
 };

@@ -10,12 +10,6 @@ import { Divider } from 'antd';
 
 // ==================== UTILITY FUNCTIONS ====================
 
-/**
- * Format amount with commas for thousands
- * @param {number} amount - The amount to format
- * @param {number} decimals - Number of decimal places (default: 2)
- * @returns {string} Formatted amount like "1,234.56"
- */
 const formatCurrency = (amount, decimals = 2) => {
   const num = parseFloat(amount) || 0;
   return num.toLocaleString('en-US', {
@@ -24,13 +18,16 @@ const formatCurrency = (amount, decimals = 2) => {
   });
 };
 
+const formatGHS = (amount) => `₵${formatCurrency(amount, 2)}`;
+
 /**
- * Format amount with Ghanaian Cedi symbol and commas
- * @param {number} amount - The amount to format
- * @returns {string} Formatted amount like "₵1,234.56"
+ * ✅ FIX: Always compute line total from price × quantity.
+ * Never trust item.total which may be stale or incorrectly pre-computed.
  */
-const formatGHS = (amount) => {
-  return `₵${formatCurrency(amount, 2)}`;
+const getItemLineTotal = (item) => {
+  const price = parseFloat(item.price) || 0;
+  const quantity = parseInt(item.quantity, 10) || 1;
+  return price * quantity;
 };
 
 // ==================== MAIN COMPONENT ====================
@@ -39,23 +36,21 @@ const Cart = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  
+
   const { cart, loading, error, cartId } = useSelector((state) => state.cart);
   const [selectedItems, setSelectedItems] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [openModal, setOpenModal] = useState(false);
-  
-  // New state for individual delete confirmation
+
   const [deleteModal, setDeleteModal] = useState({
     open: false,
     productId: null,
-    productName: ''
+    productName: '',
   });
 
-  // Network error notification state
   const [networkError, setNetworkError] = useState({
     show: false,
-    message: ''
+    message: '',
   });
 
   // ==================== EFFECTS ====================
@@ -63,7 +58,7 @@ const Cart = () => {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
-  
+
   useEffect(() => {
     const storedId = cartId || localStorage.getItem('cartId');
     if (storedId) {
@@ -76,8 +71,8 @@ const Cart = () => {
     if (cart && cart.length >= 0) {
       try {
         localStorage.setItem('cart', JSON.stringify(cart));
-      } catch (error) {
-        console.error('Failed to sync cart to localStorage:', error);
+      } catch (err) {
+        console.error('Failed to sync cart to localStorage:', err);
       }
     }
   }, [cart]);
@@ -101,10 +96,7 @@ const Cart = () => {
       const newSelection = prev.includes(productId)
         ? prev.filter((id) => id !== productId)
         : [...prev, productId];
-      
-      // Update selectAll state based on new selection
       setSelectAll(newSelection.length === cart.length && cart.length > 0);
-      
       return newSelection;
     });
   };
@@ -112,250 +104,191 @@ const Cart = () => {
   // ==================== NAVIGATION HANDLERS ====================
 
   const handleCheckout = () => {
-    const storedCustomer = localStorage.getItem("customer");
+    const storedCustomer = localStorage.getItem('customer');
 
     if (!storedCustomer) {
       setAuthModalOpen(true);
       return;
     }
 
-    // GTM event
     window.dataLayer = window.dataLayer || [];
     window.dataLayer.push({
-      event: "proceed_to_checkout",
-      cartValue: cartTotal.toFixed(2),
-      cartItems: cart.map(item => ({
+      event: 'proceed_to_checkout',
+      // ✅ Use correctly computed total
+      cartValue: calculateSubtotal().toFixed(2),
+      cartItems: cart.map((item) => ({
         productId: item.productId,
         name: item.productName,
         price: item.price,
-        quantity: item.quantity
-      }))
+        quantity: item.quantity,
+      })),
     });
 
-    // Save cart and navigate
-    localStorage.setItem("selectedCart", JSON.stringify(cart));
-    navigate("/checkout");
+    localStorage.setItem('selectedCart', JSON.stringify(cart));
+    navigate('/checkout');
   };
 
   const handleContinueShopping = () => {
-    navigate("/products");
+    navigate('/products');
   };
 
   // ==================== CART MODIFICATION HANDLERS ====================
 
-  /**
-   * Handle quantity change with optimistic updates and rollback
-   */
   const handleQuantityChange = async (productId, quantity) => {
     if (quantity >= 1) {
-      const previousCart = [...cart];
       const previousLocalStorage = localStorage.getItem('cart');
 
       try {
-        // Optimistically update local state
-        const optimisticCart = cart.map(item => 
-          item.productId === productId ? { ...item, quantity } : item
+        // Optimistic update in localStorage
+        const optimisticCart = cart.map((item) =>
+          item.productId === productId
+            ? {
+                ...item,
+                quantity,
+                // ✅ Recompute total immediately on optimistic update
+                total: parseFloat(item.price) * quantity,
+              }
+            : item
         );
-
-        // Update localStorage optimistically
         localStorage.setItem('cart', JSON.stringify(optimisticCart));
 
-        // Attempt database update with correct payload structure
         const updatePayload = {
           CartId: cartId,
           ProductId: String(productId),
-          Quantity: quantity
+          Quantity: quantity,
         };
 
         await dispatch(updateCartItem(updatePayload)).unwrap();
-
-        // Sync with database after successful update
         await dispatch(getCartById(cartId)).unwrap();
+      } catch (err) {
+        console.error('Error updating quantity:', err);
 
-      } catch (error) {
-        console.error('Error updating quantity:', error);
-
-        // Rollback localStorage
         if (previousLocalStorage) {
           localStorage.setItem('cart', previousLocalStorage);
         }
 
-        // Show error notification
         setNetworkError({
           show: true,
-          message: 'Failed to update cart. Please check your connection and try again.'
+          message: 'Failed to update cart. Please check your connection and try again.',
         });
 
-        // Re-fetch from database to ensure consistency
         try {
           await dispatch(getCartById(cartId)).unwrap();
         } catch (refetchError) {
           console.error('Failed to refetch cart:', refetchError);
         }
 
-        // Auto-hide error after 5 seconds
-        setTimeout(() => {
-          setNetworkError({ show: false, message: '' });
-        }, 5000);
+        setTimeout(() => setNetworkError({ show: false, message: '' }), 5000);
       }
     }
   };
 
-  /**
-   * Show confirmation modal for individual item removal
-   */
   const handleRemoveItemClick = (productId, productName) => {
-    setDeleteModal({
-      open: true,
-      productId,
-      productName
-    });
+    setDeleteModal({ open: true, productId, productName });
   };
 
-  /**
-   * Handle individual item deletion with optimistic updates and rollback
-   */
   const handleConfirmRemoveItem = async () => {
-    const previousCart = [...cart];
     const previousLocalStorage = localStorage.getItem('cart');
     const productIdToDelete = deleteModal.productId;
 
     try {
-      // Optimistically update local state
-      const optimisticCart = cart.filter(item => item.productId !== productIdToDelete);
+      const optimisticCart = cart.filter(
+        (item) => item.productId !== productIdToDelete
+      );
       localStorage.setItem('cart', JSON.stringify(optimisticCart));
 
-      // Attempt database deletion with correct payload structure
       const deletePayload = {
         CartId: cartId,
-        ProductId: String(productIdToDelete)
+        ProductId: String(productIdToDelete),
       };
 
       await dispatch(deleteCartItem(deletePayload)).unwrap();
-
-      // Update selected items
-      setSelectedItems(prev => prev.filter(id => id !== productIdToDelete));
-
-      // Close the modal
-      setDeleteModal({
-        open: false,
-        productId: null,
-        productName: ''
-      });
-
-      // Sync with database
+      setSelectedItems((prev) => prev.filter((id) => id !== productIdToDelete));
+      setDeleteModal({ open: false, productId: null, productName: '' });
       await dispatch(getCartById(cartId)).unwrap();
+    } catch (err) {
+      console.error('Error removing item:', err);
 
-    } catch (error) {
-      console.error('Error removing item:', error);
-
-      // Rollback localStorage
       if (previousLocalStorage) {
         localStorage.setItem('cart', previousLocalStorage);
       }
 
-      // Show error notification
       setNetworkError({
         show: true,
-        message: 'Failed to remove item. Please check your connection and try again.'
+        message: 'Failed to remove item. Please check your connection and try again.',
       });
 
-      // Close delete modal
-      setDeleteModal({
-        open: false,
-        productId: null,
-        productName: ''
-      });
+      setDeleteModal({ open: false, productId: null, productName: '' });
 
-      // Re-fetch from database to ensure consistency
       try {
         await dispatch(getCartById(cartId)).unwrap();
       } catch (refetchError) {
         console.error('Failed to refetch cart:', refetchError);
       }
 
-      // Auto-hide error after 5 seconds
-      setTimeout(() => {
-        setNetworkError({ show: false, message: '' });
-      }, 5000);
+      setTimeout(() => setNetworkError({ show: false, message: '' }), 5000);
     }
   };
 
-  /**
-   * Handle batch deletion with optimistic updates and rollback
-   */
   const handleBatchDelete = async () => {
-    const previousCart = [...cart];
     const previousLocalStorage = localStorage.getItem('cart');
     const itemsToDelete = [...selectedItems];
 
     try {
-      // Optimistically update local state
-      const optimisticCart = cart.filter(item => !itemsToDelete.includes(item.productId));
+      const optimisticCart = cart.filter(
+        (item) => !itemsToDelete.includes(item.productId)
+      );
       localStorage.setItem('cart', JSON.stringify(optimisticCart));
 
-      // Attempt to delete all items from database
-      const deletePromises = itemsToDelete.map((id) => {
-        const deletePayload = {
-          CartId: cartId,
-          ProductId: String(id)
-        };
-        return dispatch(deleteCartItem(deletePayload)).unwrap();
-      });
+      const deletePromises = itemsToDelete.map((id) =>
+        dispatch(
+          deleteCartItem({ CartId: cartId, ProductId: String(id) })
+        ).unwrap()
+      );
 
       await Promise.all(deletePromises);
-
-      // Clear selections
       setSelectedItems([]);
       setSelectAll(false);
       setOpenModal(false);
-
-      // Sync with database
       await dispatch(getCartById(cartId)).unwrap();
+    } catch (err) {
+      console.error('Error removing items:', err);
 
-    } catch (error) {
-      console.error('Error removing items:', error);
-
-      // Rollback localStorage
       if (previousLocalStorage) {
         localStorage.setItem('cart', previousLocalStorage);
       }
 
-      // Show error notification
       setNetworkError({
         show: true,
-        message: 'Failed to remove items. Please check your connection and try again.'
+        message: 'Failed to remove items. Please check your connection and try again.',
       });
 
-      // Close modal
       setOpenModal(false);
 
-      // Re-fetch from database to ensure consistency
       try {
         await dispatch(getCartById(cartId)).unwrap();
       } catch (refetchError) {
         console.error('Failed to refetch cart:', refetchError);
       }
 
-      // Auto-hide error after 5 seconds
-      setTimeout(() => {
-        setNetworkError({ show: false, message: '' });
-      }, 5000);
+      setTimeout(() => setNetworkError({ show: false, message: '' }), 5000);
     }
   };
 
   // ==================== CALCULATION FUNCTIONS ====================
 
+  /**
+   * ✅ FIX: Subtotal always recomputes from price × quantity per item.
+   */
   const calculateSubtotal = () => {
-    return cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
+    return cart.reduce((acc, item) => acc + getItemLineTotal(item), 0);
   };
 
   const cartTotal = calculateSubtotal();
-
   const totalCartItems = cart.reduce((acc, item) => acc + item.quantity, 0);
 
   // ==================== IMAGE RENDERING ====================
-  
+
   const renderImage = (imagePath) => {
     if (!imagePath) {
       return (
@@ -364,18 +297,16 @@ const Cart = () => {
         </div>
       );
     }
-    const backendBaseURL = "https://ct002.frankotrading.com:444";
-    const imageUrl = `${backendBaseURL}/Media/Products_Images/${imagePath.split("\\").pop()}`;
+    const backendBaseURL = 'https://ct002.frankotrading.com:444';
+    const imageUrl = `${backendBaseURL}/Media/Products_Images/${imagePath.split('\\').pop()}`;
     return (
-      <img 
-        src={imageUrl} 
-        alt="Product" 
+      <img
+        src={imageUrl}
+        alt="Product"
         className="w-full h-full object-cover rounded-lg"
         onError={(e) => {
-          e.target.style.display = "none";
-          if (e.target.nextSibling) {
-            e.target.nextSibling.style.display = "flex";
-          }
+          e.target.style.display = 'none';
+          if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
         }}
       />
     );
@@ -470,7 +401,7 @@ const Cart = () => {
         </div>
       </div>
 
-      <div className=" mx-auto px-4 py-6">
+      <div className="mx-auto px-4 py-6">
         {/* EMPTY CART STATE */}
         {cart.length === 0 ? (
           <div className="flex items-center justify-center min-h-[60vh]">
@@ -480,7 +411,7 @@ const Cart = () => {
               </div>
               <h3 className="text-2xl font-bold text-gray-800 mb-3">Your cart is empty</h3>
               <p className="text-gray-600 mb-8 leading-relaxed">
-                Looks like you haven't added anything to your cart yet. 
+                Looks like you haven't added anything to your cart yet.
                 Start shopping to fill it up!
               </p>
               <div className="space-y-3">
@@ -491,7 +422,7 @@ const Cart = () => {
                   Continue Shopping
                 </button>
                 <button
-                  onClick={() => navigate("/")}
+                  onClick={() => navigate('/')}
                   className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 px-6 rounded-xl transition duration-200"
                 >
                   Back to Home
@@ -500,7 +431,6 @@ const Cart = () => {
             </div>
           </div>
         ) : (
-          // CART WITH ITEMS
           <>
             {/* Cart Controls */}
             <div className="bg-white rounded-xl shadow-sm p-2 mb-2">
@@ -537,78 +467,90 @@ const Cart = () => {
               {/* CART ITEMS SECTION */}
               <div className="flex-1">
                 <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                  {cart.map((item, index) => (
-                    <div key={item.productId}>
-                      <div className="p-4 md:p-6 hover:bg-gray-50 transition-colors">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                          {/* Checkbox and Product Info */}
-                          <div className="flex items-center gap-4 flex-1">
-                            <Checkbox
-                              checked={selectedItems.includes(item.productId)}
-                              onChange={() => toggleItemSelection(item.productId)}
-                              ripple={false}
-                              className="hover:before:opacity-10"
-                            />
-                            <div className="w-20 h-20 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0">
-                              {renderImage(item.imagePath)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-gray-600 text-xs md:text-sm line-clamp-2 mb-1">
-                                {item.productName}
-                              </h4>
-                              <p className="text-red-500 text-xs md:text-sm font-bold">{formatGHS(item.price)}</p>
-                            </div>
-                          </div>
-
-                          {/* Quantity and Actions */}
-                          <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6">
-                            {/* Quantity Controls */}
-                            <div className="flex items-center bg-gray-50 rounded-lg border">
-                              <Button
-                                size="sm"
-                                variant="text"
-                                className="min-w-0 px-2 py-1 hover:bg-gray-100"
-                                onClick={() => handleQuantityChange(item.productId, item.quantity - 1)}
-                                disabled={item.quantity <= 1}
-                              >
-                                <MinusIcon className="h-4 w-4 text-gray-600" />
-                              </Button>
-                              <span className="w-12 text-center text-gray-800 font-semibold py-1">
-                                {item.quantity}
-                              </span>
-                              <Button
-                                size="sm"
-                                variant="text"
-                                className="min-w-0 px-2 py-1 hover:bg-gray-100"
-                                onClick={() => handleQuantityChange(item.productId, item.quantity + 1)}
-                              >
-                                <PlusIcon className="h-4 w-4 text-gray-600" />
-                              </Button>
-                            </div>
-
-                            {/* Total Price */}
-                            <div className="text-right min-w-fit">
-                              <div className="text-gray-700 font-bold text-sm">
-                                {formatGHS(item.price * item.quantity)}
+                  {cart.map((item, index) => {
+                    // ✅ FIX: Always compute line total from price × quantity
+                    const lineTotal = getItemLineTotal(item);
+                    return (
+                      <div key={item.productId}>
+                        <div className="p-4 md:p-6 hover:bg-gray-50 transition-colors">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                            {/* Checkbox and Product Info */}
+                            <div className="flex items-center gap-4 flex-1">
+                              <Checkbox
+                                checked={selectedItems.includes(item.productId)}
+                                onChange={() => toggleItemSelection(item.productId)}
+                                ripple={false}
+                                className="hover:before:opacity-10"
+                              />
+                              <div className="w-20 h-20 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0">
+                                {renderImage(item.imagePath)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold text-gray-600 text-xs md:text-sm line-clamp-2 mb-1">
+                                  {item.productName}
+                                </h4>
+                                <p className="text-red-500 text-xs md:text-sm font-bold">
+                                  {formatGHS(item.price)}
+                                </p>
                               </div>
                             </div>
 
-                            {/* Remove Button */}
-                            <Button
-                              size="sm"
-                              variant="text"
-                              color="red"
-                              className="min-w-0 p-2 hover:bg-red-50"
-                              onClick={() => handleRemoveItemClick(item.productId, item.productName)}
-                            >
-                              <TrashIcon className="h-5 w-5" />
-                            </Button>
+                            {/* Quantity and Actions */}
+                            <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6">
+                              {/* Quantity Controls */}
+                              <div className="flex items-center bg-gray-50 rounded-lg border">
+                                <Button
+                                  size="sm"
+                                  variant="text"
+                                  className="min-w-0 px-2 py-1 hover:bg-gray-100"
+                                  onClick={() =>
+                                    handleQuantityChange(item.productId, item.quantity - 1)
+                                  }
+                                  disabled={item.quantity <= 1}
+                                >
+                                  <MinusIcon className="h-4 w-4 text-gray-600" />
+                                </Button>
+                                <span className="w-12 text-center text-gray-800 font-semibold py-1">
+                                  {item.quantity}
+                                </span>
+                                <Button
+                                  size="sm"
+                                  variant="text"
+                                  className="min-w-0 px-2 py-1 hover:bg-gray-100"
+                                  onClick={() =>
+                                    handleQuantityChange(item.productId, item.quantity + 1)
+                                  }
+                                >
+                                  <PlusIcon className="h-4 w-4 text-gray-600" />
+                                </Button>
+                              </div>
+
+                              {/* ✅ FIX: Display correctly calculated line total */}
+                              <div className="text-right min-w-fit">
+                                <div className="text-gray-700 font-bold text-sm">
+                                  {formatGHS(lineTotal)}
+                                </div>
+                              </div>
+
+                              {/* Remove Button */}
+                              <Button
+                                size="sm"
+                                variant="text"
+                                color="red"
+                                className="min-w-0 p-2 hover:bg-red-50"
+                                onClick={() =>
+                                  handleRemoveItemClick(item.productId, item.productName)
+                                }
+                              >
+                                <TrashIcon className="h-5 w-5" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
+                        {index < cart.length - 1 && <Divider className="m-0" />}
                       </div>
-                      {index < cart.length - 1 && <Divider className="m-0" />}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -625,6 +567,7 @@ const Cart = () => {
                   <div className="space-y-3 mb-6">
                     <div className="flex justify-between items-center text-gray-600">
                       <span>Subtotal ({totalCartItems} items):</span>
+                      {/* ✅ FIX: Uses recalculated cartTotal */}
                       <span className="font-medium">{formatGHS(cartTotal)}</span>
                     </div>
                     <Divider className="my-3" />
@@ -662,7 +605,7 @@ const Cart = () => {
       {/* MOBILE ORDER SUMMARY - FIXED BOTTOM */}
       {cart.length > 0 && (
         <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50">
-          <div className=" mx-auto px-4 py-4">
+          <div className="mx-auto px-4 py-4">
             <div className="flex justify-between items-center mb-3">
               <span className="text-gray-600 font-medium">Cart Total:</span>
               <span className="text-lg font-bold text-red-600">
@@ -688,30 +631,27 @@ const Cart = () => {
           </div>
         </DialogHeader>
         <DialogBody className="text-gray-600">
-          Are you sure you want to remove {selectedItems.length} item{selectedItems.length !== 1 ? 's' : ''} from your cart? This action cannot be undone.
+          Are you sure you want to remove {selectedItems.length} item
+          {selectedItems.length !== 1 ? 's' : ''} from your cart? This action cannot be undone.
         </DialogBody>
         <DialogFooter className="space-x-2">
-          <Button 
-            variant="text" 
+          <Button
+            variant="text"
             onClick={() => setOpenModal(false)}
             className="text-gray-600 hover:bg-gray-100"
           >
             Cancel
           </Button>
-          <Button 
-            color="red" 
-            onClick={handleBatchDelete}
-            className="bg-red-500 hover:bg-red-600"
-          >
+          <Button color="red" onClick={handleBatchDelete} className="bg-red-500 hover:bg-red-600">
             Remove Items
           </Button>
         </DialogFooter>
       </Dialog>
 
       {/* INDIVIDUAL DELETE CONFIRMATION MODAL */}
-      <Dialog 
-        open={deleteModal.open} 
-        handler={() => setDeleteModal({ open: false, productId: null, productName: '' })} 
+      <Dialog
+        open={deleteModal.open}
+        handler={() => setDeleteModal({ open: false, productId: null, productName: '' })}
         className="bg-white rounded-2xl"
       >
         <DialogHeader className="text-gray-800">
@@ -721,18 +661,19 @@ const Cart = () => {
           </div>
         </DialogHeader>
         <DialogBody className="text-gray-600">
-          Are you sure you want to remove "<strong>{deleteModal.productName}</strong>" from your cart? This action cannot be undone.
+          Are you sure you want to remove "
+          <strong>{deleteModal.productName}</strong>" from your cart? This action cannot be undone.
         </DialogBody>
         <DialogFooter className="space-x-2">
-          <Button 
-            variant="text" 
+          <Button
+            variant="text"
             onClick={() => setDeleteModal({ open: false, productId: null, productName: '' })}
             className="text-gray-600 hover:bg-gray-100"
           >
             Cancel
           </Button>
-          <Button 
-            color="red" 
+          <Button
+            color="red"
             onClick={handleConfirmRemoveItem}
             className="bg-red-500 hover:bg-red-600"
           >

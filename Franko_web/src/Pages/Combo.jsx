@@ -242,7 +242,7 @@ const Combo = () => {
     "image": filteredProducts.length
       ? `https://fte002n1.salesmate.app/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}`
       : "",
-    "description": "Discover the best Washing deals on our platform with amazing discounts.",
+    "description": "Discover the best Washing machine deals on our platform with amazing discounts.",
     "brand": {
       "@type": "Brand",
       "name": "Brand Name"
@@ -359,7 +359,7 @@ const Combo = () => {
                 <Cog6ToothIcon className="w-6 h-6 text-red-300" />
               </div>
               <h6 className="text-md font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                {filters.selectedBrand || "Washing Machine Deals"}
+                {filters.selectedBrand || "Washing Machine "}
               </h6>
             </div>
             <p className="text-sm text-gray-500">
@@ -638,7 +638,7 @@ const Combo = () => {
                         </h2>
                       </div>
                       <p className="text-sm text-gray-500">
-                        Discover the best electronic device bundles and washing machine deals at unbeatable prices
+                        Discover the best  washing machine at unbeatable prices
                       </p>
                     </div>
                     

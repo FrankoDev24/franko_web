@@ -1,6 +1,6 @@
 // src/pages/Checkout.jsx
 import { useState, useEffect, useRef } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import {
   checkOutOrder,
@@ -12,7 +12,7 @@ import {
   debitCustomer,
   checkTransactionStatus,
 } from "../Redux/Slice/paymentSlice";
-import { clearCart } from "../Redux/Slice/cartSlice";
+import { clearCart, getCartById } from "../Redux/Slice/cartSlice";
 import { message, Card, Typography, Radio, Divider, Modal, Input, Select } from "antd";
 import CheckoutForm from "../Component/CheckoutForm";
 import locations from "../Component/Locations";
@@ -60,6 +60,17 @@ const formatGHS = (amount) => {
   return `₵${formatCurrency(amount, 2)}`;
 };
 
+/**
+ * ✅ FIX: Safely calculate the true line total for a cart item.
+ * Always uses price × quantity — never trusts a pre-stored `item.total`
+ * which may have been computed incorrectly (e.g. wrong quantity multiplier).
+ */
+const getItemLineTotal = (item) => {
+  const price = parseFloat(item.price) || 0;
+  const quantity = parseInt(item.quantity, 10) || 1;
+  return price * quantity;
+};
+
 // ==================== MAIN COMPONENT ====================
 
 const Checkout = () => {
@@ -82,6 +93,7 @@ const Checkout = () => {
 
   const [isValidationModalVisible, setIsValidationModalVisible] = useState(false);
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
+  const [isGuestWarningVisible, setIsGuestWarningVisible] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState("idle");
   const [currentOrderId, setCurrentOrderId] = useState(null);
   const [pendingCheckoutDetails, setPendingCheckoutDetails] = useState(null);
@@ -91,31 +103,49 @@ const Checkout = () => {
   const [selectedNetwork, setSelectedNetwork] = useState(null);
   const [payButtonLoading, setPayButtonLoading] = useState(false);
 
-  // ==================== STORAGE HELPERS ====================
+  // ==================== CART SOURCE: REDUX FIRST ====================
 
-  const safeGet = (key, fallback) => {
+  // ✅ FIX: Read cart AND cartId from Redux — the single source of truth.
+  // localStorage is only a fallback for page-reload before Redux rehydrates.
+  const { cart: reduxCart, cartId: reduxCartId } = useSelector((state) => state.cart);
+
+  const getCartItemsFromLocalStorage = () => {
     try {
-      const v = localStorage.getItem(key);
-      return v == null ? fallback : v;
+      // ✅ Encrypted localStorage auto-parses JSON — returns array directly
+      const stored = localStorage.getItem("cart");
+      if (!stored) return [];
+      return Array.isArray(stored) ? stored : [];
     } catch {
-      return fallback;
+      return [];
     }
   };
 
-  const getCartItems = () => {
-    const stored = safeGet("cart", []);
-    return Array.isArray(stored) ? stored : [];
+  // Redux is authoritative; fall back to localStorage only if Redux is empty
+  const resolveCartItems = () => {
+    if (Array.isArray(reduxCart) && reduxCart.length > 0) return reduxCart;
+    return getCartItemsFromLocalStorage();
   };
 
-  const [cartItems, setCartItems] = useState(getCartItems);
+  const [cartItems, setCartItems] = useState(resolveCartItems);
 
+  // ✅ FIX: Prefer Redux cartId, then localStorage, then generate one
   const getCartId = () =>
-    localStorage.getItem("cartId") || `cart_${Date.now()}`;
+    reduxCartId || localStorage.getItem("cartId") || `cart_${Date.now()}`;
 
-  const customerData = safeGet("customer", null);
+  // ✅ Load customer from localStorage into state so it's always available
+  const [customerData, setCustomerData] = useState(null);
 
+  const [isDifferentRecipient, setIsDifferentRecipient] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerNumber, setCustomerNumber] = useState("");
+
+  // Derived from customerData state — updates reactively
+  const accountName = customerData
+    ? `${customerData.firstName || ""} ${customerData.lastName || ""}`.trim()
+    : "";
+  const accountNumber =
+    customerData?.contactNumber || customerData?.ContactNumber || "";
+
   const customerId = customerData?.customerAccountNumber;
   const customerAccountType = customerData?.accountType;
   const selectedAddress = deliveryInfo?.address || "";
@@ -137,25 +167,56 @@ const Checkout = () => {
 
   // ==================== EFFECTS ====================
 
+  // ✅ Load customer from localStorage on mount — drives accountName/accountNumber reactively
   useEffect(() => {
-    if (customerData) {
-      setCustomerName(
-        `${customerData.firstName || ""} ${customerData.lastName || ""}`.trim()
-      );
-      setCustomerNumber(
-        customerData.contactNumber || customerData.ContactNumber || ""
-      );
-    }
-
     try {
-      const storedInfo = safeGet("deliveryInfo", {});
-      const addr = storedInfo?.address || customerData?.address || "";
+      // ✅ Encrypted localStorage returns already-parsed objects — no JSON.parse needed
+      const customerObj = localStorage.getItem("customer");
+      if (customerObj && typeof customerObj === "object") {
+        setCustomerData(customerObj);
+        const name = `${customerObj.firstName || ""} ${customerObj.lastName || ""}`.trim();
+        const number = customerObj.contactNumber || customerObj.ContactNumber || "";
+        setCustomerName(name);
+        setCustomerNumber(number);
+      }
+    } catch {}
+
+    // Load delivery info
+    try {
+      // ✅ Encrypted localStorage returns object directly
+      const storedInfo = localStorage.getItem("deliveryInfo") || {};
+      const addr = storedInfo?.address || "";
       const fee = storedInfo?.fee ?? 0;
       const feeDisplay = storedInfo?.feeDisplay || storedInfo?.feeText || "";
       setDeliveryInfo({ address: addr, fee, feeDisplay });
       setDeliveryFee(Number(fee) || 0);
     } catch {}
   }, []);
+
+  // ✅ FIX: On mount, fetch cart from DB so Redux is always populated,
+  // even when the user navigates directly to /checkout.
+  useEffect(() => {
+    const activeCartId = reduxCartId || localStorage.getItem("cartId");
+    if (activeCartId) {
+      dispatch(getCartById(activeCartId));
+    }
+  }, []);
+
+  // When toggle switches: clear fields for different recipient, restore account data when toggled back
+  useEffect(() => {
+    if (isDifferentRecipient) {
+      setCustomerName("");
+      setCustomerNumber("");
+    } else {
+      // Restore from localStorage customer data
+      if (customerData) {
+        const name = `${customerData.firstName || ""} ${customerData.lastName || ""}`.trim();
+        const number = customerData.contactNumber || customerData.ContactNumber || "";
+        setCustomerName(name);
+        setCustomerNumber(number);
+      }
+    }
+  }, [isDifferentRecipient]);
 
   useEffect(() => {
     if (
@@ -166,23 +227,17 @@ const Checkout = () => {
     }
   }, [deliveryInfo]);
 
+  // ✅ FIX: Sync cartItems from Redux whenever it changes.
+  // Redux is the single source of truth — no localStorage polling needed.
   useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (e.key === "cart") {
-        setCartItems(getCartItems());
-      }
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-    const intervalId = setInterval(() => {
-      setCartItems(getCartItems());
-    }, 2000);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      clearInterval(intervalId);
-    };
-  }, []);
+    if (Array.isArray(reduxCart) && reduxCart.length > 0) {
+      setCartItems(reduxCart);
+    } else {
+      // Redux empty on first render — try localStorage as a one-time fallback
+      const fallback = getCartItemsFromLocalStorage();
+      if (fallback.length > 0) setCartItems(fallback);
+    }
+  }, [reduxCart]);
 
   useEffect(() => {
     return () => {
@@ -222,10 +277,13 @@ const Checkout = () => {
 
   // ==================== CALCULATION FUNCTIONS ====================
 
+  /**
+   * ✅ FIX: Subtotal always recomputes from price × quantity.
+   * Never relies on item.total which may carry a stale or wrong value.
+   */
   const calculateSubtotal = () => {
     return cartItems.reduce((total, item) => {
-      const itemTotal = item.total || item.price * (item.quantity || 1) || 0;
-      return total + itemTotal;
+      return total + getItemLineTotal(item);
     }, 0);
   };
 
@@ -235,8 +293,8 @@ const Checkout = () => {
 
   /**
    * Service charge logic (DISPLAY ONLY — backend handles the actual charge):
-   * - Amount ≤ ₵2,000 → 1% of the total
-   * - Amount > ₵2,000 → fixed flat ₵20.00 (capped, no further increase)
+   * - Amount <= ₵2,000 -> 1% of the total
+   * - Amount > ₵2,000 -> fixed flat ₵20.00 (capped, no further increase)
    */
   const calculateServiceCharge = () => {
     const baseAmount = calculateTotalAmount();
@@ -408,9 +466,8 @@ const Checkout = () => {
     if (!number && customerData) {
       number = customerData.contactNumber || customerData.ContactNumber || "";
     }
-    if (!name) {
-      name = `Guest ${Math.floor(1000 + Math.random() * 9000)}`;
-    }
+    // ✅ Don't auto-generate a Guest name — let validation catch a missing name instead
+    // (a generated "Guest XXXX" would immediately trigger the guest name block below)
     if (!number) {
       number = "0000000000";
     }
@@ -423,6 +480,17 @@ const Checkout = () => {
     setCustomerName(safeName);
     setCustomerNumber(safeNumber);
 
+    // ✅ Block checkout if recipient name looks like a guest placeholder
+    const nameLower = safeName.toLowerCase().trim();
+    if (
+      nameLower === "guest" ||
+      nameLower === "guest user" ||
+      nameLower.startsWith("guest ")
+    ) {
+      setIsGuestWarningVisible(true);
+      return;
+    }
+
     const validationErrors = validateRequiredFields();
     if (validationErrors.length > 0) {
       setIsValidationModalVisible(true);
@@ -432,8 +500,9 @@ const Checkout = () => {
     const orderId = generateOrderId();
     setCurrentOrderId(orderId);
     const orderDate = new Date().toISOString();
-    // Send only the base total (without service charge) to backend
-    const totalAmount = calculateTotalAmount();
+
+    // ✅ Send ONLY the cart subtotal to the backend — no delivery fee, no service charge added
+    const totalAmount = calculateSubtotal();
     const cartId = getCartId();
 
     const checkoutDetails = {
@@ -444,7 +513,7 @@ const Checkout = () => {
       PaymentAccountNumber: safeNumber || "0000000000",
       customerAccountType,
       paymentService: "Mtn",
-      totalAmount, // ← base amount only, NO service charge
+      totalAmount, // pure cart subtotal — exactly what is in the cart
       recipientName: safeName,
       recipientContactNumber: safeNumber,
       orderNote: orderNote || "N/A",
@@ -469,8 +538,9 @@ const Checkout = () => {
         message.success("Your order has been placed successfully!");
         navigate("/order-received");
       } else {
-        localStorage.setItem("checkoutDetails", JSON.stringify(checkoutDetails));
-        localStorage.setItem("orderAddressDetails", JSON.stringify(addressDetails));
+        // ✅ Encrypted localStorage auto-encrypts — no JSON.stringify needed
+        localStorage.setItem("checkoutDetails", checkoutDetails);
+        localStorage.setItem("orderAddressDetails", addressDetails);
         dispatch(saveCheckoutDetails(checkoutDetails));
         dispatch(saveAddressDetails(addressDetails));
 
@@ -509,7 +579,7 @@ const Checkout = () => {
         debitCustomer({
           refNo: currentOrderId,
           msisdn: momoNumber,
-          amount: calculateTotalAmount(), // ← base amount only, NOT including service charge
+          amount: calculateSubtotal(), // pure cart subtotal — no delivery fee, no service charge
           network: selectedNetwork,
           narration: "franko",
         })
@@ -568,6 +638,17 @@ const Checkout = () => {
   // ==================== EMPTY CART RENDER ====================
 
   if (!cartItems || cartItems.length === 0) {
+    // --- DEBUG: shows all localStorage keys & values so you can find the real cart key ---
+    const debugEntries = (() => {
+      try {
+        return Object.keys(localStorage).map((k) => {
+          const raw = localStorage.getItem(k);
+          let preview = raw?.slice(0, 120) ?? "";
+          return { k, preview };
+        });
+      } catch { return []; }
+    })();
+
     return (
       <div className="p-4 text-center min-h-[400px] flex flex-col items-center justify-center">
         <div className="flex items-center justify-center mb-4">
@@ -577,7 +658,7 @@ const Checkout = () => {
         <p className="text-gray-500 mb-6">
           Add some items to your cart to proceed with checkout.
         </p>
-        <div className="flex gap-4 justify-center">
+        <div className="flex gap-4 justify-center mb-6">
           <button
             onClick={() => navigate("/")}
             className="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors duration-200 font-medium"
@@ -585,6 +666,34 @@ const Checkout = () => {
             Continue Shopping
           </button>
         </div>
+
+        {/* ===== TEMPORARY DEBUG PANEL — remove once cart key is confirmed ===== */}
+        {debugEntries.length > 0 && (
+          <div className="w-full max-w-2xl text-left bg-yellow-50 border border-yellow-300 rounded-lg p-4 mt-2">
+            <p className="text-xs font-bold text-yellow-800 mb-2">
+              🛠 DEBUG: localStorage keys ({debugEntries.length} found) — share this with your developer
+            </p>
+            <div className="space-y-1 max-h-60 overflow-y-auto">
+              {debugEntries.map(({ k, preview }) => (
+                <div key={k} className="text-xs font-mono break-all">
+                  <span className="font-bold text-yellow-900">{k}:</span>{" "}
+                  <span className="text-gray-600">{preview}</span>
+                </div>
+              ))}
+            </div>
+            {debugEntries.length === 0 && (
+              <p className="text-xs text-gray-500">localStorage is empty — cart may be stored only in Redux memory (not persisted).</p>
+            )}
+          </div>
+        )}
+        {debugEntries.length === 0 && (
+          <div className="w-full max-w-2xl text-left bg-yellow-50 border border-yellow-300 rounded-lg p-4 mt-2">
+            <p className="text-xs font-bold text-yellow-800">
+              🛠 DEBUG: localStorage is completely empty. Cart is likely in Redux only (redux-persist may be disabled or using a different storage engine).
+            </p>
+          </div>
+        )}
+        {/* ===== END DEBUG PANEL ===== */}
       </div>
     );
   }
@@ -618,6 +727,62 @@ const Checkout = () => {
                 <div className="border-b border-gray-300"></div>
               </div>
             </div>
+
+            {/* ── RECIPIENT TOGGLE ── */}
+            <div
+              className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 mb-4 cursor-pointer select-none"
+              onClick={() => setIsDifferentRecipient((v) => !v)}
+            >
+              <div className="flex items-center gap-2">
+                <UserIcon className="w-4 h-4 text-gray-500" />
+                <span className="text-sm font-medium text-gray-700">
+                  Different recipient?
+                </span>
+              </div>
+              {/* Toggle pill */}
+              <div
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
+                  isDifferentRecipient ? "bg-green-500" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                    isDifferentRecipient ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </div>
+            </div>
+
+            {/* ── ACCOUNT HOLDER INFO (shown when same recipient) ── */}
+            {!isDifferentRecipient && (
+              <div className="mb-4 bg-green-50 border border-green-200 rounded-xl px-4 py-3 space-y-1">
+                <p className="text-xs text-green-700 font-semibold uppercase tracking-wide mb-1">
+                  Delivering to
+                </p>
+                <div className="flex items-center gap-2">
+                  <UserIcon className="w-4 h-4 text-green-600 flex-shrink-0" />
+                  <span className="text-sm font-semibold text-gray-800">
+                    {accountName || "—"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <PhoneIcon className="w-4 h-4 text-green-600 flex-shrink-0" />
+                  <span className="text-sm text-gray-700">
+                    {accountNumber || "—"}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* ── DIFFERENT RECIPIENT NOTICE ── */}
+            {isDifferentRecipient && (
+              <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                <p className="text-xs text-amber-700 font-medium">
+                  Enter the recipient's name and contact number below.
+                </p>
+              </div>
+            )}
+
             <CheckoutForm
               customerName={customerName}
               setCustomerName={setCustomerName}
@@ -630,6 +795,9 @@ const Checkout = () => {
               locations={locations}
               customerAccountType={customerAccountType}
               firstName={customerData?.firstName || "Guest"}
+              // Pass through so CheckoutForm can lock fields when not different recipient
+              isDifferentRecipient={isDifferentRecipient}
+              readOnlyRecipient={!isDifferentRecipient}
             />
           </Card>
         </div>
@@ -647,33 +815,38 @@ const Checkout = () => {
 
             {/* CART ITEMS LIST */}
             <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-              {cartItems.map((item, index) => (
-                <div
-                  key={item.productId || index}
-                  className="flex justify-between items-start py-4 gap-4"
-                >
-                  <div className="flex gap-4 flex-1">
-                    <div className="w-16 h-16 flex-shrink-0 relative">
-                      {renderImage(item.imagePath)}
-                      <div className="w-16 h-16 bg-gray-200 rounded-lg items-center justify-center hidden">
-                        <span className="text-gray-400 text-xs">No Image</span>
+              {cartItems.map((item, index) => {
+                // ✅ FIX: Always compute line total from price × quantity
+                const lineTotal = getItemLineTotal(item);
+                return (
+                  <div
+                    key={item.productId || index}
+                    className="flex justify-between items-start py-4 gap-4"
+                  >
+                    <div className="flex gap-4 flex-1">
+                      <div className="w-16 h-16 flex-shrink-0 relative">
+                        {renderImage(item.imagePath)}
+                        <div className="w-16 h-16 bg-gray-200 rounded-lg items-center justify-center hidden">
+                          <span className="text-gray-400 text-xs">No Image</span>
+                        </div>
+                      </div>
+                      <div className="text-sm flex-1">
+                        <p className="font-medium text-gray-800 mb-1">
+                          {item.productName || "Product Name"}
+                        </p>
+                        <p className="text-xs text-gray-500">Qty: {item.quantity || 1}</p>
+                        <p className="text-xs text-gray-500">{formatGHS(item.price || 0)}</p>
                       </div>
                     </div>
-                    <div className="text-sm flex-1">
-                      <p className="font-medium text-gray-800 mb-1">
-                        {item.productName || "Product Name"}
+                    <div className="text-right">
+                      {/* ✅ FIX: Display correctly calculated line total */}
+                      <p className="text-md font-semibold text-gray-800">
+                        {formatGHS(lineTotal)}
                       </p>
-                      <p className="text-xs text-gray-500">Qty: {item.quantity || 1}</p>
-                      <p className="text-xs text-gray-500">{formatGHS(item.price || 0)}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-md font-semibold text-gray-800">
-                      {formatGHS(item.total || item.price * (item.quantity || 1) || 0)}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* SUBTOTAL */}
@@ -796,6 +969,35 @@ const Checkout = () => {
         </div>
       </div>
 
+      {/* GUEST NAME WARNING MODAL */}
+      <Modal
+        open={isGuestWarningVisible}
+        onCancel={() => setIsGuestWarningVisible(false)}
+        centered
+        footer={null}
+        width={400}
+      >
+        <div className="flex flex-col items-center text-center py-4 space-y-4">
+          <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center">
+            <ExclamationTriangleIcon className="w-8 h-8 text-amber-500" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-gray-800 mb-1">Real name required</h3>
+            <p className="text-sm text-gray-500 leading-relaxed">
+              Please enter your actual full name before placing an order.
+              <br />
+              <span className="text-amber-600 font-medium">Guest accounts must provide a real name.</span>
+            </p>
+          </div>
+          <button
+            onClick={() => setIsGuestWarningVisible(false)}
+            className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold transition-colors"
+          >
+            OK, I'll update my name
+          </button>
+        </div>
+      </Modal>
+
       {/* VALIDATION ERROR MODAL */}
       <Modal
         title={
@@ -882,7 +1084,7 @@ const Checkout = () => {
               <p className="text-md text-gray-600 font-black">Franko Trading Limited</p>
             </div>
 
-            {/* AMOUNT DISPLAY — shows total WITH service charge so user knows what to expect */}
+            {/* AMOUNT DISPLAY */}
             <div className="bg-gradient-to-r from-green-50 to-green-100 p-2 rounded-xl text-center border border-green-200">
               <p className="text-gray-600 text-sm font-medium">You will be prompted to pay</p>
               <p className="text-xl font-bold text-green-700 mt-1">
@@ -890,8 +1092,7 @@ const Checkout = () => {
               </p>
               {calculateServiceCharge() > 0 && (
                 <p className="text-xs text-gray-500 mt-1">
-                  (Includes {formatGHS(calculateServiceCharge())} service fee
-                  {calculateTotalAmount() > 2000 ? " " : " "})
+                  (Includes {formatGHS(calculateServiceCharge())} service fee)
                 </p>
               )}
               <p className="text-xs text-gray-400 mt-1">Order Ref: {currentOrderId}</p>
@@ -923,7 +1124,7 @@ const Checkout = () => {
 
                     {startsWithZeroAfter233() && (
                       <p className="text-xs text-red-500 font-medium animate-pulse">
-                        ⚠️ Do not begin the number with 0 after 233
+                        Do not begin the number with 0 after 233
                       </p>
                     )}
 
@@ -931,7 +1132,7 @@ const Checkout = () => {
                       !isValidMomoNumber() &&
                       !startsWithZeroAfter233() && (
                         <p className="text-xs text-red-500 font-medium animate-pulse">
-                          ⚠️ Please enter a valid 9-digit number after 233
+                          Please enter a valid 9-digit number after 233
                         </p>
                     )}
 
@@ -1056,7 +1257,7 @@ const Checkout = () => {
                   </Radio.Group>
                 </div>
 
-                {/* PAY BUTTON — displays total with charge, but sends base amount */}
+                {/* PAY BUTTON */}
                 <button
                   onClick={handlePayNow}
                   disabled={!isValidMomoNumber() || !selectedNetwork || payButtonLoading}
@@ -1084,16 +1285,15 @@ const Checkout = () => {
 
                 {/* INSTRUCTIONS */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm font-semibold text-blue-800 mb-2">📱 What happens next?</p>
+                  <p className="text-sm font-semibold text-blue-800 mb-2">What happens next?</p>
                   <ol className="text-xs text-blue-700 space-y-1 list-decimal list-inside">
                     <li>You will receive a payment prompt on your phone</li>
-                
                     <li>Enter your Mobile Money PIN to approve</li>
                     <li>Wait for confirmation (usually takes 10-25 seconds)</li>
                     <li>Your order will be processed immediately after payment</li>
                   </ol>
                   <p className="text-xs text-blue-600 mt-2 font-medium">
-                    💡 Tip: Keep your phone nearby to approve the payment
+                    Tip: Keep your phone nearby to approve the payment
                   </p>
                 </div>
               </>
@@ -1108,9 +1308,7 @@ const Checkout = () => {
                 </div>
                 <div>
                   <p className="font-bold text-gray-800 text-lg">Payment Request Sent!</p>
-                  <p className="text-gray-600 mt-2">
-                    📱 Check your phone now
-                  </p>
+                  <p className="text-gray-600 mt-2">Check your phone now</p>
                   <p className="text-sm text-gray-500 mt-1">
                     A payment prompt has been sent to
                   </p>
