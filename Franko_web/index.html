@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -70,30 +69,39 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://www.google-analytics.com" />
 
-    <!-- Vite Entry Script -->
-    <script type="module" src="/src/main.jsx"></script>
-
     <!-- Google Tag Manager -->
-    <script defer>
+    <script>
       (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
       new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-      j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.defer=true;j.src=
+      j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
       })(window,document,'script','dataLayer','GTM-WKCL4JTV');
     </script>
 
     <!-- Facebook Pixel -->
-    <script defer>
+    <script>
       !function(f,b,e,v,n,t,s)
       {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
       n.callMethod.apply(n,arguments):n.queue.push(arguments)};
       if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-      n.queue=[];t=b.createElement(e);t.defer=true;
+      n.queue=[];t=b.createElement(e);t.async=true;
       t.src=v;s=b.getElementsByTagName(e)[0];
       s.parentNode.insertBefore(t,s)}(window,document,'script',
       'https://connect.facebook.net/en_US/fbevents.js');
       fbq('init', '4054827501430067');
       fbq('track', 'PageView');
+    </script>
+
+    <!-- TikTok Pixel Code -->
+    <script>
+      !function (w, d, t) {
+        w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(
+      var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script")
+      ;n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};
+
+        ttq.load('D6PVD63C77U2LASTSH20');
+        ttq.page();
+      }(window, document, 'ttq');
     </script>
 
     <!-- Chat Widget Styles -->
@@ -110,7 +118,7 @@
         position: fixed;
         bottom: 25px;
         right: 25px;
-        z-index: 2147483647 !important; /* Maximum z-index value */
+        z-index: 2147483647 !important;
         pointer-events: none;
       }
 
@@ -118,7 +126,6 @@
         pointer-events: all;
       }
 
-      /* Help Text Tooltip */
       .chat-help-text {
         position: absolute;
         bottom: 70px;
@@ -277,7 +284,6 @@
         transform: rotate(-45deg);
       }
 
-      /* Pulse animation for attention */
       @keyframes pulse {
         0% {
           box-shadow: 0 4px 15px rgba(0, 104, 56, 0.4);
@@ -335,10 +341,6 @@
   </head>
 
   <body>
-       <!-- Flix Media Containers - Add these -->
-    <div id="flix-minisite"></div>
-    <div id="flix-inpage"></div>
-    
     <!-- GTM (noscript) -->
     <noscript>
       <iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WKCL4JTV"
@@ -351,6 +353,10 @@
            src="https://www.facebook.com/tr?id=4054827501430067&ev=PageView&noscript=1" />
     </noscript>
 
+    <!-- Flix Media Containers -->
+    <div id="flix-minisite"></div>
+    <div id="flix-inpage"></div>
+
     <!-- Root for React App -->
     <div id="root"></div>
 
@@ -361,12 +367,12 @@
     <div class="chat-widget-container">
       <!-- Help Text Tooltip -->
       <div class="chat-help-text" id="chatHelpText">
-       We are here to help 👋
+        We are here to help 👋
       </div>
 
       <div class="chat-options" id="chatOptions">
         <!-- WhatsApp Option -->
-        <a href="https://wa.me/233503607980?text=Hello%20Franko%20Trading!%20I%20need%20a%20assitance%20with%20your%20products." 
+        <a href="https://wa.me/233503607980?text=Hello%20Franko%20Trading!%20I%20need%20assistance%20with%20your%20products." 
            class="chat-option whatsapp-option"
            target="_blank" 
            rel="noopener noreferrer"
@@ -438,7 +444,6 @@
         chatOptions.classList.toggle('active');
         chatToggle.classList.remove('pulse');
         
-        // Hide help text when menu is open
         if (chatOptions.classList.contains('active')) {
           chatHelpText.classList.add('hidden-by-menu');
           chatHelpText.classList.remove('visible');
@@ -454,7 +459,6 @@
         } else {
           console.log('Tawk.to is still loading...');
         }
-        // Close the options menu
         chatToggle.classList.remove('active');
         chatOptions.classList.remove('active');
         chatHelpText.classList.remove('hidden-by-menu');
@@ -506,6 +510,8 @@
         Tawk_API.hideWidget();
       };
     </script>
+
+    <!-- Vite Entry Script -->
+    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
-    

@@ -10,71 +10,51 @@ const CART_ID_KEY = "cartId";
    UTILITY
 =========================== */
 
-/**
- * ✅ FIX: Always compute item total from unitPrice × quantity.
- */
 const computeItemTotal = (unitPrice, quantity) => {
   return parseFloat(unitPrice || 0) * parseInt(quantity || 1, 10);
 };
 
 /**
- * ✅ FIX: Normalize a raw API cart item into a consistent shape.
- * 
- * CRITICAL: The API may return `price` as the LINE TOTAL (price × qty)
- * instead of the UNIT PRICE. We must detect and correct this.
- * 
- * We store `unitPrice` as the single-item price and always compute
- * `total` from `unitPrice × quantity`.
+ * Normalize a raw API cart item.
+ *
+ * knownUnitPrice — when provided, is always trusted as the true per-unit cost.
+ * Without it the function tries to detect pre-multiplied prices, but that
+ * heuristic CANNOT work when quantity === 1 (no way to tell 2420×1 from 1210×2
+ * that was later changed to qty 1 on the server).
  */
 const normalizeItem = (item, knownUnitPrice = null) => {
-  const quantity = parseInt(
-    item.quantity || item.Quantity || 1,
-    10
-  );
+  const quantity = parseInt(item.quantity || item.Quantity || 1, 10);
 
-  // ✅ FIX: Determine the TRUE unit price
-  // Priority:
-  // 1. Explicitly passed knownUnitPrice (from addToCart where we know the real price)
-  // 2. item.unitPrice / item.UnitPrice (if API provides it separately)
-  // 3. If item.price looks like a line total (price / qty gives a round number
-  //    and qty > 1), extract the unit price
-  // 4. Fall back to item.price / item.Price as-is
   let unitPrice;
 
-  if (knownUnitPrice !== null && knownUnitPrice !== undefined) {
-    // We explicitly know the unit price (e.g., from the product page)
+  // Priority 1: explicitly provided known unit price
+  if (knownUnitPrice !== null && knownUnitPrice !== undefined && parseFloat(knownUnitPrice) > 0) {
     unitPrice = parseFloat(knownUnitPrice);
-  } else if (item.unitPrice !== undefined || item.UnitPrice !== undefined) {
-    // API provides a separate unitPrice field
-    unitPrice = parseFloat(item.unitPrice || item.UnitPrice || 0);
-  } else {
-    // ✅ FIX: The API's `price` field might be the line total
-    // We need to check if dividing by quantity gives a clean number
+  }
+  // Priority 2: API provides a dedicated unitPrice field
+  else if (parseFloat(item.unitPrice) > 0) {
+    unitPrice = parseFloat(item.unitPrice);
+  } else if (parseFloat(item.UnitPrice) > 0) {
+    unitPrice = parseFloat(item.UnitPrice);
+  }
+  // Priority 3: derive from raw price
+  else {
     const rawPrice = parseFloat(item.price || item.Price || 0);
 
     if (quantity > 1 && rawPrice > 0) {
-      const possibleUnitPrice = rawPrice / quantity;
-      // Check if this division results in a reasonable price
-      // (i.e., it's a clean division — the API multiplied unit × qty)
-      if (Number.isFinite(possibleUnitPrice) && possibleUnitPrice > 0) {
-        // Heuristic: if rawPrice is exactly divisible by quantity,
-        // the API likely sent us a pre-multiplied total
-        const remainder = rawPrice % quantity;
-        if (Math.abs(remainder) < 0.01) {
-          unitPrice = possibleUnitPrice;
-          console.warn(
-            `[cartSlice] Detected pre-multiplied price for "${item.productName || item.ProductName}": ` +
-            `API price=${rawPrice}, qty=${quantity}, extracted unitPrice=${unitPrice}`
-          );
-        } else {
-          // Not evenly divisible — treat rawPrice as the actual unit price
-          unitPrice = rawPrice;
-        }
+      const possibleUnit = rawPrice / quantity;
+      // If evenly divisible, API likely sent line total
+      if (Math.abs(rawPrice - possibleUnit * quantity) < 0.01) {
+        unitPrice = Math.round(possibleUnit * 100) / 100;
+        console.warn(
+          `[cartSlice] Pre-multiplied price detected: "${item.productName || item.ProductName}" ` +
+            `API price=${rawPrice}, qty=${quantity} → unitPrice=${unitPrice}`
+        );
       } else {
         unitPrice = rawPrice;
       }
     } else {
-      // quantity is 1, so price IS the unit price
+      // qty === 1: cannot detect inflation — take rawPrice as-is
       unitPrice = rawPrice;
     }
   }
@@ -83,15 +63,22 @@ const normalizeItem = (item, knownUnitPrice = null) => {
     productId: item.productId || item.ProductId,
     productName: item.productName || item.ProductName,
     imagePath: item.imagePath || item.ImagePath,
-    // ✅ Store the TRUE unit price — never the line total
     price: unitPrice,
     unitPrice: unitPrice,
     quantity,
-    // ✅ total is always unitPrice × quantity
     total: computeItemTotal(unitPrice, quantity),
     cartId: item.cartId || item.CartId,
     customerId: item.customerId || item.CustomerId || null,
   };
+};
+
+/**
+ * For items loaded from localStorage we already saved the corrected
+ * unitPrice, so pass it as known to avoid re-applying heuristics.
+ */
+const normalizeFromStorage = (item) => {
+  const known = parseFloat(item.unitPrice) || parseFloat(item.price) || 0;
+  return normalizeItem(item, known > 0 ? known : null);
 };
 
 /* ===========================
@@ -103,15 +90,7 @@ const loadCartFromLocalStorage = () => {
     const savedCart = localStorage.getItem(CART_KEY);
     if (!savedCart) return [];
     const parsed = JSON.parse(savedCart);
-    // ✅ Re-normalize on load — but for localStorage items we trust the
-    // stored unitPrice since we already corrected it when saving
-    return Array.isArray(parsed)
-      ? parsed.map((item) => {
-          // If we previously saved a unitPrice, use that as the known price
-          const known = item.unitPrice || item.price;
-          return normalizeItem(item, known);
-        })
-      : [];
+    return Array.isArray(parsed) ? parsed.map(normalizeFromStorage) : [];
   } catch {
     return [];
   }
@@ -121,7 +100,7 @@ const saveCartToLocalStorage = (cart) => {
   try {
     localStorage.setItem(CART_KEY, JSON.stringify(cart));
   } catch {
-    // silently fail
+    /* silent */
   }
 };
 
@@ -158,15 +137,8 @@ export const addToCart = createAsyncThunk(
   async (item, { rejectWithValue }) => {
     try {
       const cartId = getOrCreateCartId();
-
-      // ✅ Capture the REAL unit price before sending to API
-      const realUnitPrice = parseFloat(
-        item.Price || item.price || 0
-      );
-      const requestedQty = parseInt(
-        item.Quantity || item.quantity || 1,
-        10
-      );
+      const realUnitPrice = parseFloat(item.Price || item.price || 0);
+      const requestedQty = parseInt(item.Quantity || item.quantity || 1, 10);
 
       const cartItem = {
         CartId: item.CartId || cartId,
@@ -178,33 +150,26 @@ export const addToCart = createAsyncThunk(
         CustomerId: item.CustomerId || item.customerId || null,
       };
 
-      if (!cartItem.ProductId) {
-        throw new Error("ProductId is required");
-      }
+      if (!cartItem.ProductId) throw new Error("ProductId is required");
 
       const response = await axiosInstance.post("/", cartItem, {
         params: { endpoint: "/Cart/Add-To-Cart" },
       });
 
-      // ✅ FIX: Pass the known unit price so normalizeItem doesn't
-      // mistake a pre-multiplied API price for the unit price
       return normalizeItem(
         {
           ...response.data,
           productId: cartItem.ProductId,
           productName: cartItem.ProductName,
           imagePath: cartItem.ImagePath,
-          price: realUnitPrice, // ✅ Always use the real unit price
           quantity: requestedQty,
           cartId: cartItem.CartId,
           customerId: cartItem.CustomerId,
         },
-        realUnitPrice // ✅ Explicitly tell normalizeItem the unit price
+        realUnitPrice
       );
     } catch (error) {
-      return rejectWithValue(
-        error.response?.data || { message: error.message }
-      );
+      return rejectWithValue(error.response?.data || { message: error.message });
     }
   }
 );
@@ -214,14 +179,8 @@ export const createCartItem = createAsyncThunk(
   async (item, { rejectWithValue }) => {
     try {
       const cartId = getOrCreateCartId();
-
-      const realUnitPrice = parseFloat(
-        item.Price || item.price || 0
-      );
-      const requestedQty = parseInt(
-        item.Quantity || item.quantity || 1,
-        10
-      );
+      const realUnitPrice = parseFloat(item.Price || item.price || 0);
+      const requestedQty = parseInt(item.Quantity || item.quantity || 1, 10);
 
       const cartItem = {
         CartId: item.CartId || cartId,
@@ -243,23 +202,29 @@ export const createCartItem = createAsyncThunk(
           productId: cartItem.ProductId,
           productName: cartItem.ProductName,
           imagePath: cartItem.ImagePath,
-          price: realUnitPrice,
           quantity: requestedQty,
           cartId: cartItem.CartId,
         },
         realUnitPrice
       );
     } catch (error) {
-      return rejectWithValue(
-        error.response?.data || { message: error.message }
-      );
+      return rejectWithValue(error.response?.data || { message: error.message });
     }
   }
 );
 
+/**
+ * ✅ CRITICAL FIX: getCartById now uses getState() to access the current
+ * Redux cart. This lets us cross-reference known unit prices that were
+ * previously set by addToCart (which knows the real product-page price).
+ *
+ * Without this, a qty=1 item whose API price is inflated (e.g. 2420
+ * instead of 1210) would be accepted as-is because the heuristic
+ * can't detect inflation when qty===1.
+ */
 export const getCartById = createAsyncThunk(
   "cart/getCartById",
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, getState }) => {
     try {
       const cartId = getOrCreateCartId();
 
@@ -268,22 +233,38 @@ export const getCartById = createAsyncThunk(
       });
 
       if (Array.isArray(response.data)) {
-        // ✅ FIX: Log raw API response so we can see what the server sends
+        // Build a lookup of known correct unit prices from current Redux state
+        const existingCart = getState().cart.cart || [];
+        const knownPriceMap = {};
+        existingCart.forEach((item) => {
+          if (item.productId && item.unitPrice > 0) {
+            knownPriceMap[item.productId] = item.unitPrice;
+          }
+        });
+
         console.group("🔍 Raw Cart API Response");
         response.data.forEach((item, i) => {
-          console.log(`Item ${i + 1}:`, {
-            productName: item.productName || item.ProductName,
-            price: item.price || item.Price,
-            unitPrice: item.unitPrice || item.UnitPrice || "N/A",
-            quantity: item.quantity || item.Quantity,
-            total: item.total || item.Total || "N/A",
+          const pid = item.productId || item.ProductId;
+          console.log(`Item ${i + 1}: "${item.productName || item.ProductName}"`, {
+            apiPrice: item.price || item.Price,
+            apiQty: item.quantity || item.Quantity,
+            apiTotal: item.total || item.Total || "N/A",
+            apiUnitPrice: item.unitPrice || item.UnitPrice || "N/A",
+            reduxKnownUnitPrice: knownPriceMap[pid] || "none",
           });
         });
         console.groupEnd();
 
-        // ✅ FIX: Normalize items — the normalizeItem function will
-        // detect if price is actually a line total and extract unit price
-        return response.data.map((item) => normalizeItem(item));
+        return response.data.map((item) => {
+          const pid = item.productId || item.ProductId;
+
+          // If Redux already has a correct unit price for this product, use it.
+          // This prevents the API's potentially inflated price from overwriting
+          // the real unit price we captured when the item was first added.
+          const knownUnit = knownPriceMap[pid] || null;
+
+          return normalizeItem(item, knownUnit);
+        });
       }
 
       return response.data;
@@ -300,7 +281,6 @@ export const updateCartItem = createAsyncThunk(
       const cartId = getOrCreateCartId();
       const productId = params.ProductId || params.productId;
       const quantity = params.Quantity || params.quantity;
-
       if (!productId) throw new Error("ProductId is required");
 
       await axiosInstance.post("/", null, {
@@ -309,15 +289,9 @@ export const updateCartItem = createAsyncThunk(
         },
       });
 
-      return {
-        cartId,
-        productId,
-        quantity: parseInt(quantity, 10),
-      };
+      return { cartId, productId, quantity: parseInt(quantity, 10) };
     } catch (error) {
-      return rejectWithValue(
-        error.response?.data || { message: error.message }
-      );
+      return rejectWithValue(error.response?.data || { message: error.message });
     }
   }
 );
@@ -328,7 +302,6 @@ export const deleteCartItem = createAsyncThunk(
     try {
       const cartId = getOrCreateCartId();
       const productId = params.ProductId || params.productId;
-
       if (!productId) throw new Error("ProductId is required");
 
       await axiosInstance.post("/", null, {
@@ -339,9 +312,7 @@ export const deleteCartItem = createAsyncThunk(
 
       return { cartId, productId };
     } catch (error) {
-      return rejectWithValue(
-        error.response?.data || { message: error.message }
-      );
+      return rejectWithValue(error.response?.data || { message: error.message });
     }
   }
 );
@@ -357,25 +328,22 @@ const cartSlice = createSlice({
     addCart: (state, action) => {
       const knownPrice = parseFloat(
         action.payload.Price ||
-        action.payload.price ||
-        action.payload.unitPrice ||
-        0
+          action.payload.price ||
+          action.payload.unitPrice ||
+          0
       );
-      const incoming = normalizeItem(action.payload, knownPrice);
+      const incoming = normalizeItem(action.payload, knownPrice > 0 ? knownPrice : null);
       const existingIndex = state.cart.findIndex(
         (item) => item.productId === incoming.productId
       );
       if (existingIndex >= 0) {
         const updated = state.cart[existingIndex];
         updated.quantity += incoming.quantity;
-        updated.total = computeItemTotal(updated.price, updated.quantity);
+        updated.total = computeItemTotal(updated.unitPrice, updated.quantity);
       } else {
         state.cart.push(incoming);
       }
-      state.totalItems = state.cart.reduce(
-        (t, i) => t + (i.quantity || 1),
-        0
-      );
+      state.totalItems = state.cart.reduce((t, i) => t + (i.quantity || 1), 0);
       saveCartToLocalStorage(state.cart);
     },
 
@@ -405,52 +373,37 @@ const cartSlice = createSlice({
 
     setCartItems: (state, action) => {
       const items = Array.isArray(action.payload)
-        ? action.payload.map((item) => {
-            const known = item.unitPrice || item.price;
-            return normalizeItem(item, known);
-          })
+        ? action.payload.map((item) => normalizeFromStorage(item))
         : [];
       state.cart = items;
-      state.totalItems = items.reduce(
-        (t, i) => t + (i.quantity || 1),
-        0
-      );
+      state.totalItems = items.reduce((t, i) => t + (i.quantity || 1), 0);
       saveCartToLocalStorage(state.cart);
     },
   },
 
   extraReducers: (builder) => {
     builder
-      // ── addToCart ──────────────────────────────────────────
+      // ── addToCart ──
       .addCase(addToCart.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(addToCart.fulfilled, (state, action) => {
         state.loading = false;
-        const payload = action.payload; // already normalized with correct unitPrice
-
+        const payload = action.payload;
         const index = state.cart.findIndex(
           (item) => item.productId === payload.productId
         );
-
         if (index >= 0) {
-          // ✅ FIX: Don't add quantity again — the server already
-          // incremented it. Instead, just set the new quantity.
-          // After this, we'll refetch with getCartById anyway.
           state.cart[index].quantity += payload.quantity;
           state.cart[index].total = computeItemTotal(
-            state.cart[index].price,
+            state.cart[index].unitPrice,
             state.cart[index].quantity
           );
         } else {
           state.cart.push(payload);
         }
-
-        state.totalItems = state.cart.reduce(
-          (t, i) => t + (i.quantity || 1),
-          0
-        );
+        state.totalItems = state.cart.reduce((t, i) => t + (i.quantity || 1), 0);
         saveCartToLocalStorage(state.cart);
       })
       .addCase(addToCart.rejected, (state, action) => {
@@ -458,22 +411,16 @@ const cartSlice = createSlice({
         state.error = action.payload || action.error.message;
       })
 
-      // ── getCartById ────────────────────────────────────────
+      // ── getCartById ──
       .addCase(getCartById.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(getCartById.fulfilled, (state, action) => {
         state.loading = false;
-        // ✅ FIX: Payload is already normalized with correct unit prices
-        const cartData = Array.isArray(action.payload)
-          ? action.payload
-          : [];
+        const cartData = Array.isArray(action.payload) ? action.payload : [];
         state.cart = cartData;
-        state.totalItems = cartData.reduce(
-          (t, i) => t + (i.quantity || 1),
-          0
-        );
+        state.totalItems = cartData.reduce((t, i) => t + (i.quantity || 1), 0);
         saveCartToLocalStorage(state.cart);
       })
       .addCase(getCartById.rejected, (state, action) => {
@@ -481,7 +428,7 @@ const cartSlice = createSlice({
         state.error = action.payload || action.error.message;
       })
 
-      // ── updateCartItem ─────────────────────────────────────
+      // ── updateCartItem ──
       .addCase(updateCartItem.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -489,21 +436,15 @@ const cartSlice = createSlice({
       .addCase(updateCartItem.fulfilled, (state, action) => {
         state.loading = false;
         const { productId, quantity } = action.payload;
-        const index = state.cart.findIndex(
-          (item) => item.productId === productId
-        );
+        const index = state.cart.findIndex((item) => item.productId === productId);
         if (index !== -1) {
           state.cart[index].quantity = quantity;
-          // ✅ FIX: Use the stored unitPrice (which we already corrected)
           state.cart[index].total = computeItemTotal(
-            state.cart[index].price,
+            state.cart[index].unitPrice,
             quantity
           );
         }
-        state.totalItems = state.cart.reduce(
-          (t, i) => t + (i.quantity || 1),
-          0
-        );
+        state.totalItems = state.cart.reduce((t, i) => t + (i.quantity || 1), 0);
         saveCartToLocalStorage(state.cart);
       })
       .addCase(updateCartItem.rejected, (state, action) => {
@@ -511,7 +452,7 @@ const cartSlice = createSlice({
         state.error = action.payload || action.error.message;
       })
 
-      // ── deleteCartItem ─────────────────────────────────────
+      // ── deleteCartItem ──
       .addCase(deleteCartItem.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -521,10 +462,7 @@ const cartSlice = createSlice({
         state.cart = state.cart.filter(
           (item) => item.productId !== action.payload.productId
         );
-        state.totalItems = state.cart.reduce(
-          (t, i) => t + (i.quantity || 1),
-          0
-        );
+        state.totalItems = state.cart.reduce((t, i) => t + (i.quantity || 1), 0);
         saveCartToLocalStorage(state.cart);
         if (state.cart.length === 0) {
           localStorage.removeItem(CART_KEY);
@@ -537,7 +475,7 @@ const cartSlice = createSlice({
         state.error = action.payload || action.error.message;
       })
 
-      // ── createCartItem ─────────────────────────────────────
+      // ── createCartItem ──
       .addCase(createCartItem.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -551,16 +489,13 @@ const cartSlice = createSlice({
         if (index >= 0) {
           state.cart[index].quantity += payload.quantity;
           state.cart[index].total = computeItemTotal(
-            state.cart[index].price,
+            state.cart[index].unitPrice,
             state.cart[index].quantity
           );
         } else {
           state.cart.push(payload);
         }
-        state.totalItems = state.cart.reduce(
-          (t, i) => t + (i.quantity || 1),
-          0
-        );
+        state.totalItems = state.cart.reduce((t, i) => t + (i.quantity || 1), 0);
         saveCartToLocalStorage(state.cart);
       })
       .addCase(createCartItem.rejected, (state, action) => {
@@ -570,6 +505,5 @@ const cartSlice = createSlice({
   },
 });
 
-export const { clearCart, addCart, removeFromCart, setCartItems } =
-  cartSlice.actions;
+export const { clearCart, addCart, removeFromCart, setCartItems } = cartSlice.actions;
 export default cartSlice.reducer;

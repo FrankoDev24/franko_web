@@ -1,5 +1,3 @@
-
-
 import { useState, useEffect } from 'react'
 import {Routes, Route, useLocation, Navigate } from 'react-router-dom'
 import Nav from './Component/Nav/Navbar'
@@ -68,21 +66,18 @@ import DevCustomers from './Pages/Developer/Dev/DevCustomers'
 import Payments from './Pages/Developer/Dev/Payments'
 import OrderSuccessPage from './Pages/OrderSucess'
 import ScrollToTop from './Pages/ScrollToTop'
-// import BackToSchool from './Pages/ClearanceSale'
-// import ClearanceSale from './Pages/ClearanceSale'
 import DigiPage from './Pages/DigitalMarketer/DigiPage'
 import DigiOrders from './Pages/DigitalMarketer/Digi/DigiOrders'
 import DigiProducts from './Pages/DigitalMarketer/Digi/DigiProducts'
 import ContentBranchProduct from './Pages/ContentManager/ContentManagerPage/ContentBranchProduct'
 import BranchProductsPage from './Pages/AdminPages/BranchProductsPage'
 
-// Utility to fetch customer role
-
+// ==================== UTILITY FUNCTIONS ====================
 
 const getUserRole = () => {
   try {
-    const customer = (localStorage.getItem("customer"));
-    const user = (localStorage.getItem("user"));
+    const customer = localStorage.getItem("customer");
+    const user = localStorage.getItem("user");
     if (!customer && !user) return null;
 
     if (user?.position) return user.position; // Supervisor, Developer, etc.
@@ -100,10 +95,12 @@ const isWebBrowser = () => {
 
 const isElectron = () => navigator.userAgent.includes("Electron");
 
+// ==================== PROTECTED ROUTE COMPONENT ====================
+
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const userRole = getUserRole();
 
-  // ✅ Web-only restriction: allow only Developer and agent
+  // ✅ Web-only restriction: allow only Developer, agent, and Fulfillment
   if (isWebBrowser() && userRole && !["Developer", "agent", "Fulfillment"].includes(userRole)) {
     return <Navigate to="/" replace />;
   }
@@ -121,6 +118,17 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   return children;
 };
 
+// ==================== 🔒 BLOCKED ROUTE COMPONENT ====================
+
+/**
+ * BlockedRoute - Prevents access to specified routes entirely
+ * This is used for /admin/process to block all access
+ */
+const BlockedRoute = () => {
+  return <Navigate to="/" replace />;
+};
+
+// ==================== CONDITIONAL NAVBAR ====================
 
 const ConditionalNavbar = () => {
   const location = useLocation();
@@ -129,26 +137,25 @@ const ConditionalNavbar = () => {
   const hiddenPaths = [
     "/admin/login",
     "/admin/register",
-    
+    "/admin/process", // ✅ Hide navbar on blocked route too
   ];
 
   const isAdminPath = pathname.startsWith("/admin/");
- 
   const isFulfillmentPath = pathname.startsWith("/fulfillment/");
   const isContentPath = pathname.startsWith("/content/");
   const isDevPath = pathname.startsWith("/dev/");
   const isDigiPath = pathname.startsWith("/digi/");
-  
 
   return !hiddenPaths.includes(pathname) && 
          !isAdminPath && 
-       
          !isFulfillmentPath && 
          !isContentPath &&
-          !isDevPath && 
-          !isDigiPath &&
+         !isDevPath && 
+         !isDigiPath &&
          <Nav />;
 };
+
+// ==================== MAIN APP COMPONENT ====================
 
 function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -167,32 +174,31 @@ function App() {
   }, []);
 
   if (!isOnline) {
-    return <div>
-<NoInternetPage/>
-    </div>; 
+    return (
+      <div>
+        <NoInternetPage />
+      </div>
+    );
   }
 
   return (
     <>
       <ConditionalNavbar />
-
-   <ScrollToTop/>
+      <ScrollToTop />
 
       <Routes>
-        {/* Public Routes */}
+        {/* ==================== PUBLIC ROUTES ==================== */}
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/phones" element={<Phones ProductCard={ProductCard} />} />
-        {/* <Route path= "/pre-black friday" element= {<ClearanceSale/>} /> */}
- 
         <Route path="/computers" element={<Laptops ProductCard={ProductCard} />} />
         <Route path="/refrigerator" element={<Fridge ProductCard={ProductCard} />} />
         <Route path="/television" element={<Television ProductCard={ProductCard} />} />
         <Route path="/speakers" element={<Speakers ProductCard={ProductCard} />} />
         <Route path="/accessories" element={<Accessories ProductCard={ProductCard} />} />
         <Route path="/appliances" element={<Appliances ProductCard={ProductCard} />} />
-        <Route path="/washing-machine" element={< Combo ProductCard={ProductCard} />} />
+        <Route path="/washing-machine" element={<Combo ProductCard={ProductCard} />} />
         <Route path="/air-condition" element={<Airconditioners ProductCard={ProductCard} />} />
         <Route path="/cart/:cartId" element={<Cart />} />
         <Route path="/product/:productID" element={<ProductDescription />} />
@@ -207,15 +213,16 @@ function App() {
         <Route path="/order-success/:orderId" element={<OrderSuccessPage />} />
         <Route path="/account" element={<Account />} />
         <Route path="/shops" element={<Locations />} />
- 
         <Route path="/order-cancelled" element={<Cancellation />} />
-         <Route path="/admin/login" element={< UserLogin/>} />
-          <Route path="/admin/process" element={< UserRegistration/>} />
-          
 
+        {/* ==================== AUTH ROUTES ==================== */}
+        <Route path="/admin/login" element={<UserLogin />} />
         
+        {/* 🔒 BLOCKED ROUTE - No one can access this */}
+        <Route path="/admin/process" element={<BlockedRoute />} />
+        <Route path="/admin/register" element={<BlockedRoute />} />
 
-        {/* Admin - Protected */}
+        {/* ==================== ADMIN ROUTES - PROTECTED ==================== */}
         <Route 
           path="/admin/*" 
           element={
@@ -273,7 +280,6 @@ function App() {
               </AdminPage>
             </ProtectedRoute>
           } 
-
         />
         <Route 
           path="/admin/branch-products" 
@@ -316,7 +322,7 @@ function App() {
           } 
         />
 
-        {/* Agent Routes - Protected */}
+        {/* ==================== AGENT ROUTES - PROTECTED ==================== */}
         <Route 
           path="/agent/*" 
           element={
@@ -346,7 +352,7 @@ function App() {
           } 
         />
 
-        {/* Fulfillment Routes - Protected */}
+        {/* ==================== FULFILLMENT ROUTES - PROTECTED ==================== */}
         <Route 
           path="/fulfillment/*" 
           element={
@@ -376,7 +382,7 @@ function App() {
           } 
         />
 
-        {/* Content Manager Routes - Protected */}
+        {/* ==================== CONTENT MANAGER ROUTES - PROTECTED ==================== */}
         <Route 
           path="/content/*" 
           element={
@@ -445,7 +451,8 @@ function App() {
             </ProtectedRoute>
           } 
         />
-        {/* Developer Routes - Protected */}
+
+        {/* ==================== DEVELOPER ROUTES - PROTECTED ==================== */}
         <Route 
           path="/dev/*" 
           element={
@@ -562,7 +569,8 @@ function App() {
             </ProtectedRoute>
           }
         />
-        {/* Digital Marketer Routes - Protected */}
+
+        {/* ==================== DIGITAL MARKETER ROUTES - PROTECTED ==================== */}
         <Route 
           path="/digi/*" 
           element={
@@ -579,7 +587,6 @@ function App() {
                 <DigiOrders />
               </DigiPage>
             </ProtectedRoute>
-
           }
         />
         <Route 
@@ -600,13 +607,10 @@ function App() {
             </ProtectedRoute>
           }
         />
-  
 
-
-        {/* Default route redirects */}
+        {/* ==================== DEFAULT REDIRECT ==================== */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
-  
     </>
   )
 }

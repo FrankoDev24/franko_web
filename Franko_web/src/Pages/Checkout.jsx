@@ -13,7 +13,7 @@ import {
   checkTransactionStatus,
 } from "../Redux/Slice/paymentSlice";
 import { clearCart, getCartById } from "../Redux/Slice/cartSlice";
-import { message, Card, Typography, Radio, Divider, Modal, Input, Select } from "antd";
+import { message, Card, Typography, Radio, Divider, Modal, Input } from "antd";
 import CheckoutForm from "../Component/CheckoutForm";
 import locations from "../Component/Locations";
 import {
@@ -37,6 +37,9 @@ const { Text } = Typography;
 
 const SERVICE_CHARGE_RATE = 0.01;
 const SERVICE_CHARGE_CAP = 20.0;
+const INITIAL_DELAY_MS = 25000; // 25 seconds before first poll
+const POLL_INTERVAL_MS = 5000; // Poll every 5 seconds
+const MAX_POLL_DURATION_MS = 120000; // 2 minutes total polling
 
 // ==================== UTILITY FUNCTIONS ====================
 
@@ -58,11 +61,6 @@ const getItemQuantity = (item) => parseInt(item.quantity, 10) || 1;
 const getItemLineTotal = (item) =>
   getItemUnitPrice(item) * getItemQuantity(item);
 
-/**
- * ✅ FIX: Build a human-readable narration string from cart items.
- * Example output: "Tecno T528 (x1), Samsung A15 (x2)"
- * Truncated to maxLen characters to stay within API limits.
- */
 const buildCartNarration = (items, maxLen = 120) => {
   if (!items || items.length === 0) return "Franko Trading Purchase";
 
@@ -74,7 +72,6 @@ const buildCartNarration = (items, maxLen = 120) => {
 
   let narration = parts.join(", ");
 
-  // Truncate if too long — keep it API-friendly
   if (narration.length > maxLen) {
     narration = narration.substring(0, maxLen - 3) + "...";
   }
@@ -89,11 +86,12 @@ const Checkout = () => {
   const navigate = useNavigate();
   const pollingRef = useRef(null);
   const countdownRef = useRef(null);
+  const initialDelayRef = useRef(null);
 
   const [loading, setLoading] = useState(false);
   const [orderNote, setOrderNote] = useState("");
   const [paymentMethod, setPaymentMethod] = useState(null);
-  const [timeoutCountdown, setTimeoutCountdown] = useState(25);
+  const [timeoutCountdown, setTimeoutCountdown] = useState(145); // 25s + 120s = 145s total
 
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [deliveryInfo, setDeliveryInfo] = useState({
@@ -105,6 +103,7 @@ const Checkout = () => {
   const [isValidationModalVisible, setIsValidationModalVisible] = useState(false);
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
   const [isGuestWarningVisible, setIsGuestWarningVisible] = useState(false);
+  
   const [paymentStatus, setPaymentStatus] = useState("idle");
   const [currentOrderId, setCurrentOrderId] = useState(null);
   const [pendingCheckoutDetails, setPendingCheckoutDetails] = useState(null);
@@ -170,7 +169,17 @@ const Checkout = () => {
       (typeof deliveryInfo?.feeDisplay === "string" &&
         deliveryInfo.feeDisplay.toLowerCase() === "n/a"));
 
-  // ==================== EFFECTS ====================
+  // ==================== CLEANUP ON UNMOUNT ====================
+
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+      if (initialDelayRef.current) clearTimeout(initialDelayRef.current);
+    };
+  }, []);
+
+  // ==================== DATA INITIALIZATION ====================
 
   useEffect(() => {
     try {
@@ -191,8 +200,7 @@ const Checkout = () => {
       const storedInfo = localStorage.getItem("deliveryInfo") || {};
       const addr = storedInfo?.address || "";
       const fee = storedInfo?.fee ?? 0;
-      const feeDisplay =
-        storedInfo?.feeDisplay || storedInfo?.feeText || "";
+      const feeDisplay = storedInfo?.feeDisplay || storedInfo?.feeText || "";
       setDeliveryInfo({ address: addr, fee, feeDisplay });
       setDeliveryFee(Number(fee) || 0);
     } catch {}
@@ -238,31 +246,6 @@ const Checkout = () => {
     }
   }, [reduxCart]);
 
-  useEffect(() => {
-    return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-      if (countdownRef.current) clearInterval(countdownRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (cartItems.length > 0) {
-      console.group("🛒 CHECKOUT - Cart Items Verification");
-      cartItems.forEach((item, i) => {
-        const up = getItemUnitPrice(item);
-        const qty = getItemQuantity(item);
-        console.log(
-          `${i + 1}. "${item.productName}" → unitPrice=${up}, qty=${qty}, lineTotal=${
-            up * qty
-          }`
-        );
-      });
-      console.log("Subtotal:", calculateSubtotal());
-      console.log("Narration:", buildCartNarration(cartItems));
-      console.groupEnd();
-    }
-  }, [cartItems]);
-
   // ==================== MOMO NUMBER HANDLERS ====================
 
   const handleMomoNumberChange = (e) => {
@@ -304,7 +287,7 @@ const Checkout = () => {
     return `${prefix}-${timestamp}-${randomNum}`;
   };
 
-  // ==================== API CALLS WITH RETRY ====================
+  // ==================== API RETRY HELPERS ====================
 
   const dispatchOrderCheckoutWithRetry = async (
     orderId,
@@ -319,9 +302,7 @@ const Checkout = () => {
       } catch (error) {
         lastError = error;
         if (attempt < maxRetries) {
-          await new Promise((r) =>
-            setTimeout(r, Math.pow(2, attempt) * 1000)
-          );
+          await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
         }
       }
     }
@@ -350,9 +331,7 @@ const Checkout = () => {
       } catch (error) {
         lastError = error;
         if (attempt < maxRetries) {
-          await new Promise((r) =>
-            setTimeout(r, Math.pow(2, attempt) * 1000)
-          );
+          await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
         }
       }
     }
@@ -372,64 +351,74 @@ const Checkout = () => {
     await dispatchOrderAddressWithRetry(orderId, addressDetails);
   };
 
-  const startPolling = (orderId, checkoutDetails, addressDetails) => {
-    let elapsed = 0;
-    setTimeoutCountdown(25);
+  // ==================== POLLING LOGIC (25s delay, then 5s intervals for 2min) ====================
 
+  const startPolling = (orderId, checkoutDetails, addressDetails) => {
+    setTimeoutCountdown(145); // Total: 25s + 120s
+
+    // Visual countdown
     countdownRef.current = setInterval(() => {
       setTimeoutCountdown((prev) => (prev <= 1 ? 0 : prev - 1));
     }, 1000);
 
-    pollingRef.current = setInterval(async () => {
-      elapsed += 1000;
+    // Wait 25 seconds before first poll
+    initialDelayRef.current = setTimeout(() => {
+      let pollCount = 0;
+      const maxPolls = MAX_POLL_DURATION_MS / POLL_INTERVAL_MS; // 24 polls
 
-      try {
-        const response = await dispatch(
-          checkTransactionStatus({ refNo: orderId })
-        ).unwrap();
+      pollingRef.current = setInterval(async () => {
+        pollCount++;
 
-        if (
-          response?.responseMessage ===
-          "Successfully Processed Transaction"
-        ) {
+        try {
+          const response = await dispatch(
+            checkTransactionStatus({ refNo: orderId })
+          ).unwrap();
+
+          if (
+            response?.responseMessage === "Successfully Processed Transaction"
+          ) {
+            clearInterval(pollingRef.current);
+            clearInterval(countdownRef.current);
+            setPaymentStatus("success");
+
+            try {
+              // ✅ Quickly dispatch order
+              await processDirectCheckout(orderId, checkoutDetails, addressDetails);
+              localStorage.removeItem("checkoutDetails");
+              localStorage.removeItem("orderAddressDetails");
+              message.success("Payment confirmed! Processing your order...");
+              setTimeout(() => {
+                setIsPaymentModalVisible(false);
+                navigate(`/order-success/${orderId}`);
+              }, 1000);
+            } catch {
+              message.error(
+                "Payment succeeded, but order processing failed. Contact support."
+              );
+            }
+            return;
+          }
+        } catch {}
+
+        // Timeout after 24 polls - Navigate to cancel page
+        if (pollCount >= maxPolls) {
           clearInterval(pollingRef.current);
           clearInterval(countdownRef.current);
-          setPaymentStatus("success");
-
-          try {
-            await processDirectCheckout(
-              orderId,
-              checkoutDetails,
-              addressDetails
-            );
-            localStorage.removeItem("checkoutDetails");
-            localStorage.removeItem("orderAddressDetails");
-            message.success("Payment and order processed successfully!");
-            setTimeout(() => {
-              setIsPaymentModalVisible(false);
-              navigate(`/order-success/${orderId}`);
-            }, 1500);
-          } catch {
-            message.error(
-              "Payment succeeded, but we could not process your order. Please contact support."
-            );
-          }
-        }
-      } catch {}
-
-      if (elapsed >= 25000) {
-        clearInterval(pollingRef.current);
-        clearInterval(countdownRef.current);
-        setPaymentStatus("failed");
-        setTimeout(() => {
-          setIsPaymentModalVisible(false);
+          setPaymentStatus("failed");
+          
+          // Clean up
           localStorage.removeItem("checkoutDetails");
           localStorage.removeItem("orderAddressDetails");
-          message.error("Payment was cancelled or failed.");
-          navigate("/order-cancelled");
-        }, 2000);
-      }
-    }, 1000);
+          
+          message.error("Payment was not received. Redirecting...");
+          
+          setTimeout(() => {
+            setIsPaymentModalVisible(false);
+            navigate("/order-cancelled");
+          }, 2000);
+        }
+      }, POLL_INTERVAL_MS);
+    }, INITIAL_DELAY_MS);
   };
 
   // ==================== PAYMENT HANDLERS ====================
@@ -441,20 +430,11 @@ const Checkout = () => {
     if (!customerName?.trim())
       errors.push({ field: "name", message: "Recipient name is required" });
     if (!customerNumber?.trim())
-      errors.push({
-        field: "phone",
-        message: "Recipient contact number is required",
-      });
+      errors.push({ field: "phone", message: "Recipient contact number is required" });
     if (!selectedAddress?.trim())
-      errors.push({
-        field: "address",
-        message: "Delivery address is required",
-      });
+      errors.push({ field: "address", message: "Delivery address is required" });
     if (!paymentMethod)
-      errors.push({
-        field: "payment",
-        message: "Payment method is required",
-      });
+      errors.push({ field: "payment", message: "Payment method is required" });
     return errors;
   };
 
@@ -462,19 +442,15 @@ const Checkout = () => {
     let name = customerName?.trim();
     let number = customerNumber?.trim();
     if (!name && customerData)
-      name = `${customerData.firstName || ""} ${
-        customerData.lastName || ""
-      }`.trim();
+      name = `${customerData.firstName || ""} ${customerData.lastName || ""}`.trim();
     if (!number && customerData)
-      number =
-        customerData.contactNumber || customerData.ContactNumber || "";
+      number = customerData.contactNumber || customerData.ContactNumber || "";
     if (!number) number = "0000000000";
     return { name, number };
   };
 
   const handleCheckout = async () => {
-    const { name: safeName, number: safeNumber } =
-      getSafeCustomerDetails();
+    const { name: safeName, number: safeNumber } = getSafeCustomerDetails();
     setCustomerName(safeName);
     setCustomerNumber(safeNumber);
 
@@ -529,11 +505,7 @@ const Checkout = () => {
       setLoading(true);
 
       if (isAgent || !["Mobile Money"].includes(paymentMethod)) {
-        await processDirectCheckout(
-          orderId,
-          checkoutDetails,
-          addressDetails
-        );
+        await processDirectCheckout(orderId, checkoutDetails, addressDetails);
         message.success("Your order has been placed successfully!");
         navigate("/order-received");
       } else {
@@ -549,9 +521,7 @@ const Checkout = () => {
         setIsPaymentModalVisible(true);
       }
     } catch (error) {
-      message.error(
-        error.message || "An error occurred during checkout."
-      );
+      message.error(error.message || "An error occurred during checkout.");
     } finally {
       setLoading(false);
     }
@@ -568,14 +538,7 @@ const Checkout = () => {
     }
 
     const paymentAmount = calculateSubtotal();
-
-    // ✅ FIX: Build narration from actual cart item names + quantities
     const narration = buildCartNarration(cartItems);
-
-    console.log("=== PAYMENT REQUEST ===");
-    console.log("Amount:", paymentAmount);
-    console.log("Narration:", narration);
-    console.log("=======================");
 
     try {
       setPayButtonLoading(true);
@@ -587,20 +550,22 @@ const Checkout = () => {
           msisdn: momoNumber,
           amount: paymentAmount,
           network: selectedNetwork,
-          narration, // ✅ Now contains: "Tecno T528 (x1), Samsung A15 (x2)"
+          narration,
         })
       ).unwrap();
 
-      startPolling(
-        currentOrderId,
-        pendingCheckoutDetails,
-        pendingAddressDetails
-      );
+      startPolling(currentOrderId, pendingCheckoutDetails, pendingAddressDetails);
     } catch (error) {
       setPaymentStatus("failed");
+      
+      // Clean up and redirect
+      localStorage.removeItem("checkoutDetails");
+      localStorage.removeItem("orderAddressDetails");
+      
+      message.error("Payment initiation failed. Redirecting...");
+      
       setTimeout(() => {
         setIsPaymentModalVisible(false);
-        message.error("Payment initiation failed.");
         navigate("/order-cancelled");
       }, 2000);
     } finally {
@@ -629,8 +594,7 @@ const Checkout = () => {
         className="w-16 h-16 object-cover rounded-lg"
         onError={(e) => {
           e.target.style.display = "none";
-          if (e.target.nextSibling)
-            e.target.nextSibling.style.display = "flex";
+          if (e.target.nextSibling) e.target.nextSibling.style.display = "flex";
         }}
       />
     );
@@ -650,9 +614,7 @@ const Checkout = () => {
       <div className="p-4 text-center min-h-[400px] flex flex-col items-center justify-center">
         <div className="flex items-center justify-center mb-4">
           <ShoppingBagIcon className="w-12 h-12 text-gray-400 mr-3" />
-          <h2 className="text-2xl font-bold text-gray-700">
-            Your cart is empty
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-700">Your cart is empty</h2>
         </div>
         <p className="text-gray-500 mb-6">
           Add some items to your cart to proceed with checkout.
@@ -716,33 +678,11 @@ const Checkout = () => {
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
-                    isDifferentRecipient
-                      ? "translate-x-6"
-                      : "translate-x-1"
+                    isDifferentRecipient ? "translate-x-6" : "translate-x-1"
                   }`}
                 />
               </div>
             </div>
-
-            {!isDifferentRecipient && (
-              <div className="mb-4 bg-green-50 border border-green-200 rounded-xl px-4 py-3 space-y-1">
-                <p className="text-xs text-green-700 font-semibold uppercase tracking-wide mb-1">
-                  Delivering to
-                </p>
-                <div className="flex items-center gap-2">
-                  <UserIcon className="w-4 h-4 text-green-600 flex-shrink-0" />
-                  <span className="text-sm font-semibold text-gray-800">
-                    {accountName || "—"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <PhoneIcon className="w-4 h-4 text-green-600 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">
-                    {accountNumber || "—"}
-                  </span>
-                </div>
-              </div>
-            )}
 
             {isDifferentRecipient && (
               <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
@@ -774,9 +714,7 @@ const Checkout = () => {
         <div className="lg:col-span-2">
           <Card bordered={false} className="rounded-xl shadow-sm">
             <div className="mb-4">
-              <h2 className="text-lg font-semibold text-gray-800">
-                Order Summary
-              </h2>
+              <h2 className="text-lg font-semibold text-gray-800">Order Summary</h2>
               <div className="relative mt-1">
                 <div className="absolute w-24 h-1 bg-red-300 rounded"></div>
                 <div className="border-b border-gray-300"></div>
@@ -799,9 +737,7 @@ const Checkout = () => {
                       <div className="w-16 h-16 flex-shrink-0 relative">
                         {renderImage(item.imagePath)}
                         <div className="w-16 h-16 bg-gray-200 rounded-lg items-center justify-center hidden">
-                          <span className="text-gray-400 text-xs">
-                            No Image
-                          </span>
+                          <span className="text-gray-400 text-xs">No Image</span>
                         </div>
                       </div>
                       <div className="text-sm flex-1">
@@ -810,10 +746,6 @@ const Checkout = () => {
                         </p>
                         <div className="flex items-center gap-2 text-xs text-gray-500">
                           <span>Qty: {qty}</span>
-                          <span>×</span>
-                          <span>
-                            Unit Price: {formatGHS(unitPrice)}
-                          </span>
                         </div>
                       </div>
                     </div>
@@ -838,14 +770,10 @@ const Checkout = () => {
               <div className="flex justify-between items-center">
                 <Text>Shipping Fee:</Text>
                 {isFreeDelivery ? (
-                  <Text className="text-green-600 font-semibold">
-                    FREE DELIVERY
-                  </Text>
+                  <Text className="text-green-600 font-semibold">FREE DELIVERY</Text>
                 ) : isNADelivery ? (
                   <Text type="warning" className="text-amber-600">
-                    {isAgent
-                      ? "Agent delivery"
-                      : "Delivery charges apply"}
+                    {isAgent ? "Agent delivery" : "Delivery charges apply"}
                   </Text>
                 ) : deliveryFee > 0 ? (
                   <Text strong>{formatGHS(deliveryFee)}</Text>
@@ -868,9 +796,7 @@ const Checkout = () => {
               )}
 
               <div className="flex justify-between items-center pt-2 border-t border-gray-300 bg-gradient-to-r from-red-50 to-orange-50 p-3 rounded-lg">
-                <Text className="text-red-600 font-bold text-lg">
-                  Total Amount:
-                </Text>
+                <Text className="text-red-600 font-bold text-lg">Total Amount:</Text>
                 <Text className="text-red-600 font-bold text-lg">
                   {paymentMethod === "Mobile Money"
                     ? formatGHS(calculateDisplayTotalWithCharge())
@@ -880,8 +806,7 @@ const Checkout = () => {
 
               {paymentMethod === "Mobile Money" && (
                 <p className="text-xs text-gray-500 italic text-center mt-1">
-                  * Service charge is applied by your mobile money
-                  provider.
+                  * Service charge is applied by your mobile money provider.
                 </p>
               )}
             </div>
@@ -898,9 +823,7 @@ const Checkout = () => {
                 onChange={handlePaymentMethodChange}
                 className="flex flex-col gap-3"
               >
-                {(isAgent ||
-                  isFreeDelivery ||
-                  (deliveryFee > 0 && !isNADelivery)) && (
+                {(isAgent || isFreeDelivery || (deliveryFee > 0 && !isNADelivery)) && (
                   <Radio value="Cash on Delivery" className="text-sm">
                     Cash on Delivery
                   </Radio>
@@ -994,9 +917,7 @@ const Checkout = () => {
             <ExclamationTriangleIcon className="w-8 h-8 text-amber-500" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-gray-800 mb-1">
-              Real name required
-            </h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-1">Real name required</h3>
             <p className="text-sm text-gray-500 leading-relaxed">
               Please enter your actual full name before placing an order.
               <br />
@@ -1037,32 +958,21 @@ const Checkout = () => {
       >
         <div className="space-y-3 mt-4">
           <p className="text-gray-600 mb-4">
-            Please fill in the following required fields to place your
-            order:
+            Please fill in the following required fields to place your order:
           </p>
           {validateRequiredFields().map((error, index) => {
             const getIcon = (field) => {
               switch (field) {
                 case "name":
-                  return (
-                    <UserIcon className="w-4 h-4 text-red-500" />
-                  );
+                  return <UserIcon className="w-4 h-4 text-red-500" />;
                 case "phone":
-                  return (
-                    <PhoneIcon className="w-4 h-4 text-red-500" />
-                  );
+                  return <PhoneIcon className="w-4 h-4 text-red-500" />;
                 case "address":
-                  return (
-                    <MapPinIcon className="w-4 h-4 text-red-500" />
-                  );
+                  return <MapPinIcon className="w-4 h-4 text-red-500" />;
                 case "payment":
-                  return (
-                    <CreditCardIcon className="w-4 h-4 text-red-500" />
-                  );
+                  return <CreditCardIcon className="w-4 h-4 text-red-500" />;
                 default:
-                  return (
-                    <ExclamationTriangleIcon className="w-4 h-4 text-red-500" />
-                  );
+                  return <ExclamationTriangleIcon className="w-4 h-4 text-red-500" />;
               }
             };
             const getFieldName = (field) => {
@@ -1094,13 +1004,15 @@ const Checkout = () => {
         </div>
       </Modal>
 
-      {/* PAYMENT MODAL */}
+      {/* ==================== PAYMENT MODAL ==================== */}
       {!isAgent && (
         <Modal
           open={isPaymentModalVisible}
           onCancel={() => {
             if (paymentStatus === "input") {
-              clearInterval(countdownRef.current);
+              if (initialDelayRef.current) clearTimeout(initialDelayRef.current);
+              if (pollingRef.current) clearInterval(pollingRef.current);
+              if (countdownRef.current) clearInterval(countdownRef.current);
               setIsPaymentModalVisible(false);
               setPaymentStatus("idle");
             }
@@ -1121,62 +1033,16 @@ const Checkout = () => {
                   e.target.style.display = "none";
                 }}
               />
-              <p className="text-md text-gray-600 font-black">
-                Franko Trading Limited
-              </p>
+              <p className="text-md text-gray-600 font-black">Franko Trading Limited</p>
             </div>
 
             {/* AMOUNT DISPLAY */}
             <div className="bg-gradient-to-r from-green-50 to-green-100 p-2 rounded-xl text-center border border-green-200">
-              <p className="text-gray-600 text-sm font-medium">
-                You will be prompted to pay
-              </p>
+              <p className="text-gray-600 text-sm font-medium">You will be prompted to pay</p>
               <p className="text-xl font-bold text-green-700 mt-1">
                 {formatGHS(calculateDisplayTotalWithCharge())}
               </p>
-              {calculateServiceCharge() > 0 && (
-                <p className="text-xs text-gray-500 mt-1">
-                 
-                </p>
-              )}
-              <p className="text-xs text-gray-400 mt-1">
-                Order Ref: {currentOrderId}
-              </p>
-            </div>
-
-            {/* ✅ NEW: Cart items description shown in the payment modal */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
-                Order Items
-              </p>
-              <div className="space-y-1 max-h-32 overflow-y-auto">
-                {cartItems.map((item, index) => {
-                  const qty = getItemQuantity(item);
-                  const unitPrice = getItemUnitPrice(item);
-                  return (
-                    <div
-                      key={item.productId || index}
-                      className="flex justify-between items-center text-xs"
-                    >
-                      <span className="text-gray-700 truncate mr-2 flex-1">
-                        {item.productName || "Item"}
-                        {qty > 1 && (
-                          <span className="text-gray-400 ml-1">
-                            ×{qty}
-                          </span>
-                        )}
-                      </span>
-                      <span className="text-gray-800 font-medium whitespace-nowrap">
-                        {formatGHS(unitPrice * qty)}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="border-t border-gray-200 mt-2 pt-2 flex justify-between text-xs font-bold text-gray-800">
-                <span>Subtotal</span>
-                <span>{formatGHS(calculateSubtotal())}</span>
-              </div>
+              <p className="text-xs text-gray-400 mt-1">Order Ref: {currentOrderId}</p>
             </div>
 
             {/* INPUT STAGE */}
@@ -1193,9 +1059,7 @@ const Checkout = () => {
                     placeholder="233XXXXXXXXX"
                     value={momoNumber}
                     onChange={handleMomoNumberChange}
-                    prefix={
-                      <PhoneIcon className="w-4 h-4 text-gray-400" />
-                    }
+                    prefix={<PhoneIcon className="w-4 h-4 text-gray-400" />}
                     size="large"
                     maxLength={12}
                     className="rounded-lg font-semibold text-lg"
@@ -1236,9 +1100,7 @@ const Checkout = () => {
 
                   <Radio.Group
                     value={selectedNetwork}
-                    onChange={(e) =>
-                      setSelectedNetwork(e.target.value)
-                    }
+                    onChange={(e) => setSelectedNetwork(e.target.value)}
                     className="w-full"
                   >
                     <div className="space-y-3">
@@ -1258,22 +1120,15 @@ const Checkout = () => {
                             className="h-10 w-10 object-contain"
                             onError={(e) => {
                               e.target.style.display = "none";
-                              e.target.nextSibling.style.display =
-                                "flex";
+                              e.target.nextSibling.style.display = "flex";
                             }}
                           />
                           <div className="w-10 h-10 rounded-full bg-yellow-400 items-center justify-center hidden">
-                            <span className="text-xs font-bold">
-                              MTN
-                            </span>
+                            <span className="text-xs font-bold">MTN</span>
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-gray-800">
-                              MTN
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              MTN Mobile Money
-                            </p>
+                            <p className="text-sm font-semibold text-gray-800">MTN</p>
+                            <p className="text-xs text-gray-500">MTN Mobile Money</p>
                           </div>
                         </div>
                         {selectedNetwork === "mtn" && (
@@ -1297,22 +1152,15 @@ const Checkout = () => {
                             className="h-10 w-10 object-contain"
                             onError={(e) => {
                               e.target.style.display = "none";
-                              e.target.nextSibling.style.display =
-                                "flex";
+                              e.target.nextSibling.style.display = "flex";
                             }}
                           />
                           <div className="w-10 h-10 rounded-full bg-red-500 items-center justify-center hidden">
-                            <span className="text-xs font-bold text-white">
-                              VOD
-                            </span>
+                            <span className="text-xs font-bold text-white">VOD</span>
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-gray-800">
-                              Vodafone
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              Vodafone Cash
-                            </p>
+                            <p className="text-sm font-semibold text-gray-800">Vodafone</p>
+                            <p className="text-xs text-gray-500">Vodafone Cash</p>
                           </div>
                         </div>
                         {selectedNetwork === "vodafone" && (
@@ -1336,22 +1184,15 @@ const Checkout = () => {
                             className="h-10 w-10 object-contain"
                             onError={(e) => {
                               e.target.style.display = "none";
-                              e.target.nextSibling.style.display =
-                                "flex";
+                              e.target.nextSibling.style.display = "flex";
                             }}
                           />
                           <div className="w-10 h-10 rounded-full bg-blue-500 items-center justify-center hidden">
-                            <span className="text-xs font-bold text-white">
-                              AT
-                            </span>
+                            <span className="text-xs font-bold text-white">AT</span>
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-gray-800">
-                              AirtelTigo
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              AirtelTigo Money
-                            </p>
+                            <p className="text-sm font-semibold text-gray-800">AirtelTigo</p>
+                            <p className="text-xs text-gray-500">AirtelTigo Money</p>
                           </div>
                         </div>
                         {selectedNetwork === "airteltigo" && (
@@ -1365,15 +1206,9 @@ const Checkout = () => {
                 {/* PAY BUTTON */}
                 <button
                   onClick={handlePayNow}
-                  disabled={
-                    !isValidMomoNumber() ||
-                    !selectedNetwork ||
-                    payButtonLoading
-                  }
+                  disabled={!isValidMomoNumber() || !selectedNetwork || payButtonLoading}
                   className={`w-full py-4 rounded-xl font-bold text-white text-lg transition-all duration-300 ${
-                    !isValidMomoNumber() ||
-                    !selectedNetwork ||
-                    payButtonLoading
+                    !isValidMomoNumber() || !selectedNetwork || payButtonLoading
                       ? "bg-gray-400 cursor-not-allowed"
                       : "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 hover:shadow-lg active:scale-[0.98]"
                   }`}
@@ -1405,32 +1240,19 @@ const Checkout = () => {
                   ) : (
                     <span className="flex items-center justify-center gap-2">
                       <CreditCardIcon className="w-6 h-6" />
-                      Pay{" "}
-                      {formatGHS(calculateDisplayTotalWithCharge())}
+                      Pay {formatGHS(calculateDisplayTotalWithCharge())}
                     </span>
                   )}
                 </button>
 
                 {/* INSTRUCTIONS */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm font-semibold text-blue-800 mb-2">
-                    What happens next?
-                  </p>
+                  <p className="text-sm font-semibold text-blue-800 mb-2">What happens next?</p>
                   <ol className="text-xs text-blue-700 space-y-1 list-decimal list-inside">
-                    <li>
-                      You will receive a payment prompt on your phone
-                    </li>
-                    <li>
-                      Enter your Mobile Money PIN to approve
-                    </li>
-                    <li>
-                      Wait for confirmation (usually takes 10-25
-                      seconds)
-                    </li>
-                    <li>
-                      Your order will be processed immediately after
-                      payment
-                    </li>
+                    <li>You will receive a payment prompt on your phone</li>
+                    <li>Enter your Mobile Money PIN to approve</li>
+                    <li>We'll check for confirmation after 25 seconds</li>
+                    <li>Your order will be processed immediately after payment</li>
                   </ol>
                   <p className="text-xs text-blue-600 mt-2 font-medium">
                     Tip: Keep your phone nearby to approve the payment
@@ -1447,41 +1269,34 @@ const Checkout = () => {
                   <PhoneIcon className="absolute w-8 h-8 text-green-600 animate-pulse" />
                 </div>
                 <div>
-                  <p className="font-bold text-gray-800 text-lg">
-                    Payment Request Sent!
-                  </p>
-                  <p className="text-gray-600 mt-2">
-                    Check your phone now
-                  </p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    A payment prompt has been sent to
-                  </p>
+                  <p className="font-bold text-gray-800 text-lg">Waiting for Payment Confirmation</p>
+                  <p className="text-gray-600 mt-2">Please approve the payment on your phone</p>
                   <div className="bg-gray-100 rounded-lg p-3 mt-3 space-y-1">
-                    <p className="text-sm font-semibold text-gray-700">
-                      {momoNumber}
-                    </p>
+                    <p className="text-sm font-semibold text-gray-700">{momoNumber}</p>
                     <p className="text-xs text-gray-600">
-                      Network:{" "}
-                      {selectedNetwork?.toUpperCase()}
+                      Network: {selectedNetwork?.toUpperCase()}
                     </p>
                     <p className="text-sm font-bold text-green-700 mt-2">
-                      Amount:{" "}
-                      {formatGHS(
-                        calculateDisplayTotalWithCharge()
-                      )}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      (includes{" "}
-                      {formatGHS(calculateServiceCharge())}{" "}
-                      service fee)
+                      Amount: {formatGHS(calculateDisplayTotalWithCharge())}
                     </p>
                   </div>
-                  {/* ✅ Show what the payment is for during pending */}
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mt-3">
                     <p className="text-xs text-amber-700 font-medium">
-                      Payment for:{" "}
-                      {buildCartNarration(cartItems, 80)}
+                      Payment for: {buildCartNarration(cartItems, 80)}
                     </p>
+                  </div>
+                  
+                  {/* ✅ COUNTDOWN TIMER */}
+                  <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-3">
+                    <p className="text-sm text-green-700 font-medium">
+                      Time remaining: <span className="font-bold text-green-900">{timeoutCountdown}s</span>
+                    </p>
+                    <div className="w-full bg-green-200 rounded-full h-2 mt-2">
+                      <div
+                        className="bg-green-600 h-2 rounded-full transition-all duration-1000"
+                        style={{ width: `${(timeoutCountdown / 145) * 100}%` }}
+                      ></div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1490,28 +1305,19 @@ const Checkout = () => {
             {/* SUCCESS STAGE */}
             {paymentStatus === "success" && (
               <div className="text-center space-y-4 py-6">
-                <div className="text-green-500 text-7xl animate-bounce">
-                  ✅
-                </div>
-                <p className="font-bold text-green-600 text-2xl">
-                  Payment Successful!
-                </p>
-                <p className="text-gray-600">
-                  Your order is being processed...
-                </p>
+                <div className="text-green-500 text-7xl animate-bounce">✅</div>
+                <p className="font-bold text-green-600 text-2xl">Payment Successful!</p>
+                <p className="text-gray-600">Processing your order now...</p>
               </div>
             )}
 
-            {/* FAILED STAGE */}
+            {/* FAILED STAGE - Shows briefly before redirect */}
             {paymentStatus === "failed" && (
               <div className="text-center space-y-4 py-6">
                 <div className="text-red-500 text-7xl">❌</div>
-                <p className="font-bold text-red-600 text-2xl">
-                  Payment Failed
-                </p>
-                <p className="text-gray-600">
-                  The transaction was not completed
-                </p>
+                <p className="font-bold text-red-600 text-2xl">Payment unsucceful</p>
+   
+                <div className="animate-spin h-8 w-8 border-4 border-red-500 border-t-transparent rounded-full mx-auto"></div>
               </div>
             )}
           </div>

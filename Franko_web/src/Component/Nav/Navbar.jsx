@@ -472,11 +472,11 @@ const Nav = () => {
 
         .nav-inner {
           max-width: 1750px;
-          margin: 0 auto;
+          margin:  auto;
         }
 
         @media (min-width: 1024px) {
-          .nav-inner { padding: 0 8px; }
+          .nav-inner { padding: 4px 8px; }
         }
 
         .nav-row {
@@ -1303,7 +1303,7 @@ const Nav = () => {
             <div className="nav-row">
               
               {/* Mobile: Logo on LEFT */}
-              <div className="nav-logo-container lg:hidden" onClick={() => navigate("/")}>
+              <div className="nav-logo-container lg:hidden ml-2" onClick={() => navigate("/")}>
                 <img src={logo} alt="Franko Trading" style={{ height: 28, width: "auto" }} />
               </div>
 
@@ -1625,7 +1625,7 @@ const Nav = () => {
                 </div>
 
                 {/* Hamburger Menu on RIGHT */}
-                <button onClick={toggleDrawer} className="n-ham ml-4" >
+                <button onClick={toggleDrawer} className="n-ham ml-4 mr-1" >
                   <Menu style={{ width: 18, height: 18, color: "var(--nav-mid)" }} />
                 </button>
               </div>
