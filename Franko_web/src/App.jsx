@@ -83,7 +83,7 @@ const getUserRole = () => {
     if (user?.position) return user.position; // Supervisor, Developer, etc.
     return customer?.accountType || null; // customer, agent, admin
   } catch (err) {
-    console.error("Error reading user role from localStorage", err);
+   
     return null;
   }
 };

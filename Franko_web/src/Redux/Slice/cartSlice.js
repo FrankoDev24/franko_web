@@ -46,10 +46,7 @@ const normalizeItem = (item, knownUnitPrice = null) => {
       // If evenly divisible, API likely sent line total
       if (Math.abs(rawPrice - possibleUnit * quantity) < 0.01) {
         unitPrice = Math.round(possibleUnit * 100) / 100;
-        console.warn(
-          `[cartSlice] Pre-multiplied price detected: "${item.productName || item.ProductName}" ` +
-            `API price=${rawPrice}, qty=${quantity} → unitPrice=${unitPrice}`
-        );
+     
       } else {
         unitPrice = rawPrice;
       }
@@ -242,18 +239,11 @@ export const getCartById = createAsyncThunk(
           }
         });
 
-        console.group("🔍 Raw Cart API Response");
         response.data.forEach((item, i) => {
           const pid = item.productId || item.ProductId;
-          console.log(`Item ${i + 1}: "${item.productName || item.ProductName}"`, {
-            apiPrice: item.price || item.Price,
-            apiQty: item.quantity || item.Quantity,
-            apiTotal: item.total || item.Total || "N/A",
-            apiUnitPrice: item.unitPrice || item.UnitPrice || "N/A",
-            reduxKnownUnitPrice: knownPriceMap[pid] || "none",
-          });
+       
         });
-        console.groupEnd();
+    
 
         return response.data.map((item) => {
           const pid = item.productId || item.ProductId;
