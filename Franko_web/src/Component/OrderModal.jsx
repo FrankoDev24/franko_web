@@ -536,6 +536,7 @@ const OrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
       };
 
     
+    
       
     } catch (error) {
       console.error('Error generating invoice:', error);
