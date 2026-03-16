@@ -127,11 +127,6 @@ const buildCartNarration = (items, maxLen = 120) => {
 };
 
 // ==================== ACTION DIALOG ====================
-/**
- * A focused confirm/retry popup shown in two scenarios:
- *   mode = "cancel"        → user clicked "Cancel Order"
- *   mode = "not_confirmed" → "I've Approved" was clicked but verification failed
- */
 const PaymentActionDialog = ({ open, mode, verifying, onRetry, onCancel, onClose }) => {
   if (!open) return null;
   const isCancel = mode === "cancel";
@@ -178,7 +173,7 @@ const PaymentActionDialog = ({ open, mode, verifying, onRetry, onCancel, onClose
               </h3>
               <p className="text-sm text-gray-500 mt-1.5 leading-relaxed">
                 {isCancel
-                  ? "Your payment has not been charged. Are you sure you want to cancel?"
+                  ? "Are you sure you want to cancel the order?"
                   : "We couldn't verify your payment. Please approve via your MoMo app or USSD, then try again."}
               </p>
             </div>
@@ -772,7 +767,7 @@ const Checkout = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ══════ BILLING INFO ══════ */}
         <div className="lg:col-span-1">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 lg:p-6">
             <div className="mb-5">
               <h3 className="text-base font-bold text-gray-800">Billing Information</h3>
               <div className="mt-2 flex gap-1">
@@ -832,7 +827,7 @@ const Checkout = () => {
 
         {/* ══════ ORDER SUMMARY ══════ */}
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 lg:p-6">
             <div className="mb-5">
               <h3 className="text-base font-bold text-gray-800">Order Summary</h3>
               <div className="mt-2 flex gap-1">
@@ -850,7 +845,7 @@ const Checkout = () => {
                 return (
                   <div
                     key={item.productId || index}
-                    className="flex justify-between items-center py-3 gap-4"
+                    className="flex justify-between items-center py-3 gap-3"
                   >
                     <div className="flex gap-3 flex-1 min-w-0">
                       <div className="flex-shrink-0 relative">
@@ -906,18 +901,18 @@ const Checkout = () => {
 
               {paymentMethod === "Mobile Money" && (
                 <div className="flex justify-between items-center bg-blue-50 p-2 rounded-lg">
-                  <Text className="text-gray-700 font-medium">
+                  <Text className="text-gray-700 font-medium text-xs lg:text-sm">
                     {getServiceChargeLabel()}
                   </Text>
-                  <Text className="text-gray-700 font-medium">
+                  <Text className="text-gray-700 font-medium text-xs lg:text-sm">
                     {formatGHS(calculateServiceCharge())}
                   </Text>
                 </div>
               )}
 
               <div className="flex justify-between items-center pt-2 border-t border-gray-300 bg-gradient-to-r from-red-50 to-orange-50 p-3 rounded-lg">
-                <Text className="text-red-600 font-bold text-lg">Total Amount:</Text>
-                <Text className="text-red-600 font-bold text-lg">
+                <Text className="text-red-600 font-bold text-base lg:text-lg">Total Amount:</Text>
+                <Text className="text-red-600 font-bold text-base lg:text-lg">
                   {paymentMethod === "Mobile Money"
                     ? formatGHS(calculateDisplayTotalWithCharge())
                     : formatGHS(calculateTotalAmount())}
@@ -1047,12 +1042,12 @@ const Checkout = () => {
       </div>
 
       {/* Sticky Place Order Button for Mobile */}
-      <div className="fixed bottom-0 left-0 right-0 lg:hidden bg-white border-t border-gray-200 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] z-40">
+      <div className="fixed bottom-0 left-0 right-0 lg:hidden bg-white border-t border-gray-200 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] z-40 safe-area-bottom">
         <button
           type="button"
           onClick={handleCheckout}
           disabled={loading}
-          className={`w-full text-white font-bold text-base py-4 rounded-xl transition-all duration-300 shadow-lg ${
+          className={`w-full text-white font-bold text-base py-3.5 rounded-xl transition-all duration-300 shadow-lg ${
             loading
               ? "bg-gray-400 cursor-wait"
               : "bg-green-600 hover:bg-green-700 active:scale-[0.98]"
@@ -1099,6 +1094,7 @@ const Checkout = () => {
         centered
         footer={null}
         width={400}
+        className="mobile-optimized-modal"
       >
         <div className="flex flex-col items-center text-center py-4 space-y-4">
           <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center">
@@ -1128,7 +1124,7 @@ const Checkout = () => {
         title={
           <div className="flex items-center gap-2 text-red-600">
             <ExclamationTriangleIcon className="w-5 h-5" />
-            <span>Complete Required Fields</span>
+            <span className="text-sm lg:text-base">Complete Required Fields</span>
           </div>
         }
         open={isValidationModalVisible}
@@ -1143,6 +1139,7 @@ const Checkout = () => {
             Got It
           </button>,
         ]}
+        className="mobile-optimized-modal"
       >
         <div className="space-y-2.5 mt-4">
           <p className="text-gray-500 text-sm mb-3">
@@ -1194,28 +1191,29 @@ const Checkout = () => {
           closable={paymentStatus === "input"}
           centered
           width={500}
-          styles={{ body: { padding: "20px 24px" } }}
+          styles={{ body: { padding: "16px 20px" } }}
+          className="mobile-optimized-modal"
         >
-          <div className="space-y-5">
+          <div className="space-y-4 lg:space-y-5">
             {/* Header */}
             <div className="text-center">
               <img
                 src={frankoLogo}
                 alt="Franko Trading"
-                className="h-10 mx-auto mb-2 object-contain"
+                className="h-8 lg:h-10 mx-auto mb-2 object-contain"
                 onError={(e) => { e.target.style.display = "none"; }}
               />
-              <p className="text-sm font-bold text-gray-700 tracking-tight">
+              <p className="text-xs lg:text-sm font-bold text-gray-700 tracking-tight">
                 Franko Trading Limited
               </p>
             </div>
 
             {/* Amount card */}
-            <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-2xl p-4 text-center text-white shadow-lg shadow-green-200">
+            <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-2xl p-3 lg:p-4 text-center text-white shadow-lg shadow-green-200">
               <p className="text-xs font-semibold text-green-200 uppercase tracking-wider mb-1">
                 You will be charged
               </p>
-              <p className="text-3xl font-black">
+              <p className="text-2xl lg:text-3xl font-black">
                 {formatGHS(calculateDisplayTotalWithCharge())}
               </p>
               <p className="text-xs text-green-200 mt-1.5">Ref: {currentOrderId}</p>
@@ -1224,8 +1222,8 @@ const Checkout = () => {
             {/* INPUT */}
             {paymentStatus === "input" && (
               <>
-                <div className="space-y-4">
-                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                <div className="space-y-3 lg:space-y-4">
+                  <div className="bg-gray-50 rounded-xl p-3 lg:p-4 border border-gray-100">
                     <label className="text-sm font-bold text-gray-800 flex items-center gap-2 mb-3">
                       <span className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-black">
                         1
@@ -1239,8 +1237,8 @@ const Checkout = () => {
                       prefix={<PhoneIcon className="w-4 h-4 text-gray-400" />}
                       size="large"
                       maxLength={12}
-                      className="rounded-xl font-bold text-lg"
-                      style={{ fontSize: "18px" }}
+                      className="rounded-xl font-bold text-base lg:text-lg"
+                      style={{ fontSize: "16px" }}
                     />
                     <div className="mt-2 min-h-[20px]">
                       {startsWithZeroAfter233() && (
@@ -1263,7 +1261,7 @@ const Checkout = () => {
                     </div>
                   </div>
 
-                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                  <div className="bg-gray-50 rounded-xl p-3 lg:p-4 border border-gray-100">
                     <label className="text-sm font-bold text-gray-800 flex items-center gap-2 mb-3">
                       <span className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-black">
                         2
@@ -1315,7 +1313,7 @@ const Checkout = () => {
                               <img
                                 src={net.logo}
                                 alt={net.name}
-                                className="h-9 w-9 object-contain rounded-lg"
+                                className="h-8 w-8 lg:h-9 lg:w-9 object-contain rounded-lg"
                                 onError={(e) => { e.target.style.display = "none"; }}
                               />
                               <div>
@@ -1336,7 +1334,7 @@ const Checkout = () => {
                 <button
                   onClick={handlePayNow}
                   disabled={!isValidMomoNumber() || !selectedNetwork || payButtonLoading}
-                  className={`w-full py-4 rounded-xl font-bold text-white text-base transition-all duration-300 shadow-md ${
+                  className={`w-full py-3.5 lg:py-4 rounded-xl font-bold text-white text-base transition-all duration-300 shadow-md ${
                     !isValidMomoNumber() || !selectedNetwork || payButtonLoading
                       ? "bg-gray-300 cursor-not-allowed"
                       : "bg-green-600 hover:bg-green-700 hover:shadow-lg active:scale-[0.98]"
@@ -1358,7 +1356,7 @@ const Checkout = () => {
                   )}
                 </button>
 
-                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3.5">
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 lg:p-3.5">
                   <p className="text-xs font-bold text-blue-800 mb-1.5">What happens next?</p>
                   <ol className="text-xs text-blue-600 space-y-1 list-decimal list-inside">
                     <li>You'll receive a payment prompt on your phone</li>
@@ -1373,13 +1371,13 @@ const Checkout = () => {
             {/* PENDING */}
             {paymentStatus === "pending" && (
               <div className="text-center space-y-4 py-4">
-                <div className="relative flex items-center justify-center mx-auto w-24 h-24">
+                <div className="relative flex items-center justify-center mx-auto w-20 h-20 lg:w-24 lg:h-24">
                   <div className="absolute inset-0 border-4 border-green-100 rounded-full" />
                   <div className="absolute inset-0 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
-                  <PhoneIcon className="w-8 h-8 text-green-600 animate-pulse" />
+                  <PhoneIcon className="w-7 h-7 lg:w-8 lg:h-8 text-green-600 animate-pulse" />
                 </div>
                 <div>
-                  <p className="font-black text-gray-800 text-lg">Awaiting Approval</p>
+                  <p className="font-black text-gray-800 text-base lg:text-lg">Awaiting Approval</p>
                   <p className="text-gray-500 text-sm mt-1">
                     Approve the payment prompt on your phone
                   </p>
@@ -1425,7 +1423,7 @@ const Checkout = () => {
                 <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">
                   <CheckCircleSolid className="w-12 h-12 text-green-500" />
                 </div>
-                <p className="font-black text-green-700 text-2xl">Payment Confirmed!</p>
+                <p className="font-black text-green-700 text-xl lg:text-2xl">Payment Confirmed!</p>
                 <p className="text-gray-500 text-sm">Processing your order now…</p>
                 <div className="animate-pulse flex justify-center">
                   <div className="h-1 w-32 bg-green-300 rounded-full" />
@@ -1439,7 +1437,7 @@ const Checkout = () => {
                 <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto">
                   <XCircleIcon className="w-12 h-12 text-red-500" />
                 </div>
-                <p className="font-black text-red-600 text-2xl">Payment Failed</p>
+                <p className="font-black text-red-600 text-xl lg:text-2xl">Payment Failed</p>
                 <p className="text-gray-500 text-sm">Redirecting you…</p>
                 <div className="animate-spin h-6 w-6 border-4 border-red-400 border-t-transparent rounded-full mx-auto" />
               </div>
@@ -1456,20 +1454,21 @@ const Checkout = () => {
         closable={false}
         centered
         width={520}
-        styles={{ body: { padding: "24px" } }}
+        styles={{ body: { padding: "16px 20px", paddingBottom: "100px" } }}
+        className="mobile-optimized-modal approval-guide-modal"
       >
         {netCfg && (
-          <div className="space-y-5">
+          <div className="space-y-4 lg:space-y-5">
             {/* Header */}
-            <div className="flex items-start gap-4">
+            <div className="flex items-start gap-3 lg:gap-4">
               <div
-                className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 border-2"
+                className="w-10 h-10 lg:w-12 lg:h-12 rounded-2xl flex items-center justify-center flex-shrink-0 border-2"
                 style={{ backgroundColor: netCfg.bg, borderColor: netCfg.border }}
               >
                 <img
                   src={netCfg.logo}
                   alt={netCfg.label}
-                  className="w-8 h-8 object-contain"
+                  className="w-6 h-6 lg:w-8 lg:h-8 object-contain"
                   onError={(e) => { e.target.style.display = "none"; }}
                 />
               </div>
@@ -1490,10 +1489,10 @@ const Checkout = () => {
                     Payment Pending
                   </span>
                 </div>
-                <h3 className="text-lg font-black text-gray-900 leading-tight">
+                <h3 className="text-base lg:text-lg font-black text-gray-900 leading-tight">
                   Approve Your Payment
                 </h3>
-                <p className="text-gray-500 text-sm mt-0.5">
+                <p className="text-gray-500 text-xs lg:text-sm mt-0.5">
                   We haven't received confirmation yet. Please approve manually.
                 </p>
               </div>
@@ -1501,14 +1500,14 @@ const Checkout = () => {
 
             {/* Amount + number */}
             <div
-              className="rounded-xl border px-4 py-3 flex items-center justify-between"
+              className="rounded-xl border px-3 py-2.5 lg:px-4 lg:py-3 flex items-center justify-between"
               style={{ backgroundColor: netCfg.bg, borderColor: netCfg.border }}
             >
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">
                   Amount Due
                 </p>
-                <p className="text-xl font-black" style={{ color: netCfg.color }}>
+                <p className="text-lg lg:text-xl font-black" style={{ color: netCfg.color }}>
                   {formatGHS(calculateDisplayTotalWithCharge())}
                 </p>
               </div>
@@ -1516,17 +1515,17 @@ const Checkout = () => {
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">
                   Number
                 </p>
-                <p className="text-sm font-bold text-gray-800">{momoNumber}</p>
+                <p className="text-xs lg:text-sm font-bold text-gray-800">{momoNumber}</p>
               </div>
             </div>
 
             {/* USSD */}
             <div
-              className="flex items-center gap-3 rounded-xl border px-4 py-3"
+              className="flex items-center gap-3 rounded-xl border px-3 py-2.5 lg:px-4 lg:py-3"
               style={{ backgroundColor: netCfg.bg, borderColor: netCfg.border }}
             >
               <div
-                className="w-9 h-9 rounded-xl flex items-center justify-center"
+                className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl flex items-center justify-center"
                 style={{ backgroundColor: `${netCfg.color}20` }}
               >
                 <PhoneIcon className="w-4 h-4" style={{ color: netCfg.color }} />
@@ -1539,7 +1538,7 @@ const Checkout = () => {
                   Quick Dial
                 </p>
                 <p
-                  className="text-xl font-black font-mono"
+                  className="text-lg lg:text-xl font-black font-mono"
                   style={{ color: netCfg.color }}
                 >
                   {netCfg.ussd}
@@ -1550,8 +1549,8 @@ const Checkout = () => {
 
             {/* Steps */}
             <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
-                <p className="text-sm font-bold text-gray-800">Step-by-step approval</p>
+              <div className="px-3 py-2.5 lg:px-4 lg:py-3 border-b border-gray-50 flex items-center justify-between">
+                <p className="text-xs lg:text-sm font-bold text-gray-800">Step-by-step approval</p>
                 <span
                   className="text-xs font-bold px-2 py-0.5 rounded-full border"
                   style={{
@@ -1563,7 +1562,7 @@ const Checkout = () => {
                   {netCfg.steps.length} steps
                 </span>
               </div>
-              <div className="p-4 space-y-0">
+              <div className="p-3 lg:p-4 space-y-0 max-h-60 lg:max-h-80 overflow-y-auto">
                 {netCfg.steps.map((step, idx) => {
                   const isLast = idx === netCfg.steps.length - 1;
                   return (
@@ -1581,7 +1580,7 @@ const Checkout = () => {
                       </div>
                       <div className={`flex-1 pb-3 ${isLast ? "pb-0" : ""}`}>
                         <p
-                          className={`text-sm leading-snug pt-0.5 ${
+                          className={`text-xs lg:text-sm leading-snug pt-0.5 ${
                             isLast ? "font-bold" : "font-medium text-gray-700"
                           }`}
                           style={isLast ? { color: netCfg.color } : {}}
@@ -1596,8 +1595,8 @@ const Checkout = () => {
             </div>
 
             {/* Tip */}
-            <div className="flex gap-3 bg-amber-50 border border-amber-100 rounded-xl p-3.5">
-              <div className="w-7 h-7 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="flex gap-3 bg-amber-50 border border-amber-100 rounded-xl p-3 lg:p-3.5">
+              <div className="w-6 h-6 lg:w-7 lg:h-7 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
                 <span className="text-amber-600 text-sm">💡</span>
               </div>
               <p className="text-xs text-amber-800 font-medium leading-relaxed">
@@ -1605,8 +1604,8 @@ const Checkout = () => {
               </p>
             </div>
 
-            {/* Action buttons */}
-            <div className="space-y-2.5 pt-1">
+            {/* Action buttons - Desktop version */}
+            <div className="hidden lg:block space-y-2.5 pt-1">
               {/* Confirm */}
               <button
                 onClick={handleManualConfirm}
@@ -1636,11 +1635,53 @@ const Checkout = () => {
                 )}
               </button>
 
-              {/* Cancel — now opens the action dialog */}
+              {/* Cancel */}
               <button
                 onClick={handleCancelFromGuide}
                 disabled={verifyingPayment}
                 className="w-full py-3 rounded-xl font-semibold text-red-500 text-sm border border-red-100 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
+              >
+                <XCircleIcon className="w-4 h-4" />
+                Cancel Order
+              </button>
+            </div>
+
+            {/* Action buttons - Mobile sticky version */}
+            <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 space-y-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] z-[10000]">
+              {/* Confirm */}
+              <button
+                onClick={handleManualConfirm}
+                disabled={verifyingPayment}
+                className={`w-full py-3.5 rounded-lg font-bold text-white text-sm transition-all duration-200 flex items-center justify-center gap-2.5 shadow-lg ${
+                  verifyingPayment
+                    ? "bg-gray-400 cursor-wait"
+                    : "bg-green-600 hover:bg-green-700 active:scale-[0.98]"
+                }`}
+                style={
+                  verifyingPayment ? {} : { boxShadow: "0 4px 20px rgba(5,150,105,0.35)" }
+                }
+              >
+                {verifyingPayment ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                    </svg>
+                    Verifying…
+                  </>
+                ) : (
+                  <>
+                    <CheckCircleSolid className="w-5 h-5" />
+                    I've Approved — Confirm
+                  </>
+                )}
+              </button>
+
+              {/* Cancel */}
+              <button
+                onClick={handleCancelFromGuide}
+                disabled={verifyingPayment}
+                className="w-full py-2.5 rounded-xl font-semibold text-red-500 text-xs border border-red-100 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
               >
                 <XCircleIcon className="w-4 h-4" />
                 Cancel Order
@@ -1663,6 +1704,34 @@ const Checkout = () => {
         onCancel={handleDialogCancel}
         onClose={() => !verifyingPayment && setActionDialog((d) => ({ ...d, open: false }))}
       />
+
+      {/* Add custom styles for mobile optimization */}
+      <style>{`
+        .mobile-optimized-modal .ant-modal {
+          max-width: calc(100vw - 32px) !important;
+          margin: 16px;
+        }
+
+        @media (max-width: 640px) {
+          .mobile-optimized-modal .ant-modal {
+            max-width: calc(100vw - 24px) !important;
+            margin: 12px;
+          }
+
+          .mobile-optimized-modal .ant-modal-content {
+            border-radius: 16px;
+          }
+
+          .approval-guide-modal .ant-modal-body {
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+          }
+        }
+
+        .safe-area-bottom {
+          padding-bottom: env(safe-area-inset-bottom);
+        }
+      `}</style>
     </div>
   );
 };
