@@ -1,5 +1,4 @@
 import React from "react";
-import { Card } from "@material-tailwind/react";
 import { useNavigate } from "react-router-dom";
 
 // Importing image assets directly
@@ -28,40 +27,174 @@ const BrandsBanner = () => {
   };
 
   return (
-    <section className="py-8 bg-white">
-      <div className="mx-auto px-4 md:px-24 py-4">
-        {/* Header section */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-800 relative inline-block">
-              Shop by brand
-            </h2>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800;900&display=swap');
+
+        :root {
+          --bb-font: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          --bb-green: #14532d;
+          --bb-green-mid: #166534;
+          --bb-green-light: #dcfce7;
+          --bb-green-lighter: #f0fdf4;
+          --bb-green-accent: #22c55e;
+          --bb-dark: #1a1a1a;
+          --bb-mid: #555;
+          --bb-light: #888;
+          --bb-border: #e0e0e0;
+          --bb-bg-subtle: #f7f7f7;
+          --bb-radius: 4px;
+        }
+
+        .bb-root, .bb-root * {
+          font-family: var(--bb-font);
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+          box-sizing: border-box;
+        }
+
+        /* ==================== HEADER ==================== */
+
+        .bb-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          margin-bottom: 16px;
+        }
+
+        .bb-title-wrap {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-shrink: 0;
+        }
+
+        .bb-title-accent {
+          width: 4px;
+          height: 22px;
+          border-radius: 2px;
+          background: var(--bb-green);
+          flex-shrink: 0;
+        }
+
+        @media (min-width: 768px) {
+          .bb-title-accent { height: 26px; }
+        }
+
+        .bb-title {
+          font-size: 17px;
+          font-weight: 800;
+          color: var(--bb-dark);
+          letter-spacing: -0.02em;
+          line-height: 1;
+          white-space: nowrap;
+        }
+
+        @media (min-width: 768px) {
+          .bb-title { font-size: 20px; }
+        }
+
+        .bb-header-line {
+          flex: 1;
+          height: 1px;
+          background: var(--bb-border);
+          min-width: 20px;
+        }
+
+        /* ==================== BRAND CARDS ==================== */
+
+        .bb-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 12px;
+        }
+
+        @media (min-width: 640px) {
+          .bb-grid {
+            grid-template-columns: repeat(3, 1fr);
+          }
+        }
+
+        @media (min-width: 768px) {
+          .bb-grid {
+            grid-template-columns: repeat(6, 1fr);
+            gap: 16px;
+          }
+        }
+
+        .bb-card {
+          border: 1px solid var(--bb-border);
+          border-radius: var(--bb-radius);
+          background: #fff;
+          padding: 20px 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          min-height: 80px;
+        }
+
+        @media (min-width: 768px) {
+          .bb-card {
+            padding: 24px 20px;
+            min-height: 90px;
+          }
+        }
+
+        .bb-card:hover {
+          border-color: var(--bb-green-accent);
+          box-shadow: 0 4px 16px rgba(20, 83, 45, 0.08);
+        }
+
+        .bb-card img {
+          max-height: 40px;
+          width: auto;
+          object-fit: contain;
+          transition: transform 0.3s ease;
+        }
+
+        @media (min-width: 768px) {
+          .bb-card img {
+            max-height: 48px;
+          }
+        }
+
+        .bb-card:hover img {
+          transform: scale(1.05);
+        }
+      `}</style>
+
+      <section className="bb-root py-6 bg-white">
+        <div className="mx-auto px-4 md:px-16">
+          {/* Header section */}
+          <div className="bb-header">
+            <div className="bb-title-wrap">
+              <div className="bb-title-accent" />
+              <h2 className="bb-title">Shop by Brand</h2>
+            </div>
+            <div className="bb-header-line" />
           </div>
 
-          {/* Full gray divider */}
-          <div className="w-full h-px bg-gray-300 mt-1 relative">
-            <div className="absolute left-0 top-0 h-px w-24 bg-red-400"></div>
+          {/* Brand cards */}
+          <div className="bb-grid">
+            {brands.map((brand) => (
+              <div
+                key={brand.id}
+                onClick={() => handleBrandClick(brand.id)}
+                className="bb-card"
+              >
+                <img
+                  src={brand.src}
+                  alt={brand.name}
+                />
+              </div>
+            ))}
           </div>
         </div>
-
-        {/* Brand cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
-          {brands.map((brand) => (
-            <Card
-              key={brand.id}
-              onClick={() => handleBrandClick(brand.id)}
-              className="border border-gray-200 shadow-none bg-white p-6 flex items-center justify-center hover:shadow-md transition duration-300 cursor-pointer"
-            >
-              <img
-                src={brand.src}
-                alt={brand.name}
-                className="max-h-12 object-contain"
-              />
-            </Card>
-          ))}
-        </div>
-      </div>
-    </section>
+      </section>
+    </>
   );
 };
 

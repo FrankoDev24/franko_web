@@ -1,209 +1,588 @@
-
-import {  Button } from 'antd';
-import { FacebookOutlined, TwitterOutlined, PhoneOutlined } from '@ant-design/icons';
-import { Link } from 'react-router-dom';
-import { FaTiktok, FaWhatsapp } from 'react-icons/fa';
-import app from "../assets/apps.png"
-import play from "../assets/plays.png"
+import { Link } from "react-router-dom";
+import { FaTiktok, FaWhatsapp, FaFacebookF, FaXTwitter } from "react-icons/fa6";
+import { Phone, MapPin, ChevronRight } from "lucide-react";
+import app from "../assets/apps.png";
+import play from "../assets/plays.png";
 import logo from "../assets/frankoIcon.png";
 
 const Footer = () => {
+  const companyLinks = [
+    { to: "/about", label: "About Us" },
+    { to: "/shops", label: "Our Shops" },
+    { to: "/contact", label: "Contact Us" },
+    { to: "/terms", label: "Terms" },
+  ];
+
+  const accountLinks = [
+    { to: "/account", label: "My Account" },
+    { to: "/wishlist", label: "Wishlist" },
+    { to: "/order-history", label: "Orders" },
+  ];
+
+  const socials = [
+    { href: "https://www.facebook.com/frankotradingenterprise", icon: FaFacebookF, label: "Facebook" },
+    { href: "https://x.com/frankotrading1", icon: FaXTwitter, label: "X" },
+    { href: "https://www.tiktok.com/@frankotrading", icon: FaTiktok, label: "TikTok" },
+  ];
+
   return (
-    <footer className="w-full bg-gray-800  text-white">
-      {/* Newsletter Section */}
-     
-      {/* Main Footer */}
-      <div className="mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8  px-6">
-        {/* Company Info */}
-        <div className="lg:col-span-1 space-y-6">
-          <div>
-            <img 
-              src= {logo}
-              alt="Franko Trading" 
-              className="h-16 mb-1 filter brightness-110" 
-            />
-            <p className="text-gray-300 text-sm leading-relaxed mb-4">
-              Ghana's premier destination for phones and electronic devices. 
-              Quality products, unbeatable prices.
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800;900&display=swap');
+
+        .ft-root, .ft-root * {
+          font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          -webkit-font-smoothing: antialiased;
+          box-sizing: border-box;
+        }
+
+        .ft-root {
+          background: #111827;
+          color: #d1d5db;
+        }
+
+        .ft-inner {
+          max-width: 1100px;
+          margin: 0 auto;
+          padding: 20px 16px 0;
+        }
+        @media (min-width: 768px) {
+          .ft-inner { padding: 36px 40px 0; }
+        }
+
+        /* ==================== MOBILE: BRAND ROW ==================== */
+
+        .ft-brand-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-bottom: 14px;
+          border-bottom: 1px solid #1f2937;
+          margin-bottom: 14px;
+        }
+        @media (min-width: 768px) {
+          .ft-brand-row { display: none; }
+        }
+
+        .ft-brand-logo-sm {
+          height: 32px;
+          object-fit: contain;
+          filter: brightness(1.1);
+        }
+
+        .ft-brand-contact-sm {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .ft-wa-btn-sm {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 5px 12px;
+          background: #166534;
+          color: #fff;
+          border: none;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          text-decoration: none;
+          transition: background 0.15s;
+        }
+        .ft-wa-btn-sm:hover { background: #14532d; color: #fff; }
+
+        .ft-call-btn-sm {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px; height: 32px;
+          background: #1f2937;
+          border: 1px solid #374151;
+          border-radius: 4px;
+          color: #22c55e;
+          text-decoration: none;
+          transition: all 0.15s;
+        }
+        .ft-call-btn-sm:hover { background: #166534; color: #fff; border-color: #166534; }
+
+        /* ==================== MOBILE: COMPACT LINKS ==================== */
+
+        .ft-mobile-links {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0;
+          border-bottom: 1px solid #1f2937;
+          margin-bottom: 14px;
+        }
+        @media (min-width: 768px) {
+          .ft-mobile-links { display: none; }
+        }
+
+        .ft-mobile-col {
+          padding: 10px 0;
+        }
+        .ft-mobile-col:first-child {
+          padding-right: 16px;
+          border-right: 1px solid #1f2937;
+        }
+        .ft-mobile-col:last-child {
+          padding-left: 16px;
+        }
+
+        .ft-mobile-col-title {
+          font-size: 10px;
+          font-weight: 800;
+          color: #6b7280;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          margin: 0 0 8px;
+        }
+
+        .ft-mobile-link-list {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+        }
+
+        .ft-mobile-link {
+          font-size: 13px;
+          font-weight: 500;
+          color: #9ca3af;
+          text-decoration: none;
+          transition: color 0.15s;
+          display: block;
+          padding: 1px 0;
+        }
+        .ft-mobile-link:hover { color: #22c55e; }
+
+        /* ==================== MOBILE: APP ROW ==================== */
+
+        .ft-mobile-app-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-bottom: 14px;
+          border-bottom: 1px solid #1f2937;
+          margin-bottom: 0;
+        }
+        @media (min-width: 768px) {
+          .ft-mobile-app-row { display: none; }
+        }
+
+        .ft-mobile-app-label {
+          font-size: 11px;
+          font-weight: 700;
+          color: #6b7280;
+        }
+
+        .ft-mobile-app-buttons {
+          display: flex;
+          gap: 6px;
+        }
+
+        .ft-mobile-app-img {
+          height: 28px;
+          width: auto;
+          object-fit: contain;
+          transition: opacity 0.15s;
+        }
+        .ft-mobile-app-img:hover { opacity: 0.85; }
+
+        /* ==================== DESKTOP: FULL GRID ==================== */
+
+        .ft-desktop-grid {
+          display: none;
+          grid-template-columns: 1.4fr 1fr 1fr 1.2fr;
+          gap: 32px;
+          padding-bottom: 28px;
+          border-bottom: 1px solid #1f2937;
+        }
+        @media (min-width: 768px) {
+          .ft-desktop-grid { display: grid; }
+        }
+
+        .ft-brand-logo {
+          height: 36px;
+          object-fit: contain;
+          filter: brightness(1.1);
+          margin-bottom: 8px;
+        }
+
+        .ft-brand-desc {
+          font-size: 13px;
+          font-weight: 400;
+          color: #9ca3af;
+          line-height: 1.55;
+          margin: 0 0 12px;
+        }
+
+        .ft-contact-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-bottom: 4px;
+        }
+
+        .ft-contact-icon {
+          width: 13px; height: 13px;
+          color: #22c55e;
+          flex-shrink: 0;
+        }
+
+        .ft-contact-text {
+          font-size: 12px;
+          color: #9ca3af;
+        }
+
+        .ft-contact-link {
+          font-size: 13px;
+          font-weight: 600;
+          color: #e5e7eb;
+          text-decoration: none;
+          transition: color 0.15s;
+        }
+        .ft-contact-link:hover { color: #22c55e; }
+
+        .ft-wa-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          margin-top: 8px;
+          padding: 6px 14px;
+          background: #166534;
+          color: #fff;
+          border: none;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          text-decoration: none;
+          transition: background 0.15s;
+        }
+        .ft-wa-btn:hover { background: #14532d; color: #fff; }
+
+        .ft-col-title {
+          font-size: 11px;
+          font-weight: 800;
+          color: #fff;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          margin: 0 0 12px;
+          padding-bottom: 6px;
+          border-bottom: 2px solid #166534;
+          display: inline-block;
+        }
+
+        .ft-links {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .ft-link {
+          display: flex;
+          align-items: center;
+          gap: 3px;
+          font-size: 13px;
+          font-weight: 500;
+          color: #9ca3af;
+          text-decoration: none;
+          transition: all 0.15s;
+        }
+        .ft-link:hover {
+          color: #22c55e;
+          transform: translateX(2px);
+        }
+
+        .ft-link-chevron {
+          width: 11px; height: 11px;
+          color: #4b5563;
+          flex-shrink: 0;
+          transition: color 0.15s;
+        }
+        .ft-link:hover .ft-link-chevron { color: #22c55e; }
+
+        .ft-app-title {
+          font-size: 11px;
+          font-weight: 800;
+          color: #fff;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          margin: 0 0 6px;
+        }
+
+        .ft-app-desc {
+          font-size: 12px;
+          color: #9ca3af;
+          margin: 0 0 10px;
+          line-height: 1.5;
+        }
+
+        .ft-app-buttons {
+          display: flex;
+          gap: 8px;
+        }
+
+        .ft-app-link {
+          display: block;
+          transition: transform 0.15s;
+        }
+        .ft-app-link:hover { transform: scale(1.03); }
+
+        .ft-app-img {
+          height: 34px;
+          width: auto;
+          object-fit: contain;
+        }
+
+        /* ==================== BOTTOM BAR ==================== */
+
+        .ft-bottom-bar {
+          border-top: 1px solid #1f2937;
+        }
+
+        .ft-bottom-inner {
+          max-width: 1100px;
+          margin: 0 auto;
+          padding: 10px 16px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+        }
+        @media (min-width: 768px) {
+          .ft-bottom-inner { padding: 12px 40px; }
+        }
+
+        .ft-copyright {
+          font-size: 11px;
+          font-weight: 500;
+          color: #6b7280;
+          margin: 0;
+        }
+
+        .ft-socials {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .ft-social-label {
+          font-size: 10px;
+          font-weight: 600;
+          color: #6b7280;
+          margin-right: 2px;
+          display: none;
+        }
+        @media (min-width: 768px) {
+          .ft-social-label { display: inline; }
+        }
+
+        .ft-social-link {
+          width: 28px; height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 4px;
+          background: #1f2937;
+          color: #9ca3af;
+          text-decoration: none;
+          transition: all 0.15s;
+          border: 1px solid #374151;
+        }
+        .ft-social-link:hover {
+          background: #166534;
+          color: #fff;
+          border-color: #166534;
+        }
+      `}</style>
+
+      <footer className="ft-root">
+        <div className="ft-inner">
+
+          {/* ==================== MOBILE: Brand + Contact ==================== */}
+          <div className="ft-brand-row">
+            <img src={logo} alt="Franko Trading" className="ft-brand-logo-sm" />
+            <div className="ft-brand-contact-sm">
+              <a href="tel:+233503607980" className="ft-call-btn-sm" title="Call us">
+                <Phone style={{ width: 14, height: 14 }} />
+              </a>
+              <a
+                href="https://wa.me/233503607980"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ft-wa-btn-sm"
+              >
+                <FaWhatsapp style={{ fontSize: 13 }} />
+                WhatsApp
+              </a>
+            </div>
+          </div>
+
+          {/* ==================== MOBILE: Compact Links ==================== */}
+          <div className="ft-mobile-links">
+            <div className="ft-mobile-col">
+              <p className="ft-mobile-col-title">Company</p>
+              <ul className="ft-mobile-link-list">
+                {companyLinks.map((link) => (
+                  <li key={link.to}>
+                    <Link to={link.to} className="ft-mobile-link">{link.label}</Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="ft-mobile-col">
+              <p className="ft-mobile-col-title">Account</p>
+              <ul className="ft-mobile-link-list">
+                {accountLinks.map((link) => (
+                  <li key={link.to}>
+                    <Link to={link.to} className="ft-mobile-link">{link.label}</Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* ==================== MOBILE: App Download ==================== */}
+          <div className="ft-mobile-app-row">
+            <span className="ft-mobile-app-label">Get our app</span>
+            <div className="ft-mobile-app-buttons">
+              <a
+                href="https://apps.apple.com/us/app/franko-trading/id6741319907"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <img src={app} alt="App Store" className="ft-mobile-app-img" />
+              </a>
+              <a
+                href="https://play.google.com/store/apps/details?id=com.poldark.mrfranky2"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <img src={play} alt="Google Play" className="ft-mobile-app-img" />
+              </a>
+            </div>
+          </div>
+
+          {/* ==================== DESKTOP: Full Grid ==================== */}
+          <div className="ft-desktop-grid">
+            {/* Brand */}
+            <div>
+              <img src={logo} alt="Franko Trading" className="ft-brand-logo" />
+              <p className="ft-brand-desc">
+                Ghana's premier destination for phones, electronics, and accessories at unbeatable prices.
+              </p>
+              <div className="ft-contact-row">
+                <Phone className="ft-contact-icon" />
+                <a href="tel:+233503607980" className="ft-contact-link">+233 503 607 980</a>
+              </div>
+              <div className="ft-contact-row">
+                <MapPin className="ft-contact-icon" />
+                <span className="ft-contact-text">Kingsway, Accra – Opposite GCB (Former UT Bank Building)</span>
+              </div>
+              <a
+                href="https://wa.me/233503607980"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ft-wa-btn"
+              >
+                <FaWhatsapp style={{ fontSize: 14 }} />
+                Chat on WhatsApp
+              </a>
+            </div>
+
+            {/* Company */}
+            <div>
+              <h4 className="ft-col-title">Company</h4>
+              <ul className="ft-links">
+                {companyLinks.map((link) => (
+                  <li key={link.to}>
+                    <Link to={link.to} className="ft-link">
+                      <ChevronRight className="ft-link-chevron" />
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Account */}
+            <div>
+              <h4 className="ft-col-title">Account</h4>
+              <ul className="ft-links">
+                {accountLinks.map((link) => (
+                  <li key={link.to}>
+                    <Link to={link.to} className="ft-link">
+                      <ChevronRight className="ft-link-chevron" />
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* App */}
+            <div>
+              <h4 className="ft-app-title">Download Our App</h4>
+              <p className="ft-app-desc">Shop faster with exclusive deals and real-time tracking.</p>
+              <div className="ft-app-buttons">
+                <a
+                  href="https://apps.apple.com/us/app/franko-trading/id6741319907"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ft-app-link"
+                >
+                  <img src={app} alt="App Store" className="ft-app-img" />
+                </a>
+                <a
+                  href="https://play.google.com/store/apps/details?id=com.poldark.mrfranky2"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ft-app-link"
+                >
+                  <img src={play} alt="Google Play" className="ft-app-img" />
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ==================== BOTTOM BAR ==================== */}
+        <div className="ft-bottom-bar">
+          <div className="ft-bottom-inner">
+            <p className="ft-copyright">
+              © {new Date().getFullYear()} Franko Trading Ltd.
             </p>
-          </div>
-          
-          <div className="bg-gray-800/50 backdrop-blur-sm  rounded-xl border border-gray-700/50">
-            <div className="flex items-center gap-2 ">
-              <PhoneOutlined className="text-green-400" />
-              <p className="text-xs font-semibold text-gray-200">Need Help?</p>
+            <div className="ft-socials">
+              <span className="ft-social-label">Follow us</span>
+              {socials.map((s) => {
+                const Icon = s.icon;
+                return (
+                  <a
+                    key={s.label}
+                    href={s.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ft-social-link"
+                    title={s.label}
+                  >
+                    <Icon style={{ fontSize: 12 }} />
+                  </a>
+                );
+              })}
             </div>
-            <a 
-              href="tel: +233503607980" 
-              className="text-white text-xs md:text-sm font-bold hover:text-green-400 transition-colors duration-300 block mb-3"
-            >
-             +233503607980
-            </a>
-            <Button
-              type="primary"
-              className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 border-0 flex items-center gap-2 px-4 py-2 h-10 rounded-lg font-medium shadow-md hover:shadow-lg transition-all duration-300"
-              onClick={() => window.open('https://wa.me/233503607980', '_blank')}
-            >
-              <FaWhatsapp className="text-xs" />
-              Chat with us
-            </Button>
           </div>
         </div>
-
-        {/* Links Grid */}
-        <div className="lg:col-span-2 grid grid-cols-2 md:grid-cols-3 gap-8">
-          <div>
-            <h4 className="font-bold text-white mb-4 text-base border-b border-green-600/30 pb-2">Company</h4>
-            <ul className="space-y-3">
-              <li>
-                <Link 
-                  to="/about" 
-                  className="text-gray-300 hover:text-green-400 text-sm transition-colors duration-300 hover:translate-x-1 inline-block"
-                >
-                  About Us
-                </Link>
-              </li>
-              <li>
-                <Link 
-                  to="/shops" 
-                  className="text-gray-300 hover:text-green-400 text-sm transition-colors duration-300 hover:translate-x-1 inline-block"
-                >
-                  Shops
-                </Link>
-              </li>
-              <li>
-                <Link 
-                  to="/contact" 
-                  className="text-gray-300 hover:text-green-400 text-sm transition-colors duration-300 hover:translate-x-1 inline-block"
-                >
-                  Contact
-                </Link>
-              </li>
-              <li>
-                <Link 
-                  to="/terms" 
-                  className="text-gray-300 hover:text-green-400 text-sm transition-colors duration-300 hover:translate-x-1 inline-block"
-                >
-                  Terms & Conditions
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="font-bold text-white mb-4 text-base border-b border-green-600/30 pb-2">Account</h4>
-            <ul className="space-y-3">
-              <li>
-                <Link 
-                  to="/account" 
-                  className="text-gray-300 hover:text-green-400 text-sm transition-colors duration-300 hover:translate-x-1 inline-block"
-                >
-                  My Account
-                </Link>
-              </li>
-               <li>
-                <Link 
-                  to="/wishlist" 
-                  className="text-gray-300 hover:text-green-400 text-sm transition-colors duration-300 hover:translate-x-1 inline-block"
-                >
-                 My Wishlist
-                </Link>
-              </li>
-              <li>
-                <Link 
-                  to="/order-history" 
-                  className="text-gray-300 hover:text-green-400 text-sm transition-colors duration-300 hover:translate-x-1 inline-block"
-                >
-                  Order History
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-        
-        </div>
-
-        {/* App Download Section */}
-      <div className="flex flex-row items-center space-y-2">
-  <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 backdrop-blur-sm p-2 rounded-xl border border-gray-700/50">
-    <h4 className="font-bold text-white mb-1 text-base">Download Our App</h4>
-    <p className="text-gray-300 text-sm mb-1 leading-relaxed">
-      Get exclusive deals and faster checkout.
-    </p>
-
-    {/* Make buttons display side by side */}
-    <div className="flex flex-row space-x-4">
-      <a
-        href="https://apps.apple.com/us/app/franko-trading/id6741319907"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center px-4 py-3 rounded-lg transition-all duration-300 hover:shadow-lg hover:scale-105 group"
-      >
-        <img
-          src={app}
-          alt="Download on the App Store"
-          className="h-12 w-auto object-contain group-hover:brightness-110 transition-all duration-300"
-        />
-      </a>
-
-      <a
-        href="https://play.google.com/store/apps/details?id=com.poldark.mrfranky2"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center px-4 py-1 rounded-lg transition-all duration-300 hover:shadow-lg hover:scale-105 group"
-      >
-        <img
-          src={play}
-          alt="Download on Google Play"
-          className="h-12 w-auto object-contain group-hover:brightness-110 transition-all duration-300"
-        />
-      </a>
-    </div>
-  </div>
-</div>
-
-      </div>
-
-      {/* Bottom Footer */}
-      <div className="border-t border-gray-700/50 bg-gray-900/50 backdrop-blur-sm">
-        <div className=" mx-auto flex flex-col md:flex-row justify-between items-center py-2 px-6">
-          
-          <div className="flex items-center gap-6 mt-4 md:mt-0">
-            <span className="text-gray-500 text-sm hidden md:block">Follow us:</span>
-            <div className="flex gap-4">
-              <a 
-                href="https://www.facebook.com/frankotradingenterprise" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="bg-gray-800 hover:bg-blue-600 p-3 rounded-full transition-all duration-300 hover:scale-110 hover:shadow-lg"
-              >
-                <FacebookOutlined className="text-lg hover:text-white" />
-              </a>
-              <a 
-                href="https://x.com/frankotrading1" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="bg-gray-800 hover:bg-blue-400 p-3 rounded-full transition-all duration-300 hover:scale-110 hover:shadow-lg"
-              >
-                <TwitterOutlined className="text-lg hover:text-white" />
-              </a>
-              <a 
-                href="https://www.tiktok.com/@frankotrading" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="bg-gray-800 hover:bg-pink-600 p-3 rounded-full transition-all duration-300 hover:scale-110 hover:shadow-lg"
-              >
-                <FaTiktok className="text-lg hover:text-white" />
-              </a>
-            </div>
-            
-          </div>
-          <div className="text-gray-400 text-sm">
-            © 2024 Franko Trading Ltd. All rights reserved.
-          </div>
-        </div>
-      </div>
-    </footer>
+      </footer>
+    </>
   );
 };
 

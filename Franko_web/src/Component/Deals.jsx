@@ -10,48 +10,48 @@ import {
   ArrowRightIcon,
   CheckCircleIcon,
   XCircleIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ClockIcon,
+  FireIcon,
 } from "@heroicons/react/24/solid";
 import { fetchProductByShowroomAndRecord } from "../Redux/Slice/productSlice";
 import {
   addToWishlist,
   removeFromWishlist,
 } from "../Redux/Slice/wishlistSlice";
-import { Card, CardBody, Tooltip } from "@material-tailwind/react";
+import { Tooltip } from "@material-tailwind/react";
 import useAddToCart from "./Cart";
+
+// ==================== NOTIFICATION ====================
 
 const Notification = ({ message, type, isVisible, onClose }) => {
   const timeoutRef = useRef(null);
 
   useEffect(() => {
     return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, []);
 
   useEffect(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
     if (isVisible && message) {
-      timeoutRef.current = setTimeout(() => {
-        onClose();
-      }, 3000);
+      timeoutRef.current = setTimeout(() => onClose(), 3000);
     }
   }, [isVisible, message]);
 
   if (!isVisible || !message) return null;
 
-  const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
-  const Icon = type === 'success' ? CheckCircleIcon : XCircleIcon;
+  const bgColor = type === "success" ? "bg-green-800" : "bg-red-600";
+  const Icon = type === "success" ? CheckCircleIcon : XCircleIcon;
 
   return (
-    <div className="fixed top-4 right-4 z-50 animate-slide-in">
-      <div className={`${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 min-w-[300px]`}>
+    <div className="fixed top-4 right-4 z-50 deals-animate-slide-in">
+      <div
+        className={`${bgColor} text-white px-4 py-3 rounded shadow-lg flex items-center gap-2 min-w-[280px]`}
+        style={{ fontFamily: "var(--deals-font)" }}
+      >
         <Icon className="w-5 h-5 flex-shrink-0" />
         <span className="text-sm font-medium">{message}</span>
         <button
@@ -65,6 +65,8 @@ const Notification = ({ message, type, isVisible, onClose }) => {
   );
 };
 
+// ==================== MAIN COMPONENT ====================
+
 const Deals = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -77,26 +79,19 @@ const Deals = () => {
   const [isHovered, setIsHovered] = useState(false);
 
   const [notification, setNotification] = useState({
-    message: '',
-    type: 'success',
-    isVisible: false
+    message: "",
+    type: "success",
+    isVisible: false,
   });
 
   const hideNotification = useCallback(() => {
-    setNotification(prev => ({ 
-      ...prev, 
-      isVisible: false 
-    }));
+    setNotification((prev) => ({ ...prev, isVisible: false }));
   }, []);
 
-  const showNotification = useCallback((message, type = 'success') => {
-    setNotification({ message: '', type: 'success', isVisible: false });
+  const showNotification = useCallback((message, type = "success") => {
+    setNotification({ message: "", type: "success", isVisible: false });
     requestAnimationFrame(() => {
-      setNotification({
-        message,
-        type,
-        isVisible: true
-      });
+      setNotification({ message, type, isVisible: true });
     });
   }, []);
 
@@ -131,31 +126,46 @@ const Deals = () => {
   };
 
   useEffect(() => {
-    dispatch(fetchProductByShowroomAndRecord({ showRoomCode: showroomID, recordNumber: 10 }));
+    dispatch(
+      fetchProductByShowroomAndRecord({
+        showRoomCode: showroomID,
+        recordNumber: 10,
+      })
+    );
   }, [dispatch]);
+
+  // ==================== SUNDAY → SATURDAY COUNTDOWN ====================
 
   useEffect(() => {
     const calculateTimeLeft = () => {
       const now = new Date();
-      const endOfDay = new Date(2025, 9, 25, 0, 0, 0);
-      const diff = endOfDay - now;
+      const dayOfWeek = now.getDay();
+      const daysUntilEndOfSaturday = 6 - dayOfWeek;
+
+      const endOfSaturday = new Date(now);
+      endOfSaturday.setDate(now.getDate() + daysUntilEndOfSaturday);
+      endOfSaturday.setHours(23, 59, 59, 999);
+
+      const diff = endOfSaturday - now;
 
       if (diff > 0) {
         setTimeLeft({
+          days: Math.floor(diff / (1000 * 60 * 60 * 24)),
           hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
-          minutes: Math.floor((diff / 1000 / 60) % 60),
+          minutes: Math.floor((diff / (1000 * 60)) % 60),
           seconds: Math.floor((diff / 1000) % 60),
         });
       } else {
-        setTimeLeft({ hours: 0, minutes: 0, seconds: 0 });
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
       }
     };
 
     const interval = setInterval(calculateTimeLeft, 1000);
     calculateTimeLeft();
-
     return () => clearInterval(interval);
   }, []);
+
+  // ==================== SCROLL ARROWS ====================
 
   useEffect(() => {
     const updateArrows = () => {
@@ -165,15 +175,16 @@ const Deals = () => {
         setShowRightArrow(scrollLeft + clientWidth < scrollWidth - 5);
       }
     };
-
     updateArrows();
-    scrollRef.current?.addEventListener("scroll", updateArrows);
-    return () => scrollRef.current?.removeEventListener("scroll", updateArrows);
+    const el = scrollRef.current;
+    el?.addEventListener("scroll", updateArrows);
+    return () => el?.removeEventListener("scroll", updateArrows);
   }, [productsByShowroom]);
+
+  // ==================== AUTO-SCROLL ====================
 
   useEffect(() => {
     if (isHovered) return;
-
     const interval = setInterval(() => {
       if (scrollRef.current) {
         const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
@@ -184,18 +195,18 @@ const Deals = () => {
         }
       }
     }, 4000);
-
     return () => clearInterval(interval);
   }, [productsByShowroom, isHovered]);
 
   const scroll = (direction) => {
     if (!scrollRef.current) return;
-    const scrollAmount = 300;
     scrollRef.current.scrollBy({
-      left: direction === "left" ? -scrollAmount : scrollAmount,
+      left: direction === "left" ? -300 : 300,
       behavior: "smooth",
     });
   };
+
+  // ==================== HELPERS ====================
 
   const getValidImageUrl = (imagePath) => {
     if (!imagePath) return "https://via.placeholder.com/150";
@@ -204,74 +215,651 @@ const Deals = () => {
       : imagePath;
   };
 
-  const formatPrice = (price) =>
-    new Intl.NumberFormat("en-GH", {
-      style: "currency",
-      currency: "GHS",
-    }).format(price || 0);
+  const formatPrice = (price) => {
+    if (!price || isNaN(price)) return "₵0.00";
+    return `₵${Number(price).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
+  const pad = (n) => String(n).padStart(2, "0");
+
+  // ==================== RENDER ====================
 
   return (
     <>
       <Notification
-        key={notification.id}
         message={notification.message}
         type={notification.type}
         isVisible={notification.isVisible}
         onClose={hideNotification}
       />
 
-      <div className="mx-auto px-4 md:px-16 py-6">
-        {/* Header Section - Compact Banner */}
-        <div className="mb-3 relative overflow-hidden rounded-xl bg-gradient-to-r from-green-300 via-green-500 to-green-200 p-2.5 md:p-3 shadow-lg">
-          {/* Animated background effects */}
-          <div className="absolute inset-0 opacity-20">
-            <div className="absolute inset-0 bg-white animate-shimmer" style={{
-              backgroundImage: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent)',
-            }}></div>
-          </div>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800;900&display=swap');
 
-          <div className="relative z-10 flex items-center justify-between gap-2 md:gap-3">
-            {/* Title - More Compact */}
-            <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
-              <span className="text-xl md:text-2xl animate-bounce-slow">🔥</span>
-              <div>
-                <h2 className="text-sm md:text-lg font-black text-white animate-pulse-slow drop-shadow-lg leading-tight">
-                  DEALS OF THE WEEK
-                </h2>
-                <span className="inline-block bg-yellow-400 text-red-900 text-[10px] md:text-xs font-black px-2 py-0.5 rounded-full animate-wiggle shadow-lg">
-                  ⚡ LIMITED TIME ⚡
-                </span>
+        :root {
+          --deals-font: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          --deals-green: #14532d;
+          --deals-green-mid: #166534;
+          --deals-green-light: #dcfce7;
+          --deals-green-lighter: #f0fdf4;
+          --deals-green-accent: #22c55e;
+          --deals-dark: #1a1a1a;
+          --deals-mid: #555;
+          --deals-light: #888;
+          --deals-border: #e0e0e0;
+          --deals-bg-subtle: #f7f7f7;
+          --deals-red: #dc2626;
+          --deals-red-dark: #b91c1c;
+          --deals-pink: #e11d48;
+          --deals-radius: 4px;
+        }
+
+        .deals-root, .deals-root * {
+          font-family: var(--deals-font);
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+          box-sizing: border-box;
+        }
+
+        /* ==================== HEADER ==================== */
+
+        .deals-header {
+          background: var(--deals-green-lighter);
+          border: 1px solid #bbf7d0;
+          border-left: 4px solid var(--deals-green);
+          border-radius: var(--deals-radius);
+          padding: 12px 16px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+
+        @media (min-width: 768px) {
+          .deals-header {
+            padding: 14px 20px;
+            flex-wrap: nowrap;
+          }
+        }
+
+        /* Left group: icon + title/badge + separator + timer */
+        .deals-header-left {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex: 1;
+          min-width: 0;
+          flex-wrap: wrap;
+        }
+
+        @media (min-width: 768px) {
+          .deals-header-left {
+            flex-wrap: nowrap;
+            gap: 14px;
+          }
+        }
+
+        .deals-header-icon {
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          background: var(--deals-green-light);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          border: 1px solid #bbf7d0;
+        }
+
+        @media (max-width: 480px) {
+          .deals-header-icon {
+            width: 30px;
+            height: 30px;
+          }
+        }
+
+        .deals-header-title-group {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          flex-shrink: 0;
+        }
+
+        .deals-title {
+          font-size: 16px;
+          font-weight: 800;
+          color: var(--deals-green);
+          letter-spacing: -0.02em;
+          line-height: 1.2;
+          white-space: nowrap;
+        }
+
+        @media (min-width: 768px) {
+          .deals-title { font-size: 18px; }
+        }
+
+        .deals-subtitle {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .deals-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          background: var(--deals-green-light);
+          color: var(--deals-green);
+          font-size: 9px;
+          font-weight: 700;
+          padding: 2px 7px;
+          border-radius: 100px;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          line-height: 1.4;
+          border: 1px solid #86efac;
+        }
+
+        .deals-badge-dot {
+          width: 5px;
+          height: 5px;
+          border-radius: 50%;
+          background: var(--deals-green-accent);
+          animation: deals-dot-pulse 1.5s infinite;
+        }
+
+        @keyframes deals-dot-pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.4; transform: scale(0.7); }
+        }
+
+        .deals-ends-text {
+          font-size: 10px;
+          font-weight: 500;
+          color: var(--deals-green-mid);
+          opacity: 0.7;
+        }
+
+        /* Separator between title and timer */
+        .deals-header-sep {
+          width: 1px;
+          height: 28px;
+          background: #86efac;
+          flex-shrink: 0;
+          display: none;
+        }
+
+        @media (min-width: 768px) {
+          .deals-header-sep { display: block; }
+        }
+
+        /* Timer cluster */
+        .deals-timer-group {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+
+        .deals-timer-label {
+          display: flex;
+          align-items: center;
+          gap: 3px;
+          font-size: 11px;
+          font-weight: 600;
+          color: var(--deals-green-mid);
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+
+        @media (max-width: 480px) {
+          .deals-timer-label { display: none; }
+        }
+
+        .deals-timer {
+          display: flex;
+          align-items: center;
+          gap: 2px;
+        }
+
+        .deals-timer-block {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          background: var(--deals-green);
+          color: #fff;
+          border-radius: 3px;
+          min-width: 28px;
+          padding: 3px 4px;
+        }
+
+        @media (min-width: 768px) {
+          .deals-timer-block {
+            min-width: 34px;
+            padding: 4px 6px;
+          }
+        }
+
+        .deals-timer-value {
+          font-size: 12px;
+          font-weight: 800;
+          line-height: 1;
+          font-variant-numeric: tabular-nums;
+        }
+
+        @media (min-width: 768px) {
+          .deals-timer-value { font-size: 14px; }
+        }
+
+        .deals-timer-unit {
+          font-size: 7px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          opacity: 0.75;
+          margin-top: 1px;
+        }
+
+        @media (min-width: 768px) {
+          .deals-timer-unit { font-size: 8px; }
+        }
+
+        .deals-timer-sep {
+          font-size: 12px;
+          font-weight: 800;
+          color: var(--deals-green);
+          line-height: 1;
+          margin-bottom: 8px;
+        }
+
+        /* See All button */
+        .deals-see-more {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--deals-green);
+          background: #fff;
+          padding: 6px 12px;
+          border-radius: var(--deals-radius);
+          text-decoration: none;
+          transition: all 0.15s;
+          white-space: nowrap;
+          border: 1px solid #bbf7d0;
+          flex-shrink: 0;
+        }
+
+        @media (min-width: 768px) {
+          .deals-see-more {
+            font-size: 13px;
+            padding: 7px 14px;
+          }
+        }
+
+        .deals-see-more:hover {
+          background: var(--deals-green);
+          color: #fff;
+          border-color: var(--deals-green);
+        }
+
+        /* ==================== CARDS ==================== */
+
+        .deals-card {
+          min-width: 160px;
+          width: 160px;
+          border: 1px solid var(--deals-border);
+          border-radius: var(--deals-radius);
+          overflow: hidden;
+          background: #fff;
+          transition: all 0.2s ease;
+          cursor: pointer;
+          flex-shrink: 0;
+        }
+
+        @media (min-width: 768px) {
+          .deals-card { min-width: 220px; width: 220px; }
+        }
+
+        .deals-card:hover {
+          border-color: var(--deals-green-accent);
+          box-shadow: 0 4px 16px rgba(20, 83, 45, 0.08);
+        }
+
+        .deals-card-img {
+          position: relative;
+          height: 150px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 10px;
+       
+          overflow: hidden;
+        }
+
+        @media (min-width: 768px) {
+          .deals-card-img { height: 195px; }
+        }
+
+        .deals-card-img img {
+          height: 100%;
+          width: 100%;
+          object-fit: contain;
+          transition: transform 0.3s ease;
+        }
+
+        .deals-card:hover .deals-card-img img {
+          transform: scale(1.05);
+        }
+
+        .deals-card-overlay {
+          position: absolute;
+          inset: 0;
+          background: rgba(20, 83, 45, 0.45);
+          display: none;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          z-index: 2;
+        }
+
+        .deals-card:hover .deals-card-overlay {
+          display: flex;
+        }
+
+        .deals-card-action {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          background: #fff;
+          border: none;
+          cursor: pointer;
+          transition: all 0.15s;
+          box-shadow: 0 12px 10px rgba(0,0,0,0.1);
+        }
+
+        .deals-card-action:hover {
+          transform: scale(1.1);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .deals-card-action:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        .deals-card-body {
+          padding: 10px 12px;
+          text-align: center;
+        }
+
+        .deals-card-name {
+          font-size: 15px;
+          font-weight: 600;
+          color: var(--deals-dark);
+          line-height: 1.35;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          min-height: 35px;
+        }
+
+        .deals-card-price {
+          font-size: 14px;
+          font-weight: 900;
+          color: var(--deals-red);
+          margin-top: 6px;
+        }
+
+        .deals-card-old-price {
+          font-size: 12px;
+          font-weight: 400;
+          color: var(--deals-light);
+          text-decoration: line-through;
+          margin-top: 2px;
+        }
+
+        .deals-card-sold {
+          position: absolute;
+          top: 8px;
+          left: 8px;
+          font-size: 9px;
+          font-weight: 700;
+          padding: 3px 8px;
+          border-radius: 100px;
+          background: var(--deals-dark);
+          color: #fff;
+          z-index: 3;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+        }
+
+        .deals-card-discount {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          font-size: 10px;
+          font-weight: 700;
+          padding: 3px 7px;
+          border-radius: 100px;
+          background: var(--deals-red);
+          color: #fff;
+          z-index: 3;
+        }
+
+        /* ==================== SCROLL BUTTONS ==================== */
+
+        .deals-scroll-btn {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          z-index: 10;
+          width: 34px;
+          height: 34px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          background: #fff;
+          border: 1px solid var(--deals-border);
+          box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+
+        .deals-scroll-btn:hover {
+          background: var(--deals-green-light);
+          border-color: var(--deals-green-accent);
+        }
+
+        .deals-scroll-btn:active {
+          transform: translateY(-50%) scale(0.95);
+        }
+
+        .deals-scroll-btn-left { left: -4px; }
+        .deals-scroll-btn-right { right: -4px; }
+
+        @media (min-width: 768px) {
+          .deals-scroll-btn-left { left: -10px; }
+          .deals-scroll-btn-right { right: -10px; }
+        }
+
+        /* ==================== VIEW ALL ==================== */
+
+        .deals-view-all {
+          min-width: 110px;
+          width: 110px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          cursor: pointer;
+          text-decoration: none;
+          flex-shrink: 0;
+        }
+
+        @media (min-width: 768px) {
+          .deals-view-all { min-width: 140px; width: 140px; }
+        }
+
+        .deals-view-all-circle {
+          width: 48px;
+          height: 48px;
+          border-radius: 50%;
+          background: var(--deals-green-light);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s;
+          border: 2px solid transparent;
+        }
+
+        .deals-view-all:hover .deals-view-all-circle {
+          background: var(--deals-green);
+          border-color: var(--deals-green);
+        }
+
+        .deals-view-all:hover .deals-view-all-circle svg {
+          color: #fff !important;
+        }
+
+        .deals-view-all-label {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--deals-green);
+        }
+
+        /* ==================== SKELETON ==================== */
+
+        .deals-skeleton {
+          min-width: 160px;
+          width: 160px;
+          border: 1px solid #eee;
+          border-radius: var(--deals-radius);
+          overflow: hidden;
+          background: #fff;
+          flex-shrink: 0;
+        }
+
+        @media (min-width: 768px) {
+          .deals-skeleton { min-width: 220px; width: 220px; }
+        }
+
+        .deals-skeleton-img {
+          height: 130px;
+          background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+          background-size: 200% 100%;
+          animation: deals-shimmer 1.5s infinite;
+        }
+
+        @media (min-width: 768px) {
+          .deals-skeleton-img { height: 165px; }
+        }
+
+        @keyframes deals-shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+
+        .deals-skeleton-line {
+          height: 10px;
+          border-radius: 2px;
+          background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+          background-size: 200% 100%;
+          animation: deals-shimmer 1.5s infinite;
+        }
+
+        /* ==================== ANIMATIONS ==================== */
+
+        @keyframes deals-slide-in {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+
+        .deals-animate-slide-in {
+          animation: deals-slide-in 0.3s ease-out;
+        }
+
+        .deals-no-scrollbar::-webkit-scrollbar { display: none; }
+        .deals-no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
+
+      <div className="deals-root mx-auto px-4 md:px-16 py-6">
+        {/* ==================== HEADER (single row) ==================== */}
+        <div className="deals-header">
+          {/* Left: Icon + Title/Badge + Separator + Timer */}
+          <div className="deals-header-left">
+            {/* Icon */}
+            <div className="deals-header-icon">
+              <FireIcon style={{ width: 16, height: 16, color: "var(--deals-green)" }} />
+            </div>
+
+            {/* Title + Badge */}
+            <div className="deals-header-title-group">
+              <div className="deals-title">Deals of the Week</div>
+              <div className="deals-subtitle">
+               
               </div>
             </div>
-            
 
+            {/* Vertical separator (desktop only) */}
+            <div className="deals-header-sep" />
 
-            {/* Countdown Timer - Compact */}
-          
-            
-            {/* See More Button */}
-            <Link
-              to={`/showroom/${showroomID}`}
-              className="flex items-center gap-1 bg-white text-red-600 hover:bg-red-50 px-3 py-1.5 md:px-4 md:py-2 rounded-full font-bold text-xs md:text-sm transition-all duration-300 hover:scale-105 shadow-lg whitespace-nowrap flex-shrink-0"
-            >
-              <span>See More</span>
-              <svg className="w-3 h-3 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
+            {/* Timer */}
+            <div className="deals-timer-group">
+              <div className="deals-timer-label">
+                <ClockIcon style={{ width: 12, height: 12, color: "var(--deals-green)" }} />
+                <span>Ends in</span>
+              </div>
+              <div className="deals-timer">
+                <div className="deals-timer-block">
+                  <span className="deals-timer-value">{pad(timeLeft.days || 0)}</span>
+                  <span className="deals-timer-unit">Days</span>
+                </div>
+                <span className="deals-timer-sep">:</span>
+                <div className="deals-timer-block">
+                  <span className="deals-timer-value">{pad(timeLeft.hours || 0)}</span>
+                  <span className="deals-timer-unit">Hrs</span>
+                </div>
+                <span className="deals-timer-sep">:</span>
+                <div className="deals-timer-block">
+                  <span className="deals-timer-value">{pad(timeLeft.minutes || 0)}</span>
+                  <span className="deals-timer-unit">Min</span>
+                </div>
+                <span className="deals-timer-sep">:</span>
+                <div className="deals-timer-block">
+                  <span className="deals-timer-value">{pad(timeLeft.seconds || 0)}</span>
+                  <span className="deals-timer-unit">Sec</span>
+                </div>
+              </div>
+            </div>
           </div>
+
+          {/* Right: See All */}
+          <Link to={`/showroom/${showroomID}`} className="deals-see-more">
+            <span>See All</span>
+            <ChevronRightIcon style={{ width: 13, height: 13 }} />
+          </Link>
         </div>
 
-        {/* Products Carousel */}
-        <div className="relative mt-4">
+        {/* ==================== CAROUSEL ==================== */}
+        <div className="relative" style={{ marginTop: 16 }}>
           {showLeftArrow && (
             <button
               onClick={() => scroll("left")}
-              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white border border-gray-300 shadow-lg p-2 rounded-full hover:bg-red-50 hover:border-red-300 transition-all hover:scale-110"
+              className="deals-scroll-btn deals-scroll-btn-left"
             >
-              <svg className="h-4 w-4 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
+              <ChevronLeftIcon style={{ width: 16, height: 16, color: "var(--deals-green)" }} />
             </button>
           )}
 
@@ -279,18 +867,22 @@ const Deals = () => {
             ref={scrollRef}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            className="flex gap-3 md:gap-4 overflow-x-auto no-scrollbar scroll-smooth px-1"
+            className="flex gap-3 md:gap-4 overflow-x-auto deals-no-scrollbar scroll-smooth"
+            style={{ paddingBottom: 4, paddingLeft: 1, paddingRight: 1 }}
           >
-            {(loading ? [...Array(10)] : productsByShowroom?.[showroomID])?.map((product, idx) => {
+            {(loading
+              ? [...Array(10)]
+              : productsByShowroom?.[showroomID]
+            )?.map((product, idx) => {
               if (loading) {
                 return (
-                  <Card key={idx} className="min-w-[160px] md:min-w-[200px] w-[160px] md:w-[200px] animate-pulse shadow mb-2">
-                    <div className="h-32 md:h-40 bg-gray-300" />
-                    <CardBody className="p-2">
-                      <div className="h-3 bg-gray-300 rounded w-3/4 mb-2" />
-                      <div className="h-2 bg-gray-200 rounded w-1/2" />
-                    </CardBody>
-                  </Card>
+                  <div key={idx} className="deals-skeleton" style={{ marginBottom: 4 }}>
+                    <div className="deals-skeleton-img" />
+                    <div style={{ padding: "10px 12px" }}>
+                      <div className="deals-skeleton-line" style={{ width: "80%", marginBottom: 8 }} />
+                      <div className="deals-skeleton-line" style={{ width: "50%", height: 8 }} />
+                    </div>
+                  </div>
                 );
               }
 
@@ -304,236 +896,115 @@ const Deals = () => {
               } = product;
 
               const isOnSale = oldPrice > 0 && oldPrice > price;
-              const discountPercent = isOnSale ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0;
+              const discountPercent = isOnSale
+                ? Math.round(((oldPrice - price) / oldPrice) * 100)
+                : 0;
               const inWishlist = isInWishlist(productID);
 
               return (
-                <div
-                  key={productID}
-                  className="group mb-2 rounded-xl shadow-md hover:shadow-2xl transition-all duration-300 overflow-hidden min-w-[160px] md:min-w-[220px] w-[160px] md:w-[220px] border-2 border-transparent hover:border-red-400"
-                >
-                  <div className="relative overflow-hidden">
-                    {stock === 0 ? (
-                      <span className="absolute top-2 left-2 bg-gray-800 text-white text-[10px] md:text-xs px-2 py-0.5 rounded-full z-10 font-bold">
-                        SOLD OUT
-                      </span>
-                    ) : isOnSale ? (
-                      <div className="absolute top-2 left-2 z-10">
-                       
-                      </div>
-                    ) : null}
+                <div key={productID} className="deals-card" style={{ marginBottom: 4 }}>
+                  <div className="deals-card-img">
+                    {stock === 0 && (
+                      <span className="deals-card-sold">Sold Out</span>
+                    )}
+                    {isOnSale && stock !== 0 && (
+                      <span className="deals-card-discount">-{discountPercent}%</span>
+                    )}
 
                     <div
-                      className="h-32 md:h-40 w-full flex items-center justify-center cursor-pointer transition-transform duration-300 p-2"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
                       onClick={() => navigate(`/product/${productID}`)}
                     >
                       <img
                         src={getValidImageUrl(productImage)}
                         alt={productName}
-                        className="h-full object-contain transition-transform duration-300 group-hover:scale-110"
                       />
                     </div>
 
                     <div
-                      className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-2  z-20 transition-all cursor-pointer"
-                      onClick={() => navigate(`/product/${product.productID}`)}
+                      className="deals-card-overlay"
+                      onClick={() => navigate(`/product/${productID}`)}
                     >
                       <Tooltip content={inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}>
                         <button
-                          className="p-2 bg-white/90 hover:bg-white rounded-full transition-all hover:scale-110 shadow-lg"
+                          className="deals-card-action"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleWishlistToggle(product);
                           }}
                         >
                           {inWishlist ? (
-                            <SolidHeartIcon className="w-4 h-4 md:w-5 md:h-5 text-red-500" />
+                            <SolidHeartIcon style={{ width: 16, height: 16, color: "var(--deals-pink)" }} />
                           ) : (
-                            <OutlineHeartIcon className="w-4 h-4 md:w-5 md:h-5 text-gray-700" />
+                            <OutlineHeartIcon style={{ width: 16, height: 16, color: "var(--deals-mid)" }} />
                           )}
                         </button>
                       </Tooltip>
 
                       <Tooltip content="View Details">
                         <button
+                          className="deals-card-action"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/product/${product.productID}`);
+                            navigate(`/product/${productID}`);
                           }}
-                          className="p-2 bg-white/90 hover:bg-white rounded-full transition-all hover:scale-110 shadow-lg"
                         >
-                          <EyeIcon className="w-4 h-4 md:w-5 md:h-5 text-green-600" />
+                          <EyeIcon style={{ width: 16, height: 16, color: "var(--deals-green)" }} />
                         </button>
                       </Tooltip>
 
-                      <Tooltip content={product.stock === 0 ? "Out of Stock" : "Add to Cart"}>
+                      <Tooltip content={stock === 0 ? "Out of Stock" : "Add to Cart"}>
                         <button
+                          className="deals-card-action"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleAddToCart(product);
                           }}
-                          className="p-2 bg-white/90 hover:bg-white rounded-full transition-all hover:scale-110 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={cartLoading || product.stock === 0}
+                          disabled={cartLoading || stock === 0}
                         >
-                          <ShoppingCartIcon className="w-4 h-4 md:w-5 md:h-5 text-red-600" />
+                          <ShoppingCartIcon style={{ width: 16, height: 16, color: "var(--deals-green-mid)" }} />
                         </button>
                       </Tooltip>
                     </div>
                   </div>
 
-                  <div className="p-2 md:p-3 text-center space-y-1 bg-white">
-                    <h3 className="text-xs md:text-sm  text-gray-800 line-clamp-2 min-h-[32px] md:min-h-[40px]">
-                      {productName}
-                    </h3>
-                    <div className="flex flex-col items-center justify-center gap-0.5 pt-1">
-                      <span className="text-red-600 font-bold text-xs md:text-sm">
-                        {formatPrice(price)}
-                      </span>
-                      {oldPrice > 0 && (
-                        <span className="text-xs line-through text-gray-400">
-                          {formatPrice(oldPrice)}
-                        </span>
-                      )}
-                    </div>
+                  <div className="deals-card-body">
+                    <div className="deals-card-name">{productName}</div>
+                    <div className="deals-card-price">GH{formatPrice(price)}</div>
+                    {oldPrice > 0 && (
+                      <div className="deals-card-old-price">{formatPrice(oldPrice)}</div>
+                    )}
                   </div>
                 </div>
               );
             })}
 
             {!loading && (
-              <div className="min-w-[120px] md:min-w-[150px] w-[120px] md:w-[150px] flex items-center justify-center">
-                <Link
-                  to={`/showroom/${showroomID}`}
-                  className="flex flex-col items-center gap-2 text-red-500 hover:text-red-600 transition-all group hover:scale-105"
-                >
-                  <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-red-50 flex items-center justify-center group-hover:bg-red-100 transition-colors">
-                    <ArrowRightIcon className="w-8 h-8 md:w-10 md:h-10 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                  <span className="text-xs md:text-sm font-bold">View All Deals</span>
-                </Link>
-              </div>
+              <Link to={`/showroom/${showroomID}`} className="deals-view-all">
+                <div className="deals-view-all-circle">
+                  <ArrowRightIcon style={{ width: 20, height: 20, color: "var(--deals-green)", transition: "color 0.2s" }} />
+                </div>
+                <span className="deals-view-all-label">View All</span>
+              </Link>
             )}
           </div>
 
           {showRightArrow && (
             <button
               onClick={() => scroll("right")}
-              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white border border-gray-300 shadow-lg p-2 rounded-full hover:bg-red-50 hover:border-red-300 transition-all hover:scale-110"
+              className="deals-scroll-btn deals-scroll-btn-right"
             >
-              <svg className="h-4 w-4 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg> 
+              <ChevronRightIcon style={{ width: 16, height: 16, color: "var(--deals-green)" }} />
             </button>
           )}
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes slide-in {
-          from {
-            transform: translateX(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-        
-        @keyframes shimmer {
-          0% {
-            transform: translateX(-100%);
-          }
-          100% {
-            transform: translateX(100%);
-          }
-        }
-        
-        @keyframes bounce-slow {
-          0%, 100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-8px);
-          }
-        }
-        
-        @keyframes pulse-slow {
-          0%, 100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.8;
-          }
-        }
-        
-        @keyframes pulse-fast {
-          0%, 100% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.2);
-          }
-        }
-        
-        @keyframes blink {
-          0%, 100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.3;
-          }
-        }
-        
-        @keyframes wiggle {
-          0%, 100% {
-            transform: rotate(0deg);
-          }
-          25% {
-            transform: rotate(-3deg);
-          }
-          75% {
-            transform: rotate(3deg);
-          }
-        }
-        
-        .animate-slide-in {
-          animation: slide-in 0.3s ease-out;
-        }
-        
-        .animate-shimmer {
-          animation: shimmer 3s infinite;
-        }
-        
-        .animate-bounce-slow {
-          animation: bounce-slow 2s infinite;
-        }
-        
-        .animate-pulse-slow {
-          animation: pulse-slow 2s infinite;
-        }
-        
-        .animate-pulse-fast {
-          animation: pulse-fast 1s infinite;
-        }
-        
-        .animate-blink {
-          animation: blink 1s infinite;
-        }
-        
-        .animate-wiggle {
-          animation: wiggle 1.5s ease-in-out infinite;
-        }
-
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
     </>
   );
 };

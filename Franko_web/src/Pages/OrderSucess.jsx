@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
 import { checkOutOrder, updateOrderDelivery } from "../Redux/Slice/orderSlice";
@@ -6,59 +6,45 @@ import { clearCart } from "../Redux/Slice/cartSlice";
 import { message } from "antd";
 import Confetti from "react-confetti";
 import useWindowSize from "react-use/lib/useWindowSize";
+import {
+  ClipboardList,
+  Home,
+  HelpCircle,
+  Package,
+  Truck,
+  PartyPopper,
+  PhoneCall,
+} from "lucide-react";
 
-// ─── Animated check icon ──────────────────────────────────────────────────────
 const AnimatedCheck = () => (
-  <svg viewBox="0 0 52 52" className="w-full h-full" fill="none">
+  <svg viewBox="0 0 52 52" style={{ width: "100%", height: "100%" }} fill="none">
     <style>{`
-      .check-circle {
+      .or-check-circle {
         stroke-dasharray: 166;
         stroke-dashoffset: 166;
-        animation: stroke-circle 0.5s cubic-bezier(0.65, 0, 0.45, 1) 0.1s forwards;
+        animation: or-stroke-circle 0.5s cubic-bezier(0.65, 0, 0.45, 1) 0.1s forwards;
       }
-      .check-mark {
+      .or-check-mark {
         stroke-dasharray: 48;
         stroke-dashoffset: 48;
-        animation: stroke-check 0.4s cubic-bezier(0.65, 0, 0.45, 1) 0.55s forwards;
+        animation: or-stroke-check 0.4s cubic-bezier(0.65, 0, 0.45, 1) 0.55s forwards;
       }
-      @keyframes stroke-circle {
-        to { stroke-dashoffset: 0; }
-      }
-      @keyframes stroke-check {
-        to { stroke-dashoffset: 0; }
-      }
+      @keyframes or-stroke-circle { to { stroke-dashoffset: 0; } }
+      @keyframes or-stroke-check { to { stroke-dashoffset: 0; } }
     `}</style>
-    <circle className="check-circle" cx="26" cy="26" r="25" stroke="#059669" strokeWidth="2" fill="none" />
-    <path className="check-mark" d="M14.5 26.5l8 8 15-16" stroke="#059669" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    <circle className="or-check-circle" cx="26" cy="26" r="25" stroke="#16a34a" strokeWidth="2" fill="none" />
+    <path className="or-check-mark" d="M14.5 26.5l8 8 15-16" stroke="#16a34a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
   </svg>
 );
 
-// ─── Floating particle ────────────────────────────────────────────────────────
-const Particle = ({ style }) => (
-  <div className="absolute rounded-full pointer-events-none" style={style} />
-);
-
-// ─── Step row ─────────────────────────────────────────────────────────────────
-const StepRow = ({ icon, label, delay }) => (
-  <div
-    className="flex items-center gap-3 opacity-0"
-    style={{ animation: `fadeSlideUp 0.4s ease forwards ${delay}` }}
-  >
-    <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-      <span className="text-green-600 text-sm">{icon}</span>
-    </div>
-    <p className="text-sm text-gray-600 font-medium">{label}</p>
-  </div>
-);
-
-// ─── Main ─────────────────────────────────────────────────────────────────────
-const OrderSuccessPage = () => {
+const OrderReceivedPage = () => {
   const dispatch = useDispatch();
   const { orderId } = useParams();
   const navigate = useNavigate();
   const { width, height } = useWindowSize();
 
   const [showConfetti, setShowConfetti] = useState(true);
+  const [isVisible, setIsVisible] = useState(false);
   const [orderTime] = useState(() =>
     new Date().toLocaleString("en-GB", {
       day: "numeric",
@@ -71,13 +57,14 @@ const OrderSuccessPage = () => {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
+    setTimeout(() => setIsVisible(true), 100);
   }, []);
 
   useEffect(() => {
     if (window.gtag) {
       window.gtag("event", "page_view", {
         page_location: window.location.href,
-        page_title: "Order Success Page",
+        page_title: "Order Received Page",
       });
     }
 
@@ -86,14 +73,8 @@ const OrderSuccessPage = () => {
         const checkoutDetails = localStorage.getItem("checkoutDetails");
         const addressDetails = localStorage.getItem("orderAddressDetails");
 
-        if (!checkoutDetails || !addressDetails) {
-          message.warning("Order details are missing.");
-          return;
-        }
-        if (checkoutDetails.orderCode !== orderId) {
-          message.warning("Order details do not match.");
-          return;
-        }
+        if (!checkoutDetails || !addressDetails) return;
+        if (checkoutDetails.orderCode !== orderId) return;
 
         const checkoutPayload = {
           Cartid: localStorage.getItem("cartId"),
@@ -134,60 +115,367 @@ const OrderSuccessPage = () => {
     handleOrderCompletion();
   }, [dispatch, orderId]);
 
-  // ── Particles ────────────────────────────────────────────────────────────────
-  const particles = [
-    { width: 8, height: 8, backgroundColor: "#6EE7B7", top: "12%", left: "8%",  opacity: 0.5, animation: "float1 6s ease-in-out infinite" },
-    { width: 5, height: 5, backgroundColor: "#FCD34D", top: "20%", right: "10%", opacity: 0.6, animation: "float2 8s ease-in-out infinite" },
-    { width: 10,height: 10,backgroundColor: "#A7F3D0", bottom: "25%", left: "6%", opacity: 0.4, animation: "float1 7s ease-in-out infinite 1s" },
-    { width: 6, height: 6, backgroundColor: "#059669", top: "55%", right: "7%", opacity: 0.35, animation: "float2 5s ease-in-out infinite 0.5s" },
-    { width: 4, height: 4, backgroundColor: "#FCA5A5", top: "75%", left: "14%",  opacity: 0.45, animation: "float1 9s ease-in-out infinite 2s" },
-    { width: 7, height: 7, backgroundColor: "#BAF3D4", bottom: "15%", right: "12%", opacity: 0.5, animation: "float2 6s ease-in-out infinite 1.5s" },
+  const steps = [
+    {
+      icon: PhoneCall,
+      label: "You will receive a call from our order fulfillment team shortly",
+    },
+    {
+      icon: Package,
+      label: "Our team will prepare and pack your order",
+    },
+    {
+      icon: Truck,
+      label: "Your order will be dispatched for delivery",
+    },
+    {
+      icon: PartyPopper,
+      label: "Enjoy your purchase from Franko Trading!",
+    },
   ];
 
   return (
     <>
       <style>{`
-        @keyframes fadeSlideUp {
-          from { opacity: 0; transform: translateY(16px); }
-          to   { opacity: 1; transform: translateY(0);    }
+        @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800;900&display=swap');
+
+        :root {
+          --or-font: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          --or-green: #14532d;
+          --or-green-mid: #166534;
+          --or-green-600: #16a34a;
+          --or-green-accent: #22c55e;
+          --or-green-light: #dcfce7;
+          --or-green-lighter: #f0fdf4;
+          --or-dark: #1a1a1a;
+          --or-mid: #555;
+          --or-light: #888;
+          --or-border: #e0e0e0;
+          --or-bg: #f7f7f7;
+          --or-radius: 4px;
         }
-        @keyframes popIn {
-          0%   { opacity: 0; transform: scale(0.6); }
-          70%  { transform: scale(1.08); }
-          100% { opacity: 1; transform: scale(1); }
+
+        .or-root, .or-root * {
+          font-family: var(--or-font) !important;
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+          box-sizing: border-box;
         }
-        @keyframes float1 {
-          0%, 100% { transform: translateY(0) rotate(0deg); }
-          50%       { transform: translateY(-18px) rotate(15deg); }
+
+        .or-root {
+          min-height: 100vh;
+          background: #fff;
+          display: flex;
+          flex-direction: column;
         }
-        @keyframes float2 {
-          0%, 100% { transform: translateY(0) rotate(0deg); }
-          50%       { transform: translateY(14px) rotate(-12deg); }
+
+        .or-container {
+          max-width: 560px;
+          margin: 0 auto;
+          padding: 32px 16px;
+          width: 100%;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
         }
-        @keyframes shimmer {
-          0%   { background-position: -200% center; }
-          100% { background-position:  200% center; }
+        @media (min-width: 768px) {
+          .or-container { padding: 48px 24px; }
         }
-        .shimmer-text {
-          background: linear-gradient(90deg, #047857 0%, #10b981 40%, #6ee7b7 60%, #047857 100%);
-          background-size: 200% auto;
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          animation: shimmer 3s linear infinite;
+
+        .or-page-header {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          margin-bottom: 32px;
+          padding-bottom: 16px;
+          border-bottom: 1px solid var(--or-border);
         }
-        .card-enter {
-          animation: fadeSlideUp 0.5s ease forwards;
+
+        .or-page-header-accent {
+          width: 4px; height: 28px; border-radius: 2px;
+          background: var(--or-green-600); flex-shrink: 0;
         }
-        .icon-pop {
-          animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both;
+
+        .or-page-title {
+          font-size: 22px; font-weight: 800; color: var(--or-dark);
+          letter-spacing: -0.02em; margin: 0; line-height: 1.2;
         }
-        .btn-hover {
-          transition: all 0.2s ease;
+        @media (min-width: 768px) { .or-page-title { font-size: 26px; } }
+
+        .or-page-count {
+          font-size: 13px; font-weight: 500; color: var(--or-light); margin-top: 2px;
         }
-        .btn-hover:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 24px rgba(5,150,105,0.3);
+
+        .or-page-header-line {
+          flex: 1; height: 1px; background: var(--or-border); display: none;
+        }
+        @media (min-width: 768px) { .or-page-header-line { display: block; } }
+
+        .or-card {
+          background: #fff;
+          border: 1px solid var(--or-border);
+          border-radius: var(--or-radius);
+          overflow: hidden;
+          opacity: 0;
+          transform: translateY(12px);
+          transition: all 0.5s ease;
+        }
+        .or-card-visible {
+          opacity: 1;
+          transform: translateY(0);
+        }
+
+        .or-banner {
+          background: var(--or-green);
+          padding: 32px 24px;
+          text-align: center;
+        }
+
+        .or-banner-icon-wrap {
+          width: 72px; height: 72px;
+          margin: 0 auto 16px;
+          position: relative;
+        }
+
+        .or-banner-icon-glow {
+          position: absolute; inset: -8px;
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 50%; filter: blur(8px);
+        }
+
+        .or-banner-icon-inner {
+          position: relative;
+          width: 72px; height: 72px;
+          background: #fff;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .or-banner-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: rgba(255, 255, 255, 0.15);
+          backdrop-filter: blur(8px);
+          border-radius: 100px;
+          padding: 4px 14px;
+          margin-bottom: 12px;
+          font-size: 11px;
+          font-weight: 700;
+          color: rgba(255, 255, 255, 0.9);
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+        }
+
+        .or-banner-badge-dot {
+          width: 6px; height: 6px;
+          border-radius: 50%;
+          background: var(--or-green-accent);
+          animation: or-pulse 2s ease-in-out infinite;
+        }
+        @keyframes or-pulse {
+          0%, 100% { opacity: 0.4; } 50% { opacity: 1; }
+        }
+
+        .or-banner-title {
+          font-size: 26px; font-weight: 900; color: #fff;
+          letter-spacing: -0.02em; margin: 0 0 6px;
+        }
+        @media (min-width: 768px) { .or-banner-title { font-size: 30px; } }
+
+        .or-banner-desc {
+          font-size: 14px; font-weight: 500;
+          color: rgba(255, 255, 255, 0.75);
+          margin: 0; max-width: 360px;
+          line-height: 1.5;
+          display: inline-block;
+        }
+
+        .or-body { padding: 24px; }
+
+        .or-ref-card {
+          background: var(--or-green-lighter);
+          border: 1px solid #bbf7d0;
+          border-radius: var(--or-radius);
+          padding: 16px 20px;
+          margin-bottom: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+        }
+
+        .or-ref-label {
+          font-size: 10px; font-weight: 700;
+          color: var(--or-green-mid);
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          margin-bottom: 4px;
+        }
+
+        .or-ref-value {
+          font-size: 18px; font-weight: 900;
+          color: var(--or-green);
+          font-family: 'SF Mono', 'Fira Code', monospace, var(--or-font);
+          letter-spacing: 0.02em;
+        }
+
+        .or-ref-time {
+          font-size: 13px; font-weight: 600;
+          color: var(--or-mid);
+        }
+
+        .or-steps-section { margin-bottom: 24px; }
+
+        .or-steps-title {
+          font-size: 11px; font-weight: 700;
+          color: var(--or-light);
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          margin-bottom: 14px;
+        }
+
+        .or-steps-list {
+          display: flex; flex-direction: column; gap: 0;
+        }
+
+        .or-step {
+          display: flex; gap: 12px;
+        }
+
+        .or-step-col {
+          display: flex; flex-direction: column;
+          align-items: center;
+        }
+
+        .or-step-icon-wrap {
+          width: 32px; height: 32px;
+          border-radius: 50%;
+          background: var(--or-green-light);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          color: var(--or-green-600);
+        }
+
+        .or-step-line {
+          width: 2px; flex: 1;
+          min-height: 12px; margin: 4px 0;
+          border-radius: 1px;
+          background: #d1fae5;
+        }
+
+        .or-step-text {
+          font-size: 14px; font-weight: 500;
+          color: var(--or-mid);
+          padding-top: 5px;
+          padding-bottom: 16px;
+          line-height: 1.5;
+        }
+
+        .or-step-text-last {
+          font-weight: 700;
+          color: var(--or-green-600);
+          padding-bottom: 0;
+        }
+
+        .or-actions {
+          display: flex; flex-direction: column; gap: 10px;
+          margin-bottom: 20px;
+        }
+        @media (min-width: 640px) {
+          .or-actions { flex-direction: row; }
+        }
+
+        .or-btn {
+          flex: 1; padding: 14px 20px;
+          border: none; border-radius: var(--or-radius);
+          font-size: 14px; font-weight: 700;
+          cursor: pointer; transition: all 0.15s;
+          font-family: var(--or-font);
+          display: flex; align-items: center;
+          justify-content: center; gap: 8px;
+        }
+        .or-btn:active { transform: scale(0.98); }
+
+        .or-btn-primary {
+          background: var(--or-green);
+          color: #fff;
+        }
+        .or-btn-primary:hover {
+          background: var(--or-green-mid);
+          box-shadow: 0 4px 16px rgba(20, 83, 45, 0.2);
+          transform: translateY(-1px);
+        }
+
+        .or-btn-secondary {
+          background: #fff;
+          color: var(--or-mid);
+          border: 1px solid var(--or-border);
+        }
+        .or-btn-secondary:hover {
+          border-color: var(--or-green-accent);
+          color: var(--or-green);
+          background: var(--or-green-lighter);
+          transform: translateY(-1px);
+        }
+
+        .or-divider {
+          height: 1px;
+          background: var(--or-border);
+          margin-bottom: 20px;
+        }
+
+        .or-support { text-align: center; }
+
+        .or-support-link {
+          display: inline-flex;
+          align-items: center; gap: 6px;
+          font-size: 13px; font-weight: 600;
+          color: var(--or-light);
+          text-decoration: none;
+          cursor: pointer;
+          border: none; background: none;
+          padding: 0; font-family: var(--or-font);
+          transition: color 0.15s;
+        }
+        .or-support-link:hover { color: var(--or-green-600); }
+
+        .or-support-text {
+          text-decoration: underline;
+          text-underline-offset: 2px;
+        }
+
+        .or-note {
+          margin-top: 24px;
+          padding: 16px;
+          background: var(--or-bg);
+          border: 1px solid var(--or-border);
+          border-radius: var(--or-radius);
+          text-align: center;
+          opacity: 0;
+          transform: translateY(12px);
+          transition: all 0.5s ease 0.2s;
+        }
+        .or-note-visible {
+          opacity: 1;
+          transform: translateY(0);
+        }
+
+        .or-note-text {
+          font-size: 12px; font-weight: 500;
+          color: var(--or-light);
+          line-height: 1.6; margin: 0;
+        }
+
+        .or-note-text strong {
+          font-weight: 700;
+          color: var(--or-green-600);
         }
       `}</style>
 
@@ -195,147 +483,149 @@ const OrderSuccessPage = () => {
         <Confetti
           width={width}
           height={height}
-          numberOfPieces={220}
+          numberOfPieces={200}
           recycle={false}
-          colors={["#059669", "#10b981", "#6ee7b7", "#fcd34d", "#fca5a5", "#a7f3d0"]}
+          colors={[
+            "#14532d",
+            "#16a34a",
+            "#22c55e",
+            "#dcfce7",
+            "#fcd34d",
+            "#fca5a5",
+          ]}
         />
       )}
 
-      <div className="min-h-screen bg-[#F4FAF7] flex items-center justify-center px-4 py-12 relative overflow-hidden">
-        {/* Background blobs */}
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-green-100 rounded-full filter blur-3xl opacity-40 pointer-events-none" />
-        <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-emerald-100 rounded-full filter blur-3xl opacity-30 pointer-events-none" />
+      <div className="or-root">
+        <div className="or-container">
+          {/* Page Header */}
+          <div className="or-page-header">
+            <div className="or-page-header-accent" />
+            <div>
+              <h1 className="or-page-title">Order Received</h1>
+              <p className="or-page-count">Your order has been placed successfully</p>
+            </div>
+            <div className="or-page-header-line" />
+          </div>
 
-        {/* Floating particles */}
-        {particles.map((p, i) => (
-          <Particle key={i} style={{ ...p, position: "absolute" }} />
-        ))}
-
-        {/* ── Main card ── */}
-        <div className="relative w-full max-w-lg card-enter">
-          <div className="bg-white rounded-3xl overflow-hidden"
-            style={{ boxShadow: "0 24px 64px rgba(5,90,50,0.12), 0 4px 16px rgba(5,90,50,0.06)" }}>
-
-            {/* Green top band */}
-            <div className="bg-gradient-to-r from-green-600 to-emerald-500 h-2" />
-
-            <div className="px-8 pt-1 pb-1 sm:px-10">
-
-              {/* ── Check icon ── */}
-              <div className="flex justify-center mb-6">
-                <div className="icon-pop relative">
-                  {/* Glow ring */}
-                  <div className="absolute inset-0 rounded-full bg-green-100 scale-125 opacity-60 blur-md" />
-                  <div className="relative w-20 h-20">
+          {/* Main Card */}
+          <div className={`or-card ${isVisible ? "or-card-visible" : ""}`}>
+            {/* Success Banner */}
+            <div className="or-banner">
+              <div className="or-banner-icon-wrap">
+                <div className="or-banner-icon-glow" />
+                <div className="or-banner-icon-inner">
+                  <div style={{ width: 44, height: 44 }}>
                     <AnimatedCheck />
                   </div>
                 </div>
               </div>
 
-              {/* ── Heading ── */}
-              <div className="text-center mb-7"
-                style={{ animation: "fadeSlideUp 0.4s ease forwards 0.3s", opacity: 0 }}>
-                <p className="text-xs font-bold text-green-500 uppercase tracking-[0.2em] mb-2">
-                  Order Confirmed
-                </p>
-                <h1 className="text-3xl sm:text-4xl font-black tracking-tight shimmer-text mb-3">
-                  Payment Received!
-                </h1>
-                <p className="text-gray-500 text-sm leading-relaxed max-w-sm mx-auto">
-                  Thank you for shopping with Franko Trading. Your order is confirmed and will be processed shortly.
-                </p>
+              <div className="or-banner-badge">
+                <span className="or-banner-badge-dot" />
+                Order Confirmed
               </div>
 
-              {/* ── Order ref card ── */}
-              <div
-                className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100 rounded-2xl px-5 py-4 mb-6"
-                style={{ animation: "fadeSlideUp 0.4s ease forwards 0.45s", opacity: 0 }}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-bold text-green-600 uppercase tracking-wider mb-1">
-                      Order Reference
-                    </p>
-                    <p className="font-black text-gray-900 text-lg font-mono tracking-wide">
-                      {orderId}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
-                      Placed
-                    </p>
-                    <p className="text-sm font-semibold text-gray-600">{orderTime}</p>
-                  </div>
+              <h2 className="or-banner-title">Payment Received!</h2>
+              <p className="or-banner-desc">
+                Thank you for shopping with Franko Trading. Your order is confirmed
+                and will be processed shortly.
+              </p>
+            </div>
+
+            {/* Body */}
+            <div className="or-body">
+              {/* Order Reference */}
+              <div className="or-ref-card">
+                <div>
+                  <p className="or-ref-label">Order Reference</p>
+                  <p className="or-ref-value">{orderId}</p>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <p className="or-ref-label">Placed</p>
+                  <p className="or-ref-time">{orderTime}</p>
                 </div>
               </div>
 
-              {/* ── What's next steps ── */}
-              <div
-                className="mb-7"
-                style={{ animation: "fadeSlideUp 0.4s ease forwards 0.55s", opacity: 0 }}
-              >
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
-                  What happens next
-                </p>
-                <div className="space-y-3">
-                  <StepRow icon="✉️" label="You will receive a call from our order fulfillment team shortly" delay="0.65s" />
-                  <StepRow icon="📦" label="Our team will prepare and pack your order" delay="0.75s" />
-                  <StepRow icon="🚚" label="Your order will be dispatched for delivery" delay="0.85s" />
-                  <StepRow icon="🎉" label="Enjoy your purchase from Franko Trading!" delay="0.95s" />
+              {/* What Happens Next */}
+              <div className="or-steps-section">
+                <p className="or-steps-title">What happens next</p>
+                <div className="or-steps-list">
+                  {steps.map((step, idx) => {
+                    const isLast = idx === steps.length - 1;
+                    const Icon = step.icon;
+                    return (
+                      <div key={idx} className="or-step">
+                        <div className="or-step-col">
+                          <div className="or-step-icon-wrap">
+                            <Icon style={{ width: 16, height: 16 }} />
+                          </div>
+                          {!isLast && <div className="or-step-line" />}
+                        </div>
+                        <p
+                          className={`or-step-text ${
+                            isLast ? "or-step-text-last" : ""
+                          }`}
+                        >
+                          {step.label}
+                        </p>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* ── Divider ── */}
-              <div className="border-t border-dashed border-gray-100 mb-6" style={{ animation: "fadeSlideUp 0.4s ease forwards 0.9s", opacity: 0 }} />
-
-              {/* ── CTA buttons ── */}
-              <div
-                className="flex flex-col sm:flex-row gap-3"
-                style={{ animation: "fadeSlideUp 0.4s ease forwards 1s", opacity: 0 }}
-              >
+              {/* Actions */}
+              <div className="or-actions">
                 <button
                   onClick={() => navigate("/order-history")}
-                  className="btn-hover flex-1 py-3.5 px-5 bg-green-600 hover:bg-green-700 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2"
-                  style={{ boxShadow: "0 4px 16px rgba(5,150,105,0.3)" }}
+                  className="or-btn or-btn-primary"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
+                  <ClipboardList style={{ width: 18, height: 18 }} />
                   View My Orders
                 </button>
                 <button
                   onClick={() => navigate("/")}
-                  className="btn-hover flex-1 py-3.5 px-5 border-2 border-green-200 text-green-700 font-bold text-sm rounded-xl hover:bg-green-50 flex items-center justify-center gap-2"
+                  className="or-btn or-btn-secondary"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                  </svg>
+                  <Home style={{ width: 18, height: 18 }} />
                   Back to Home
                 </button>
               </div>
 
-              {/* ── Footer note ── */}
-              <p
-                className="text-center text-xs text-gray-400 mt-5"
-                style={{ animation: "fadeSlideUp 0.4s ease forwards 1.1s", opacity: 0 }}
-              >
-                Need help?{" "}
-                <span className="text-green-600 font-semibold cursor-pointer hover:underline">
-                  Contact support
-                </span>
-              </p>
-            </div>
+              {/* Divider */}
+              <div className="or-divider" />
 
-            {/* Green bottom band */}
-            <div className="bg-gradient-to-r from-emerald-500 to-green-600 h-1 opacity-30" />
+              {/* Support */}
+              <div className="or-support">
+                <button
+                  onClick={() => navigate("/contact")}
+                  className="or-support-link"
+                >
+                  <HelpCircle style={{ width: 15, height: 15 }} />
+                  <span className="or-support-text">
+                    Need help? Contact Support
+                  </span>
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* Subtle card glow */}
-          <div className="absolute -inset-px rounded-3xl bg-gradient-to-br from-green-400/10 to-transparent pointer-events-none" />
+          {/* Bottom Note */}
+          <div
+            className={`or-note ${isVisible ? "or-note-visible" : ""}`}
+          >
+            <p className="or-note-text">
+              <strong>Your order has been received.</strong> Our team will
+              contact you shortly to confirm your order details and delivery
+              schedule. Save your order reference
+              <strong> {orderId}</strong> for tracking.
+            </p>
+          </div>
         </div>
       </div>
     </>
   );
 };
 
-export default OrderSuccessPage;
+export default OrderReceivedPage;

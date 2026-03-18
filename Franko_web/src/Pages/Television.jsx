@@ -1,69 +1,143 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchProductsByCategory } from "../Redux/Slice/productSlice";
 import { useNavigate } from "react-router-dom";
-import { 
-  FunnelIcon, 
-  XMarkIcon, 
-  AdjustmentsHorizontalIcon, 
+import { addToWishlist, removeFromWishlist } from "../Redux/Slice/wishlistSlice";
+import {
+  FunnelIcon,
+  XMarkIcon,
+  AdjustmentsHorizontalIcon,
   TagIcon,
   ChevronDownIcon,
   Bars3BottomLeftIcon,
- } from "@heroicons/react/24/outline";
-import ProductCard from "../Component/ProductCard";
+  MagnifyingGlassIcon,
+} from "@heroicons/react/24/outline";
+import {
+  HeartIcon as OutlineHeartIcon,
+  HeartIcon as SolidHeartIcon,
+  ShoppingCartIcon,
+  EyeIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+} from "@heroicons/react/24/solid";
+import { Tooltip } from "@material-tailwind/react";
 import { CircularPagination } from "../Component/CircularPagination";
-import gif from "../assets/no.gif";
-import { FaTv } from "react-icons/fa";
+import useAddToCart from "../Component/Cart";
 import { Helmet } from "react-helmet";
 
 const categoryId = "b51e02c2-540a-484a-9307-392fac7b50ed";
 
+// ==================== NOTIFICATION ====================
+
+const Notification = ({ message, type, isVisible, onClose }) => {
+  const timeoutRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (isVisible && message) {
+      timeoutRef.current = setTimeout(() => onClose(), 3000);
+    }
+  }, [isVisible, message]);
+
+  if (!isVisible || !message) return null;
+
+  const bgClass = type === "success" ? "tv-notif-success" : "tv-notif-error";
+  const Icon = type === "success" ? CheckCircleIcon : XCircleIcon;
+
+  return (
+    <div className="fixed top-4 right-4 z-50 tv-animate-slide-in">
+      <div className={`tv-notif ${bgClass}`}>
+        <Icon className="w-5 h-5 flex-shrink-0" />
+        <span className="tv-notif-text">{message}</span>
+        <button onClick={onClose} className="tv-notif-close">×</button>
+      </div>
+    </div>
+  );
+};
+
+// ==================== SKELETON ====================
+
+const SkeletonCard = () => (
+  <div className="tv-skeleton">
+    <div className="tv-skeleton-img" />
+    <div style={{ padding: "10px 12px" }}>
+      <div className="tv-skeleton-line" style={{ width: "80%", marginBottom: 8, marginLeft: "auto", marginRight: "auto" }} />
+      <div className="tv-skeleton-line" style={{ width: "50%", height: 8, marginLeft: "auto", marginRight: "auto" }} />
+    </div>
+  </div>
+);
+
+// ==================== MAIN COMPONENT ====================
+
 const Television = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { productsByCategory = {}, loading } = useSelector((state) => state.products);
 
-  // Price range states - separate for input and actual filtering (matching Brand page)
+  const { productsByCategory = {}, loading } = useSelector((state) => state.products);
+  const wishlist = useSelector((state) => state.wishlist.items || []);
+  const { addProductToCart, loading: cartLoading } = useAddToCart();
+
   const [inputPriceRange, setInputPriceRange] = useState({ min: 0, max: 200000 });
   const [appliedPriceRange, setAppliedPriceRange] = useState([0, 200000]);
   const [showDiscountedOnly, setShowDiscountedOnly] = useState(false);
   const [selectedBrand, setSelectedBrand] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [sortBy, setSortBy] = useState("newest"); // newest, oldest, price-low, price-high, name-az, name-za
+  const [sortBy, setSortBy] = useState("newest");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
-  const itemsPerPage = 8;
-  
+  const [notification, setNotification] = useState({
+    message: "",
+    type: "success",
+    isVisible: false,
+  });
+
+  const itemsPerPage = 12;
+
+  const hideNotification = useCallback(() => {
+    setNotification((prev) => ({ ...prev, isVisible: false }));
+  }, []);
+
+  const showNotification = useCallback((message, type = "success") => {
+    setNotification({ message: "", type: "success", isVisible: false });
+    requestAnimationFrame(() => {
+      setNotification({ message, type, isVisible: true });
+    });
+  }, []);
+
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    dispatch(fetchProductsByCategory(categoryId));
+    dispatch(fetchProductsByCategory(categoryId)).then(() => {
+      setHasLoadedOnce(true);
+    });
   }, [dispatch]);
 
   const products = useMemo(() => {
-    const categoryProducts = productsByCategory[categoryId] || [];
-    return categoryProducts;
+    return productsByCategory[categoryId] || [];
   }, [productsByCategory]);
 
   const brands = useMemo(() => {
     return Array.from(new Set(products.map((product) => product.brandName))).sort();
   }, [products]);
 
-  // Apply price filter
   const applyPriceFilter = () => {
     const min = Math.max(0, inputPriceRange.min || 0);
     const max = Math.min(200000, inputPriceRange.max || 200000);
     setAppliedPriceRange([min, max]);
     setCurrentPage(1);
-    // Close drawer on mobile after applying filter
-    setIsDrawerOpen(false);
   };
 
-  // Reset filters
   const resetFilters = () => {
     setInputPriceRange({ min: 0, max: 200000 });
     setAppliedPriceRange([0, 200000]);
@@ -71,26 +145,8 @@ const Television = () => {
     setSelectedBrand(null);
     setSortBy("newest");
     setCurrentPage(1);
-    // Close drawer on mobile after resetting
-    setIsDrawerOpen(false);
   };
 
-  // Toggle discount filter with drawer close
-  const toggleDiscountFilter = () => {
-    setShowDiscountedOnly(!showDiscountedOnly);
-    // Close drawer on mobile after toggling
-    setIsDrawerOpen(false);
-  };
-
-  // Select brand with drawer close
-  const selectBrand = (brand) => {
-    setSelectedBrand(selectedBrand === brand ? null : brand);
-    setCurrentPage(1);
-    // Close drawer on mobile after selecting brand
-    setIsDrawerOpen(false);
-  };
-
-  // Sort products
   const sortProducts = (products) => {
     const sorted = [...products];
     switch (sortBy) {
@@ -104,16 +160,16 @@ const Television = () => {
         return sorted.sort((a, b) => a.productName.localeCompare(b.productName));
       case "name-za":
         return sorted.sort((a, b) => b.productName.localeCompare(a.productName));
-      default: // newest
+      default:
         return sorted.sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated));
     }
   };
 
   const filteredProducts = sortProducts(
-    products.filter((product) => {
-      const withinRange = product.price >= appliedPriceRange[0] && product.price <= appliedPriceRange[1];
-      const hasDiscount = showDiscountedOnly ? product.oldPrice > product.price : true;
-      const matchesBrand = selectedBrand ? product.brandName === selectedBrand : true;
+    products.filter((p) => {
+      const withinRange = p.price >= appliedPriceRange[0] && p.price <= appliedPriceRange[1];
+      const hasDiscount = showDiscountedOnly ? (p.oldPrice || 0) > p.price : true;
+      const matchesBrand = selectedBrand ? p.brandName === selectedBrand : true;
       return withinRange && hasDiscount && matchesBrand;
     })
   );
@@ -124,150 +180,158 @@ const Television = () => {
   );
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
+  const isFiltersActive =
+    appliedPriceRange[0] !== 0 ||
+    appliedPriceRange[1] !== 200000 ||
+    showDiscountedOnly ||
+    selectedBrand !== null ||
+    sortBy !== "newest";
+
   const sortOptions = [
     { value: "newest", label: "Newest First" },
     { value: "oldest", label: "Oldest First" },
-    { value: "price-low", label: "Price: Low to High" },
-    { value: "price-high", label: "Price: High to Low" },
-    { value: "name-az", label: "Name: A to Z" },
-    { value: "name-za", label: "Name: Z to A" },
+    { value: "price-low", label: "Price: Low → High" },
+    { value: "price-high", label: "Price: High → Low" },
+    { value: "name-az", label: "Name: A → Z" },
+    { value: "name-za", label: "Name: Z → A" },
   ];
 
-  // Check if we should show "no products found" - only when not loading AND no filtered products
-  const shouldShowNoProducts = !loading && filteredProducts.length === 0 && products.length > 0;
-  
-  // Check if we should show "no products exist at all" - only when not loading AND no products loaded
-  const shouldShowNoProductsAtAll = !loading && products.length === 0;
+  // ==================== HELPERS ====================
+
+  const formatPrice = (price) => {
+    if (!price || isNaN(price)) return "₵0.00";
+    return `GH₵${Number(price).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
+  const getValidImageUrl = (imagePath) => {
+    if (!imagePath) return "https://via.placeholder.com/150";
+    return imagePath.includes("\\")
+      ? `https://ct002.frankotrading.com:444/Media/Products_Images/${imagePath.split("\\").pop()}`
+      : imagePath;
+  };
+
+  const isInWishlist = (id) =>
+    Array.isArray(wishlist) && wishlist.some((item) => item.id === id);
+
+  const handleWishlistToggle = async (product) => {
+    try {
+      const id = product.productID;
+      if (isInWishlist(id)) {
+        dispatch(removeFromWishlist(id));
+        showNotification("Removed from wishlist");
+      } else {
+        dispatch(addToWishlist({ ...product, id }));
+        showNotification("Added to wishlist");
+      }
+    } catch {
+      showNotification("Failed to update wishlist", "error");
+    }
+  };
+
+  const handleAddToCart = async (product) => {
+    try {
+      await addProductToCart(product);
+      showNotification("Added to cart");
+    } catch {
+      showNotification("Failed to add to cart", "error");
+    }
+  };
+
+  // ==================== FILTER SIDEBAR ====================
 
   const renderFilterContent = () => (
-    <div className="w-full lg:w-80 space-y-6">
-      {/* Filter Header */}
-      <div className="hidden lg:flex items-center gap-3 pb-4 border-b border-gray-300">
-        <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg">
-          <AdjustmentsHorizontalIcon className="w-5 h-5 text-red-400" />
-        </div>
-        <h3 className="text-xl font-bold text-gray-800">Filters</h3>
+    <div className="tv-filter-content">
+      <div className="hidden tv-filter-header tv-desktop-only">
+        <AdjustmentsHorizontalIcon style={{ width: 18, height: 18, color: "var(--tv-green)" }} />
+        <span className="tv-filter-header-text">Filters</span>
       </div>
 
-      {/* Price Range Input */}
-      <div className="bg-gradient-to-br from-gray-50 to-white p-4 md:p-6 rounded-2xl border border-gray-100 shadow-sm">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-          <h4 className="text-base font-semibold text-gray-700">Price Range</h4>
+      {/* Price Range */}
+      <div className="tv-filter-section">
+        <div className="tv-filter-section-title">
+          <div className="tv-dot" style={{ background: "var(--tv-green-accent)" }} />
+          <span>Price Range</span>
         </div>
-        
-        <div className="space-y-4">
-          {/* Input Fields */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Min Price</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₵</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="200000"
-                  value={inputPriceRange.min}
-                  onChange={(e) => setInputPriceRange(prev => ({ ...prev, min: +e.target.value }))}
-                  className="w-full pl-6 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-                  placeholder="0"
-                />
-              </div>
-            </div>
-            
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Max Price</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₵</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="200000"
-                  value={inputPriceRange.max}
-                  onChange={(e) => setInputPriceRange(prev => ({ ...prev, max: +e.target.value }))}
-                  className="w-full pl-6 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-                  placeholder="200000"
-                />
-              </div>
+        <div className="tv-price-inputs">
+          <div className="tv-price-field">
+            <label className="tv-price-label">Min</label>
+            <div className="tv-price-input-wrap">
+              <span className="tv-price-symbol">₵</span>
+              <input
+                type="number"
+                min="0"
+                max="200000"
+                value={inputPriceRange.min}
+                onChange={(e) => setInputPriceRange((prev) => ({ ...prev, min: +e.target.value }))}
+                className="tv-price-input"
+                placeholder="0"
+              />
             </div>
           </div>
-
-          {/* Apply Filter Button */}
-          <button
-            onClick={applyPriceFilter}
-            className="w-full bg-gradient-to-r from-green-400 to-teal-300 text-white py-2.5 rounded-lg font-medium hover:shadow-lg transition-all duration-300 transform hover:scale-[1.02]"
-          >
-            Apply Price Filter
-          </button>
-
-          {/* Current Applied Range Display */}
-          <div className="bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-200">
-            <div className="flex justify-between items-center">
-              <span className="text-xs text-emerald-700 font-medium">Applied Range:</span>
-              <span className="text-xs text-emerald-800 font-semibold">
-                ₵{appliedPriceRange[0].toLocaleString()} - ₵{appliedPriceRange[1].toLocaleString()}
-              </span>
+          <div className="tv-price-field">
+            <label className="tv-price-label">Max</label>
+            <div className="tv-price-input-wrap">
+              <span className="tv-price-symbol">₵</span>
+              <input
+                type="number"
+                min="0"
+                max="200000"
+                value={inputPriceRange.max}
+                onChange={(e) => setInputPriceRange((prev) => ({ ...prev, max: +e.target.value }))}
+                className="tv-price-input"
+                placeholder="200000"
+              />
             </div>
           </div>
+        </div>
+        <button onClick={applyPriceFilter} className="tv-apply-btn">
+          Apply Price Filter
+        </button>
+        <div className="tv-applied-range">
+          <span className="tv-applied-label">Active:</span>
+          <span className="tv-applied-value">
+            ₵{appliedPriceRange[0].toLocaleString()} – ₵{appliedPriceRange[1].toLocaleString()}
+          </span>
         </div>
       </div>
 
       {/* Discount Toggle */}
-      <div className="bg-gradient-to-br from-red-50 to-orange-50 p-4 rounded-2xl border border-red-100">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-red-400 to-orange-500 rounded-lg">
-              <TagIcon className="w-4 h-4 text-white" />
+      <div className="tv-filter-section tv-discount-section">
+        <div className="tv-discount-row">
+          <div className="tv-discount-info">
+            <div className="tv-discount-icon">
+              <TagIcon style={{ width: 14, height: 14, color: "#fff" }} />
             </div>
-            <label htmlFor="discount-toggle" className="text-sm md:text-base font-semibold text-gray-800 cursor-pointer">
-              Discounted Items Only
-            </label>
+            <span className="tv-discount-label">Discounted Only</span>
           </div>
-          
-          <div className="relative">
-            <input
-              type="checkbox"
-              id="discount-toggle"
-              checked={showDiscountedOnly}
-              onChange={toggleDiscountFilter}
-              className="sr-only"
-            />
-            <div
-              onClick={toggleDiscountFilter}
-              className={`w-12 h-6 rounded-full cursor-pointer transition-all duration-300 ${
-                showDiscountedOnly 
-                  ? 'bg-gradient-to-r from-green-500 to-teal-600 shadow-lg' 
-                  : 'bg-gray-300'
-              }`}
-            >
-              <div
-                className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-300 ${
-                  showDiscountedOnly ? 'translate-x-6' : 'translate-x-0.5'
-                } mt-0.5`}
-              ></div>
-            </div>
+          <div
+            onClick={() => setShowDiscountedOnly(!showDiscountedOnly)}
+            className={`tv-toggle ${showDiscountedOnly ? "tv-toggle-on" : ""}`}
+          >
+            <div className="tv-toggle-knob" />
           </div>
         </div>
       </div>
 
-      {/* Brand Selection */}
+      {/* Brands */}
       {brands.length > 0 && (
-        <div className="bg-gradient-to-br from-red-50 to-green-50 p-4 md:p-6 rounded-2xl border border-green-100">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-            <h4 className="text-sm md:text-base font-semibold text-gray-800">Filter by Brand</h4>
+        <div className="tv-filter-section">
+          <div className="tv-filter-section-title">
+            <div className="tv-dot" style={{ background: "var(--tv-green)" }} />
+            <span>Brands</span>
           </div>
-          
-          <div className="flex flex-wrap gap-2">
+          <div className="tv-brand-tags">
             {brands.map((brand) => (
               <button
                 key={brand}
-                onClick={() => selectBrand(brand)}
-                className={`px-3 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all duration-300 transform hover:scale-105 ${
-                  selectedBrand === brand
-                    ? "bg-gradient-to-r from-red-200 to-green-600 text-white shadow-lg"
-                    : "bg-white text-gray-700 border border-gray-200 hover:border-green-300 hover:text-green-600 hover:shadow-md"
-                }`}
+                onClick={() => {
+                  setSelectedBrand(selectedBrand === brand ? null : brand);
+                  setCurrentPage(1);
+                }}
+                className={`tv-brand-tag ${selectedBrand === brand ? "tv-brand-tag-active" : ""}`}
               >
                 {brand}
               </button>
@@ -276,21 +340,28 @@ const Television = () => {
         </div>
       )}
 
-      {/* Reset Filters Button */}
-      <button
-        onClick={resetFilters}
-        className="w-full bg-red-400 hover:bg-red-200 text-white py-1.5 rounded-lg font-medium transition-colors duration-200"
-      >
-        Reset All Filters
-      </button>
+      {isFiltersActive && (
+        <button onClick={resetFilters} className="tv-reset-btn">
+          Reset All Filters
+        </button>
+      )}
     </div>
   );
+
+  // ==================== DETERMINE WHAT TO SHOW ====================
+
+  const isInitialLoading = loading && !hasLoadedOnce;
+  const hasProducts = currentProducts.length > 0;
+  const trulyEmpty = hasLoadedOnce && !loading && filteredProducts.length === 0;
+
+  // ==================== STRUCTURED DATA ====================
 
   const structuredData = {
     "@context": "https://schema.org/",
     "@type": "ItemList",
     "name": "Television Collection",
     "description": "Browse our latest collection of televisions with high-quality resolution and top brands.",
+    "url": "https://www.frankotrading.com/television",
     "itemListElement": filteredProducts.map((item, index) => ({
       "@type": "Product",
       "position": index + 1,
@@ -315,29 +386,12 @@ const Television = () => {
         },
         "shippingDetails": {
           "@type": "OfferShippingDetails",
-          "shippingRate": {
-            "@type": "MonetaryAmount",
-            "currency": "GHS",
-            "value": "30.00"
-          },
-          "shippingDestination": {
-            "@type": "DefinedRegion",
-            "addressCountry": "GH"
-          },
+          "shippingRate": { "@type": "MonetaryAmount", "currency": "GHS", "value": "30.00" },
+          "shippingDestination": { "@type": "DefinedRegion", "addressCountry": "GH" },
           "deliveryTime": {
             "@type": "ShippingDeliveryTime",
-            "handlingTime": {
-              "@type": "QuantitativeValue",
-              "minValue": 1,
-              "maxValue": 2,
-              "unitCode": "DAY"
-            },
-            "transitTime": {
-              "@type": "QuantitativeValue",
-              "minValue": 3,
-              "maxValue": 5,
-              "unitCode": "DAY"
-            }
+            "handlingTime": { "@type": "QuantitativeValue", "minValue": 1, "maxValue": 2, "unitCode": "DAY" },
+            "transitTime": { "@type": "QuantitativeValue", "minValue": 3, "maxValue": 5, "unitCode": "DAY" }
           }
         },
         "hasMerchantReturnPolicy": {
@@ -352,97 +406,447 @@ const Television = () => {
     })),
   };
 
+  // ==================== RENDER ====================
+
   return (
-    <div className="min-h-screen">
-      <Helmet>
-        <title>Buy the Latest Televisions Online | 4K, Smart TVs & Best Deals</title>
-        <meta name="description" content="Explore our latest televisions with high resolution and best prices. Available from top brands." />
-        <meta name="keywords" content="Television, TV, Smart TV, 4K TV, Best TVs, Buy TV Online" />
-        <link rel="canonical" href="https://www.frankotrading.com/television" />
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800;900&display=swap');
 
-        {/* Open Graph (OG) meta tags for better social media preview */}
-        <meta property="og:title" content="Buy the Latest Televisions Online | 4K, Smart TVs & Best Deals" />
-        <meta property="og:description" content="Explore our latest televisions with high resolution and best prices. Available from top brands." />
-        <meta property="og:image" content={filteredProducts.length > 0 ? `https://ct002.frankotrading.com:444/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}/>
-        <meta property="og:url" content="https://www.frankotrading.com/television" />
-        <meta property="og:type" content="website" />
+        :root {
+          --tv-font: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          --tv-green: #14532d;
+          --tv-green-mid: #166534;
+          --tv-green-light: #dcfce7;
+          --tv-green-lighter: #f0fdf4;
+          --tv-green-accent: #22c55e;
+          --tv-dark: #1a1a1a;
+          --tv-mid: #555;
+          --tv-light: #888;
+          --tv-border: #e0e0e0;
+          --tv-bg-subtle: #f7f7f7;
+          --tv-red: #dc2626;
+          --tv-pink: #e11d48;
+          --tv-radius: 4px;
+        }
 
-        {/* Twitter Card for better Twitter sharing */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Buy the Latest Televisions Online | 4K, Smart TVs & Best Deals" />
-        <meta name="twitter:description" content="Explore our latest televisions with high resolution and best prices. Available from top brands." />
-        <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://ct002.frankotrading.com:444/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"}/>
+        .tv-root, .tv-root * {
+          font-family: var(--tv-font);
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+          box-sizing: border-box;
+        }
 
-        {/* Injecting JSON-LD for structured data */}
-        <script type="application/ld+json">{JSON.stringify(structuredData)}</script>
-      </Helmet>
-      
-      <script>
-        {`
-          (function(w,d,s,l,i){
-            w[l]=w[l]||[];w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});
-            var f=d.getElementsByTagName(s)[0],
-            j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
-            j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;
-            f.parentNode.insertBefore(j,f);
-          })(window,document,'script','dataLayer','GTM-WKCL4JTV');
-        `}
-      </script>
-      
-      <div className="p-2 md:px-2 mx-auto">
-        {/* Enhanced Mobile Header */}
-        <div className="md:hidden space-y-2">
-          {/* Television Info */}
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-            <div className="flex items-center gap-2 mb-1">
-              <FaTv className="w-5 h-5 text-red-300" />
-              <h2 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                {selectedBrand ? `${selectedBrand}` : "Televisions"}
-              </h2>
+        .tv-desktop-only { display: none; }
+        @media (min-width: 1024px) { .tv-desktop-only { display: flex; } }
+
+        .tv-notif {
+          display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+          border-radius: var(--tv-radius); min-width: 280px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        .tv-notif-success { background: var(--tv-green); color: #fff; }
+        .tv-notif-error { background: var(--tv-red); color: #fff; }
+        .tv-notif-text { font-size: 14px; font-weight: 500; flex: 1; }
+        .tv-notif-close {
+          background: transparent; border: none; color: rgba(255,255,255,0.8);
+          font-size: 18px; cursor: pointer; padding: 0; line-height: 1;
+        }
+        .tv-notif-close:hover { color: #fff; }
+
+        @keyframes tv-slide-in-right {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        .tv-animate-slide-in { animation: tv-slide-in-right 0.3s ease-out; }
+
+        .tv-page-header {
+          display: flex; align-items: center; gap: 16px; margin-bottom: 20px;
+          padding-bottom: 16px; border-bottom: 1px solid var(--tv-border);
+        }
+        .tv-page-header-accent {
+          width: 4px; height: 28px; border-radius: 2px; background: var(--tv-green); flex-shrink: 0;
+        }
+        .tv-page-title {
+          font-size: 20px; font-weight: 800; color: var(--tv-dark);
+          letter-spacing: -0.02em; line-height: 1.2; margin: 0;
+        }
+        @media (min-width: 768px) { .tv-page-title { font-size: 24px; } }
+        .tv-page-count { font-size: 13px; font-weight: 500; color: var(--tv-light); margin-top: 2px; }
+        .tv-page-header-line { flex: 1; height: 1px; background: var(--tv-border); display: none; }
+        @media (min-width: 768px) { .tv-page-header-line { display: block; } }
+
+        .tv-mobile-controls { display: flex; gap: 8px; margin-bottom: 16px; }
+        @media (min-width: 1024px) { .tv-mobile-controls { display: none; } }
+
+        .tv-filter-trigger {
+          flex: 1; display: flex; align-items: center; justify-content: center;
+          gap: 6px; padding: 10px 14px; background: var(--tv-green); color: #fff;
+          border: none; border-radius: var(--tv-radius); font-size: 13px;
+          font-weight: 600; cursor: pointer; transition: all 0.15s; font-family: var(--tv-font);
+        }
+        .tv-filter-trigger:active { transform: scale(0.98); }
+
+        .tv-sort-trigger {
+          flex: 1; display: flex; align-items: center; justify-content: center;
+          gap: 6px; padding: 10px 14px; background: #fff; color: var(--tv-mid);
+          border: 1px solid var(--tv-border); border-radius: var(--tv-radius);
+          font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+          font-family: var(--tv-font); position: relative;
+        }
+        .tv-sort-trigger:active { transform: scale(0.98); }
+
+        .tv-sort-drop {
+          position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+          background: #fff; border: 1px solid var(--tv-border);
+          border-radius: var(--tv-radius); box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+          z-index: 50; overflow: hidden; animation: tv-fade 0.15s ease;
+        }
+        @keyframes tv-fade {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .tv-sort-option {
+          display: block; width: 100%; text-align: left; padding: 10px 14px;
+          font-size: 13px; font-weight: 500; color: var(--tv-mid);
+          background: none; border: none; cursor: pointer; transition: all 0.1s;
+          font-family: var(--tv-font); border-bottom: 1px solid #f5f5f5;
+        }
+        .tv-sort-option:last-child { border-bottom: none; }
+        .tv-sort-option:hover { background: var(--tv-bg-subtle); }
+        .tv-sort-option-active {
+          background: var(--tv-green-light) !important;
+          color: var(--tv-green) !important; font-weight: 600 !important;
+        }
+
+        .tv-toolbar {
+          display: none; align-items: center; justify-content: space-between;
+          padding: 12px 16px; background: #fff; border: 1px solid var(--tv-border);
+          border-radius: var(--tv-radius); margin-bottom: 16px;
+        }
+        @media (min-width: 768px) { .tv-toolbar { display: flex; } }
+        .tv-toolbar-left { display: flex; align-items: center; gap: 12px; }
+        .tv-toolbar-count { font-size: 13px; font-weight: 500; color: var(--tv-light); }
+        .tv-toolbar-count strong { color: var(--tv-dark); font-weight: 700; }
+        .tv-toolbar-badge {
+          display: inline-flex; align-items: center; gap: 4px;
+          background: var(--tv-green-light); color: var(--tv-green);
+          font-size: 11px; font-weight: 700; padding: 3px 10px;
+          border-radius: 100px; text-transform: uppercase; letter-spacing: 0.03em;
+        }
+        .tv-toolbar-right { display: flex; align-items: center; gap: 8px; }
+        .tv-desktop-sort { position: relative; }
+        .tv-desktop-sort-btn {
+          display: flex; align-items: center; gap: 6px; padding: 7px 14px;
+          background: #fff; border: 1px solid var(--tv-border);
+          border-radius: var(--tv-radius); font-size: 13px; font-weight: 500;
+          color: var(--tv-mid); cursor: pointer; transition: all 0.15s; font-family: var(--tv-font);
+        }
+        .tv-desktop-sort-btn:hover { border-color: var(--tv-green-accent); color: var(--tv-dark); }
+        .tv-desktop-sort-drop {
+          position: absolute; top: calc(100% + 4px); right: 0; width: 200px;
+          background: #fff; border: 1px solid var(--tv-border);
+          border-radius: var(--tv-radius); box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+          z-index: 50; overflow: hidden; animation: tv-fade 0.15s ease;
+        }
+
+        .tv-filter-content { display: flex; flex-direction: column; gap: 16px; }
+        .tv-filter-header {
+          display: flex; align-items: center; gap: 8px;
+          padding-bottom: 12px; border-bottom: 1px solid var(--tv-border);
+        }
+        .tv-filter-header-text { font-size: 16px; font-weight: 800; color: var(--tv-dark); letter-spacing: -0.01em; }
+        .tv-filter-section {
+          padding: 16px; background: #fff; border: 1px solid var(--tv-border); border-radius: var(--tv-radius);
+        }
+        .tv-filter-section-title {
+          display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
+          font-size: 14px; font-weight: 700; color: var(--tv-dark);
+        }
+        .tv-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+        .tv-price-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+        .tv-price-field { display: flex; flex-direction: column; gap: 4px; }
+        .tv-price-label {
+          font-size: 11px; font-weight: 600; color: var(--tv-light);
+          text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .tv-price-input-wrap { position: relative; display: flex; align-items: center; }
+        .tv-price-symbol { position: absolute; left: 10px; font-size: 13px; font-weight: 600; color: var(--tv-light); }
+        .tv-price-input {
+          width: 100%; padding: 8px 10px 8px 24px; border: 1px solid var(--tv-border);
+          border-radius: var(--tv-radius); font-size: 13px; font-weight: 500;
+          color: var(--tv-dark); font-family: var(--tv-font); transition: border-color 0.15s; outline: none;
+        }
+        .tv-price-input:focus { border-color: var(--tv-green-accent); box-shadow: 0 0 0 2px rgba(34,197,94,0.1); }
+        .tv-apply-btn {
+          width: 100%; padding: 9px; background: var(--tv-green); color: #fff;
+          border: none; border-radius: var(--tv-radius); font-size: 13px;
+          font-weight: 600; cursor: pointer; transition: background 0.15s;
+          font-family: var(--tv-font); margin-bottom: 10px;
+        }
+        .tv-apply-btn:hover { background: var(--tv-green-mid); }
+        .tv-apply-btn:active { transform: scale(0.98); }
+        .tv-applied-range {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 8px 10px; background: var(--tv-green-lighter);
+          border: 1px solid #bbf7d0; border-radius: var(--tv-radius);
+        }
+        .tv-applied-label { font-size: 11px; font-weight: 600; color: var(--tv-green-mid); }
+        .tv-applied-value { font-size: 12px; font-weight: 700; color: var(--tv-green); }
+
+        .tv-discount-section { background: var(--tv-green-lighter); border-color: #bbf7d0; }
+        .tv-discount-row { display: flex; align-items: center; justify-content: space-between; }
+        .tv-discount-info { display: flex; align-items: center; gap: 10px; }
+        .tv-discount-icon {
+          width: 28px; height: 28px; border-radius: var(--tv-radius);
+          background: var(--tv-green); display: flex; align-items: center;
+          justify-content: center; flex-shrink: 0;
+        }
+        .tv-discount-label { font-size: 13px; font-weight: 600; color: var(--tv-dark); }
+        .tv-toggle {
+          width: 40px; height: 22px; border-radius: 11px; background: #d1d5db;
+          cursor: pointer; transition: background 0.2s; padding: 2px; flex-shrink: 0;
+        }
+        .tv-toggle-on { background: var(--tv-green) !important; }
+        .tv-toggle-knob {
+          width: 18px; height: 18px; border-radius: 50%; background: #fff;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.15); transition: transform 0.2s;
+        }
+        .tv-toggle-on .tv-toggle-knob { transform: translateX(18px); }
+
+        .tv-brand-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+        .tv-brand-tag {
+          padding: 5px 12px; font-size: 12px; font-weight: 500; color: var(--tv-mid);
+          background: var(--tv-bg-subtle); border: 1px solid var(--tv-border);
+          border-radius: 100px; cursor: pointer; transition: all 0.15s;
+          font-family: var(--tv-font); white-space: nowrap;
+        }
+        .tv-brand-tag:hover {
+          border-color: var(--tv-green-accent); color: var(--tv-green); background: var(--tv-green-light);
+        }
+        .tv-brand-tag-active {
+          background: var(--tv-green) !important; color: #fff !important;
+          border-color: var(--tv-green) !important; font-weight: 600 !important;
+        }
+        .tv-reset-btn {
+          width: 100%; padding: 9px; background: #fff; color: var(--tv-red);
+          border: 1px solid #fecaca; border-radius: var(--tv-radius);
+          font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+          font-family: var(--tv-font);
+        }
+        .tv-reset-btn:hover { background: #fef2f2; border-color: var(--tv-red); }
+        .tv-reset-btn:active { transform: scale(0.98); }
+
+        .tv-drawer-overlay {
+          position: fixed; inset: 0; z-index: 100; display: flex; animation: tv-fade 0.2s ease;
+        }
+        .tv-drawer-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.4); }
+        .tv-drawer-panel {
+          position: relative; width: 100%; max-width: 320px; height: 100%;
+          background: #fff; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+          overflow-y: auto; z-index: 1; animation: tv-slide-in 0.25s ease;
+        }
+        @keyframes tv-slide-in {
+          from { transform: translateX(-100%); }
+          to { transform: translateX(0); }
+        }
+        .tv-drawer-header {
+          position: sticky; top: 0; background: #fff; display: flex;
+          align-items: center; justify-content: space-between; padding: 14px 16px;
+          border-bottom: 1px solid var(--tv-border); z-index: 2;
+        }
+        .tv-drawer-header-left { display: flex; align-items: center; gap: 8px; }
+        .tv-drawer-header-title { font-size: 16px; font-weight: 800; color: var(--tv-dark); }
+        .tv-drawer-close {
+          width: 32px; height: 32px; display: flex; align-items: center;
+          justify-content: center; border: 1px solid var(--tv-border);
+          border-radius: var(--tv-radius); background: #fff; cursor: pointer; transition: background 0.12s;
+        }
+        .tv-drawer-close:active { background: #f5f5f5; }
+        .tv-drawer-body { padding: 16px; }
+
+        .tv-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        @media (min-width: 640px) { .tv-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 1024px) { .tv-grid { grid-template-columns: repeat(3, 1fr); gap: 16px; } }
+        @media (min-width: 1280px) { .tv-grid { grid-template-columns: repeat(4, 1fr); } }
+
+        .tv-card {
+          border: 1px solid var(--tv-border); border-radius: var(--tv-radius);
+          overflow: hidden; background: #fff; transition: all 0.2s ease; cursor: pointer;
+        }
+        .tv-card:hover {
+          border-color: var(--tv-green-accent); box-shadow: 0 4px 16px rgba(20, 83, 45, 0.08);
+        }
+        .tv-card-img {
+          position: relative; height: 190px; display: flex; align-items: center;
+          justify-content: center; padding: 10px; overflow: hidden;
+        }
+        @media (min-width: 768px) { .tv-card-img { height: 195px; } }
+        .tv-card-img img {
+          height: 100%; width: 100%; object-fit: contain; transition: transform 0.3s ease;
+        }
+        .tv-card:hover .tv-card-img img { transform: scale(1.05); }
+        .tv-card-overlay {
+          position: absolute; inset: 0; background: rgba(20, 83, 45, 0.45);
+          display: none; align-items: center; justify-content: center; gap: 8px; z-index: 2;
+        }
+        .tv-card:hover .tv-card-overlay { display: flex; }
+        .tv-card-action {
+          display: flex; align-items: center; justify-content: center;
+          width: 34px; height: 34px; border-radius: 50%; background: #fff;
+          border: none; cursor: pointer; transition: all 0.15s;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .tv-card-action:hover { transform: scale(1.1); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .tv-card-action:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+        .tv-card-body { padding: 10px 12px; text-align: center; }
+        .tv-card-name {
+          font-size: 15px; font-weight: 600; color: var(--tv-dark); line-height: 1.35;
+          display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+          overflow: hidden; min-height: 35px;
+        }
+        .tv-card-price { font-size: 15px; font-weight: 900; color: var(--tv-red); margin-top: 2px; }
+        .tv-card-old-price {
+          font-size: 12px; font-weight: 400; color: var(--tv-light);
+          text-decoration: line-through; margin-top: 2px;
+        }
+        .tv-card-badge {
+          position: absolute; top: 8px; font-size: 9px; font-weight: 700;
+          padding: 3px 8px; border-radius: 100px; z-index: 3;
+          letter-spacing: 0.04em; text-transform: uppercase;
+        }
+        .tv-card-badge-sold { left: 8px; background: var(--tv-dark); color: #fff; }
+        .tv-card-badge-discount {
+          right: 8px; background: var(--tv-red); color: #fff; font-size: 10px; padding: 3px 7px;
+        }
+
+        .tv-skeleton {
+          border: 1px solid #eee; border-radius: var(--tv-radius); overflow: hidden; background: #fff;
+        }
+        .tv-skeleton-img {
+          height: 150px;
+          background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+          background-size: 200% 100%; animation: tv-shimmer 1.5s infinite;
+        }
+        @media (min-width: 768px) { .tv-skeleton-img { height: 195px; } }
+        @keyframes tv-shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        .tv-skeleton-line {
+          height: 10px; border-radius: 2px;
+          background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+          background-size: 200% 100%; animation: tv-shimmer 1.5s infinite;
+        }
+
+        .tv-empty {
+          display: flex; flex-direction: column; align-items: center;
+          justify-content: center; text-align: center; padding: 60px 24px;
+          background: #fff; border: 1px solid var(--tv-border);
+          border-radius: var(--tv-radius); margin-top: 16px;
+        }
+        .tv-empty-icon-wrap {
+          width: 80px; height: 80px; border-radius: 50%;
+          background: var(--tv-bg-subtle); display: flex; align-items: center;
+          justify-content: center; margin-bottom: 20px; border: 1px solid var(--tv-border);
+        }
+        .tv-empty-title { font-size: 18px; font-weight: 700; color: var(--tv-dark); margin-bottom: 8px; }
+        .tv-empty-desc {
+          font-size: 14px; color: var(--tv-light); max-width: 360px; line-height: 1.6; margin-bottom: 24px;
+        }
+        .tv-empty-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
+        .tv-empty-reset {
+          padding: 10px 20px; background: var(--tv-green); color: #fff;
+          border: none; border-radius: var(--tv-radius); font-size: 13px;
+          font-weight: 600; cursor: pointer; transition: background 0.15s; font-family: var(--tv-font);
+        }
+        .tv-empty-reset:hover { background: var(--tv-green-mid); }
+        .tv-empty-browse {
+          padding: 10px 20px; background: #fff; color: var(--tv-mid);
+          border: 1px solid var(--tv-border); border-radius: var(--tv-radius);
+          font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+          font-family: var(--tv-font); text-decoration: none;
+        }
+        .tv-empty-browse:hover { border-color: var(--tv-green-accent); color: var(--tv-dark); }
+
+        .tv-layout { display: flex; flex-direction: column; gap: 0; }
+        @media (min-width: 1024px) { .tv-layout { flex-direction: row; gap: 24px; } }
+        .tv-sidebar { display: none; width: 280px; flex-shrink: 0; }
+        @media (min-width: 1024px) { .tv-sidebar { display: block; } }
+        .tv-sidebar-sticky { position: sticky; top: 80px; }
+        .tv-main { flex: 1; min-width: 0; }
+        .tv-pagination { display: flex; justify-content: center; margin-top: 24px; }
+      `}</style>
+
+      <Notification
+        message={notification.message}
+        type={notification.type}
+        isVisible={notification.isVisible}
+        onClose={hideNotification}
+      />
+
+      <div className="tv-root min-h-screen">
+        <Helmet>
+          <title>Buy the Latest Televisions Online | 4K, Smart TVs & Best Deals</title>
+          <meta name="description" content="Explore our latest televisions with high resolution and best prices. Available from top brands." />
+          <meta name="keywords" content="Television, TV, Smart TV, 4K TV, Best TVs, Buy TV Online" />
+          <link rel="canonical" href="https://www.frankotrading.com/television" />
+          <meta property="og:title" content="Buy the Latest Televisions Online | 4K, Smart TVs & Best Deals" />
+          <meta property="og:description" content="Explore our latest televisions with high resolution and best prices. Available from top brands." />
+          <meta property="og:image" content={filteredProducts.length > 0 ? `https://ct002.frankotrading.com:444/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+          <meta property="og:url" content="https://www.frankotrading.com/television" />
+          <meta property="og:type" content="website" />
+          <meta name="twitter:card" content="summary_large_image" />
+          <meta name="twitter:title" content="Buy the Latest Televisions Online | 4K, Smart TVs & Best Deals" />
+          <meta name="twitter:description" content="Explore our latest televisions with high resolution and best prices. Available from top brands." />
+          <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://ct002.frankotrading.com:444/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+          <script type="application/ld+json">{JSON.stringify(structuredData)}</script>
+        </Helmet>
+
+        <div className="px-4 md:px-16 py-6">
+          {/* Page Header */}
+          <div className="tv-page-header">
+            <div className="tv-page-header-accent" />
+            <div>
+              <h1 className="tv-page-title">
+                {selectedBrand ? `${selectedBrand} Televisions` : "Televisions"}
+              </h1>
+              <p className="tv-page-count">
+                {isInitialLoading
+                  ? "Loading products..."
+                  : `${filteredProducts.length} product${filteredProducts.length !== 1 ? "s" : ""} found`}
+              </p>
             </div>
-            <p className="text-sm text-gray-500 mt-1">
-              {loading ? "Loading products..." : `${filteredProducts.length} products available`}
-            </p>
+            <div className="tv-page-header-line" />
           </div>
 
           {/* Mobile Controls */}
-          <div className="flex gap-3">
-            {/* Filter Button */}
-            <button 
-              onClick={() => setIsDrawerOpen(true)} 
-              className="flex-1 flex items-center justify-center gap-2 p-3 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]"
-            >
-              <FunnelIcon className="w-5 h-5 text-red-400" />
-              <span className="font-medium text-sm">Filter</span>
+          <div className="tv-mobile-controls">
+            <button onClick={() => setIsDrawerOpen(true)} className="tv-filter-trigger">
+              <FunnelIcon style={{ width: 16, height: 16 }} />
+              <span>Filters</span>
+              {isFiltersActive && (
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#fff", marginLeft: 2 }} />
+              )}
             </button>
-
-            {/* Sort Button */}
-            <div className="relative flex-1">
-              <button 
-                onClick={() => setShowSortDropdown(!showSortDropdown)}
-                className="w-full flex items-center justify-center gap-2 p-3 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-300"
-              >
-                <Bars3BottomLeftIcon className="w-5 h-5 text-gray-600" />
-                <span className="text-gray-700 font-medium text-sm">Sort</span>
-                <ChevronDownIcon className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${showSortDropdown ? 'rotate-180' : ''}`} />
-              </button>
-
-              {/* Mobile Sort Dropdown */}
+            <div className="tv-sort-trigger" onClick={() => setShowSortDropdown(!showSortDropdown)}>
+              <Bars3BottomLeftIcon style={{ width: 16, height: 16 }} />
+              <span>Sort</span>
+              <ChevronDownIcon
+                style={{ width: 14, height: 14, transition: "transform 0.2s", transform: showSortDropdown ? "rotate(180deg)" : "none" }}
+              />
               {showSortDropdown && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-50">
+                <div className="tv-sort-drop">
                   {sortOptions.map((option) => (
                     <button
                       key={option.value}
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setSortBy(option.value);
                         setShowSortDropdown(false);
                         setCurrentPage(1);
                       }}
-                      className={`w-full text-left px-4 py-3 text-sm transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl ${
-                        sortBy === option.value
-                          ? 'bg-emerald-50 text-emerald-700 font-medium'
-                          : 'text-gray-700 hover:bg-gray-50'
-                      }`}
+                      className={`tv-sort-option ${sortBy === option.value ? "tv-sort-option-active" : ""}`}
                     >
                       {option.label}
                     </button>
@@ -451,212 +855,200 @@ const Television = () => {
               )}
             </div>
           </div>
-        </div>
 
-        {/* Enhanced Mobile Drawer */}
-        {isDrawerOpen && (
-          <div className="fixed inset-0 z-50 flex">
-            {/* Backdrop */}
-            <div 
-              className="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm transition-opacity duration-300"
-              onClick={() => setIsDrawerOpen(false)}
-            ></div>
-            
-            {/* Drawer content */}
-            <div className="relative w-full max-w-sm h-full bg-white shadow-2xl overflow-auto transform transition-transform duration-300 ease-out">
-              <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-4 z-10">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg">
-                      <AdjustmentsHorizontalIcon className="w-5 h-5 text-red-400" />
-                    </div>
-                    <h2 className="text-xl font-bold text-gray-800">Filters</h2>
+          {/* Mobile Drawer */}
+          {isDrawerOpen && (
+            <div className="tv-drawer-overlay">
+              <div className="tv-drawer-backdrop" onClick={() => setIsDrawerOpen(false)} />
+              <div className="tv-drawer-panel">
+                <div className="tv-drawer-header">
+                  <div className="tv-drawer-header-left">
+                    <AdjustmentsHorizontalIcon style={{ width: 18, height: 18, color: "var(--tv-green)" }} />
+                    <span className="tv-drawer-header-title">Filters</span>
                   </div>
-                  
-                  <button 
-                    onClick={() => setIsDrawerOpen(false)}
-                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-                  >
-                    <XMarkIcon className="w-6 h-6 text-gray-600" />
+                  <button onClick={() => setIsDrawerOpen(false)} className="tv-drawer-close">
+                    <XMarkIcon style={{ width: 14, height: 14, color: "var(--tv-light)" }} />
                   </button>
                 </div>
-              </div>
-              
-              <div className="p-4">
-                {renderFilterContent()}
+                <div className="tv-drawer-body">{renderFilterContent()}</div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Layout */}
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Desktop Sidebar */}
-          <aside className="lg:w-80">
-            <div className="hidden lg:block sticky top-6">
-              {renderFilterContent()}
-            </div>
-          </aside>
+          {/* Layout */}
+          <div className="tv-layout">
+            <aside className="tv-sidebar">
+              <div className="tv-sidebar-sticky">{renderFilterContent()}</div>
+            </aside>
 
-          {/* Products Section */}
-          <section className="flex-1">
-            {/* Show loading skeleton or products */}
-            {loading ? (
-              <div className="space-y-2">
-                {/* Desktop Header Skeleton */}
-                <div className="hidden md:block bg-white p-2 rounded-2xl shadow-sm border border-gray-100">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
-                      <div className="space-y-2">
-                        <div className="w-40 h-6 bg-gray-200 rounded animate-pulse"></div>
-                        <div className="w-60 h-4 bg-gray-200 rounded animate-pulse"></div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="w-32 h-8 bg-gray-200 rounded-full animate-pulse"></div>
-                      <div className="w-40 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
-                    </div>
+            <section className="tv-main">
+              {/* Desktop Toolbar */}
+              {(hasProducts || isInitialLoading) && (
+                <div className="tv-toolbar">
+                  <div className="tv-toolbar-left">
+                    <span className="tv-toolbar-count">
+                      {isInitialLoading ? (
+                        "Loading..."
+                      ) : (
+                        <>
+                          Showing <strong>{(currentPage - 1) * itemsPerPage + 1}</strong>–
+                          <strong>{Math.min(currentPage * itemsPerPage, filteredProducts.length)}</strong> of{" "}
+                          <strong>{filteredProducts.length}</strong>
+                        </>
+                      )}
+                    </span>
+                    {isFiltersActive && <span className="tv-toolbar-badge">Filtered</span>}
                   </div>
-                </div>
-
-                {/* Products Grid Skeleton */}
-                <div className="md:p-6">
-                  <ProductCard
-                    currentProducts={[]}
-                    navigate={navigate}
-                    loading={true}
-                  />
-                </div>
-              </div>
-            ) : (shouldShowNoProducts || shouldShowNoProductsAtAll) ? (
-              /* Show "No Products Found" only when not loading and no products match filters */
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mt-6 md:mt-24">
-                <div className="flex flex-col justify-center items-center text-center space-y-6">
-                  <div className="relative">
-                    <img src={gif} alt="No products found" className="max-h-24 md:max-h-72 opacity-80" />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <h3 className="text-lg md:text-xl font-semibold text-gray-800">No Televisions Found</h3>
-                    <p className="text-gray-600 max-w-md text-sm md:text-base">
-                      {shouldShowNoProductsAtAll 
-                        ? "We don't have any televisions available at the moment. Please check back later."
-                        : "We couldn't find any televisions matching your current filters. Try adjusting your search criteria or browse other categories."
-                      }
-                    </p>
-                  </div>
-                  
-                  {shouldShowNoProducts && (
-                    <button
-                      onClick={resetFilters}
-                      className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-300 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                    >
-                      Reset Filters
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              /* Show products when loaded and available */
-              <div className="space-y-2">
-                {/* Desktop Header with Sort */}
-                <div className="hidden md:block bg-white p-2 rounded-2xl shadow-sm border border-gray-100">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-3 mb-1">
-                        <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg">
-                          <FaTv className="w-6 h-6 text-red-300" />
+                  <div className="tv-toolbar-right">
+                    <div className="tv-desktop-sort">
+                      <button onClick={() => setShowSortDropdown(!showSortDropdown)} className="tv-desktop-sort-btn">
+                        <Bars3BottomLeftIcon style={{ width: 14, height: 14 }} />
+                        <span>{sortOptions.find((o) => o.value === sortBy)?.label}</span>
+                        <ChevronDownIcon
+                          style={{ width: 12, height: 12, transition: "transform 0.2s", transform: showSortDropdown ? "rotate(180deg)" : "none" }}
+                        />
+                      </button>
+                      {showSortDropdown && (
+                        <div className="tv-desktop-sort-drop">
+                          {sortOptions.map((option) => (
+                            <button
+                              key={option.value}
+                              onClick={() => {
+                                setSortBy(option.value);
+                                setShowSortDropdown(false);
+                                setCurrentPage(1);
+                              }}
+                              className={`tv-sort-option ${sortBy === option.value ? "tv-sort-option-active" : ""}`}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
                         </div>
-                        <h2 className="text-md md:text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                          {selectedBrand ? `${selectedBrand}` : "Televisions"}
-                        </h2>
-                      </div>
-                      <p className="text-gray-500 text-sm mt-1">
-                        Discover amazing smart televisions from various brands
-                      </p>
+                      )}
                     </div>
-                    
-                    <div className="flex items-center gap-4">
-                      {/* Product Count */}
-                      <div className="bg-red-50 text-red-700 px-3 py-1 rounded-full border border-emerald-200">
-                        <span className="text-sm font-medium">
-                          <strong>{currentProducts.length}</strong> of <strong>{filteredProducts.length}</strong> products
-                        </span>
-                      </div>
+                  </div>
+                </div>
+              )}
 
-                      {/* Desktop Sort Dropdown */}
-                      <div className="relative">
-                        <button 
-                          onClick={() => setShowSortDropdown(!showSortDropdown)}
-                          className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors duration-200"
-                        >
-                          <Bars3BottomLeftIcon className="w-4 h-4 text-gray-600" />
-                          <span className="text-sm font-medium text-gray-700">
-                            {sortOptions.find(opt => opt.value === sortBy)?.label}
-                          </span>
-                          <ChevronDownIcon className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${showSortDropdown ? 'rotate-180' : ''}`} />
-                        </button>
+              {/* Loading State */}
+              {isInitialLoading && (
+                <div className="tv-grid">
+                  {Array.from({ length: 12 }).map((_, i) => (
+                    <SkeletonCard key={i} />
+                  ))}
+                </div>
+              )}
 
-                        {showSortDropdown && (
-                          <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                            {sortOptions.map((option) => (
-                              <button
-                                key={option.value}
-                                onClick={() => {
-                                  setSortBy(option.value);
-                                  setShowSortDropdown(false);
-                                  setCurrentPage(1);
-                                }}
-                                className={`w-full text-left px-4 py-3 text-sm transition-colors duration-200 first:rounded-t-lg last:rounded-b-lg ${
-                                  sortBy === option.value
-                                    ? 'bg-emerald-50 text-emerald-700 font-medium'
-                                    : 'text-gray-700 hover:bg-gray-50'
-                                }`}
-                              >
-                                {option.label}
-                              </button>
-                            ))}
+              {/* Products */}
+              {!isInitialLoading && hasProducts && (
+                <>
+                  <div className="tv-grid">
+                    {currentProducts.map((product) => {
+                      const { productID, productName, productImage, price, oldPrice, stock } = product;
+                      const isOnSale = oldPrice > 0 && oldPrice > price;
+                      const discountPercent = isOnSale ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0;
+                      const soldOut = stock === 0;
+                      const inWishlist = isInWishlist(productID);
+
+                      return (
+                        <div key={productID} className="tv-card">
+                          <div className="tv-card-img">
+                            {soldOut && <span className="tv-card-badge tv-card-badge-sold">Sold Out</span>}
+                            {isOnSale && !soldOut && (
+                              <span className="tv-card-badge tv-card-badge-discount">-{discountPercent}%</span>
+                            )}
+                            <div
+                              style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
+                              onClick={() => navigate(`/product/${productID}`)}
+                            >
+                              <img
+                                src={getValidImageUrl(productImage)}
+                                alt={productName}
+                                onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150"; }}
+                              />
+                            </div>
+                            <div className="tv-card-overlay" onClick={() => navigate(`/product/${productID}`)}>
+                              <Tooltip content={inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}>
+                                <button
+                                  className="tv-card-action"
+                                  onClick={(e) => { e.stopPropagation(); handleWishlistToggle(product); }}
+                                >
+                                  {inWishlist ? (
+                                    <SolidHeartIcon style={{ width: 16, height: 16, color: "var(--tv-pink)" }} />
+                                  ) : (
+                                    <OutlineHeartIcon style={{ width: 16, height: 16, color: "var(--tv-mid)" }} />
+                                  )}
+                                </button>
+                              </Tooltip>
+                              <Tooltip content="View Details">
+                                <button
+                                  className="tv-card-action"
+                                  onClick={(e) => { e.stopPropagation(); navigate(`/product/${productID}`); }}
+                                >
+                                  <EyeIcon style={{ width: 16, height: 16, color: "var(--tv-green)" }} />
+                                </button>
+                              </Tooltip>
+                              <Tooltip content={soldOut ? "Out of Stock" : "Add to Cart"}>
+                                <button
+                                  className="tv-card-action"
+                                  onClick={(e) => { e.stopPropagation(); handleAddToCart(product); }}
+                                  disabled={cartLoading || soldOut}
+                                >
+                                  <ShoppingCartIcon style={{ width: 16, height: 16, color: "var(--tv-green-mid)" }} />
+                                </button>
+                              </Tooltip>
+                            </div>
                           </div>
-                        )}
-                      </div>
+                          <div className="tv-card-body">
+                            <div className="tv-card-name">{productName}</div>
+                            <div className="tv-card-price">{formatPrice(price)}</div>
+                            {oldPrice > 0 && <div className="tv-card-old-price">{formatPrice(oldPrice)}</div>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {totalPages > 1 && (
+                    <div className="tv-pagination">
+                      <CircularPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
                     </div>
+                  )}
+                </>
+              )}
+
+              {/* Empty State */}
+              {trulyEmpty && (
+                <div className="tv-empty">
+                  <div className="tv-empty-icon-wrap">
+                    <MagnifyingGlassIcon style={{ width: 32, height: 32, color: "var(--tv-light)" }} />
+                  </div>
+                  <div className="tv-empty-title">
+                    {isFiltersActive ? "No matching televisions" : "No televisions available"}
+                  </div>
+                  <div className="tv-empty-desc">
+                    {isFiltersActive
+                      ? "Try adjusting your price range, brand, or filters to find what you're looking for."
+                      : "We don't have any televisions available at the moment. Please check back later or explore other categories."}
+                  </div>
+                  <div className="tv-empty-actions">
+                    {isFiltersActive && (
+                      <button onClick={resetFilters} className="tv-empty-reset">
+                        Clear Filters
+                      </button>
+                    )}
+                    <button onClick={() => navigate("/")} className="tv-empty-browse">
+                      Browse All Products
+                    </button>
                   </div>
                 </div>
-
-                {/* Products Grid */}
-                <div className="md:p-6">
-                  <ProductCard
-                    currentProducts={currentProducts}
-                    navigate={navigate}
-                    loading={loading}
-                  />
-                </div>
-
-                {/* Pagination */}
-                {totalPages > 1 && !loading && (
-                  <div className="flex justify-center">
-                    <CircularPagination
-                      currentPage={currentPage}
-                      totalPages={totalPages}
-                      onPageChange={setCurrentPage}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-          </section>
+              )}
+            </section>
+          </div>
         </div>
-      </div>
 
-      {/* Click outside to close dropdowns */}
-      {showSortDropdown && (
-        <div 
-          className="fixed inset-0 z-40" 
-          onClick={() => setShowSortDropdown(false)}
-        ></div>
-      )}
-    </div>
+        {showSortDropdown && <div className="fixed inset-0 z-40" onClick={() => setShowSortDropdown(false)} />}
+      </div>
+    </>
   );
 };
 

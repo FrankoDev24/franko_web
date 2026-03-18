@@ -46,6 +46,7 @@ const SERVICE_CHARGE_CAP = 20.0;
 const INITIAL_DELAY_MS = 10000;
 const POLL_INTERVAL_MS = 5000;
 const MAX_POLL_DURATION_MS = 60000;
+const AUTO_CHECK_DELAY_MS = 120000; // 2 minutes
 
 // ==================== NETWORK STEPS CONFIG ====================
 const NETWORK_STEPS = {
@@ -126,105 +127,710 @@ const buildCartNarration = (items, maxLen = 120) => {
   return narration;
 };
 
-// ==================== ACTION DIALOG ====================
+// ==================== STYLES ====================
+const checkoutStyles = `
+  @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800;900&display=swap');
+
+  :root {
+    --co-font: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --co-green: #14532d;
+    --co-green-mid: #166534;
+    --co-green-600: #16a34a;
+    --co-green-accent: #22c55e;
+    --co-green-light: #dcfce7;
+    --co-green-lighter: #f0fdf4;
+    --co-dark: #1a1a1a;
+    --co-mid: #555;
+    --co-light: #888;
+    --co-border: #e0e0e0;
+    --co-bg: #f7f7f7;
+    --co-red: #dc2626;
+    --co-radius: 4px;
+    --co-radius-lg: 8px;
+    --co-radius-xl: 12px;
+  }
+
+  .co-root, .co-root * {
+    font-family: var(--co-font) !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .co-root { min-height: 100vh; background: #fff; }
+
+  .co-container {
+    max-width: 1780px;
+    margin: 0 auto;
+    padding: 24px 16px;
+    padding-bottom: 100px;
+  }
+  @media (min-width: 1024px) {
+    .co-container { padding: 32px 40px; padding-bottom: 32px; }
+  }
+
+  /* ==================== HEADER ==================== */
+  .co-page-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--co-border);
+  }
+  .co-page-header-accent {
+    width: 4px; height: 28px; border-radius: 2px;
+    background: var(--co-green); flex-shrink: 0;
+  }
+  .co-page-title {
+    font-size: 22px; font-weight: 800; color: var(--co-dark);
+    letter-spacing: -0.02em; margin: 0; line-height: 1.2;
+  }
+  @media (min-width: 768px) { .co-page-title { font-size: 26px; } }
+  .co-page-count {
+    font-size: 13px; font-weight: 500; color: var(--co-light); margin-top: 2px;
+  }
+  .co-page-header-line {
+    flex: 1; height: 1px; background: var(--co-border); display: none;
+  }
+  @media (min-width: 768px) { .co-page-header-line { display: block; } }
+
+  /* ==================== LAYOUT ==================== */
+  .co-layout {
+    display: flex; flex-direction: column; gap: 20px;
+  }
+  @media (min-width: 1024px) {
+    .co-layout { flex-direction: row; gap: 24px; }
+  }
+  .co-sidebar { flex-shrink: 0; }
+  @media (min-width: 1024px) { .co-sidebar { width: 380px; } }
+  .co-main { flex: 1; min-width: 0; }
+
+  /* ==================== CARDS ==================== */
+  .co-card {
+    background: #fff;
+    border: 1px solid var(--co-border);
+    border-radius: var(--co-radius);
+    overflow: hidden;
+  }
+  .co-card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .co-card-title {
+    font-size: 16px; font-weight: 800; color: var(--co-dark);
+    letter-spacing: -0.01em; margin: 0;
+  }
+  .co-card-body { padding: 16px 20px; }
+
+  /* ==================== SECTION ACCENT ==================== */
+  .co-section-accent {
+    display: flex; gap: 4px; margin-top: 8px;
+  }
+  .co-section-accent-bar {
+    height: 2px; width: 32px; border-radius: 1px; background: var(--co-green-600);
+  }
+  .co-section-accent-line {
+    height: 2px; flex: 1; border-radius: 1px; background: #f0f0f0;
+  }
+
+  /* ==================== TOGGLE ==================== */
+  .co-toggle-wrap {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; background: var(--co-bg);
+    border: 1px solid var(--co-border); border-radius: var(--co-radius);
+    cursor: pointer; transition: border-color 0.15s; margin-bottom: 16px;
+    user-select: none;
+  }
+  .co-toggle-wrap:hover { border-color: var(--co-green-accent); }
+  .co-toggle-left {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 14px; font-weight: 600; color: var(--co-mid);
+  }
+  .co-toggle-track {
+    width: 40px; height: 22px; border-radius: 11px;
+    padding: 2px; transition: background 0.2s; flex-shrink: 0;
+  }
+  .co-toggle-track-off { background: #d1d5db; }
+  .co-toggle-track-on { background: var(--co-green-600); }
+  .co-toggle-knob {
+    width: 18px; height: 18px; border-radius: 50%; background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15); transition: transform 0.2s;
+  }
+  .co-toggle-knob-on { transform: translateX(18px); }
+
+  /* ==================== WARNING BANNER ==================== */
+  .co-warning-banner {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 14px; background: #fffbeb; border: 1px solid #fde68a;
+    border-radius: var(--co-radius); margin-bottom: 16px;
+  }
+  .co-warning-banner p {
+    font-size: 12px; font-weight: 600; color: #92400e; margin: 0; line-height: 1.5;
+  }
+
+  /* ==================== CART ITEMS ==================== */
+  .co-items-list {
+    max-height: 380px; overflow-y: auto; padding-right: 4px;
+  }
+  .co-item {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 12px 0;
+    border-bottom: 1px solid #f5f5f5;
+  }
+  .co-item:last-child { border-bottom: none; }
+  .co-item-left { display: flex; gap: 12px; flex: 1; min-width: 0; }
+  .co-item-img {
+    width: 56px; height: 56px; border-radius: var(--co-radius);
+    object-fit: cover; border: 1px solid #f0f0f0; flex-shrink: 0;
+  }
+  .co-item-img-placeholder {
+    width: 56px; height: 56px; border-radius: var(--co-radius);
+    background: var(--co-bg); border: 1px solid var(--co-border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: var(--co-light); flex-shrink: 0;
+  }
+  .co-item-info { flex: 1; min-width: 0; }
+  .co-item-name {
+    font-size: 14px; font-weight: 700; color: var(--co-dark);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin: 0 0 2px;
+  }
+  .co-item-unit {
+    font-size: 12px; color: var(--co-light); margin: 0;
+  }
+  .co-item-qty {
+    display: inline-flex; align-items: center; gap: 4px;
+    margin-top: 4px; padding: 2px 8px; border-radius: 100px;
+    background: var(--co-green-lighter); font-size: 11px;
+    font-weight: 700; color: var(--co-green);
+  }
+  .co-item-price {
+    font-size: 14px; font-weight: 900; color: var(--co-dark);
+    flex-shrink: 0;
+  }
+
+  /* ==================== TOTALS ==================== */
+  .co-totals { padding-top: 16px; border-top: 1px solid var(--co-border); }
+  .co-total-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 0; font-size: 14px;
+  }
+  .co-total-row-label { font-weight: 500; color: var(--co-mid); }
+  .co-total-row-value { font-weight: 700; color: var(--co-dark); }
+  .co-total-row-free { font-weight: 700; color: var(--co-green-600); }
+  .co-total-row-warning { font-weight: 600; color: #d97706; }
+
+  .co-service-charge {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; background: #eff6ff; border-radius: var(--co-radius);
+    margin: 8px 0;
+  }
+  .co-service-charge span {
+    font-size: 13px; font-weight: 600; color: #1e40af;
+  }
+
+  .co-grand-total {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; background: linear-gradient(135deg, #fef2f2, #fff7ed);
+    border-radius: var(--co-radius); margin-top: 8px;
+    border: 1px solid #fecaca;
+  }
+  .co-grand-total-label {
+    font-size: 16px; font-weight: 800; color: var(--co-red);
+  }
+  .co-grand-total-value {
+    font-size: 18px; font-weight: 900; color: var(--co-red);
+  }
+
+  .co-charge-note {
+    font-size: 11px; color: var(--co-light); text-align: center;
+    font-style: italic; margin-top: 6px;
+  }
+
+  /* ==================== PAYMENT METHOD ==================== */
+  .co-payment-section { margin-top: 20px; }
+  .co-payment-title {
+    font-size: 14px; font-weight: 800; color: var(--co-dark);
+    margin: 0 0 12px; letter-spacing: -0.01em;
+  }
+  .co-payment-options { display: flex; flex-direction: column; gap: 8px; }
+  .co-payment-option {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border: 2px solid var(--co-border);
+    border-radius: var(--co-radius); cursor: pointer;
+    transition: all 0.15s; background: #fff;
+  }
+  .co-payment-option:hover { border-color: #d1d5db; }
+  .co-payment-option-active {
+    border-color: var(--co-green-600) !important;
+    background: var(--co-green-lighter) !important;
+  }
+  .co-payment-option-text {
+    font-size: 14px; font-weight: 600; color: var(--co-mid);
+  }
+
+  /* ==================== BUTTONS ==================== */
+  .co-btn-primary {
+    width: 100%; padding: 14px; background: var(--co-green);
+    color: #fff; border: none; border-radius: var(--co-radius);
+    font-size: 15px; font-weight: 700; cursor: pointer;
+    transition: all 0.15s; font-family: var(--co-font);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .co-btn-primary:hover { background: var(--co-green-mid); }
+  .co-btn-primary:active { transform: scale(0.98); }
+  .co-btn-primary:disabled { background: #d1d5db; cursor: not-allowed; }
+
+  .co-btn-danger {
+    width: 100%; padding: 12px; background: #fff;
+    color: var(--co-red); border: 1px solid #fecaca;
+    border-radius: var(--co-radius); font-size: 14px;
+    font-weight: 600; cursor: pointer; transition: all 0.15s;
+    font-family: var(--co-font);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .co-btn-danger:hover { background: #fef2f2; border-color: var(--co-red); }
+  .co-btn-danger:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ==================== STICKY MOBILE BUTTON ==================== */
+  .co-sticky-bottom {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #fff; border-top: 1px solid var(--co-border);
+    padding: 12px 16px; z-index: 40;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
+    display: block;
+  }
+  @media (min-width: 1024px) { .co-sticky-bottom { display: none; } }
+  .co-desktop-btn { display: none; margin-top: 20px; }
+  @media (min-width: 1024px) { .co-desktop-btn { display: block; } }
+
+  /* ==================== EMPTY STATE ==================== */
+  .co-empty {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; text-align: center; padding: 60px 24px;
+    min-height: 400px;
+  }
+  .co-empty-icon {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: var(--co-bg); display: flex; align-items: center;
+    justify-content: center; margin-bottom: 16px;
+    border: 1px solid var(--co-border);
+  }
+  .co-empty-title {
+    font-size: 22px; font-weight: 800; color: var(--co-dark); margin-bottom: 8px;
+  }
+  .co-empty-desc {
+    font-size: 14px; color: var(--co-light); margin-bottom: 24px;
+  }
+
+  /* ==================== LOADING OVERLAY ==================== */
+  .co-loading-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(4px); display: flex; align-items: center;
+    justify-content: center; z-index: 50;
+  }
+  .co-loading-card {
+    background: #fff; border-radius: var(--co-radius-xl);
+    padding: 32px; display: flex; flex-direction: column;
+    align-items: center; gap: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  }
+  .co-spinner {
+    width: 40px; height: 40px; border: 4px solid var(--co-green-light);
+    border-top-color: var(--co-green-600); border-radius: 50%;
+    animation: co-spin 0.8s linear infinite;
+  }
+  @keyframes co-spin {
+    to { transform: rotate(360deg); }
+  }
+  .co-loading-text {
+    font-size: 15px; font-weight: 700; color: var(--co-mid);
+  }
+
+  /* ==================== MODAL OVERRIDES ==================== */
+  .co-modal .ant-modal {
+    max-width: calc(100vw - 32px) !important;
+    margin: 16px !important;
+  }
+  @media (max-width: 640px) {
+    .co-modal .ant-modal {
+      max-width: calc(100vw - 24px) !important;
+      margin: 12px !important;
+    }
+    .co-modal .ant-modal-content { border-radius: 12px !important; }
+  }
+
+  /* ==================== PAYMENT MODAL INTERNALS ==================== */
+  .co-pay-header { text-align: center; margin-bottom: 4px; }
+  .co-pay-logo { height: 32px; object-fit: contain; margin: 0 auto 8px; display: block; }
+  @media (min-width: 768px) { .co-pay-logo { height: 40px; } }
+  .co-pay-company {
+    font-size: 12px; font-weight: 800; color: var(--co-dark);
+    letter-spacing: -0.01em;
+  }
+
+  .co-pay-amount-card {
+    background: linear-gradient(135deg, var(--co-green-mid), var(--co-green));
+    border-radius: var(--co-radius-xl); padding: 16px;
+    text-align: center; color: #fff;
+  }
+  .co-pay-amount-label {
+    font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.7);
+    text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;
+  }
+  .co-pay-amount-value {
+    font-size: 28px; font-weight: 900; letter-spacing: -0.02em;
+  }
+  @media (min-width: 768px) { .co-pay-amount-value { font-size: 32px; } }
+  .co-pay-ref {
+    font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 6px;
+  }
+
+  .co-pay-field {
+    background: var(--co-bg); border-radius: var(--co-radius);
+    padding: 14px 16px; border: 1px solid #f0f0f0;
+  }
+  .co-pay-field-label {
+    font-size: 13px; font-weight: 800; color: var(--co-dark);
+    display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+  }
+  .co-pay-step-num {
+    width: 22px; height: 22px; background: var(--co-green);
+    color: #fff; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 11px; font-weight: 900; flex-shrink: 0;
+  }
+
+  .co-pay-validation {
+    font-size: 12px; font-weight: 600; margin-top: 6px; min-height: 18px;
+  }
+  .co-pay-validation-error { color: var(--co-red); }
+  .co-pay-validation-ok { color: var(--co-green-600); display: flex; align-items: center; gap: 4px; }
+
+  .co-network-option {
+    display: flex; align-items: center; padding: 12px;
+    border: 2px solid var(--co-border); border-radius: var(--co-radius);
+    cursor: pointer; transition: all 0.15s; background: #fff;
+  }
+  .co-network-option:hover { border-color: #d1d5db; }
+  .co-network-logo {
+    width: 32px; height: 32px; object-fit: contain; border-radius: 6px;
+  }
+  @media (min-width: 768px) { .co-network-logo { width: 36px; height: 36px; } }
+  .co-network-name { font-size: 14px; font-weight: 700; color: var(--co-dark); }
+  .co-network-sub { font-size: 11px; color: var(--co-light); }
+
+  .co-pay-info-box {
+    background: #eff6ff; border: 1px solid #bfdbfe;
+    border-radius: var(--co-radius); padding: 12px;
+  }
+  .co-pay-info-title { font-size: 12px; font-weight: 800; color: #1e40af; margin-bottom: 6px; }
+  .co-pay-info-list {
+    font-size: 12px; color: #2563eb; list-style: decimal;
+    padding-left: 16px; margin: 0;
+  }
+  .co-pay-info-list li { margin-bottom: 3px; }
+
+  /* ==================== PENDING STATE ==================== */
+  .co-pending-spinner {
+    position: relative; width: 80px; height: 80px; margin: 0 auto;
+  }
+  @media (min-width: 768px) {
+    .co-pending-spinner { width: 96px; height: 96px; }
+  }
+  .co-pending-ring {
+    position: absolute; inset: 0; border: 4px solid var(--co-green-light);
+    border-radius: 50%;
+  }
+  .co-pending-ring-active {
+    position: absolute; inset: 0; border: 4px solid var(--co-green-600);
+    border-top-color: transparent; border-radius: 50%;
+    animation: co-spin 1s linear infinite;
+  }
+  .co-pending-icon {
+    position: absolute; inset: 0; display: flex; align-items: center;
+    justify-content: center;
+  }
+
+  .co-pending-details {
+    background: var(--co-bg); border: 1px solid #f0f0f0;
+    border-radius: var(--co-radius); padding: 12px;
+  }
+  .co-pending-detail-row {
+    display: flex; justify-content: space-between;
+    font-size: 13px; padding: 4px 0;
+  }
+  .co-pending-detail-label { color: var(--co-light); font-weight: 500; }
+  .co-pending-detail-value { font-weight: 700; color: var(--co-dark); }
+  .co-pending-detail-amount { font-weight: 900; color: var(--co-green); }
+
+  .co-progress-bar {
+    background: var(--co-green-lighter); border: 1px solid #bbf7d0;
+    border-radius: var(--co-radius); padding: 12px;
+  }
+  .co-progress-bar-top {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 6px;
+  }
+  .co-progress-bar-label { font-size: 12px; font-weight: 700; color: var(--co-green); }
+  .co-progress-bar-count { font-size: 12px; font-weight: 900; color: var(--co-green); }
+  .co-progress-track {
+    width: 100%; height: 6px; background: #bbf7d0; border-radius: 3px;
+    overflow: hidden;
+  }
+  .co-progress-fill {
+    height: 100%; background: var(--co-green-600); border-radius: 3px;
+    transition: width 1s linear;
+  }
+
+  /* ==================== AUTO CHECK TIMER ==================== */
+  .co-auto-check-bar {
+    background: #fef3c7; border: 1px solid #fde68a;
+    border-radius: var(--co-radius); padding: 10px 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 8px;
+  }
+  .co-auto-check-label {
+    font-size: 12px; font-weight: 700; color: #92400e;
+  }
+  .co-auto-check-time {
+    font-size: 13px; font-weight: 900; color: #b45309;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ==================== SUCCESS / FAILED ==================== */
+  .co-result-state { text-align: center; padding: 32px 0; }
+  .co-result-icon {
+    width: 72px; height: 72px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+  }
+  .co-result-icon-success { background: var(--co-green-light); }
+  .co-result-icon-failed { background: #fee2e2; }
+  .co-result-title { font-size: 22px; font-weight: 900; margin-bottom: 4px; }
+  .co-result-title-success { color: var(--co-green); }
+  .co-result-title-failed { color: var(--co-red); }
+  .co-result-desc { font-size: 14px; color: var(--co-light); }
+
+  /* ==================== ACTION DIALOG ==================== */
+  .co-dialog-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  .co-dialog-backdrop {
+    position: absolute; inset: 0; background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(4px);
+  }
+  .co-dialog-card {
+    position: relative; background: #fff; border-radius: var(--co-radius-xl);
+    width: 100%; max-width: 380px; overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    animation: co-dialog-pop 0.2s ease-out;
+  }
+  @keyframes co-dialog-pop {
+    from { opacity: 0; transform: translateY(12px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .co-dialog-bar { height: 4px; width: 100%; }
+  .co-dialog-bar-cancel { background: linear-gradient(90deg, #f87171, #ef4444); }
+  .co-dialog-bar-warning { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+  .co-dialog-body { padding: 24px; }
+  .co-dialog-icon {
+    width: 56px; height: 56px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+  }
+  .co-dialog-icon-cancel { background: #fef2f2; }
+  .co-dialog-icon-warning { background: #fffbeb; }
+  .co-dialog-title {
+    font-size: 18px; font-weight: 900; color: var(--co-dark);
+    text-align: center; margin-bottom: 6px;
+  }
+  .co-dialog-desc {
+    font-size: 13px; color: var(--co-light); text-align: center;
+    line-height: 1.5; margin-bottom: 20px;
+  }
+  .co-dialog-actions { display: flex; flex-direction: column; gap: 8px; }
+
+  /* ==================== APPROVAL GUIDE ==================== */
+  .co-guide-header {
+    display: flex; align-items: flex-start; gap: 12px;
+  }
+  .co-guide-logo-wrap {
+    width: 40px; height: 40px; border-radius: var(--co-radius-lg);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; border: 2px solid;
+  }
+  @media (min-width: 768px) { .co-guide-logo-wrap { width: 48px; height: 48px; } }
+  .co-guide-logo { width: 24px; height: 24px; object-fit: contain; }
+  @media (min-width: 768px) { .co-guide-logo { width: 32px; height: 32px; } }
+
+  .co-guide-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; padding: 3px 10px;
+    border-radius: 100px; border: 1px solid; margin-bottom: 4px;
+  }
+  .co-guide-badge-dot {
+    width: 6px; height: 6px; border-radius: 50%; animation: co-pulse 2s ease-in-out infinite;
+  }
+  @keyframes co-pulse {
+    0%, 100% { opacity: 0.4; } 50% { opacity: 1; }
+  }
+
+  .co-guide-title {
+    font-size: 17px; font-weight: 900; color: var(--co-dark);
+    line-height: 1.2; margin: 0;
+  }
+  @media (min-width: 768px) { .co-guide-title { font-size: 19px; } }
+  .co-guide-subtitle {
+    font-size: 13px; color: var(--co-light); margin-top: 2px;
+  }
+
+  .co-guide-info-row {
+    display: flex; align-items: center; justify-content: space-between;
+    border-radius: var(--co-radius); border: 1px solid;
+    padding: 10px 14px;
+  }
+  .co-guide-info-label {
+    font-size: 10px; font-weight: 700; color: var(--co-light);
+    text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px;
+  }
+  .co-guide-info-value {
+    font-weight: 900; letter-spacing: -0.01em;
+  }
+
+  .co-guide-ussd-row {
+    display: flex; align-items: center; gap: 12px;
+    border-radius: var(--co-radius); border: 1px solid;
+    padding: 10px 14px;
+  }
+  .co-guide-ussd-icon {
+    width: 32px; height: 32px; border-radius: var(--co-radius);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .co-guide-ussd-label {
+    font-size: 10px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .co-guide-ussd-value {
+    font-size: 20px; font-weight: 900;
+    font-family: 'SF Mono', 'Fira Code', monospace, var(--co-font);
+  }
+
+  .co-guide-steps-wrap {
+    background: #fff; border: 1px solid #f0f0f0;
+    border-radius: var(--co-radius); overflow: hidden;
+  }
+  .co-guide-steps-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; border-bottom: 1px solid #f5f5f5;
+  }
+  .co-guide-steps-title { font-size: 13px; font-weight: 800; color: var(--co-dark); }
+  .co-guide-steps-count {
+    font-size: 11px; font-weight: 700; padding: 2px 8px;
+    border-radius: 100px; border: 1px solid;
+  }
+  .co-guide-steps-body {
+    padding: 14px; max-height: 240px; overflow-y: auto;
+  }
+  @media (min-width: 768px) { .co-guide-steps-body { max-height: 320px; } }
+
+  .co-guide-step { display: flex; gap: 12px; }
+  .co-guide-step-col {
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .co-guide-step-num {
+    width: 24px; height: 24px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 900; color: #fff; flex-shrink: 0;
+  }
+  .co-guide-step-line {
+    width: 2px; flex: 1; min-height: 12px; margin: 4px 0;
+    border-radius: 1px; background: #e5e7eb;
+  }
+  .co-guide-step-text {
+    font-size: 13px; font-weight: 500; color: var(--co-mid);
+    padding-top: 2px; padding-bottom: 12px; line-height: 1.4;
+  }
+  .co-guide-step-text-last {
+    font-weight: 700; padding-bottom: 0;
+  }
+
+  .co-guide-tip {
+    display: flex; gap: 10px; background: #fffbeb;
+    border: 1px solid #fde68a; border-radius: var(--co-radius);
+    padding: 10px 14px;
+  }
+  .co-guide-tip-icon {
+    width: 24px; height: 24px; background: #fef3c7;
+    border-radius: 6px; display: flex; align-items: center;
+    justify-content: center; flex-shrink: 0; font-size: 14px;
+  }
+  .co-guide-tip-text {
+    font-size: 12px; font-weight: 600; color: #92400e; line-height: 1.5;
+  }
+
+  /* Guide mobile sticky */
+  .co-guide-sticky {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #fff; border-top: 1px solid var(--co-border);
+    padding: 12px 16px; z-index: 10000;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  @media (min-width: 1024px) { .co-guide-sticky { display: none; } }
+  .co-guide-desktop-actions { display: none; flex-direction: column; gap: 8px; padding-top: 4px; }
+  @media (min-width: 1024px) { .co-guide-desktop-actions { display: flex; } }
+`;
+
+// ==================== ACTION DIALOG COMPONENT ====================
 const PaymentActionDialog = ({ open, mode, verifying, onRetry, onCancel, onClose }) => {
   if (!open) return null;
   const isCancel = mode === "cancel";
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4">
-      {/* Blurred backdrop */}
-      <div
-        className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
-        onClick={() => !verifying && onClose()}
-      />
-
-      {/* Card */}
-      <div
-        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
-        style={{ animation: "dialogPop 0.2s ease-out" }}
-      >
-        {/* Top colour bar */}
-        <div
-          className={`h-1.5 w-full ${
-            isCancel
-              ? "bg-gradient-to-r from-red-400 to-red-500"
-              : "bg-gradient-to-r from-amber-400 to-orange-400"
-          }`}
-        />
-
-        <div className="p-6 space-y-5">
-          {/* Icon + copy */}
-          <div className="flex flex-col items-center text-center gap-3">
-            <div
-              className={`w-16 h-16 rounded-full flex items-center justify-center ${
-                isCancel ? "bg-red-50" : "bg-amber-50"
-              }`}
-            >
-              {isCancel ? (
-                <XCircleSolid className="w-9 h-9 text-red-500" />
-              ) : (
-                <ExclamationTriangleIcon className="w-9 h-9 text-amber-500" />
-              )}
-            </div>
-            <div>
-              <h3 className="text-lg font-black text-gray-900">
-                {isCancel ? "Cancel this order?" : "Payment not confirmed yet"}
-              </h3>
-              <p className="text-sm text-gray-500 mt-1.5 leading-relaxed">
-                {isCancel
-                  ? "Are you sure you want to cancel the order?"
-                  : "We couldn't verify your payment. Please approve via your MoMo app or USSD, then try again."}
-              </p>
-            </div>
+    <div className="co-dialog-overlay">
+      <div className="co-dialog-backdrop" onClick={() => !verifying && onClose()} />
+      <div className="co-dialog-card">
+        <div className={`co-dialog-bar ${isCancel ? "co-dialog-bar-cancel" : "co-dialog-bar-warning"}`} />
+        <div className="co-dialog-body">
+          <div className={`co-dialog-icon ${isCancel ? "co-dialog-icon-cancel" : "co-dialog-icon-warning"}`}>
+            {isCancel ? (
+              <XCircleSolid style={{ width: 32, height: 32, color: "#ef4444" }} />
+            ) : (
+              <ExclamationTriangleIcon style={{ width: 32, height: 32, color: "#f59e0b" }} />
+            )}
           </div>
-
-          <div className="border-t border-gray-100" />
-
-          {/* Buttons */}
-          <div className="space-y-2.5">
-            {/* Keep trying / retry */}
-            <button
-              onClick={onRetry}
-              disabled={verifying}
-              className="w-full py-3.5 rounded-xl font-bold text-white text-sm bg-green-600 hover:bg-green-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-md disabled:opacity-50 disabled:cursor-wait"
-              style={{ boxShadow: "0 3px 14px rgba(5,150,105,0.30)" }}
-            >
+          <div className="co-dialog-title">
+            {isCancel ? "Cancel this order?" : "Payment not confirmed yet"}
+          </div>
+          <div className="co-dialog-desc">
+            {isCancel
+              ? "Are you sure you want to cancel the order?"
+              : "We couldn't verify your payment. Please approve via your MoMo app or USSD, then try again."}
+          </div>
+          <div className="co-dialog-actions">
+            <button onClick={onRetry} disabled={verifying} className="co-btn-primary">
               {verifying ? (
                 <>
-                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                  </svg>
+                  <div className="co-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
                   Verifying…
                 </>
               ) : (
                 <>
-                  <ArrowUturnLeftIcon className="w-4 h-4" />
+                  <ArrowUturnLeftIcon style={{ width: 16, height: 16 }} />
                   {isCancel ? "Keep Trying" : "I've Approved — Try Again"}
                 </>
               )}
             </button>
-
-            {/* Confirm cancel */}
-            <button
-              onClick={onCancel}
-              disabled={verifying}
-              className="w-full py-3 rounded-xl font-semibold text-red-500 text-sm border border-red-100 bg-red-50 hover:bg-red-100 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-40"
-            >
-              <XCircleIcon className="w-4 h-4" />
+            <button onClick={onCancel} disabled={verifying} className="co-btn-danger">
+              <XCircleIcon style={{ width: 16, height: 16 }} />
               Yes, Cancel Order
             </button>
           </div>
         </div>
       </div>
-
-      <style>{`
-        @keyframes dialogPop {
-          from { opacity: 0; transform: translateY(14px) scale(0.97); }
-          to   { opacity: 1; transform: translateY(0)     scale(1);    }
-        }
-      `}</style>
     </div>
   );
 };
@@ -236,11 +842,13 @@ const Checkout = () => {
   const pollingRef = useRef(null);
   const countdownRef = useRef(null);
   const initialDelayRef = useRef(null);
+  const autoCheckRef = useRef(null);
 
   const [loading, setLoading] = useState(false);
   const [orderNote, setOrderNote] = useState("");
   const [paymentMethod, setPaymentMethod] = useState(null);
   const [timeoutCountdown, setTimeoutCountdown] = useState(60);
+  const [autoCheckCountdown, setAutoCheckCountdown] = useState(0);
 
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [deliveryInfo, setDeliveryInfo] = useState({ address: "", fee: 0, feeDisplay: "" });
@@ -250,7 +858,6 @@ const Checkout = () => {
   const [isGuestWarningVisible, setIsGuestWarningVisible] = useState(false);
   const [isApprovalGuideVisible, setIsApprovalGuideVisible] = useState(false);
 
-  // Action dialog: { open, mode: "cancel" | "not_confirmed" }
   const [actionDialog, setActionDialog] = useState({ open: false, mode: "cancel" });
 
   const [paymentStatus, setPaymentStatus] = useState("idle");
@@ -308,6 +915,7 @@ const Checkout = () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
       if (countdownRef.current) clearInterval(countdownRef.current);
       if (initialDelayRef.current) clearTimeout(initialDelayRef.current);
+      if (autoCheckRef.current) clearInterval(autoCheckRef.current);
     };
   }, []);
 
@@ -360,6 +968,79 @@ const Checkout = () => {
     }
   }, [reduxCart]);
 
+  // ==================== AUTO-CHECK after 2 minutes when approval guide is visible ====================
+  useEffect(() => {
+    if (isApprovalGuideVisible && currentOrderId) {
+      const totalSeconds = AUTO_CHECK_DELAY_MS / 1000;
+      setAutoCheckCountdown(totalSeconds);
+
+      // Countdown timer
+      const countdownTimer = setInterval(() => {
+        setAutoCheckCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(countdownTimer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      // Auto-check after 2 minutes
+      autoCheckRef.current = setTimeout(async () => {
+        try {
+          setVerifyingPayment(true);
+          const response = await dispatch(
+            checkTransactionStatus({ refNo: currentOrderId })
+          ).unwrap();
+
+          if (response?.responseMessage === "Successfully Processed Transaction") {
+            setPaymentStatus("success");
+            setIsApprovalGuideVisible(false);
+            try {
+              await processDirectCheckout(
+                currentOrderId,
+                pendingCheckoutDetails,
+                pendingAddressDetails
+              );
+              localStorage.removeItem("checkoutDetails");
+              localStorage.removeItem("orderAddressDetails");
+              message.success("Payment confirmed! Your order is being processed.");
+              setTimeout(() => {
+                setIsPaymentModalVisible(false);
+                navigate(`/order-success/${currentOrderId}`);
+              }, 1200);
+            } catch {
+              message.error("Payment confirmed but order processing failed. Contact support.");
+            }
+          } else {
+            // Payment not successful after 2 minutes → navigate to cancelled
+            setIsApprovalGuideVisible(false);
+            setIsPaymentModalVisible(false);
+            localStorage.removeItem("checkoutDetails");
+            localStorage.removeItem("orderAddressDetails");
+            message.error("Payment was not confirmed. Your order has been cancelled.");
+            navigate("/order-cancelled");
+          }
+        } catch {
+          // Error checking → navigate to cancelled
+          setIsApprovalGuideVisible(false);
+          setIsPaymentModalVisible(false);
+          localStorage.removeItem("checkoutDetails");
+          localStorage.removeItem("orderAddressDetails");
+          message.error("Unable to verify payment. Your order has been cancelled.");
+          navigate("/order-cancelled");
+        } finally {
+          setVerifyingPayment(false);
+        }
+      }, AUTO_CHECK_DELAY_MS);
+
+      return () => {
+        clearInterval(countdownTimer);
+        if (autoCheckRef.current) clearTimeout(autoCheckRef.current);
+      };
+    }
+  }, [isApprovalGuideVisible, currentOrderId]);
+
   // ==================== MOMO NUMBER ====================
   const handleMomoNumberChange = (e) => {
     let value = e.target.value.replace(/[^0-9]/g, "");
@@ -398,9 +1079,7 @@ const Checkout = () => {
           await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
       }
     }
-    throw new Error(
-      `Checkout failed after ${maxRetries} attempts: ${lastError?.message || "Unknown error"}`
-    );
+    throw new Error(`Checkout failed after ${maxRetries} attempts: ${lastError?.message || "Unknown"}`);
   };
   const dispatchOrderAddressWithRetry = async (orderId, addressDetails, maxRetries = 3) => {
     let lastError;
@@ -417,9 +1096,7 @@ const Checkout = () => {
           await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
       }
     }
-    throw new Error(
-      `Address update failed after ${maxRetries} attempts: ${lastError?.message || "Unknown error"}`
-    );
+    throw new Error(`Address update failed after ${maxRetries} attempts: ${lastError?.message || "Unknown"}`);
   };
   const processDirectCheckout = async (orderId, checkoutDetails, addressDetails) => {
     await dispatchOrderCheckoutWithRetry(orderId, checkoutDetails);
@@ -457,9 +1134,7 @@ const Checkout = () => {
                 navigate(`/order-success/${orderId}`);
               }, 1200);
             } catch {
-              message.error(
-                "Payment succeeded, but order processing failed. Contact support."
-              );
+              message.error("Payment succeeded, but order processing failed. Contact support.");
             }
             return;
           }
@@ -475,11 +1150,12 @@ const Checkout = () => {
     }, INITIAL_DELAY_MS);
   };
 
-  // ==================== CANCEL (performs cleanup) ====================
+  // ==================== CANCEL ====================
   const performCancelOrder = () => {
     if (pollingRef.current) clearInterval(pollingRef.current);
     if (countdownRef.current) clearInterval(countdownRef.current);
     if (initialDelayRef.current) clearTimeout(initialDelayRef.current);
+    if (autoCheckRef.current) clearTimeout(autoCheckRef.current);
     setActionDialog({ open: false, mode: "cancel" });
     setIsApprovalGuideVisible(false);
     setIsPaymentModalVisible(false);
@@ -499,16 +1175,12 @@ const Checkout = () => {
       ).unwrap();
 
       if (response?.responseMessage === "Successfully Processed Transaction") {
-        // Success path
+        if (autoCheckRef.current) clearTimeout(autoCheckRef.current);
         setActionDialog({ open: false, mode: "cancel" });
         setPaymentStatus("success");
         setIsApprovalGuideVisible(false);
         try {
-          await processDirectCheckout(
-            currentOrderId,
-            pendingCheckoutDetails,
-            pendingAddressDetails
-          );
+          await processDirectCheckout(currentOrderId, pendingCheckoutDetails, pendingAddressDetails);
           localStorage.removeItem("checkoutDetails");
           localStorage.removeItem("orderAddressDetails");
           message.success("Payment confirmed! Your order is being processed...");
@@ -517,12 +1189,9 @@ const Checkout = () => {
             navigate(`/order-success/${currentOrderId}`);
           }, 1200);
         } catch {
-          message.error(
-            "Payment confirmed but order processing failed. Please contact support."
-          );
+          message.error("Payment confirmed but order processing failed. Please contact support.");
         }
       } else {
-        // Not confirmed — show the not_confirmed dialog
         setActionDialog({ open: true, mode: "not_confirmed" });
       }
     } catch {
@@ -532,44 +1201,27 @@ const Checkout = () => {
     }
   };
 
-  // ── "Cancel Order" button on approval guide → open cancel dialog ──
-  const handleCancelFromGuide = () => {
-    setActionDialog({ open: true, mode: "cancel" });
-  };
-
-  // ── Dialog: primary action (Keep Trying / Try Again) ──
+  const handleCancelFromGuide = () => setActionDialog({ open: true, mode: "cancel" });
   const handleDialogRetry = () => {
     setActionDialog({ open: false, mode: "cancel" });
-    if (actionDialog.mode === "not_confirmed") {
-      // Re-attempt verification immediately
-      handleManualConfirm();
-    }
-    // For "cancel" mode: just close → user stays on guide
+    if (actionDialog.mode === "not_confirmed") handleManualConfirm();
   };
-
-  // ── Dialog: destructive action (Yes, Cancel) ──
   const handleDialogCancel = () => performCancelOrder();
 
   // ==================== VALIDATION ====================
   const validateRequiredFields = () => {
     const errors = [];
-    if (!customerName?.trim())
-      errors.push({ field: "name", message: "Recipient name is required" });
-    if (!customerNumber?.trim())
-      errors.push({ field: "phone", message: "Recipient contact number is required" });
-    if (!selectedAddress?.trim())
-      errors.push({ field: "address", message: "Delivery address is required" });
-    if (!paymentMethod)
-      errors.push({ field: "payment", message: "Payment method is required" });
+    if (!customerName?.trim()) errors.push({ field: "name", message: "Recipient name is required" });
+    if (!customerNumber?.trim()) errors.push({ field: "phone", message: "Recipient contact number is required" });
+    if (!selectedAddress?.trim()) errors.push({ field: "address", message: "Delivery address is required" });
+    if (!paymentMethod) errors.push({ field: "payment", message: "Payment method is required" });
     return errors;
   };
   const getSafeCustomerDetails = () => {
     let name = customerName?.trim();
     let number = customerNumber?.trim();
-    if (!name && customerData)
-      name = `${customerData.firstName || ""} ${customerData.lastName || ""}`.trim();
-    if (!number && customerData)
-      number = customerData.contactNumber || customerData.ContactNumber || "";
+    if (!name && customerData) name = `${customerData.firstName || ""} ${customerData.lastName || ""}`.trim();
+    if (!number && customerData) number = customerData.contactNumber || customerData.ContactNumber || "";
     if (!number) number = "0000000000";
     return { name, number };
   };
@@ -583,11 +1235,7 @@ const Checkout = () => {
     setCustomerNumber(safeNumber);
 
     const nameLower = safeName.toLowerCase().trim();
-    if (
-      nameLower === "guest" ||
-      nameLower === "guest user" ||
-      nameLower.startsWith("guest ")
-    ) {
+    if (nameLower === "guest" || nameLower === "guest user" || nameLower.startsWith("guest ")) {
       setIsGuestWarningVisible(true);
       return;
     }
@@ -604,27 +1252,15 @@ const Checkout = () => {
     const cartId = getCartId();
 
     const checkoutDetails = {
-      Cartid: cartId,
-      customerId,
-      orderCode: orderId,
-      PaymentMode: paymentMethod,
-      PaymentAccountNumber: safeNumber || "0000000000",
-      customerAccountType,
-      paymentService: "Mtn",
-      totalAmount,
-      recipientName: safeName,
-      recipientContactNumber: safeNumber,
-      orderNote: orderNote || "N/A",
-      orderDate,
+      Cartid: cartId, customerId, orderCode: orderId, PaymentMode: paymentMethod,
+      PaymentAccountNumber: safeNumber || "0000000000", customerAccountType,
+      paymentService: "Mtn", totalAmount, recipientName: safeName,
+      recipientContactNumber: safeNumber, orderNote: orderNote || "N/A", orderDate,
     };
     const addressDetails = {
-      orderCode: orderId,
-      address: selectedAddress,
-      Customerid: customerId,
-      recipientName: safeName,
-      recipientContactNumber: safeNumber,
-      orderNote: orderNote || "N/A",
-      geoLocation: "N/A",
+      orderCode: orderId, address: selectedAddress, Customerid: customerId,
+      recipientName: safeName, recipientContactNumber: safeNumber,
+      orderNote: orderNote || "N/A", geoLocation: "N/A",
     };
 
     try {
@@ -653,38 +1289,21 @@ const Checkout = () => {
   };
 
   const handlePayNow = async () => {
-    if (!isValidMomoNumber()) {
-      message.error("Please enter a valid 9-digit number after 233");
-      return;
-    }
-    if (!selectedNetwork) {
-      message.error("Please select your network provider");
-      return;
-    }
+    if (!isValidMomoNumber()) { message.error("Please enter a valid 9-digit number after 233"); return; }
+    if (!selectedNetwork) { message.error("Please select your network provider"); return; }
     const paymentAmount = calculateSubtotal();
     const narration = buildCartNarration(cartItems);
     try {
       setPayButtonLoading(true);
       setPaymentStatus("pending");
-      await dispatch(
-        debitCustomer({
-          refNo: currentOrderId,
-          msisdn: momoNumber,
-          amount: paymentAmount,
-          network: selectedNetwork,
-          narration,
-        })
-      ).unwrap();
+      await dispatch(debitCustomer({ refNo: currentOrderId, msisdn: momoNumber, amount: paymentAmount, network: selectedNetwork, narration })).unwrap();
       startPolling(currentOrderId, pendingCheckoutDetails, pendingAddressDetails);
-    } catch (error) {
+    } catch {
       setPaymentStatus("failed");
       localStorage.removeItem("checkoutDetails");
       localStorage.removeItem("orderAddressDetails");
       message.error("Payment initiation failed. Redirecting...");
-      setTimeout(() => {
-        setIsPaymentModalVisible(false);
-        navigate("/order-cancelled");
-      }, 2000);
+      setTimeout(() => { setIsPaymentModalVisible(false); navigate("/order-cancelled"); }, 2000);
     } finally {
       setPayButtonLoading(false);
     }
@@ -692,1047 +1311,589 @@ const Checkout = () => {
 
   // ==================== RENDER HELPERS ====================
   const renderImage = (imagePath) => {
-    if (!imagePath)
-      return (
-        <div className="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center border border-gray-200">
-          <span className="text-gray-400 text-xs">No Image</span>
-        </div>
-      );
-    const imageUrl = `https://ct002.frankotrading.com:444/Media/Products_Images/${imagePath
-      .split("\\")
-      .pop()}`;
+    if (!imagePath) return <div className="co-item-img-placeholder">No Image</div>;
+    const imageUrl = `https://ct002.frankotrading.com:444/Media/Products_Images/${imagePath.split("\\").pop()}`;
     return (
-      <img
-        src={imageUrl}
-        alt="Product"
-        className="w-16 h-16 object-cover rounded-xl border border-gray-100"
-        onError={(e) => {
-          e.target.style.display = "none";
-          if (e.target.nextSibling) e.target.nextSibling.style.display = "flex";
-        }}
-      />
+      <img src={imageUrl} alt="Product" className="co-item-img"
+        onError={(e) => { e.target.style.display = "none"; if (e.target.nextSibling) e.target.nextSibling.style.display = "flex"; }} />
     );
   };
 
   const getServiceChargeLabel = () =>
-    calculateTotalAmount() > 2000
-      ? "Momo Service Charge :"
-      : "Momo Service Charge (1%):";
+    calculateTotalAmount() > 2000 ? "Momo Service Charge:" : "Momo Service Charge (1%):";
+
+  const formatAutoCheckTime = (seconds) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
 
   // ==================== EMPTY CART ====================
   if (!cartItems || cartItems.length === 0) {
     return (
-      <div className="p-8 text-center min-h-[400px] flex flex-col items-center justify-center">
-        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-          <ShoppingBagIcon className="w-10 h-10 text-gray-400" />
+      <>
+        <style>{checkoutStyles}</style>
+        <div className="co-root">
+          <div className="co-container">
+            <div className="co-empty">
+              <div className="co-empty-icon">
+                <ShoppingBagIcon style={{ width: 36, height: 36, color: "var(--co-light)" }} />
+              </div>
+              <div className="co-empty-title">Your cart is empty</div>
+              <div className="co-empty-desc">Add items to your cart to proceed with checkout.</div>
+              <button onClick={() => navigate("/")} className="co-btn-primary" style={{ maxWidth: 280 }}>
+                Continue Shopping
+              </button>
+            </div>
+          </div>
         </div>
-        <h2 className="text-2xl font-bold text-gray-700 mb-2">Your cart is empty</h2>
-        <p className="text-gray-500 mb-6">Add items to your cart to proceed with checkout.</p>
-        <button
-          onClick={() => navigate("/")}
-          className="bg-green-600 text-white px-8 py-3 rounded-xl hover:bg-green-700 transition-colors font-semibold shadow-md"
-        >
-          Continue Shopping
-        </button>
-      </div>
+      </>
     );
   }
 
   // ==================== MAIN RENDER ====================
   return (
-    <div className="p-4 mx-auto pb-24 lg:pb-4">
-      {loading && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-8 flex flex-col items-center gap-4 shadow-2xl">
-            <div className="animate-spin h-10 w-10 border-4 border-green-500 border-t-transparent rounded-full" />
-            <p className="text-gray-600 font-semibold">Processing your order…</p>
-          </div>
-        </div>
-      )}
+    <>
+      <style>{checkoutStyles}</style>
 
-      {/* Page Title */}
-      <div className="flex items-center mb-6 gap-3">
-        <div className="w-9 h-9 bg-green-50 rounded-xl flex items-center justify-center">
-          <ShoppingBagIcon className="w-5 h-5 text-green-600" />
-        </div>
-        <h2 className="text-xl font-bold text-gray-800">
-          Checkout{" "}
-          <span className="text-gray-400 font-normal text-base">
-            ({cartItems.length} items)
-          </span>
-        </h2>
-        <div className="flex-grow border-t border-gray-200 ml-2" />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* ══════ BILLING INFO ══════ */}
-        <div className="lg:col-span-1">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 lg:p-6">
-            <div className="mb-5">
-              <h3 className="text-base font-bold text-gray-800">Billing Information</h3>
-              <div className="mt-2 flex gap-1">
-                <div className="h-0.5 w-8 bg-green-500 rounded-full" />
-                <div className="h-0.5 flex-1 bg-gray-100 rounded-full" />
-              </div>
-            </div>
-
-            <div
-              className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 mb-4 cursor-pointer select-none hover:border-green-200 transition-colors"
-              onClick={() => setIsDifferentRecipient((v) => !v)}
-            >
-              <div className="flex items-center gap-2">
-                <UserIcon className="w-4 h-4 text-gray-500" />
-                <span className="text-sm font-medium text-gray-700">
-                  Different recipient?
-                </span>
-              </div>
-              <div
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                  isDifferentRecipient ? "bg-green-500" : "bg-gray-300"
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
-                    isDifferentRecipient ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
-              </div>
-            </div>
-
-            {isDifferentRecipient && (
-              <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-                <p className="text-xs text-amber-700 font-medium">
-                  Enter the recipient's name and contact number below.
-                </p>
-              </div>
-            )}
-
-            <CheckoutForm
-              customerName={customerName}
-              setCustomerName={setCustomerName}
-              customerNumber={customerNumber}
-              setCustomerNumber={setCustomerNumber}
-              deliveryInfo={deliveryInfo}
-              setDeliveryInfo={setDeliveryInfo}
-              orderNote={orderNote}
-              setOrderNote={setOrderNote}
-              locations={locations}
-              customerAccountType={customerAccountType}
-              firstName={customerData?.firstName || "Guest"}
-              isDifferentRecipient={isDifferentRecipient}
-              readOnlyRecipient={!isDifferentRecipient}
-            />
-          </div>
-        </div>
-
-        {/* ══════ ORDER SUMMARY ══════ */}
-        <div className="lg:col-span-2">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 lg:p-6">
-            <div className="mb-5">
-              <h3 className="text-base font-bold text-gray-800">Order Summary</h3>
-              <div className="mt-2 flex gap-1">
-                <div className="h-0.5 w-8 bg-green-500 rounded-full" />
-                <div className="h-0.5 flex-1 bg-gray-100 rounded-full" />
-              </div>
-            </div>
-
-            {/* Cart Items */}
-            <div className="divide-y divide-gray-50 max-h-96 overflow-y-auto pr-1">
-              {cartItems.map((item, index) => {
-                const unitPrice = getItemUnitPrice(item);
-                const qty = getItemQuantity(item);
-                const lineTotal = unitPrice * qty;
-                return (
-                  <div
-                    key={item.productId || index}
-                    className="flex justify-between items-center py-3 gap-3"
-                  >
-                    <div className="flex gap-3 flex-1 min-w-0">
-                      <div className="flex-shrink-0 relative">
-                        {renderImage(item.imagePath)}
-                        <div className="w-16 h-16 bg-gray-100 rounded-xl items-center justify-center hidden">
-                          <span className="text-gray-400 text-xs">No Image</span>
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-800 text-sm truncate">
-                          {item.productName || "Product"}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          Unit: {formatGHS(unitPrice)}
-                        </p>
-                        <span className="inline-flex items-center gap-1 mt-1.5 text-xs font-semibold text-green-700 bg-green-50 rounded-full px-2.5 py-0.5">
-                          Qty {qty}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-sm font-bold text-gray-800 flex-shrink-0">
-                      {formatGHS(lineTotal)}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Totals */}
-            <div className="flex justify-between items-center pt-4 border-t text-md font-medium text-gray-900">
-              <span>Subtotal</span>
-              <span>{formatGHS(calculateSubtotal())}</span>
-            </div>
-
-            {/* CHARGES */}
-            <div className="mt-4 space-y-2 text-sm">
-              <div className="flex justify-between items-center">
-                <Text>Shipping Fee:</Text>
-                {isFreeDelivery ? (
-                  <Text className="text-green-600 font-semibold">FREE DELIVERY</Text>
-                ) : isNADelivery ? (
-                  <Text type="warning" className="text-amber-600">
-                    {isAgent ? "Agent delivery" : "Delivery charges apply"}
-                  </Text>
-                ) : deliveryFee > 0 ? (
-                  <Text strong>{formatGHS(deliveryFee)}</Text>
-                ) : (
-                  <Text type="warning" className="text-amber-600">
-                    Select location for delivery fee
-                  </Text>
-                )}
-              </div>
-
-              {paymentMethod === "Mobile Money" && (
-                <div className="flex justify-between items-center bg-blue-50 p-2 rounded-lg">
-                  <Text className="text-gray-700 font-medium text-xs lg:text-sm">
-                    {getServiceChargeLabel()}
-                  </Text>
-                  <Text className="text-gray-700 font-medium text-xs lg:text-sm">
-                    {formatGHS(calculateServiceCharge())}
-                  </Text>
-                </div>
-              )}
-
-              <div className="flex justify-between items-center pt-2 border-t border-gray-300 bg-gradient-to-r from-red-50 to-orange-50 p-3 rounded-lg">
-                <Text className="text-red-600 font-bold text-base lg:text-lg">Total Amount:</Text>
-                <Text className="text-red-600 font-bold text-base lg:text-lg">
-                  {paymentMethod === "Mobile Money"
-                    ? formatGHS(calculateDisplayTotalWithCharge())
-                    : formatGHS(calculateTotalAmount())}
-                </Text>
-              </div>
-
-              {paymentMethod === "Mobile Money" && (
-                <p className="text-xs text-gray-500 italic text-center mt-1">
-                  * Service charge is applied by your mobile money provider.
-                </p>
-              )}
-            </div>
-
-            <Divider className="my-6" />
-
-            {/* Payment Method */}
-            <div>
-              <p className="text-sm font-bold text-gray-700 mb-3">Payment Method</p>
-              <Radio.Group
-                value={paymentMethod}
-                onChange={handlePaymentMethodChange}
-                className="flex flex-col gap-2"
-              >
-                {(isAgent || isFreeDelivery || (deliveryFee > 0 && !isNADelivery)) && (
-                  <label
-                    className={`flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
-                      paymentMethod === "Cash on Delivery"
-                        ? "border-green-500 bg-green-50"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                  >
-                    <Radio value="Cash on Delivery" />
-                    <span className="text-sm font-medium text-gray-700">
-                      Cash on Delivery
-                    </span>
-                  </label>
-                )}
-                {!isAgent && (
-                  <label
-                    className={`flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
-                      paymentMethod === "Mobile Money"
-                        ? "border-green-500 bg-green-50"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                  >
-                    <Radio value="Mobile Money" />
-                    <span className="text-sm font-medium text-gray-700">
-                      Mobile Money
-                    </span>
-                  </label>
-                )}
-                {isAgent && (
-                  <>
-                    <label
-                      className={`flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
-                        paymentMethod === "Pick Up"
-                          ? "border-green-500 bg-green-50"
-                          : "border-gray-200 hover:border-gray-300"
-                      }`}
-                    >
-                      <Radio value="Pick Up" />
-                      <span className="text-sm font-medium text-gray-700">Pick Up</span>
-                    </label>
-                    <label
-                      className={`flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
-                        paymentMethod === "Paid Already"
-                          ? "border-green-500 bg-green-50"
-                          : "border-gray-200 hover:border-gray-300"
-                      }`}
-                    >
-                      <Radio value="Paid Already" />
-                      <span className="text-sm font-medium text-gray-700">
-                        Paid Already
-                      </span>
-                    </label>
-                  </>
-                )}
-              </Radio.Group>
-            </div>
-
-            {/* Place Order - Hidden on mobile, shown on desktop */}
-            <div className="mt-6 hidden lg:block">
-              <button
-                type="button"
-                onClick={handleCheckout}
-                disabled={loading}
-                className={`w-full text-white font-bold text-base py-4 rounded-xl transition-all duration-300 shadow-lg ${
-                  loading
-                    ? "bg-gray-400 cursor-wait"
-                    : "bg-green-600 hover:bg-green-700 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99]"
-                }`}
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg
-                      className="animate-spin h-5 w-5 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                      />
-                    </svg>
-                    Processing Order...
-                  </span>
-                ) : (
-                  <span className="flex items-center justify-center gap-2">
-                    <ShoppingBagIcon className="w-5 h-5" />
-                    Place Order
-                  </span>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Sticky Place Order Button for Mobile */}
-      <div className="fixed bottom-0 left-0 right-0 lg:hidden bg-white border-t border-gray-200 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] z-40 safe-area-bottom">
-        <button
-          type="button"
-          onClick={handleCheckout}
-          disabled={loading}
-          className={`w-full text-white font-bold text-base py-3.5 rounded-xl transition-all duration-300 shadow-lg ${
-            loading
-              ? "bg-gray-400 cursor-wait"
-              : "bg-green-600 hover:bg-green-700 active:scale-[0.98]"
-          }`}
-        >
-          {loading ? (
-            <span className="flex items-center justify-center gap-2">
-              <svg
-                className="animate-spin h-5 w-5 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                />
-              </svg>
-              Processing Order...
-            </span>
-          ) : (
-            <span className="flex items-center justify-center gap-2">
-              <ShoppingBagIcon className="w-5 h-5" />
-              Place Order
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* Rest of the modals remain the same... */}
-      {/* ══════ GUEST WARNING MODAL ══════ */}
-      <Modal
-        open={isGuestWarningVisible}
-        onCancel={() => setIsGuestWarningVisible(false)}
-        centered
-        footer={null}
-        width={400}
-        className="mobile-optimized-modal"
-      >
-        <div className="flex flex-col items-center text-center py-4 space-y-4">
-          <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center">
-            <ExclamationTriangleIcon className="w-8 h-8 text-amber-500" />
-          </div>
-          <div>
-            <h3 className="text-lg font-bold text-gray-800 mb-1">Real name required</h3>
-            <p className="text-sm text-gray-500 leading-relaxed">
-              Please enter your actual full name before placing an order.
-              <br />
-              <span className="text-amber-600 font-medium">
-                Guest accounts must provide a real name.
-              </span>
-            </p>
-          </div>
-          <button
-            onClick={() => setIsGuestWarningVisible(false)}
-            className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold transition-colors"
-          >
-            OK, I'll update my name
-          </button>
-        </div>
-      </Modal>
-
-      {/* ══════ VALIDATION MODAL ══════ */}
-      <Modal
-        title={
-          <div className="flex items-center gap-2 text-red-600">
-            <ExclamationTriangleIcon className="w-5 h-5" />
-            <span className="text-sm lg:text-base">Complete Required Fields</span>
-          </div>
-        }
-        open={isValidationModalVisible}
-        onCancel={() => setIsValidationModalVisible(false)}
-        centered
-        footer={[
-          <button
-            key="ok"
-            onClick={() => setIsValidationModalVisible(false)}
-            className="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
-          >
-            Got It
-          </button>,
-        ]}
-        className="mobile-optimized-modal"
-      >
-        <div className="space-y-2.5 mt-4">
-          <p className="text-gray-500 text-sm mb-3">
-            Please fill in the following required fields:
-          </p>
-          {validateRequiredFields().map((error, index) => {
-            const icons = {
-              name: UserIcon,
-              phone: PhoneIcon,
-              address: MapPinIcon,
-              payment: CreditCardIcon,
-            };
-            const labels = {
-              name: "Recipient Name",
-              phone: "Contact Number",
-              address: "Delivery Address",
-              payment: "Payment Method",
-            };
-            const Icon = icons[error.field] || ExclamationTriangleIcon;
-            return (
-              <div
-                key={index}
-                className="flex items-center gap-3 p-2.5 bg-red-50 rounded-xl border border-red-100"
-              >
-                <Icon className="w-4 h-4 text-red-400 flex-shrink-0" />
-                <span className="text-sm font-medium text-red-700">
-                  {labels[error.field] || "Required Field"}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </Modal>
-
-      {/* ══════ PAYMENT MODAL ══════ */}
-      {!isAgent && (
-        <Modal
-          open={isPaymentModalVisible}
-          onCancel={() => {
-            if (paymentStatus === "input") {
-              if (initialDelayRef.current) clearTimeout(initialDelayRef.current);
-              if (pollingRef.current) clearInterval(pollingRef.current);
-              if (countdownRef.current) clearInterval(countdownRef.current);
-              setIsPaymentModalVisible(false);
-              setPaymentStatus("idle");
-            }
-          }}
-          footer={null}
-          closable={paymentStatus === "input"}
-          centered
-          width={500}
-          styles={{ body: { padding: "16px 20px" } }}
-          className="mobile-optimized-modal"
-        >
-          <div className="space-y-4 lg:space-y-5">
-            {/* Header */}
-            <div className="text-center">
-              <img
-                src={frankoLogo}
-                alt="Franko Trading"
-                className="h-8 lg:h-10 mx-auto mb-2 object-contain"
-                onError={(e) => { e.target.style.display = "none"; }}
-              />
-              <p className="text-xs lg:text-sm font-bold text-gray-700 tracking-tight">
-                Franko Trading Limited
-              </p>
-            </div>
-
-            {/* Amount card */}
-            <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-2xl p-3 lg:p-4 text-center text-white shadow-lg shadow-green-200">
-              <p className="text-xs font-semibold text-green-200 uppercase tracking-wider mb-1">
-                You will be charged
-              </p>
-              <p className="text-2xl lg:text-3xl font-black">
-                {formatGHS(calculateDisplayTotalWithCharge())}
-              </p>
-              <p className="text-xs text-green-200 mt-1.5">Ref: {currentOrderId}</p>
-            </div>
-
-            {/* INPUT */}
-            {paymentStatus === "input" && (
-              <>
-                <div className="space-y-3 lg:space-y-4">
-                  <div className="bg-gray-50 rounded-xl p-3 lg:p-4 border border-gray-100">
-                    <label className="text-sm font-bold text-gray-800 flex items-center gap-2 mb-3">
-                      <span className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-black">
-                        1
-                      </span>
-                      Mobile Money Number
-                    </label>
-                    <Input
-                      placeholder="233XXXXXXXXX"
-                      value={momoNumber}
-                      onChange={handleMomoNumberChange}
-                      prefix={<PhoneIcon className="w-4 h-4 text-gray-400" />}
-                      size="large"
-                      maxLength={12}
-                      className="rounded-xl font-bold text-base lg:text-lg"
-                      style={{ fontSize: "16px" }}
-                    />
-                    <div className="mt-2 min-h-[20px]">
-                      {startsWithZeroAfter233() && (
-                        <p className="text-xs text-red-500 font-medium">
-                          Do not begin the number with 0 after 233
-                        </p>
-                      )}
-                      {momoNumber.length === 12 &&
-                        !isValidMomoNumber() &&
-                        !startsWithZeroAfter233() && (
-                          <p className="text-xs text-red-500 font-medium">
-                            Please enter a valid 9-digit number after 233
-                          </p>
-                        )}
-                      {isValidMomoNumber() && (
-                        <p className="text-xs text-green-600 font-semibold flex items-center gap-1">
-                          <CheckCircleIcon className="w-3.5 h-3.5" /> Valid number
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-50 rounded-xl p-3 lg:p-4 border border-gray-100">
-                    <label className="text-sm font-bold text-gray-800 flex items-center gap-2 mb-3">
-                      <span className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-black">
-                        2
-                      </span>
-                      Select Network
-                    </label>
-                    <Radio.Group
-                      value={selectedNetwork}
-                      onChange={(e) => setSelectedNetwork(e.target.value)}
-                      className="w-full"
-                    >
-                      <div className="space-y-2">
-                        {[
-                          {
-                            value: "mtn",
-                            logo: mtnLogo,
-                            name: "MTN",
-                            sub: "Mobile Money",
-                            selectedBg: "bg-yellow-50 border-yellow-400",
-                            check: "text-yellow-600",
-                          },
-                          {
-                            value: "vodafone",
-                            logo: vodafoneLogo,
-                            name: "Vodafone",
-                            sub: "Vodafone Cash",
-                            selectedBg: "bg-red-50 border-red-400",
-                            check: "text-red-500",
-                          },
-                          {
-                            value: "airteltigo",
-                            logo: airteltigoLogo,
-                            name: "AirtelTigo",
-                            sub: "AirtelTigo Money",
-                            selectedBg: "bg-blue-50 border-blue-400",
-                            check: "text-blue-500",
-                          },
-                        ].map((net) => (
-                          <label
-                            key={net.value}
-                            className={`flex items-center p-3 rounded-xl border-2 cursor-pointer transition-all hover:shadow-sm ${
-                              selectedNetwork === net.value
-                                ? net.selectedBg
-                                : "border-gray-200 bg-white hover:border-gray-300"
-                            }`}
-                          >
-                            <Radio value={net.value} />
-                            <div className="flex items-center gap-3 ml-3 flex-1">
-                              <img
-                                src={net.logo}
-                                alt={net.name}
-                                className="h-8 w-8 lg:h-9 lg:w-9 object-contain rounded-lg"
-                                onError={(e) => { e.target.style.display = "none"; }}
-                              />
-                              <div>
-                                <p className="text-sm font-bold text-gray-800">{net.name}</p>
-                                <p className="text-xs text-gray-400">{net.sub}</p>
-                              </div>
-                            </div>
-                            {selectedNetwork === net.value && (
-                              <CheckCircleSolid className={`w-5 h-5 ${net.check}`} />
-                            )}
-                          </label>
-                        ))}
-                      </div>
-                    </Radio.Group>
-                  </div>
-                </div>
-
-                <button
-                  onClick={handlePayNow}
-                  disabled={!isValidMomoNumber() || !selectedNetwork || payButtonLoading}
-                  className={`w-full py-3.5 lg:py-4 rounded-xl font-bold text-white text-base transition-all duration-300 shadow-md ${
-                    !isValidMomoNumber() || !selectedNetwork || payButtonLoading
-                      ? "bg-gray-300 cursor-not-allowed"
-                      : "bg-green-600 hover:bg-green-700 hover:shadow-lg active:scale-[0.98]"
-                  }`}
-                >
-                  {payButtonLoading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                      </svg>
-                      Sending request…
-                    </span>
-                  ) : (
-                    <span className="flex items-center justify-center gap-2">
-                      <CreditCardIcon className="w-5 h-5" />
-                      Pay {formatGHS(calculateDisplayTotalWithCharge())}
-                    </span>
-                  )}
-                </button>
-
-                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 lg:p-3.5">
-                  <p className="text-xs font-bold text-blue-800 mb-1.5">What happens next?</p>
-                  <ol className="text-xs text-blue-600 space-y-1 list-decimal list-inside">
-                    <li>You'll receive a payment prompt on your phone</li>
-                    <li>Enter your MoMo PIN to approve the payment</li>
-                    <li>We check for confirmation every 5 seconds</li>
-                    <li>Your order processes immediately after payment</li>
-                  </ol>
-                </div>
-              </>
-            )}
-
-            {/* PENDING */}
-            {paymentStatus === "pending" && (
-              <div className="text-center space-y-4 py-4">
-                <div className="relative flex items-center justify-center mx-auto w-20 h-20 lg:w-24 lg:h-24">
-                  <div className="absolute inset-0 border-4 border-green-100 rounded-full" />
-                  <div className="absolute inset-0 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
-                  <PhoneIcon className="w-7 h-7 lg:w-8 lg:h-8 text-green-600 animate-pulse" />
-                </div>
-                <div>
-                  <p className="font-black text-gray-800 text-base lg:text-lg">Awaiting Approval</p>
-                  <p className="text-gray-500 text-sm mt-1">
-                    Approve the payment prompt on your phone
-                  </p>
-                </div>
-                <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 text-left space-y-1.5">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Number</span>
-                    <span className="font-bold text-gray-800">{momoNumber}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Network</span>
-                    <span className="font-bold text-gray-800">
-                      {selectedNetwork?.toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Amount</span>
-                    <span className="font-black text-green-700">
-                      {formatGHS(calculateDisplayTotalWithCharge())}
-                    </span>
-                  </div>
-                </div>
-                <div className="bg-green-50 border border-green-100 rounded-xl p-3">
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-xs font-semibold text-green-700">
-                      Checking for payment…
-                    </p>
-                    <p className="text-xs font-black text-green-800">{timeoutCountdown}s</p>
-                  </div>
-                  <div className="w-full bg-green-100 rounded-full h-1.5">
-                    <div
-                      className="bg-green-600 h-1.5 rounded-full transition-all duration-1000"
-                      style={{ width: `${(timeoutCountdown / 60) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* SUCCESS */}
-            {paymentStatus === "success" && (
-              <div className="text-center space-y-4 py-6">
-                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-                  <CheckCircleSolid className="w-12 h-12 text-green-500" />
-                </div>
-                <p className="font-black text-green-700 text-xl lg:text-2xl">Payment Confirmed!</p>
-                <p className="text-gray-500 text-sm">Processing your order now…</p>
-                <div className="animate-pulse flex justify-center">
-                  <div className="h-1 w-32 bg-green-300 rounded-full" />
-                </div>
-              </div>
-            )}
-
-            {/* FAILED */}
-            {paymentStatus === "failed" && (
-              <div className="text-center space-y-4 py-6">
-                <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto">
-                  <XCircleIcon className="w-12 h-12 text-red-500" />
-                </div>
-                <p className="font-black text-red-600 text-xl lg:text-2xl">Payment Failed</p>
-                <p className="text-gray-500 text-sm">Redirecting you…</p>
-                <div className="animate-spin h-6 w-6 border-4 border-red-400 border-t-transparent rounded-full mx-auto" />
-              </div>
-            )}
-          </div>
-        </Modal>
-      )}
-
-      {/* ══════ APPROVAL GUIDE MODAL ══════ */}
-      <Modal
-        open={isApprovalGuideVisible}
-        onCancel={undefined}
-        footer={null}
-        closable={false}
-        centered
-        width={520}
-        styles={{ body: { padding: "16px 20px", paddingBottom: "100px" } }}
-        className="mobile-optimized-modal approval-guide-modal"
-      >
-        {netCfg && (
-          <div className="space-y-4 lg:space-y-5">
-            {/* Header */}
-            <div className="flex items-start gap-3 lg:gap-4">
-              <div
-                className="w-10 h-10 lg:w-12 lg:h-12 rounded-2xl flex items-center justify-center flex-shrink-0 border-2"
-                style={{ backgroundColor: netCfg.bg, borderColor: netCfg.border }}
-              >
-                <img
-                  src={netCfg.logo}
-                  alt={netCfg.label}
-                  className="w-6 h-6 lg:w-8 lg:h-8 object-contain"
-                  onError={(e) => { e.target.style.display = "none"; }}
-                />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span
-                    className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border"
-                    style={{
-                      backgroundColor: netCfg.bg,
-                      borderColor: netCfg.border,
-                      color: netCfg.color,
-                    }}
-                  >
-                    <span
-                      className="w-1.5 h-1.5 rounded-full animate-pulse"
-                      style={{ backgroundColor: netCfg.color }}
-                    />
-                    Payment Pending
-                  </span>
-                </div>
-                <h3 className="text-base lg:text-lg font-black text-gray-900 leading-tight">
-                  Approve Your Payment
-                </h3>
-                <p className="text-gray-500 text-xs lg:text-sm mt-0.5">
-                  We haven't received confirmation yet. Please approve manually.
-                </p>
-              </div>
-            </div>
-
-            {/* Amount + number */}
-            <div
-              className="rounded-xl border px-3 py-2.5 lg:px-4 lg:py-3 flex items-center justify-between"
-              style={{ backgroundColor: netCfg.bg, borderColor: netCfg.border }}
-            >
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">
-                  Amount Due
-                </p>
-                <p className="text-lg lg:text-xl font-black" style={{ color: netCfg.color }}>
-                  {formatGHS(calculateDisplayTotalWithCharge())}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">
-                  Number
-                </p>
-                <p className="text-xs lg:text-sm font-bold text-gray-800">{momoNumber}</p>
-              </div>
-            </div>
-
-            {/* USSD */}
-            <div
-              className="flex items-center gap-3 rounded-xl border px-3 py-2.5 lg:px-4 lg:py-3"
-              style={{ backgroundColor: netCfg.bg, borderColor: netCfg.border }}
-            >
-              <div
-                className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl flex items-center justify-center"
-                style={{ backgroundColor: `${netCfg.color}20` }}
-              >
-                <PhoneIcon className="w-4 h-4" style={{ color: netCfg.color }} />
-              </div>
-              <div className="flex-1">
-                <p
-                  className="text-xs font-bold uppercase tracking-wider"
-                  style={{ color: netCfg.color }}
-                >
-                  Quick Dial
-                </p>
-                <p
-                  className="text-lg lg:text-xl font-black font-mono"
-                  style={{ color: netCfg.color }}
-                >
-                  {netCfg.ussd}
-                </p>
-              </div>
-              <ArrowPathIcon className="w-4 h-4 text-gray-400" />
-            </div>
-
-            {/* Steps */}
-            <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-              <div className="px-3 py-2.5 lg:px-4 lg:py-3 border-b border-gray-50 flex items-center justify-between">
-                <p className="text-xs lg:text-sm font-bold text-gray-800">Step-by-step approval</p>
-                <span
-                  className="text-xs font-bold px-2 py-0.5 rounded-full border"
-                  style={{
-                    backgroundColor: netCfg.bg,
-                    borderColor: netCfg.border,
-                    color: netCfg.color,
-                  }}
-                >
-                  {netCfg.steps.length} steps
-                </span>
-              </div>
-              <div className="p-3 lg:p-4 space-y-0 max-h-60 lg:max-h-80 overflow-y-auto">
-                {netCfg.steps.map((step, idx) => {
-                  const isLast = idx === netCfg.steps.length - 1;
-                  return (
-                    <div key={idx} className="flex gap-3">
-                      <div className="flex flex-col items-center">
-                        <div
-                          className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-white text-xs font-black"
-                          style={{ backgroundColor: isLast ? netCfg.color : "#059669" }}
-                        >
-                          {step.num}
-                        </div>
-                        {!isLast && (
-                          <div className="w-0.5 flex-1 min-h-[16px] my-1 rounded-full bg-gray-200" />
-                        )}
-                      </div>
-                      <div className={`flex-1 pb-3 ${isLast ? "pb-0" : ""}`}>
-                        <p
-                          className={`text-xs lg:text-sm leading-snug pt-0.5 ${
-                            isLast ? "font-bold" : "font-medium text-gray-700"
-                          }`}
-                          style={isLast ? { color: netCfg.color } : {}}
-                        >
-                          {step.text}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Tip */}
-            <div className="flex gap-3 bg-amber-50 border border-amber-100 rounded-xl p-3 lg:p-3.5">
-              <div className="w-6 h-6 lg:w-7 lg:h-7 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                <span className="text-amber-600 text-sm">💡</span>
-              </div>
-              <p className="text-xs text-amber-800 font-medium leading-relaxed">
-                {netCfg.tip}
-              </p>
-            </div>
-
-            {/* Action buttons - Desktop version */}
-            <div className="hidden lg:block space-y-2.5 pt-1">
-              {/* Confirm */}
-              <button
-                onClick={handleManualConfirm}
-                disabled={verifyingPayment}
-                className={`w-full py-4 rounded-xl font-bold text-white text-base transition-all duration-200 flex items-center justify-center gap-2.5 shadow-lg ${
-                  verifyingPayment
-                    ? "bg-gray-400 cursor-wait"
-                    : "bg-green-600 hover:bg-green-700 hover:shadow-xl active:scale-[0.98]"
-                }`}
-                style={
-                  verifyingPayment ? {} : { boxShadow: "0 4px 20px rgba(5,150,105,0.35)" }
-                }
-              >
-                {verifyingPayment ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                    </svg>
-                    Verifying Payment…
-                  </>
-                ) : (
-                  <>
-                    <CheckCircleSolid className="w-5 h-5" />
-                    I've Approved — Confirm Payment
-                  </>
-                )}
-              </button>
-
-              {/* Cancel */}
-              <button
-                onClick={handleCancelFromGuide}
-                disabled={verifyingPayment}
-                className="w-full py-3 rounded-xl font-semibold text-red-500 text-sm border border-red-100 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
-              >
-                <XCircleIcon className="w-4 h-4" />
-                Cancel Order
-              </button>
-            </div>
-
-            {/* Action buttons - Mobile sticky version */}
-            <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 space-y-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] z-[10000]">
-              {/* Confirm */}
-              <button
-                onClick={handleManualConfirm}
-                disabled={verifyingPayment}
-                className={`w-full py-3.5 rounded-lg font-bold text-white text-sm transition-all duration-200 flex items-center justify-center gap-2.5 shadow-lg ${
-                  verifyingPayment
-                    ? "bg-gray-400 cursor-wait"
-                    : "bg-green-600 hover:bg-green-700 active:scale-[0.98]"
-                }`}
-                style={
-                  verifyingPayment ? {} : { boxShadow: "0 4px 20px rgba(5,150,105,0.35)" }
-                }
-              >
-                {verifyingPayment ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                    </svg>
-                    Verifying…
-                  </>
-                ) : (
-                  <>
-                    <CheckCircleSolid className="w-5 h-5" />
-                    I've Approved — Confirm
-                  </>
-                )}
-              </button>
-
-              {/* Cancel */}
-              <button
-                onClick={handleCancelFromGuide}
-                disabled={verifyingPayment}
-                className="w-full py-2.5 rounded-xl font-semibold text-red-500 text-xs border border-red-100 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
-              >
-                <XCircleIcon className="w-4 h-4" />
-                Cancel Order
-              </button>
+      <div className="co-root">
+        {loading && (
+          <div className="co-loading-overlay">
+            <div className="co-loading-card">
+              <div className="co-spinner" />
+              <div className="co-loading-text">Processing your order…</div>
             </div>
           </div>
         )}
-      </Modal>
 
-      {/* ══════════════════════════════════════════════════════════
-          ACTION CONFIRMATION DIALOG
-          • mode = "cancel"        → shown when "Cancel Order" is clicked
-          • mode = "not_confirmed" → shown when "I've Approved" verification fails
-      ══════════════════════════════════════════════════════════ */}
-      <PaymentActionDialog
-        open={actionDialog.open}
-        mode={actionDialog.mode}
-        verifying={verifyingPayment}
-        onRetry={handleDialogRetry}
-        onCancel={handleDialogCancel}
-        onClose={() => !verifyingPayment && setActionDialog((d) => ({ ...d, open: false }))}
-      />
+        <div className="co-container">
+          {/* Page Header */}
+          <div className="co-page-header">
+            <div className="co-page-header-accent" />
+            <div>
+              <h1 className="co-page-title">Checkout</h1>
+              <p className="co-page-count">{cartItems.length} item{cartItems.length !== 1 ? "s" : ""} in cart</p>
+            </div>
+            <div className="co-page-header-line" />
+          </div>
 
-      {/* Add custom styles for mobile optimization */}
-      <style>{`
-        .mobile-optimized-modal .ant-modal {
-          max-width: calc(100vw - 32px) !important;
-          margin: 16px;
-        }
+          <div className="co-layout">
+            {/* ══════ BILLING INFO ══════ */}
+            <div className="co-sidebar">
+              <div className="co-card">
+                <div className="co-card-header">
+                  <h3 className="co-card-title">Billing Information</h3>
+                  <div className="co-section-accent">
+                    <div className="co-section-accent-bar" />
+                    <div className="co-section-accent-line" />
+                  </div>
+                </div>
+                <div className="co-card-body">
+                  <div className="co-toggle-wrap" onClick={() => setIsDifferentRecipient((v) => !v)}>
+                    <div className="co-toggle-left">
+                      <UserIcon style={{ width: 16, height: 16, color: "var(--co-light)" }} />
+                      <span>Different recipient?</span>
+                    </div>
+                    <div className={`co-toggle-track ${isDifferentRecipient ? "co-toggle-track-on" : "co-toggle-track-off"}`}>
+                      <div className={`co-toggle-knob ${isDifferentRecipient ? "co-toggle-knob-on" : ""}`} />
+                    </div>
+                  </div>
 
-        @media (max-width: 640px) {
-          .mobile-optimized-modal .ant-modal {
-            max-width: calc(100vw - 24px) !important;
-            margin: 12px;
-          }
+                  {isDifferentRecipient && (
+                    <div className="co-warning-banner">
+                      <ExclamationTriangleIcon style={{ width: 16, height: 16, color: "#d97706", flexShrink: 0, marginTop: 1 }} />
+                      <p>Enter the recipient's name and contact number below.</p>
+                    </div>
+                  )}
 
-          .mobile-optimized-modal .ant-modal-content {
-            border-radius: 16px;
-          }
+                  <CheckoutForm
+                    customerName={customerName} setCustomerName={setCustomerName}
+                    customerNumber={customerNumber} setCustomerNumber={setCustomerNumber}
+                    deliveryInfo={deliveryInfo} setDeliveryInfo={setDeliveryInfo}
+                    orderNote={orderNote} setOrderNote={setOrderNote}
+                    locations={locations} customerAccountType={customerAccountType}
+                    firstName={customerData?.firstName || "Guest"}
+                    isDifferentRecipient={isDifferentRecipient}
+                    readOnlyRecipient={!isDifferentRecipient}
+                  />
+                </div>
+              </div>
+            </div>
 
-          .approval-guide-modal .ant-modal-body {
-            max-height: calc(100vh - 120px);
-            overflow-y: auto;
-          }
-        }
+            {/* ══════ ORDER SUMMARY ══════ */}
+            <div className="co-main">
+              <div className="co-card">
+                <div className="co-card-header">
+                  <h3 className="co-card-title">Order Summary</h3>
+                  <div className="co-section-accent">
+                    <div className="co-section-accent-bar" />
+                    <div className="co-section-accent-line" />
+                  </div>
+                </div>
+                <div className="co-card-body">
+                  {/* Cart Items */}
+                  <div className="co-items-list">
+                    {cartItems.map((item, index) => {
+                      const unitPrice = getItemUnitPrice(item);
+                      const qty = getItemQuantity(item);
+                      const lineTotal = unitPrice * qty;
+                      return (
+                        <div key={item.productId || index} className="co-item">
+                          <div className="co-item-left">
+                            <div style={{ position: "relative" }}>
+                              {renderImage(item.imagePath)}
+                              <div className="co-item-img-placeholder" style={{ display: "none" }}>No Image</div>
+                            </div>
+                            <div className="co-item-info">
+                              <p className="co-item-name">{item.productName || "Product"}</p>
+                              <p className="co-item-unit">Unit: {formatGHS(unitPrice)}</p>
+                              <span className="co-item-qty">Qty {qty}</span>
+                            </div>
+                          </div>
+                          <span className="co-item-price">{formatGHS(lineTotal)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
 
-        .safe-area-bottom {
-          padding-bottom: env(safe-area-inset-bottom);
-        }
-      `}</style>
-    </div>
+                  {/* Totals */}
+                  <div className="co-totals">
+                    <div className="co-total-row">
+                      <span className="co-total-row-label">Subtotal</span>
+                      <span className="co-total-row-value">{formatGHS(calculateSubtotal())}</span>
+                    </div>
+
+                    <div className="co-total-row">
+                      <span className="co-total-row-label">Shipping Fee</span>
+                      {isFreeDelivery ? (
+                        <span className="co-total-row-free">FREE DELIVERY</span>
+                      ) : isNADelivery ? (
+                        <span className="co-total-row-warning">{isAgent ? "Agent delivery" : "Delivery charges apply"}</span>
+                      ) : deliveryFee > 0 ? (
+                        <span className="co-total-row-value">{formatGHS(deliveryFee)}</span>
+                      ) : (
+                        <span className="co-total-row-warning">Select location</span>
+                      )}
+                    </div>
+
+                    {paymentMethod === "Mobile Money" && (
+                      <div className="co-service-charge">
+                        <span>{getServiceChargeLabel()}</span>
+                        <span>{formatGHS(calculateServiceCharge())}</span>
+                      </div>
+                    )}
+
+                    <div className="co-grand-total">
+                      <span className="co-grand-total-label">Total Amount</span>
+                      <span className="co-grand-total-value">
+                        {paymentMethod === "Mobile Money"
+                          ? formatGHS(calculateDisplayTotalWithCharge())
+                          : formatGHS(calculateTotalAmount())}
+                      </span>
+                    </div>
+
+                    {paymentMethod === "Mobile Money" && (
+                      <p className="co-charge-note">* Service charge is applied by your mobile money provider.</p>
+                    )}
+                  </div>
+
+                  <Divider style={{ margin: "20px 0" }} />
+
+                  {/* Payment Method */}
+                  <div className="co-payment-section">
+                    <p className="co-payment-title">Payment Method</p>
+                    <Radio.Group value={paymentMethod} onChange={handlePaymentMethodChange} style={{ width: "100%" }}>
+                      <div className="co-payment-options">
+                        {(isAgent || isFreeDelivery || (deliveryFee > 0 && !isNADelivery)) && (
+                          <label className={`co-payment-option ${paymentMethod === "Cash on Delivery" ? "co-payment-option-active" : ""}`}>
+                            <Radio value="Cash on Delivery" />
+                            <span className="co-payment-option-text">Cash on Delivery</span>
+                          </label>
+                        )}
+                        {!isAgent && (
+                          <label className={`co-payment-option ${paymentMethod === "Mobile Money" ? "co-payment-option-active" : ""}`}>
+                            <Radio value="Mobile Money" />
+                            <span className="co-payment-option-text">Mobile Money</span>
+                          </label>
+                        )}
+                        {isAgent && (
+                          <>
+                            <label className={`co-payment-option ${paymentMethod === "Pick Up" ? "co-payment-option-active" : ""}`}>
+                              <Radio value="Pick Up" />
+                              <span className="co-payment-option-text">Pick Up</span>
+                            </label>
+                            <label className={`co-payment-option ${paymentMethod === "Paid Already" ? "co-payment-option-active" : ""}`}>
+                              <Radio value="Paid Already" />
+                              <span className="co-payment-option-text">Paid Already</span>
+                            </label>
+                          </>
+                        )}
+                      </div>
+                    </Radio.Group>
+                  </div>
+
+                  {/* Desktop Place Order */}
+                  <div className="co-desktop-btn">
+                    <button onClick={handleCheckout} disabled={loading} className="co-btn-primary">
+                      {loading ? (
+                        <><div className="co-spinner" style={{ width: 20, height: 20, borderWidth: 3 }} /> Processing Order...</>
+                      ) : (
+                        <><ShoppingBagIcon style={{ width: 20, height: 20 }} /> Place Order</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Sticky Mobile Button */}
+        <div className="co-sticky-bottom">
+          <button onClick={handleCheckout} disabled={loading} className="co-btn-primary">
+            {loading ? (
+              <><div className="co-spinner" style={{ width: 20, height: 20, borderWidth: 3 }} /> Processing...</>
+            ) : (
+              <><ShoppingBagIcon style={{ width: 20, height: 20 }} /> Place Order</>
+            )}
+          </button>
+        </div>
+
+        {/* ══════ GUEST WARNING ══════ */}
+        <Modal open={isGuestWarningVisible} onCancel={() => setIsGuestWarningVisible(false)} centered footer={null} width={400} className="co-modal">
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "16px 0", gap: 16 }}>
+            <div className="co-dialog-icon co-dialog-icon-warning">
+              <ExclamationTriangleIcon style={{ width: 28, height: 28, color: "#f59e0b" }} />
+            </div>
+            <div>
+              <div className="co-dialog-title">Real name required</div>
+              <div className="co-dialog-desc">Please enter your actual full name before placing an order.</div>
+            </div>
+            <button onClick={() => setIsGuestWarningVisible(false)} className="co-btn-primary" style={{ maxWidth: 280 }}>
+              OK, I'll update my name
+            </button>
+          </div>
+        </Modal>
+
+        {/* ══════ VALIDATION MODAL ══════ */}
+        <Modal
+          title={<div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--co-red)", fontFamily: "var(--co-font)", fontWeight: 800 }}>
+            <ExclamationTriangleIcon style={{ width: 18, height: 18 }} /> Complete Required Fields
+          </div>}
+          open={isValidationModalVisible} onCancel={() => setIsValidationModalVisible(false)} centered className="co-modal"
+          footer={[<button key="ok" onClick={() => setIsValidationModalVisible(false)} className="co-btn-primary" style={{ maxWidth: 140, margin: "0 auto" }}>Got It</button>]}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+            <p style={{ fontSize: 13, color: "var(--co-light)", marginBottom: 4 }}>Please fill in the following:</p>
+            {validateRequiredFields().map((error, index) => {
+              const icons = { name: UserIcon, phone: PhoneIcon, address: MapPinIcon, payment: CreditCardIcon };
+              const labels = { name: "Recipient Name", phone: "Contact Number", address: "Delivery Address", payment: "Payment Method" };
+              const Icon = icons[error.field] || ExclamationTriangleIcon;
+              return (
+                <div key={index} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "var(--co-radius)" }}>
+                  <Icon style={{ width: 16, height: 16, color: "#ef4444", flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#991b1b" }}>{labels[error.field]}</span>
+                </div>
+              );
+            })}
+          </div>
+        </Modal>
+
+        {/* ══════ PAYMENT MODAL ══════ */}
+        {!isAgent && (
+          <Modal
+            open={isPaymentModalVisible}
+            onCancel={() => {
+              if (paymentStatus === "input") {
+                if (initialDelayRef.current) clearTimeout(initialDelayRef.current);
+                if (pollingRef.current) clearInterval(pollingRef.current);
+                if (countdownRef.current) clearInterval(countdownRef.current);
+                setIsPaymentModalVisible(false);
+                setPaymentStatus("idle");
+              }
+            }}
+            footer={null} closable={paymentStatus === "input"} centered width={500}
+            styles={{ body: { padding: "16px 20px" } }} className="co-modal"
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {/* Header */}
+              <div className="co-pay-header">
+                <img src={frankoLogo} alt="Franko" className="co-pay-logo" onError={(e) => { e.target.style.display = "none"; }} />
+                <p className="co-pay-company">Franko Trading Limited</p>
+              </div>
+
+              {/* Amount */}
+              <div className="co-pay-amount-card">
+                <p className="co-pay-amount-label">You will be charged</p>
+                <p className="co-pay-amount-value">{formatGHS(calculateDisplayTotalWithCharge())}</p>
+                <p className="co-pay-ref">Ref: {currentOrderId}</p>
+              </div>
+
+              {/* INPUT */}
+              {paymentStatus === "input" && (
+                <>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    <div className="co-pay-field">
+                      <label className="co-pay-field-label">
+                        <span className="co-pay-step-num">1</span>
+                        Mobile Money Number
+                      </label>
+                      <Input placeholder="233XXXXXXXXX" value={momoNumber} onChange={handleMomoNumberChange}
+                        prefix={<PhoneIcon style={{ width: 16, height: 16, color: "#888" }} />}
+                        size="large" maxLength={12} style={{ fontSize: 16, fontWeight: 700, borderRadius: "var(--co-radius)" }} />
+                      <div className="co-pay-validation">
+                        {startsWithZeroAfter233() && <span className="co-pay-validation-error">Do not begin with 0 after 233</span>}
+                        {momoNumber.length === 12 && !isValidMomoNumber() && !startsWithZeroAfter233() && (
+                          <span className="co-pay-validation-error">Please enter a valid 9-digit number after 233</span>
+                        )}
+                        {isValidMomoNumber() && (
+                          <span className="co-pay-validation-ok">
+                            <CheckCircleIcon style={{ width: 14, height: 14 }} /> Valid number
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="co-pay-field">
+                      <label className="co-pay-field-label">
+                        <span className="co-pay-step-num">2</span>
+                        Select Network
+                      </label>
+                      <Radio.Group value={selectedNetwork} onChange={(e) => setSelectedNetwork(e.target.value)} style={{ width: "100%" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          {[
+                            { value: "mtn", logo: mtnLogo, name: "MTN", sub: "Mobile Money", activeBg: "#fffbeb", activeBorder: "#fcd34d", checkColor: "#d97706" },
+                            { value: "vodafone", logo: vodafoneLogo, name: "Vodafone", sub: "Vodafone Cash", activeBg: "#fff1f2", activeBorder: "#fecdd3", checkColor: "#e11d48" },
+                            { value: "airteltigo", logo: airteltigoLogo, name: "AirtelTigo", sub: "AirtelTigo Money", activeBg: "#eff6ff", activeBorder: "#bfdbfe", checkColor: "#2563eb" },
+                          ].map((net) => (
+                            <label key={net.value} className="co-network-option"
+                              style={selectedNetwork === net.value ? { background: net.activeBg, borderColor: net.activeBorder } : {}}>
+                              <Radio value={net.value} />
+                              <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: 8, flex: 1 }}>
+                                <img src={net.logo} alt={net.name} className="co-network-logo" onError={(e) => { e.target.style.display = "none"; }} />
+                                <div>
+                                  <p className="co-network-name">{net.name}</p>
+                                  <p className="co-network-sub">{net.sub}</p>
+                                </div>
+                              </div>
+                              {selectedNetwork === net.value && <CheckCircleSolid style={{ width: 20, height: 20, color: net.checkColor }} />}
+                            </label>
+                          ))}
+                        </div>
+                      </Radio.Group>
+                    </div>
+                  </div>
+
+                  <button onClick={handlePayNow} disabled={!isValidMomoNumber() || !selectedNetwork || payButtonLoading} className="co-btn-primary">
+                    {payButtonLoading ? (
+                      <><div className="co-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Sending request…</>
+                    ) : (
+                      <><CreditCardIcon style={{ width: 18, height: 18 }} /> Pay {formatGHS(calculateDisplayTotalWithCharge())}</>
+                    )}
+                  </button>
+
+                  <div className="co-pay-info-box">
+                    <p className="co-pay-info-title">What happens next?</p>
+                    <ol className="co-pay-info-list">
+                      <li>You'll receive a payment prompt on your phone</li>
+                      <li>Enter your MoMo PIN to approve the payment</li>
+                      <li>We check for confirmation every 5 seconds</li>
+                      <li>Your order processes immediately after payment</li>
+                    </ol>
+                  </div>
+                </>
+              )}
+
+              {/* PENDING */}
+              {paymentStatus === "pending" && (
+                <div style={{ textAlign: "center", padding: "16px 0", display: "flex", flexDirection: "column", gap: 16 }}>
+                  <div className="co-pending-spinner">
+                    <div className="co-pending-ring" />
+                    <div className="co-pending-ring-active" />
+                    <div className="co-pending-icon">
+                      <PhoneIcon style={{ width: 28, height: 28, color: "var(--co-green-600)" }} />
+                    </div>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 17, fontWeight: 900, color: "var(--co-dark)" }}>Awaiting Approval</p>
+                    <p style={{ fontSize: 14, color: "var(--co-light)", marginTop: 4 }}>Approve the payment prompt on your phone</p>
+                  </div>
+                  <div className="co-pending-details">
+                    <div className="co-pending-detail-row">
+                      <span className="co-pending-detail-label">Number</span>
+                      <span className="co-pending-detail-value">{momoNumber}</span>
+                    </div>
+                    <div className="co-pending-detail-row">
+                      <span className="co-pending-detail-label">Network</span>
+                      <span className="co-pending-detail-value">{selectedNetwork?.toUpperCase()}</span>
+                    </div>
+                    <div className="co-pending-detail-row">
+                      <span className="co-pending-detail-label">Amount</span>
+                      <span className="co-pending-detail-amount">{formatGHS(calculateDisplayTotalWithCharge())}</span>
+                    </div>
+                  </div>
+                  <div className="co-progress-bar">
+                    <div className="co-progress-bar-top">
+                      <span className="co-progress-bar-label">Checking for payment…</span>
+                      <span className="co-progress-bar-count">{timeoutCountdown}s</span>
+                    </div>
+                    <div className="co-progress-track">
+                      <div className="co-progress-fill" style={{ width: `${(timeoutCountdown / 60) * 100}%` }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SUCCESS */}
+              {paymentStatus === "success" && (
+                <div className="co-result-state">
+                  <div className="co-result-icon co-result-icon-success">
+                    <CheckCircleSolid style={{ width: 40, height: 40, color: "var(--co-green-600)" }} />
+                  </div>
+                  <p className="co-result-title co-result-title-success">Payment Confirmed!</p>
+                  <p className="co-result-desc">Processing your order now…</p>
+                </div>
+              )}
+
+              {/* FAILED */}
+              {paymentStatus === "failed" && (
+                <div className="co-result-state">
+                  <div className="co-result-icon co-result-icon-failed">
+                    <XCircleIcon style={{ width: 40, height: 40, color: "var(--co-red)" }} />
+                  </div>
+                  <p className="co-result-title co-result-title-failed">Payment Failed</p>
+                  <p className="co-result-desc">Redirecting you…</p>
+                  <div className="co-spinner" style={{ width: 24, height: 24, borderWidth: 3, margin: "12px auto 0", borderTopColor: "var(--co-red)" }} />
+                </div>
+              )}
+            </div>
+          </Modal>
+        )}
+
+        {/* ══════ APPROVAL GUIDE MODAL ══════ */}
+        <Modal open={isApprovalGuideVisible} onCancel={undefined} footer={null} closable={false} centered width={520}
+          styles={{ body: { padding: "16px 20px", paddingBottom: "100px" } }} className="co-modal">
+          {netCfg && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {/* Header */}
+              <div className="co-guide-header">
+                <div className="co-guide-logo-wrap" style={{ background: netCfg.bg, borderColor: netCfg.border }}>
+                  <img src={netCfg.logo} alt={netCfg.label} className="co-guide-logo" onError={(e) => { e.target.style.display = "none"; }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div className="co-guide-badge" style={{ background: netCfg.bg, borderColor: netCfg.border, color: netCfg.color }}>
+                    <span className="co-guide-badge-dot" style={{ background: netCfg.color }} />
+                    Payment Pending
+                  </div>
+                  <h3 className="co-guide-title">Approve Your Payment</h3>
+                  <p className="co-guide-subtitle">We haven't received confirmation yet. Please approve manually.</p>
+                </div>
+              </div>
+
+              {/* Amount + number */}
+              <div className="co-guide-info-row" style={{ background: netCfg.bg, borderColor: netCfg.border }}>
+                <div>
+                  <p className="co-guide-info-label">Amount Due</p>
+                  <p className="co-guide-info-value" style={{ color: netCfg.color, fontSize: 20 }}>{formatGHS(calculateDisplayTotalWithCharge())}</p>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <p className="co-guide-info-label">Number</p>
+                  <p className="co-guide-info-value" style={{ color: "var(--co-dark)", fontSize: 13 }}>{momoNumber}</p>
+                </div>
+              </div>
+
+              {/* USSD */}
+              <div className="co-guide-ussd-row" style={{ background: netCfg.bg, borderColor: netCfg.border }}>
+                <div className="co-guide-ussd-icon" style={{ background: `${netCfg.color}15` }}>
+                  <PhoneIcon style={{ width: 16, height: 16, color: netCfg.color }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p className="co-guide-ussd-label" style={{ color: netCfg.color }}>Quick Dial</p>
+                  <p className="co-guide-ussd-value" style={{ color: netCfg.color }}>{netCfg.ussd}</p>
+                </div>
+                <ArrowPathIcon style={{ width: 16, height: 16, color: "var(--co-light)" }} />
+              </div>
+
+              {/* Steps */}
+              <div className="co-guide-steps-wrap">
+                <div className="co-guide-steps-header">
+                  <p className="co-guide-steps-title">Step-by-step approval</p>
+                  <span className="co-guide-steps-count" style={{ background: netCfg.bg, borderColor: netCfg.border, color: netCfg.color }}>
+                    {netCfg.steps.length} steps
+                  </span>
+                </div>
+                <div className="co-guide-steps-body">
+                  {netCfg.steps.map((step, idx) => {
+                    const isLast = idx === netCfg.steps.length - 1;
+                    return (
+                      <div key={idx} className="co-guide-step">
+                        <div className="co-guide-step-col">
+                          <div className="co-guide-step-num" style={{ background: isLast ? netCfg.color : "#059669" }}>{step.num}</div>
+                          {!isLast && <div className="co-guide-step-line" />}
+                        </div>
+                        <p className={`co-guide-step-text ${isLast ? "co-guide-step-text-last" : ""}`}
+                          style={isLast ? { color: netCfg.color } : {}}>
+                          {step.text}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Tip */}
+              <div className="co-guide-tip">
+                <div className="co-guide-tip-icon">💡</div>
+                <p className="co-guide-tip-text">{netCfg.tip}</p>
+              </div>
+
+              {/* Auto-check countdown */}
+              {autoCheckCountdown > 0 && (
+                <div className="co-auto-check-bar">
+                  <span className="co-auto-check-label">Auto-checking payment in</span>
+                  <span className="co-auto-check-time">{formatAutoCheckTime(autoCheckCountdown)}</span>
+                </div>
+              )}
+
+              {/* Desktop buttons */}
+              <div className="co-guide-desktop-actions">
+                <button onClick={handleManualConfirm} disabled={verifyingPayment} className="co-btn-primary">
+                  {verifyingPayment ? (
+                    <><div className="co-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Verifying Payment…</>
+                  ) : (
+                    <><CheckCircleSolid style={{ width: 18, height: 18 }} /> I've Approved — Confirm Payment</>
+                  )}
+                </button>
+                <button onClick={handleCancelFromGuide} disabled={verifyingPayment} className="co-btn-danger">
+                  <XCircleIcon style={{ width: 16, height: 16 }} /> Cancel Order
+                </button>
+              </div>
+
+              {/* Mobile sticky buttons */}
+              <div className="co-guide-sticky">
+                <button onClick={handleManualConfirm} disabled={verifyingPayment} className="co-btn-primary">
+                  {verifyingPayment ? (
+                    <><div className="co-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Verifying…</>
+                  ) : (
+                    <><CheckCircleSolid style={{ width: 18, height: 18 }} /> I've Approved — Confirm</>
+                  )}
+                </button>
+                <button onClick={handleCancelFromGuide} disabled={verifyingPayment} className="co-btn-danger">
+                  <XCircleIcon style={{ width: 14, height: 14 }} /> Cancel Order
+                </button>
+              </div>
+            </div>
+          )}
+        </Modal>
+
+        {/* ══════ ACTION DIALOG ══════ */}
+        <PaymentActionDialog
+          open={actionDialog.open} mode={actionDialog.mode} verifying={verifyingPayment}
+          onRetry={handleDialogRetry} onCancel={handleDialogCancel}
+          onClose={() => !verifyingPayment && setActionDialog((d) => ({ ...d, open: false }))}
+        />
+      </div>
+    </>
   );
 };
 

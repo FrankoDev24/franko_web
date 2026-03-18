@@ -1,4 +1,5 @@
-import  { useEffect, useState, useRef, useCallback } from "react";
+/* eslint-disable react-hooks/exhaustive-deps */
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, Link } from "react-router-dom";
 import {
@@ -6,54 +7,49 @@ import {
   HeartIcon as SolidHeartIcon,
   ShoppingCartIcon,
   EyeIcon,
+  ArrowRightIcon,
   CheckCircleIcon,
-  XCircleIcon
+  XCircleIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from "@heroicons/react/24/solid";
-
 import { fetchProductsByCategory } from "../Redux/Slice/productSlice";
-import { Card, CardBody, Tooltip } from "@material-tailwind/react";
-import useAddToCart from "./Cart";
 import {
   addToWishlist,
   removeFromWishlist,
 } from "../Redux/Slice/wishlistSlice";
+import { Tooltip } from "@material-tailwind/react";
+import useAddToCart from "./Cart";
+
+// ==================== NOTIFICATION ====================
 
 const Notification = ({ message, type, isVisible, onClose }) => {
   const timeoutRef = useRef(null);
 
   useEffect(() => {
-    // Clear any existing timeout when component unmounts or dependencies change
     return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, []);
 
   useEffect(() => {
-    // Clear existing timeout
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-
-    // Only set timeout if notification is visible and has a message
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
     if (isVisible && message) {
-      timeoutRef.current = setTimeout(() => {
-        onClose();
-      }, 3000);
+      timeoutRef.current = setTimeout(() => onClose(), 3000);
     }
-  }, [isVisible, message, onClose]);
+  }, [isVisible, message]);
 
   if (!isVisible || !message) return null;
 
-  const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
-  const Icon = type === 'success' ? CheckCircleIcon : XCircleIcon;
+  const bgColor = type === "success" ? "bg-green-800" : "bg-red-600";
+  const Icon = type === "success" ? CheckCircleIcon : XCircleIcon;
 
   return (
-    <div className="fixed top-4 right-4 z-50 animate-slide-in">
-      <div className={`${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 min-w-[300px]`}>
+    <div className="fixed top-4 right-4 z-50 pd-animate-slide-in">
+      <div
+        className={`${bgColor} text-white px-4 py-3 rounded shadow-lg flex items-center gap-2 min-w-[280px]`}
+        style={{ fontFamily: "var(--pd-font)" }}
+      >
         <Icon className="w-5 h-5 flex-shrink-0" />
         <span className="text-sm font-medium">{message}</span>
         <button
@@ -67,43 +63,39 @@ const Notification = ({ message, type, isVisible, onClose }) => {
   );
 };
 
+// ==================== MAIN COMPONENT ====================
+
 const PhoneDeals = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const scrollRef = useRef(null);
   const categoryId = "51d1fff2-7b71-46aa-9b34-2e553a40e921";
+
   const { productsByCategory = {}, loading } = useSelector((state) => state.products);
   const { addProductToCart, loading: cartLoading } = useAddToCart();
-const wishlist = useSelector((state) => state.wishlist.items || []);
-const isInWishlist = (id) =>
-  Array.isArray(wishlist) && wishlist.some((item) => item.id === id);
+  const wishlist = useSelector((state) => state.wishlist.items || []);
 
-  const [currentPage, setCurrentPage] = useState(0);
-  const [itemsPerPage, setItemsPerPage] = useState(5);
-  const intervalRef = useRef(null);
+  const isInWishlist = (id) =>
+    Array.isArray(wishlist) && wishlist.some((item) => item.id === id);
+
+  const [isHovered, setIsHovered] = useState(false);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(false);
+
   const [notification, setNotification] = useState({
-    message: '',
-    type: 'success',
-    isVisible: false
+    message: "",
+    type: "success",
+    isVisible: false,
   });
 
   const hideNotification = useCallback(() => {
-    setNotification(prev => ({ 
-      ...prev, 
-      isVisible: false 
-    }));
+    setNotification((prev) => ({ ...prev, isVisible: false }));
   }, []);
 
-  const showNotification = useCallback((message, type = 'success') => {
-    // Reset any existing notification first
-    setNotification({ message: '', type: 'success', isVisible: false });
-    
-    // Use requestAnimationFrame to ensure state reset is processed
+  const showNotification = useCallback((message, type = "success") => {
+    setNotification({ message: "", type: "success", isVisible: false });
     requestAnimationFrame(() => {
-      setNotification({
-        message,
-        type,
-        isVisible: true
-      });
+      setNotification({ message, type, isVisible: true });
     });
   }, []);
 
@@ -130,47 +122,67 @@ const isInWishlist = (id) =>
       showNotification("Failed to add to cart", "error");
     }
   };
-const sortedProducts = (Array.isArray(productsByCategory[categoryId]) ? productsByCategory[categoryId] : [])
-  .filter((product) => product.productID !== "9d88a301-e4ff-42a2-957a-9c611d4cce12")
-  .sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated))
-  .slice(0, 10);
 
+  // ==================== DATA ====================
+
+  const sortedProducts = (
+    Array.isArray(productsByCategory[categoryId])
+      ? productsByCategory[categoryId]
+      : []
+  )
+    .filter(
+      (product) =>
+        product.productID !== "9d88a301-e4ff-42a2-957a-9c611d4cce12"
+    )
+    .sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated))
+    .slice(0, 10);
 
   useEffect(() => {
     dispatch(fetchProductsByCategory(categoryId));
   }, [dispatch, categoryId]);
 
+  // ==================== SCROLL ARROWS ====================
+
   useEffect(() => {
-    const updateItemsPerPage = () => {
-      const width = window.innerWidth;
-      setItemsPerPage(width < 768 ? 2 : 5);
+    const updateArrows = () => {
+      if (scrollRef.current) {
+        const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+        setShowLeftArrow(scrollLeft > 0);
+        setShowRightArrow(scrollLeft + clientWidth < scrollWidth - 5);
+      }
     };
+    updateArrows();
+    const el = scrollRef.current;
+    el?.addEventListener("scroll", updateArrows);
+    return () => el?.removeEventListener("scroll", updateArrows);
+  }, [sortedProducts]);
 
-    updateItemsPerPage();
-    window.addEventListener("resize", updateItemsPerPage);
-    return () => window.removeEventListener("resize", updateItemsPerPage);
-  }, []);
-
-  const totalPages = Math.ceil(sortedProducts.length / itemsPerPage);
-  const currentProducts = sortedProducts.slice(
-    currentPage * itemsPerPage,
-    currentPage * itemsPerPage + itemsPerPage
-  );
+  // ==================== AUTO-SCROLL ====================
 
   useEffect(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(() => {
-      setCurrentPage((prev) => (prev + 1) % totalPages);
-    }, 6000);
+    if (isHovered) return;
+    const interval = setInterval(() => {
+      if (scrollRef.current) {
+        const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+        if (scrollLeft + clientWidth >= scrollWidth - 5) {
+          scrollRef.current.scrollTo({ left: 0, behavior: "smooth" });
+        } else {
+          scroll("right");
+        }
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [sortedProducts, isHovered]);
 
-    return () => clearInterval(intervalRef.current);
-  }, [totalPages, currentPage, itemsPerPage]);
+  const scroll = (direction) => {
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollBy({
+      left: direction === "left" ? -300 : 300,
+      behavior: "smooth",
+    });
+  };
 
-  const formatPrice = (price) =>
-    new Intl.NumberFormat("en-GH", {
-      style: "currency",
-      currency: "GHS",
-    }).format(price || 0);
+  // ==================== HELPERS ====================
 
   const getValidImageUrl = (imagePath) => {
     if (!imagePath) return "https://via.placeholder.com/150";
@@ -179,159 +191,665 @@ const sortedProducts = (Array.isArray(productsByCategory[categoryId]) ? products
       : imagePath;
   };
 
+  const formatPrice = (price) => {
+    if (!price || isNaN(price)) return "₵0.00";
+    return `GH₵${Number(price).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
+  // ==================== RENDER ====================
+
   return (
-    <div className="mx-auto px-4 md:px-24 py-4">
+    <>
       <Notification
         message={notification.message}
         type={notification.type}
         isVisible={notification.isVisible}
         onClose={hideNotification}
       />
-      {/* Header */}
-      <div className="mb-6 flex items-center gap-4 flex-wrap md:flex-nowrap">
-        <h2 className="text-sm md:text-lg font-bold text-gray-900 relative whitespace-nowrap">
-          Mobile Phones
-          <span className="absolute -bottom-1 left-0 w-16 h-1 bg-red-400 rounded-full" />
-        </h2>
-        <div className="flex-grow h-px bg-gray-300" />
-        <Link
-          to="/phones"
-          className="flex items-center gap-1 text-red-400 hover:text-red-600 transition"
-        >
-          <span className="text-sm font-medium">View All</span>
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </Link>
-      </div>
 
-      {/* Products Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-        {(loading || currentProducts.length === 0
-          ? [...Array(itemsPerPage)]
-          : currentProducts
-        ).map((product, idx) => {
-          if (loading || !product) {
-            return (
-              <Card key={idx} className="animate-pulse shadow rounded-2xl">
-                <div className="h-40 bg-gray-300 rounded-t-2xl" />
-                <CardBody>
-                  <div className="h-4 bg-gray-300 rounded w-3/4 mb-2" />
-                  <div className="h-3 bg-gray-200 rounded w-1/2 mb-1" />
-                </CardBody>
-              </Card>
-            );
-          }
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800;900&display=swap');
 
-          const discount =
-            product.oldPrice > 0
-              ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
-              : 0;
-          const soldOut = product.stock === 0;
-          const inWishlist = isInWishlist(product.id || product.productID);
+        :root {
+          --pd-font: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          --pd-green: #14532d;
+          --pd-green-mid: #166534;
+          --pd-green-light: #dcfce7;
+          --pd-green-lighter: #f0fdf4;
+          --pd-green-accent: #22c55e;
+          --pd-dark: #1a1a1a;
+          --pd-mid: #555;
+          --pd-light: #888;
+          --pd-border: #e0e0e0;
+          --pd-bg-subtle: #f7f7f7;
+          --pd-red: #dc2626;
+          --pd-pink: #e11d48;
+          --pd-radius: 4px;
+        }
 
-          return (
-            <div
-              key={product.productID}
-              className="group bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden relative"
+        .pd-root, .pd-root * {
+          font-family: var(--pd-font);
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+          box-sizing: border-box;
+        }
+
+        /* ==================== HEADER ==================== */
+
+        .pd-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          margin-bottom: 16px;
+        }
+
+        .pd-title-wrap {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-shrink: 0;
+        }
+
+        .pd-title-accent {
+          width: 4px;
+          height: 22px;
+          border-radius: 2px;
+          background: var(--pd-green);
+          flex-shrink: 0;
+        }
+
+        @media (min-width: 768px) {
+          .pd-title-accent { height: 26px; }
+        }
+
+        .pd-title {
+          font-size: 17px;
+          font-weight: 800;
+          color: var(--pd-dark);
+          letter-spacing: -0.02em;
+          line-height: 1;
+          white-space: nowrap;
+        }
+
+        @media (min-width: 768px) {
+          .pd-title { font-size: 20px; }
+        }
+
+        .pd-header-line {
+          flex: 1;
+          height: 1px;
+          background: var(--pd-border);
+          min-width: 20px;
+        }
+
+        .pd-see-more {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--pd-green);
+          text-decoration: none;
+          transition: all 0.15s;
+          white-space: nowrap;
+          flex-shrink: 0;
+          cursor: pointer;
+          font-family: var(--pd-font);
+          background: none;
+          border: none;
+          padding: 0;
+        }
+
+        .pd-see-more:hover {
+          color: var(--pd-green-mid);
+        }
+
+        .pd-see-more-arrow {
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background: var(--pd-green-light);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.15s;
+        }
+
+        .pd-see-more:hover .pd-see-more-arrow {
+          background: var(--pd-green);
+        }
+
+        .pd-see-more:hover .pd-see-more-arrow svg {
+          color: #fff !important;
+        }
+
+        /* ==================== CARDS ==================== */
+
+        .pd-card {
+          min-width: 160px;
+          width: 160px;
+          border: 1px solid var(--pd-border);
+          border-radius: var(--pd-radius);
+          overflow: hidden;
+          background: #fff;
+          transition: all 0.2s ease;
+          cursor: pointer;
+          flex-shrink: 0;
+        }
+
+        @media (min-width: 768px) {
+          .pd-card { min-width: 220px; width: 220px; }
+        }
+
+        .pd-card:hover {
+          border-color: var(--pd-green-accent);
+          box-shadow: 0 4px 16px rgba(20, 83, 45, 0.08);
+        }
+
+        .pd-card-img {
+          position: relative;
+          height: 150px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 10px;
+     
+          overflow: hidden;
+        }
+
+        @media (min-width: 768px) {
+          .pd-card-img { height: 195px; }
+        }
+
+        .pd-card-img img {
+          height: 100%;
+          width: 100%;
+          object-fit: contain;
+          transition: transform 0.3s ease;
+        }
+
+        .pd-card:hover .pd-card-img img {
+          transform: scale(1.05);
+        }
+
+        .pd-card-overlay {
+          position: absolute;
+          inset: 0;
+          background: rgba(20, 83, 45, 0.45);
+          display: none;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          z-index: 2;
+        }
+
+        .pd-card:hover .pd-card-overlay {
+          display: flex;
+        }
+
+        .pd-card-action {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          background: #fff;
+          border: none;
+          cursor: pointer;
+          transition: all 0.15s;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .pd-card-action:hover {
+          transform: scale(1.1);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .pd-card-action:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        .pd-card-body {
+          padding: 10px 12px;
+          text-align: center;
+        }
+
+        .pd-card-name {
+          font-size: 15px;
+          font-weight: 600;
+          color: var(--pd-dark);
+          line-height: 1.35;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          min-height: 35px;
+        }
+
+        .pd-card-price {
+          font-size: 14px;
+          font-weight: 900;
+          color: var(--pd-red);
+          margin-top: 2px;
+        }
+
+        .pd-card-old-price {
+          font-size: 12px;
+          font-weight: 400;
+          color: var(--pd-light);
+          text-decoration: line-through;
+          margin-top: 2px;
+        }
+
+        .pd-card-sold {
+          position: absolute;
+          top: 8px;
+          left: 8px;
+          font-size: 9px;
+          font-weight: 700;
+          padding: 3px 8px;
+          border-radius: 100px;
+          background: var(--pd-dark);
+          color: #fff;
+          z-index: 3;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+        }
+
+        .pd-card-discount {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          font-size: 10px;
+          font-weight: 700;
+          padding: 3px 7px;
+          border-radius: 100px;
+          background: var(--pd-red);
+          color: #fff;
+          z-index: 3;
+        }
+
+        /* ==================== SCROLL BUTTONS ==================== */
+
+        .pd-scroll-btn {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          z-index: 10;
+          width: 34px;
+          height: 34px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          background: #fff;
+          border: 1px solid var(--pd-border);
+          box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+
+        .pd-scroll-btn:hover {
+          background: var(--pd-green-light);
+          border-color: var(--pd-green-accent);
+        }
+
+        .pd-scroll-btn:active {
+          transform: translateY(-50%) scale(0.95);
+        }
+
+        .pd-scroll-btn-left { left: -4px; }
+        .pd-scroll-btn-right { right: -4px; }
+
+        @media (min-width: 768px) {
+          .pd-scroll-btn-left { left: -10px; }
+          .pd-scroll-btn-right { right: -10px; }
+        }
+
+        /* ==================== VIEW ALL ==================== */
+
+        .pd-view-all {
+          min-width: 110px;
+          width: 110px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          cursor: pointer;
+          text-decoration: none;
+          flex-shrink: 0;
+        }
+
+        @media (min-width: 768px) {
+          .pd-view-all { min-width: 140px; width: 140px; }
+        }
+
+        .pd-view-all-circle {
+          width: 48px;
+          height: 48px;
+          border-radius: 50%;
+          background: var(--pd-green-light);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s;
+          border: 2px solid transparent;
+        }
+
+        .pd-view-all:hover .pd-view-all-circle {
+          background: var(--pd-green);
+          border-color: var(--pd-green);
+        }
+
+        .pd-view-all:hover .pd-view-all-circle svg {
+          color: #fff !important;
+        }
+
+        .pd-view-all-label {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--pd-green);
+        }
+
+        /* ==================== SKELETON ==================== */
+
+        .pd-skeleton {
+          min-width: 160px;
+          width: 160px;
+          border: 1px solid #eee;
+          border-radius: var(--pd-radius);
+          overflow: hidden;
+          background: #fff;
+          flex-shrink: 0;
+        }
+
+        @media (min-width: 768px) {
+          .pd-skeleton { min-width: 220px; width: 220px; }
+        }
+
+        .pd-skeleton-img {
+          height: 150px;
+          background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+          background-size: 200% 100%;
+          animation: pd-shimmer 1.5s infinite;
+        }
+
+        @media (min-width: 768px) {
+          .pd-skeleton-img { height: 195px; }
+        }
+
+        @keyframes pd-shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+
+        .pd-skeleton-line {
+          height: 10px;
+          border-radius: 2px;
+          background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+          background-size: 200% 100%;
+          animation: pd-shimmer 1.5s infinite;
+        }
+
+        /* ==================== ANIMATIONS ==================== */
+
+        @keyframes pd-slide-in {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+
+        .pd-animate-slide-in {
+          animation: pd-slide-in 0.3s ease-out;
+        }
+
+        .pd-no-scrollbar::-webkit-scrollbar { display: none; }
+        .pd-no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
+
+      <div className="pd-root mx-auto px-4 md:px-16 py-6">
+        {/* ==================== HEADER ==================== */}
+        <div className="pd-header">
+          <div className="pd-title-wrap">
+            <div className="pd-title-accent" />
+            <h2 className="pd-title">Mobile Phones</h2>
+          </div>
+
+          <div className="pd-header-line" />
+
+          <Link to="/phones" className="pd-see-more">
+            <span>View All</span>
+            <span className="pd-see-more-arrow">
+              <ChevronRightIcon
+                style={{ width: 10, height: 10, color: "var(--pd-green)" }}
+              />
+            </span>
+          </Link>
+        </div>
+
+        {/* ==================== CAROUSEL ==================== */}
+        <div className="relative">
+          {showLeftArrow && (
+            <button
+              onClick={() => scroll("left")}
+              className="pd-scroll-btn pd-scroll-btn-left"
             >
-              {/* Badge */}
-              {soldOut ? (
-                <span className="absolute top-2 left-2 bg-gray-800 text-white text-xs px-2 py-0.5 rounded-full z-10">
-                  SOLD OUT
-                </span>
-              ) : discount > 0 ? (
-                <span className="absolute top-2 left-2 bg-red-600 text-white text-xs font-semibold px-2 py-1 rounded-full z-10 w-10 h-10 flex items-center justify-center">
-                  SALE
-                </span>
-              ) : null}
+              <ChevronLeftIcon
+                style={{ width: 16, height: 16, color: "var(--pd-green)" }}
+              />
+            </button>
+          )}
 
-              {/* Image */}
-              <div className="relative overflow-hidden">
+          <div
+            ref={scrollRef}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            className="flex gap-3 md:gap-4 overflow-x-auto pd-no-scrollbar scroll-smooth"
+            style={{ paddingBottom: 4, paddingLeft: 1, paddingRight: 1 }}
+          >
+            {(loading
+              ? [...Array(10)]
+              : sortedProducts
+            ).map((product, idx) => {
+              if (loading || !product) {
+                return (
+                  <div
+                    key={idx}
+                    className="pd-skeleton"
+                    style={{ marginBottom: 4 }}
+                  >
+                    <div className="pd-skeleton-img" />
+                    <div style={{ padding: "10px 12px" }}>
+                      <div
+                        className="pd-skeleton-line"
+                        style={{ width: "80%", marginBottom: 8 }}
+                      />
+                      <div
+                        className="pd-skeleton-line"
+                        style={{ width: "50%", height: 8 }}
+                      />
+                    </div>
+                  </div>
+                );
+              }
+
+              const {
+                productID,
+                productName,
+                productImage,
+                price,
+                oldPrice,
+                stock,
+              } = product;
+
+              const isOnSale = oldPrice > 0 && oldPrice > price;
+              const discountPercent = isOnSale
+                ? Math.round(((oldPrice - price) / oldPrice) * 100)
+                : 0;
+              const soldOut = stock === 0;
+              const inWishlist = isInWishlist(product.id || productID);
+
+              return (
                 <div
-                  className="h-40 md:h-48 w-full flex items-center justify-center cursor-pointer"
-                  onClick={() => navigate(`/product/${product.productID}`)}
+                  key={productID}
+                  className="pd-card"
+                  style={{ marginBottom: 4 }}
                 >
-                  <img
-                    src={getValidImageUrl(product.productImage)}
-                    alt={product.productName}
-                    className="h-full object-contain transition-transform duration-300 group-hover:scale-105 "
+                  <div className="pd-card-img">
+                    {soldOut && (
+                      <span className="pd-card-sold">Sold Out</span>
+                    )}
+                    {isOnSale && !soldOut && (
+                      <span className="pd-card-discount">
+                        -{discountPercent}%
+                      </span>
+                    )}
+
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                      onClick={() => navigate(`/product/${productID}`)}
+                    >
+                      <img
+                        src={getValidImageUrl(productImage)}
+                        alt={productName}
+                      />
+                    </div>
+
+                    <div
+                      className="pd-card-overlay"
+                      onClick={() => navigate(`/product/${productID}`)}
+                    >
+                      <Tooltip
+                        content={
+                          inWishlist
+                            ? "Remove from Wishlist"
+                            : "Add to Wishlist"
+                        }
+                      >
+                        <button
+                          className="pd-card-action"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleWishlistToggle(product);
+                          }}
+                        >
+                          {inWishlist ? (
+                            <SolidHeartIcon
+                              style={{
+                                width: 16,
+                                height: 16,
+                                color: "var(--pd-pink)",
+                              }}
+                            />
+                          ) : (
+                            <OutlineHeartIcon
+                              style={{
+                                width: 16,
+                                height: 16,
+                                color: "var(--pd-mid)",
+                              }}
+                            />
+                          )}
+                        </button>
+                      </Tooltip>
+
+                      <Tooltip content="View Details">
+                        <button
+                          className="pd-card-action"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/product/${productID}`);
+                          }}
+                        >
+                          <EyeIcon
+                            style={{
+                              width: 16,
+                              height: 16,
+                              color: "var(--pd-green)",
+                            }}
+                          />
+                        </button>
+                      </Tooltip>
+
+                      <Tooltip
+                        content={soldOut ? "Out of Stock" : "Add to Cart"}
+                      >
+                        <button
+                          className="pd-card-action"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAddToCart(product);
+                          }}
+                          disabled={cartLoading || soldOut}
+                        >
+                          <ShoppingCartIcon
+                            style={{
+                              width: 16,
+                              height: 16,
+                              color: "var(--pd-green-mid)",
+                            }}
+                          />
+                        </button>
+                      </Tooltip>
+                    </div>
+                  </div>
+
+                  <div className="pd-card-body">
+                    <div className="pd-card-name">{productName}</div>
+                    <div className="pd-card-price">{formatPrice(price)}</div>
+                    {oldPrice > 0 && (
+                      <div className="pd-card-old-price">
+                        {formatPrice(oldPrice)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {!loading && sortedProducts.length > 0 && (
+              <Link to="/phones" className="pd-view-all">
+                <div className="pd-view-all-circle">
+                  <ArrowRightIcon
+                    style={{
+                      width: 20,
+                      height: 20,
+                      color: "var(--pd-green)",
+                      transition: "color 0.2s",
+                    }}
                   />
                 </div>
+                <span className="pd-view-all-label">View All</span>
+              </Link>
+            )}
+          </div>
 
-                {/* Hover Actions */}
-                              <div
-                 className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20 transition-all cursor-pointer"
-                 onClick={() => navigate(`/product/${product.productID}`)}
-               >
-                 {/* Wishlist Icon */}
-                 <Tooltip content={inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}>
-                   <button
-                     className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-                     onClick={(e) => {
-                       e.stopPropagation();
-                       handleWishlistToggle(product);
-                     }}
-                   >
-                     {inWishlist ? (
-                       <SolidHeartIcon className="w-5 h-5 text-red-500" />
-                     ) : (
-                       <OutlineHeartIcon className="w-5 h-5 text-white hover:text-red-400" />
-                     )}
-                   </button>
-                 </Tooltip>
-               
-                 {/* View Details */}
-                 <Tooltip content="View Details">
-                   <button
-                     onClick={(e) => {
-                       e.stopPropagation();
-                       navigate(`/product/${product.productID}`);
-                     }}
-                     className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-                   >
-                     <EyeIcon className="w-5 h-5 text-white hover:text-green-400" />
-                   </button>
-                 </Tooltip>
-               
-                 {/* Add to Cart */}
-                 <Tooltip content={product.stock === 0 ? "Out of Stock" : "Add to Cart"}>
-                   <button
-                     onClick={(e) => {
-                       e.stopPropagation();
-                       handleAddToCart(product);
-                     }}
-                     className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                     disabled={cartLoading || product.stock === 0}
-                   >
-                     <ShoppingCartIcon className="w-5 h-5 text-white hover:text-red-400" />
-                   </button>
-                 </Tooltip>
-               </div>
-               
-              </div>
-
-              {/* Info */}
-              <div className="p-3 text-center space-y-1">
-                <h3 className="text-sm font-medium text-gray-800 line-clamp-2">
-                  {product.productName}
-                </h3>
-                <div className="flex flex-col md:flex-row items-center justify-center gap-1 mt-1">
-                  <span className="text-red-500 font-medium text-sm">
-                    {formatPrice(product.price)}
-                  </span>
-                  {product.oldPrice > 0 && (
-                    <span className="text-xs text-gray-400 line-through">
-                      {formatPrice(product.oldPrice)}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+          {showRightArrow && (
+            <button
+              onClick={() => scroll("right")}
+              className="pd-scroll-btn pd-scroll-btn-right"
+            >
+              <ChevronRightIcon
+                style={{ width: 16, height: 16, color: "var(--pd-green)" }}
+              />
+            </button>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

@@ -5,7 +5,7 @@ import { Image } from "antd";
 import { fetchProductById, fetchProducts } from "../Redux/Slice/productSlice";
 import { updateCartItem, deleteCartItem, getCartById, addToCart } from '../Redux/Slice/cartSlice';
 import ProductDetailSkeleton from "../Component/ProductDetailSkeleton";
-import { Button, Tooltip, IconButton, Drawer } from "@material-tailwind/react";
+import { Tooltip, Drawer } from "@material-tailwind/react";
 import {
   ShoppingCartIcon,
   CheckCircleIcon,
@@ -21,9 +21,8 @@ import {
   PlusIcon,
   XMarkIcon,
   ExclamationTriangleIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
 } from "@heroicons/react/24/outline";
-import ProductCard from "../Component/ProductCard";
 import AuthModal from "../Component/AuthModal";
 import { Helmet } from "react-helmet";
 import { Divider } from "antd";
@@ -31,8 +30,11 @@ import { Divider } from "antd";
 // ==================== UTILITY FUNCTIONS ====================
 
 const formatPrice = (price) => {
-  if (!price || isNaN(price)) return "0";
-  return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  if (!price || isNaN(price)) return "0.00";
+  return Number(price).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 };
 
 const getItemLineTotal = (item) => {
@@ -74,7 +76,7 @@ const safeLocalStorage = {
   },
   setItem: (key, value) => {
     try {
-      localStorage.setItem(key, value);
+      localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
       return true;
     } catch {
       return false;
@@ -116,7 +118,7 @@ const ProductDescription = () => {
   const flixMediaSectionRef = useRef(null);
 
   const { currentProduct, products, loading } = useSelector((state) => state.products);
-  const { cart, loading: cartLoadingState, error: cartError, cartId } = useSelector((state) => state.cart);
+  const { cart, cartId } = useSelector((state) => state.cart);
 
   // ==================== NETWORK STATUS ====================
 
@@ -272,8 +274,8 @@ const ProductDescription = () => {
       loadingDiv.className = 'flex items-center justify-center py-12';
       loadingDiv.innerHTML = `
         <div class="text-center">
-          <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mb-4"></div>
-          <div class="text-gray-600">Loading more product details</div>
+          <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-green-700 mb-4"></div>
+          <div class="text-gray-600" style="font-family: var(--pd-font)">Loading more product details</div>
         </div>
       `;
       flixSection.appendChild(loadingDiv);
@@ -295,7 +297,7 @@ const ProductDescription = () => {
           <head>
             <base target="_parent">
             <style>
-              body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+              body { margin: 0; padding: 0; font-family: 'Source Sans 3', Arial, sans-serif; }
               #flix-container { width: 100%; max-width: 100%; overflow: hidden; }
               .flix-inpage, .flix-minisite { width: 100% !important; max-width: 100% !important; }
               iframe { max-width: 100% !important; }
@@ -430,11 +432,9 @@ const ProductDescription = () => {
 
       await dispatch(addToCart(cartItemPayload)).unwrap();
 
-      // ✅ Show sidebar immediately with loading state
       setCartSidebarOpen(true);
       setCartLoading(true);
 
-      // ✅ Always reload full cart from DB
       if (storedCartId) {
         try {
           const updatedCart = await dispatch(getCartById(storedCartId)).unwrap();
@@ -445,7 +445,7 @@ const ProductDescription = () => {
           }
           setCartSyncError(null);
         } catch {
-          // Silent fail - cart may already be updated
+          // Silent fail
         } finally {
           setCartLoading(false);
         }
@@ -474,13 +474,10 @@ const ProductDescription = () => {
     }
 
     const previousLocalCart = [...localCart];
-    
-    // ✅ Show loading state for this specific item
     setUpdatingQuantity(prev => ({ ...prev, [productId]: true }));
     setCartSyncError(null);
 
     try {
-      // Optimistic update
       const optimisticCart = localCart.map(item =>
         item.productId === productId
           ? { ...item, quantity: newQuantity, total: parseFloat(item.price) * newQuantity }
@@ -495,7 +492,6 @@ const ProductDescription = () => {
         Quantity: newQuantity,
       })).unwrap();
 
-      // ✅ Always reload full cart from DB after update
       setCartLoading(true);
       const updatedCart = await dispatch(getCartById(activeCartId)).unwrap();
       if (updatedCart && Array.isArray(updatedCart)) {
@@ -505,7 +501,6 @@ const ProductDescription = () => {
         setCartSyncError(null);
       }
     } catch (error) {
-      // Rollback on error
       safeLocalStorage.setItem('cart', previousLocalCart);
       setLocalCart(previousLocalCart);
       setCartSyncError(`Failed to update quantity: ${error?.message || 'Unknown error'}`);
@@ -527,13 +522,10 @@ const ProductDescription = () => {
     }
 
     const previousLocalCart = [...localCart];
-    
-    // ✅ Show loading state for this specific item
     setRemovingItem(prev => ({ ...prev, [productId]: true }));
     setCartSyncError(null);
 
     try {
-      // Optimistic removal
       const optimisticCart = localCart.filter(item => item.productId !== productId);
       safeLocalStorage.setItem('cart', optimisticCart);
       setLocalCart(optimisticCart);
@@ -543,7 +535,6 @@ const ProductDescription = () => {
         ProductId: String(productId),
       })).unwrap();
 
-      // ✅ Always reload full cart from DB after deletion
       setCartLoading(true);
       const updatedCart = await dispatch(getCartById(activeCartId)).unwrap();
       if (updatedCart && Array.isArray(updatedCart)) {
@@ -553,7 +544,6 @@ const ProductDescription = () => {
         setCartSyncError(null);
       }
     } catch (error) {
-      // Rollback on error
       safeLocalStorage.setItem('cart', previousLocalCart);
       setLocalCart(previousLocalCart);
       setCartSyncError(`Failed to remove item: ${error?.message || 'Unknown error'}`);
@@ -612,7 +602,7 @@ const ProductDescription = () => {
       <img
         src={imageUrl}
         alt="Product"
-        className="w-full h-full object-cover rounded-lg"
+        className="w-full h-full object-cover rounded"
         onError={(e) => { e.target.src = "https://via.placeholder.com/150"; }}
       />
     );
@@ -664,7 +654,7 @@ const ProductDescription = () => {
   const outOfStock = isOutOfStock(product);
   const imageUrl = `https://ct002.frankotrading.com:444/Media/Products_Images/${product.productImage.split("\\").pop()}`;
   const descriptionLines = product.description.split("\n").map((line, i) => (
-    <p key={i} className="text-sm text-gray-700 mb-1">{line}</p>
+    <p key={i} className="pd-description-line">{line}</p>
   ));
   const productUrl = window.location.href;
   const related = products.slice(-12);
@@ -672,452 +662,1546 @@ const ProductDescription = () => {
   // ==================== RENDER ====================
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-10">
-      <Helmet>
-        <title>{`${product?.productName || "Product"} - Best Price`}</title>
-        <meta name="description" content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}. High-quality and best prices available.`} />
-        <meta property="og:title" content={product?.productName || "Product"} />
-        <meta property="og:description" content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}.`} />
-        <meta property="og:image" content={imageUrl || "default-image-url.jpg"} />
-        <meta property="og:url" content={productUrl || "https://www.frankotrading.com"} />
-        <meta name="twitter:card" content="summary_large_image" />
-        <link rel="canonical" href={`https://www.frankotrading.com/product/${product?.productID || "defaultID"}`} />
-      </Helmet>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800;900&display=swap');
 
-      <script type="application/ld+json">
-        {JSON.stringify({
-          "@context": "https://schema.org/",
-          "@type": "Product",
-          "name": product.productName,
-          "image": imageUrl,
-          "description": product.description,
-          "sku": product.productID,
-          "brand": {
-            "@type": "Brand",
-            "name": product.brandName
-          },
-          "offers": {
-            "@type": "Offer",
-            "priceCurrency": "GHS",
-            "price": product.price,
-            "priceValidUntil": "2025-12-31",
-            "itemCondition": "https://schema.org/NewCondition",
-            "availability": "https://schema.org/InStock",
-            "url": `https://www.frankotrading.com/product/${product.productID}`,
-            "seller": {
-              "@type": "Organization",
-              "name": "Franko Trading"
-            },
-            "shippingDetails": {
-              "@type": "OfferShippingDetails",
-              "shippingRate": {
-                "@type": "MonetaryAmount",
-                "currency": "GHS",
-                "value": "30.00"
-              },
-              "shippingDestination": {
-                "@type": "DefinedRegion",
-                "addressCountry": "GH"
-              },
-              "deliveryTime": {
-                "@type": "ShippingDeliveryTime",
-                "handlingTime": {
-                  "@type": "QuantitativeValue",
-                  "minValue": 1,
-                  "maxValue": 2,
-                  "unitCode": "DAY"
-                },
-                "transitTime": {
-                  "@type": "QuantitativeValue",
-                  "minValue": 3,
-                  "maxValue": 5,
-                  "unitCode": "DAY"
+        :root {
+          --pd-font: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          --pd-green: #14532d;
+          --pd-green-mid: #166534;
+          --pd-green-light: #dcfce7;
+          --pd-green-lighter: #f0fdf4;
+          --pd-green-accent: #22c55e;
+          --pd-dark: #1a1a1a;
+          --pd-mid: #555;
+          --pd-light: #888;
+          --pd-border: #e0e0e0;
+          --pd-bg-subtle: #f7f7f7;
+          --pd-red: #dc2626;
+          --pd-pink: #e11d48;
+          --pd-radius: 4px;
+        }
+
+        .pd-root, .pd-root * {
+          font-family: var(--pd-font);
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+          box-sizing: border-box;
+        }
+
+        /* ==================== HEADER STYLES ==================== */
+
+        .pd-section-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          margin-bottom: 16px;
+        }
+
+        .pd-title-wrap {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-shrink: 0;
+        }
+
+        .pd-title-accent {
+          width: 4px;
+          height: 22px;
+          border-radius: 2px;
+          background: var(--pd-green);
+          flex-shrink: 0;
+        }
+
+        @media (min-width: 768px) {
+          .pd-title-accent { height: 26px; }
+        }
+
+        .pd-section-title {
+          font-size: 17px;
+          font-weight: 800;
+          color: var(--pd-dark);
+          letter-spacing: -0.02em;
+          line-height: 1;
+          white-space: nowrap;
+          margin: 0;
+        }
+
+        @media (min-width: 768px) {
+          .pd-section-title { font-size: 20px; }
+        }
+
+        .pd-header-line {
+          flex: 1;
+          height: 1px;
+          background: var(--pd-border);
+          min-width: 20px;
+        }
+
+        /* ==================== PRODUCT TITLE ==================== */
+
+        .pd-product-title {
+          font-size: 20px;
+          font-weight: 800;
+          color: var(--pd-dark);
+          letter-spacing: -0.02em;
+          line-height: 1.3;
+          margin-bottom: 16px;
+        }
+
+        @media (min-width: 768px) {
+          .pd-product-title { font-size: 24px; }
+        }
+
+        /* ==================== PRICE ==================== */
+
+        .pd-price-container {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          background: var(--pd-green-lighter);
+          border: 1px solid var(--pd-green-light);
+          border-radius: var(--pd-radius);
+          padding: 12px 16px;
+          margin-bottom: 16px;
+        }
+
+        .pd-price {
+          font-size: 22px;
+          font-weight: 900;
+          color: var(--pd-red);
+        }
+
+        @media (min-width: 768px) {
+          .pd-price { font-size: 26px; }
+        }
+
+        .pd-old-price {
+          font-size: 14px;
+          font-weight: 400;
+          color: var(--pd-light);
+          text-decoration: line-through;
+        }
+
+        /* ==================== BADGES ==================== */
+
+        .pd-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 4px 12px;
+          border-radius: 100px;
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+        }
+
+        .pd-badge-tag {
+          background: linear-gradient(135deg, var(--pd-green) 0%, var(--pd-green-mid) 100%);
+          color: #fff;
+        }
+
+        .pd-badge-color {
+          background: var(--pd-bg-subtle);
+          color: var(--pd-mid);
+          border: 1px solid var(--pd-border);
+          text-transform: none;
+          font-weight: 500;
+        }
+
+        /* ==================== STOCK STATUS ==================== */
+
+        .pd-stock {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 16px;
+          border-radius: var(--pd-radius);
+          font-size: 13px;
+          font-weight: 600;
+          border: 1px solid;
+        }
+
+        .pd-stock-in {
+          background: var(--pd-green-lighter);
+          color: var(--pd-green);
+          border-color: var(--pd-green-light);
+        }
+
+        .pd-stock-out {
+          background: #fef2f2;
+          color: var(--pd-red);
+          border-color: #fecaca;
+        }
+
+        /* ==================== DESCRIPTION ==================== */
+
+        .pd-description-header {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 12px;
+        }
+
+        .pd-description-title {
+          font-size: 15px;
+          font-weight: 700;
+          color: var(--pd-dark);
+        }
+
+        @media (min-width: 768px) {
+          .pd-description-title { font-size: 16px; }
+        }
+
+        .pd-description-box {
+          background: #fff;
+          border: 1px solid var(--pd-border);
+          border-radius: var(--pd-radius);
+          padding: 16px;
+          max-height: 280px;
+          overflow-y: auto;
+        }
+
+        .pd-description-line {
+          font-size: 14px;
+          color: var(--pd-mid);
+          line-height: 1.6;
+          margin-bottom: 8px;
+        }
+
+        .pd-description-line:last-child {
+          margin-bottom: 0;
+        }
+
+        /* ==================== BUTTONS ==================== */
+
+        .pd-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 14px 24px;
+          border-radius: var(--pd-radius);
+          font-size: 14px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          border: 2px solid transparent;
+          width: 100%;
+        }
+
+        .pd-btn-primary {
+          background: var(--pd-green);
+          color: #fff;
+          border-color: var(--pd-green);
+        }
+
+        .pd-btn-primary:hover:not(:disabled) {
+          background: var(--pd-green-mid);
+          border-color: var(--pd-green-mid);
+          box-shadow: 0 4px 16px rgba(20, 83, 45, 0.2);
+        }
+
+        .pd-btn-primary:disabled {
+          background: var(--pd-border);
+          border-color: var(--pd-border);
+          color: var(--pd-light);
+          cursor: not-allowed;
+        }
+
+        /* ==================== SHARE BUTTON ==================== */
+
+        .pd-share-btn {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background: var(--pd-green-light);
+          border: none;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+        }
+
+        .pd-share-btn:hover {
+          background: var(--pd-green);
+          transform: scale(1.1);
+        }
+
+        .pd-share-btn:hover svg {
+          color: #fff !important;
+        }
+
+        /* ==================== CARDS ==================== */
+
+        .pd-card {
+          border: 1px solid var(--pd-border);
+          border-radius: var(--pd-radius);
+          overflow: hidden;
+          background: #fff;
+          transition: all 0.2s ease;
+          cursor: pointer;
+        }
+
+        .pd-card:hover {
+          border-color: var(--pd-green-accent);
+          box-shadow: 0 4px 16px rgba(20, 83, 45, 0.08);
+        }
+
+        .pd-card-img {
+          position: relative;
+          height: 150px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 10px;
+          overflow: hidden;
+        }
+
+        @media (min-width: 768px) {
+          .pd-card-img { height: 195px; }
+        }
+
+        .pd-card-img img {
+          height: 100%;
+          width: 100%;
+          object-fit: contain;
+          transition: transform 0.3s ease;
+        }
+
+        .pd-card:hover .pd-card-img img {
+          transform: scale(1.05);
+        }
+
+        .pd-card-overlay {
+          position: absolute;
+          inset: 0;
+          background: rgba(20, 83, 45, 0.45);
+          display: none;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          z-index: 2;
+        }
+
+        .pd-card:hover .pd-card-overlay {
+          display: flex;
+        }
+
+        .pd-card-action {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          background: #fff;
+          border: none;
+          cursor: pointer;
+          transition: all 0.15s;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .pd-card-action:hover {
+          transform: scale(1.1);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .pd-card-action:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        .pd-card-body {
+          padding: 10px 12px;
+          text-align: center;
+        }
+
+        .pd-card-name {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--pd-dark);
+          line-height: 1.35;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          min-height: 35px;
+        }
+
+        .pd-card-price {
+          font-size: 14px;
+          font-weight: 900;
+          color: var(--pd-red);
+          margin-top: 6px;
+        }
+
+        .pd-card-old-price {
+          font-size: 12px;
+          font-weight: 400;
+          color: var(--pd-light);
+          text-decoration: line-through;
+          margin-top: 2px;
+        }
+
+        .pd-card-badge {
+          position: absolute;
+          top: 8px;
+          font-size: 9px;
+          font-weight: 700;
+          padding: 3px 8px;
+          border-radius: 100px;
+          z-index: 3;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+        }
+
+        .pd-card-badge-sold {
+          left: 8px;
+          background: var(--pd-dark);
+          color: #fff;
+        }
+
+        .pd-card-badge-discount {
+          right: 8px;
+          background: var(--pd-red);
+          color: #fff;
+          font-size: 10px;
+          padding: 3px 7px;
+        }
+
+        /* ==================== SERVICE FEATURES ==================== */
+
+        .pd-features {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 16px;
+          margin-top: 32px;
+        }
+
+        @media (min-width: 640px) {
+          .pd-features { grid-template-columns: repeat(4, 1fr); }
+        }
+
+        .pd-feature {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          padding: 12px;
+          border: 1px solid var(--pd-border);
+          border-radius: var(--pd-radius);
+          transition: all 0.2s ease;
+        }
+
+        .pd-feature:hover {
+          border-color: var(--pd-green-accent);
+          background: var(--pd-green-lighter);
+        }
+
+        .pd-feature-icon {
+          width: 20px;
+          height: 20px;
+          flex-shrink: 0;
+        }
+
+        .pd-feature-title {
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--pd-dark);
+          margin-bottom: 2px;
+        }
+
+        .pd-feature-subtitle {
+          font-size: 11px;
+          color: var(--pd-light);
+        }
+
+        /* ==================== STICKY BAR ==================== */
+
+        .pd-sticky-bar {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          z-index: 50;
+          background: #fff;
+          border-bottom: 1px solid var(--pd-border);
+          box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+          transition: all 0.3s ease;
+        }
+
+        .pd-sticky-bar.pd-hidden {
+          transform: translateY(-100%);
+          opacity: 0;
+        }
+
+        .pd-sticky-inner {
+          max-width: 1280px;
+          margin: 0 auto;
+          padding: 12px 16px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+        }
+
+        @media (min-width: 768px) {
+          .pd-sticky-inner { padding: 12px 24px; }
+        }
+
+        .pd-sticky-product {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex: 1;
+          min-width: 0;
+        }
+
+        .pd-sticky-img {
+          width: 48px;
+          height: 48px;
+          border: 1px solid var(--pd-border);
+          border-radius: var(--pd-radius);
+          object-fit: contain;
+          flex-shrink: 0;
+        }
+
+        .pd-sticky-info {
+          min-width: 0;
+        }
+
+        .pd-sticky-name {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--pd-dark);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          margin-bottom: 2px;
+        }
+
+        .pd-sticky-price {
+          font-size: 16px;
+          font-weight: 900;
+          color: var(--pd-red);
+        }
+
+        .pd-sticky-old-price {
+          font-size: 12px;
+          color: var(--pd-light);
+          text-decoration: line-through;
+          margin-left: 8px;
+        }
+
+        .pd-sticky-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+
+        .pd-sticky-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          padding: 10px 20px;
+          border-radius: var(--pd-radius);
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          border: none;
+        }
+
+        .pd-sticky-btn-cart {
+          background: var(--pd-green);
+          color: #fff;
+        }
+
+        .pd-sticky-btn-cart:hover:not(:disabled) {
+          background: var(--pd-green-mid);
+        }
+
+        .pd-sticky-btn-cart:disabled {
+          background: var(--pd-border);
+          color: var(--pd-light);
+          cursor: not-allowed;
+        }
+
+        .pd-sticky-cart-icon {
+          position: relative;
+          width: 40px;
+          height: 40px;
+          background: var(--pd-bg-subtle);
+          border-radius: var(--pd-radius);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .pd-sticky-cart-icon:hover {
+          background: var(--pd-green-light);
+        }
+
+        .pd-sticky-cart-badge {
+          position: absolute;
+          top: -4px;
+          right: -4px;
+          width: 18px;
+          height: 18px;
+          background: var(--pd-red);
+          color: #fff;
+          font-size: 10px;
+          font-weight: 700;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        /* ==================== CART SIDEBAR ==================== */
+
+        .pd-cart-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 16px;
+          border-bottom: 1px solid var(--pd-border);
+          background: #fff;
+        }
+
+        .pd-cart-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 16px;
+          font-weight: 800;
+          color: var(--pd-dark);
+        }
+
+        .pd-cart-count {
+          background: var(--pd-green-light);
+          color: var(--pd-green);
+          padding: 2px 8px;
+          border-radius: 100px;
+          font-size: 11px;
+          font-weight: 700;
+        }
+
+        .pd-cart-close {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: var(--pd-bg-subtle);
+          border: none;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+        }
+
+        .pd-cart-close:hover {
+          background: var(--pd-border);
+        }
+
+        .pd-cart-empty {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100%;
+          padding: 32px;
+          text-align: center;
+        }
+
+        .pd-cart-empty-icon {
+          width: 64px;
+          height: 64px;
+          color: var(--pd-border);
+          margin-bottom: 16px;
+        }
+
+        .pd-cart-empty-title {
+          font-size: 16px;
+          font-weight: 700;
+          color: var(--pd-mid);
+          margin-bottom: 4px;
+        }
+
+        .pd-cart-empty-text {
+          font-size: 13px;
+          color: var(--pd-light);
+        }
+
+        .pd-cart-item {
+          position: relative;
+          background: #fff;
+          border: 1px solid var(--pd-border);
+          border-radius: var(--pd-radius);
+          padding: 12px;
+          transition: all 0.2s ease;
+        }
+
+        .pd-cart-item:hover {
+          border-color: var(--pd-green-accent);
+        }
+
+        .pd-cart-item-inner {
+          display: flex;
+          gap: 12px;
+        }
+
+        .pd-cart-item-img {
+          width: 60px;
+          height: 60px;
+          background: var(--pd-bg-subtle);
+          border-radius: var(--pd-radius);
+          overflow: hidden;
+          flex-shrink: 0;
+        }
+
+        .pd-cart-item-info {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .pd-cart-item-name {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--pd-dark);
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          margin-bottom: 4px;
+        }
+
+        .pd-cart-item-price {
+          font-size: 14px;
+          font-weight: 900;
+          color: var(--pd-red);
+        }
+
+        .pd-cart-item-actions {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-top: 8px;
+        }
+
+        .pd-qty-control {
+          display: flex;
+          align-items: center;
+          background: var(--pd-bg-subtle);
+          border: 1px solid var(--pd-border);
+          border-radius: var(--pd-radius);
+        }
+
+        .pd-qty-btn {
+          width: 28px;
+          height: 28px;
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.15s ease;
+        }
+
+        .pd-qty-btn:hover:not(:disabled) {
+          background: var(--pd-green-light);
+        }
+
+        .pd-qty-btn:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+
+        .pd-qty-value {
+          width: 32px;
+          text-align: center;
+          font-size: 12px;
+          font-weight: 700;
+          color: var(--pd-dark);
+        }
+
+        .pd-cart-item-total {
+          font-size: 14px;
+          font-weight: 800;
+          color: var(--pd-dark);
+        }
+
+        .pd-cart-item-remove {
+          width: 28px;
+          height: 28px;
+          background: #fef2f2;
+          border: none;
+          border-radius: var(--pd-radius);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.15s ease;
+          margin-left: 8px;
+        }
+
+        .pd-cart-item-remove:hover {
+          background: #fecaca;
+        }
+
+        .pd-cart-footer {
+          border-top: 1px solid var(--pd-border);
+          background: #fff;
+          padding: 16px;
+        }
+
+        .pd-cart-total-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 12px;
+        }
+
+        .pd-cart-total-label {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--pd-mid);
+        }
+
+        .pd-cart-total-value {
+          font-size: 20px;
+          font-weight: 900;
+          color: var(--pd-red);
+        }
+
+        .pd-cart-note {
+          font-size: 11px;
+          color: var(--pd-light);
+          text-align: center;
+          margin-bottom: 12px;
+        }
+
+        .pd-cart-checkout {
+          width: 100%;
+          padding: 14px;
+          background: var(--pd-green);
+          color: #fff;
+          border: none;
+          border-radius: var(--pd-radius);
+          font-size: 14px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          margin-bottom: 8px;
+        }
+
+        .pd-cart-checkout:hover {
+          background: var(--pd-green-mid);
+        }
+
+        .pd-cart-continue {
+          width: 100%;
+          padding: 12px;
+          background: #fff;
+          color: var(--pd-mid);
+          border: 1px solid var(--pd-border);
+          border-radius: var(--pd-radius);
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .pd-cart-continue:hover {
+          background: var(--pd-bg-subtle);
+          border-color: var(--pd-green-accent);
+        }
+
+        /* ==================== ALERT ==================== */
+
+        .pd-alert {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 12px 16px;
+          border-radius: var(--pd-radius);
+          border-left: 4px solid;
+          margin-bottom: 16px;
+        }
+
+        .pd-alert-warning {
+          background: #fffbeb;
+          border-left-color: #f59e0b;
+        }
+
+        .pd-alert-success {
+          background: var(--pd-green-lighter);
+          border-left-color: var(--pd-green-accent);
+        }
+
+        .pd-alert-text {
+          font-size: 13px;
+          font-weight: 500;
+        }
+
+        .pd-alert-warning .pd-alert-text {
+          color: #92400e;
+        }
+
+        .pd-alert-success .pd-alert-text {
+          color: var(--pd-green);
+        }
+
+        /* ==================== GRID ==================== */
+
+        .pd-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 12px;
+        }
+
+        @media (min-width: 640px) {
+          .pd-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        @media (min-width: 1024px) {
+          .pd-grid { grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        }
+
+        /* ==================== RELATED PRODUCTS GRID ==================== */
+
+        .pd-grid-related {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 12px;
+        }
+
+        @media (min-width: 640px) {
+          .pd-grid-related { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        @media (min-width: 768px) {
+          .pd-grid-related { grid-template-columns: repeat(4, 1fr); }
+        }
+
+        @media (min-width: 1024px) {
+          .pd-grid-related { grid-template-columns: repeat(5, 1fr); gap: 16px; }
+        }
+
+        @media (min-width: 1280px) {
+          .pd-grid-related { grid-template-columns: repeat(6, 1fr); }
+        }
+
+        /* ==================== MOBILE BOTTOM BAR ==================== */
+
+        .pd-mobile-bar {
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          background: #fff;
+          border-top: 1px solid var(--pd-border);
+          padding: 12px 16px;
+          box-shadow: 0 -2px 10px rgba(0,0,0,0.08);
+          z-index: 40;
+        }
+
+        @media (min-width: 768px) {
+          .pd-mobile-bar { display: none; }
+        }
+
+        /* ==================== LOADING SPINNER ==================== */
+
+        .pd-spinner {
+          width: 20px;
+          height: 20px;
+          border: 2px solid #fff;
+          border-top-color: transparent;
+          border-radius: 50%;
+          animation: pd-spin 0.8s linear infinite;
+        }
+
+        @keyframes pd-spin {
+          to { transform: rotate(360deg); }
+        }
+
+        /* ==================== IMAGE CONTAINER ==================== */
+
+        .pd-image-container {
+          display: flex;
+          justify-content: center;
+          align-items: flex-start;
+        }
+
+        .pd-main-image {
+          border-radius: var(--pd-radius);
+          box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+          max-width: 100%;
+          transition: transform 0.3s ease;
+        }
+
+        .pd-main-image:hover {
+          transform: scale(1.02);
+        }
+      `}</style>
+
+      <div className="pd-root max-w-7xl mx-auto px-4 py-10">
+        <Helmet>
+          <title>{`${product?.productName || "Product"} - Best Price`}</title>
+          <meta name="description" content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}. High-quality and best prices available.`} />
+          <meta property="og:title" content={product?.productName || "Product"} />
+          <meta property="og:description" content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}.`} />
+          <meta property="og:image" content={imageUrl || "default-image-url.jpg"} />
+          <meta property="og:url" content={productUrl || "https://www.frankotrading.com"} />
+          <meta name="twitter:card" content="summary_large_image" />
+          <link rel="canonical" href={`https://www.frankotrading.com/product/${product?.productID || "defaultID"}`} />
+        </Helmet>
+
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org/",
+            "@type": "Product",
+            "name": product.productName,
+            "image": imageUrl,
+            "description": product.description,
+            "sku": product.productID,
+            "brand": { "@type": "Brand", "name": product.brandName },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "GHS",
+              "price": product.price,
+              "priceValidUntil": "2025-12-31",
+              "itemCondition": "https://schema.org/NewCondition",
+              "availability": "https://schema.org/InStock",
+              "url": `https://www.frankotrading.com/product/${product.productID}`,
+              "seller": { "@type": "Organization", "name": "Franko Trading" },
+              "shippingDetails": {
+                "@type": "OfferShippingDetails",
+                "shippingRate": { "@type": "MonetaryAmount", "currency": "GHS", "value": "30.00" },
+                "shippingDestination": { "@type": "DefinedRegion", "addressCountry": "GH" },
+                "deliveryTime": {
+                  "@type": "ShippingDeliveryTime",
+                  "handlingTime": { "@type": "QuantitativeValue", "minValue": 1, "maxValue": 2, "unitCode": "DAY" },
+                  "transitTime": { "@type": "QuantitativeValue", "minValue": 3, "maxValue": 5, "unitCode": "DAY" }
                 }
+              },
+              "hasMerchantReturnPolicy": {
+                "@type": "MerchantReturnPolicy",
+                "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+                "merchantReturnDays": 14,
+                "returnMethod": "https://schema.org/ReturnByMail",
+                "returnFees": "https://schema.org/FreeReturn",
+                "applicableCountry": "GH"
               }
-            },
-            "hasMerchantReturnPolicy": {
-              "@type": "MerchantReturnPolicy",
-              "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
-              "merchantReturnDays": 14,
-              "returnMethod": "https://schema.org/ReturnByMail",
-              "returnFees": "https://schema.org/FreeReturn",
-              "applicableCountry": "GH"
             }
-          }
-        })}
-      </script>
+          })}
+        </script>
 
-      {/* Sticky Add to Cart Bar */}
-      <div
-        className={`fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-lg transition-all duration-300 ${
-          showStickyCart ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
-        }`}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-3 gap-4">
-            <div className="flex items-center gap-4 flex-1 min-w-0">
-              <div className="flex-shrink-0">
-                <img
-                  src={imageUrl}
-                  alt={product.productName}
-                  className="w-16 h-16 object-contain rounded-lg border border-gray-200"
-                  onError={(e) => { e.target.src = "https://via.placeholder.com/150"; }}
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-gray-900 text-sm line-clamp-1 mb-1">{product.productName}</h3>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-lg font-bold text-red-600">GH₵{formatPrice(product.price)}.00</span>
+        {/* Sticky Add to Cart Bar */}
+        <div className={`pd-sticky-bar ${showStickyCart ? '' : 'pd-hidden'}`}>
+          <div className="pd-sticky-inner">
+            <div className="pd-sticky-product">
+              <img
+                src={imageUrl}
+                alt={product.productName}
+                className="pd-sticky-img"
+                onError={(e) => { e.target.src = "https://via.placeholder.com/150"; }}
+              />
+              <div className="pd-sticky-info">
+                <h3 className="pd-sticky-name">{product.productName}</h3>
+                <div>
+                  <span className="pd-sticky-price">₵{formatPrice(product.price)}</span>
                   {product.oldPrice > 0 && (
-                    <span className="text-sm text-gray-400 line-through">GH₵{formatPrice(product.oldPrice)}.00</span>
+                    <span className="pd-sticky-old-price">₵{formatPrice(product.oldPrice)}</span>
                   )}
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 flex-shrink-0">
-              <Button
-                size="sm"
-                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold text-sm transition-all duration-200 ${
-                  outOfStock
-                    ? 'bg-gray-100 text-gray-400 border border-gray-300 cursor-not-allowed'
-                    : isAddingToCart
-                    ? 'bg-red-400 text-white'
-                    : 'bg-red-500 text-white hover:bg-red-600 shadow-md'
-                }`}
+            <div className="pd-sticky-actions">
+              <button
+                className="pd-sticky-btn pd-sticky-btn-cart"
                 onClick={() => handleAddToCartAndOpenSidebar(product)}
                 disabled={isAddingToCart || outOfStock}
               >
                 {isAddingToCart ? (
-                  <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /><span>Adding...</span></>
+                  <><div className="pd-spinner" /><span>Adding...</span></>
                 ) : outOfStock ? (
                   <><ExclamationTriangleIcon className="w-4 h-4" /><span>Out of Stock</span></>
                 ) : (
                   <><ShoppingCartIcon className="w-4 h-4" /><span>Add to Cart</span></>
                 )}
-              </Button>
+              </button>
 
-              <button
+              <div
+                className="pd-sticky-cart-icon"
                 onClick={() => setCartSidebarOpen(true)}
-                className="relative bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg p-3 transition-colors duration-200"
-                disabled={!localCart || localCart.length === 0}
               >
-                <ShoppingCartIcon className="w-5 h-5" />
+                <ShoppingCartIcon className="w-5 h-5" style={{ color: 'var(--pd-mid)' }} />
                 {totalCartItems > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                    {totalCartItems}
-                  </span>
+                  <span className="pd-sticky-cart-badge">{totalCartItems}</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Network / Cart Error Alert */}
+        {cartSyncError && (
+          <div className={`pd-alert ${cartSyncError.includes('successfully') ? 'pd-alert-success' : 'pd-alert-warning'}`}>
+            <ExclamationTriangleIcon className="w-5 h-5" style={{ color: cartSyncError.includes('successfully') ? 'var(--pd-green)' : '#f59e0b' }} />
+            <p className="pd-alert-text">{cartSyncError}</p>
+          </div>
+        )}
+
+        {/* Main Product Details */}
+        <div id="product-details-section" ref={productDetailsRef} className="grid lg:grid-cols-2 gap-12 pt-4">
+          <div className="pd-image-container">
+            <Image.PreviewGroup>
+              <Image
+                src={imageUrl}
+                className="pd-main-image"
+                alt={product.productName}
+                style={{ maxWidth: '100%', borderRadius: 'var(--pd-radius)' }}
+              />
+            </Image.PreviewGroup>
+          </div>
+
+          <div className="space-y-4">
+            <h1 className="pd-product-title">{product.productName}</h1>
+
+            <div className="pd-price-container">
+              <span className="pd-price">₵{formatPrice(product.price)}</span>
+              {product.oldPrice > 0 && (
+                <span className="pd-old-price">₵{formatPrice(product.oldPrice)}</span>
+              )}
+            </div>
+
+            <div className="flex items-center flex-wrap justify-between gap-2">
+              <div className="flex items-center flex-wrap gap-2">
+                {product.tag && (
+                  <span className="pd-badge pd-badge-tag">{product.tag}</span>
+                )}
+                {product.productColor && (
+                  <span className="pd-badge pd-badge-color">Color: {product.productColor}</span>
+                )}
+              </div>
+              <button
+                className="pd-share-btn"
+                onClick={() => handleShare("general")}
+              >
+                <ShareIcon className="w-5 h-5" style={{ color: 'var(--pd-green)' }} />
+              </button>
+            </div>
+
+            <div className={`pd-stock ${outOfStock ? 'pd-stock-out' : 'pd-stock-in'}`}>
+              {outOfStock ? (
+                <><ExclamationTriangleIcon className="w-4 h-4" /><span>Out of Stock</span></>
+              ) : (
+                <><CheckCircleIcon className="w-4 h-4" /><span>In Stock</span></>
+              )}
+            </div>
+
+            <div className="mt-4">
+              <div className="pd-description-header">
+                <div className="pd-title-accent" style={{ height: '20px' }} />
+                <h2 className="pd-description-title">Product Description</h2>
+              </div>
+              <div className="pd-description-box">
+                {descriptionLines}
+              </div>
+            </div>
+
+            {/* Desktop Add to Cart */}
+            <div className="pt-4 hidden md:block">
+              <button
+                className="pd-btn pd-btn-primary"
+                onClick={() => handleAddToCartAndOpenSidebar(product)}
+                disabled={isAddingToCart || outOfStock}
+              >
+                {isAddingToCart ? (
+                  <><div className="pd-spinner" /><span>Adding to Cart...</span></>
+                ) : outOfStock ? (
+                  <><ExclamationTriangleIcon className="w-5 h-5" /><span>Out of Stock</span></>
+                ) : (
+                  <><ShoppingCartIcon className="w-5 h-5" /><span>Add to Cart</span></>
+                )}
+              </button>
+            </div>
+
+            {/* Mobile Add to Cart */}
+            <div className="pd-mobile-bar">
+              <button
+                className="pd-btn pd-btn-primary"
+                onClick={() => handleAddToCartAndOpenSidebar(product)}
+                disabled={isAddingToCart || outOfStock}
+              >
+                {isAddingToCart ? (
+                  <><div className="pd-spinner" /><span>Adding...</span></>
+                ) : outOfStock ? (
+                  <><ExclamationTriangleIcon className="w-5 h-5" /><span>Out of Stock</span></>
+                ) : (
+                  <><ShoppingCartIcon className="w-5 h-5" /><span>Add to Cart</span></>
                 )}
               </button>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Network / Cart Error Alert */}
-      {cartSyncError && (
-        <div className={`mb-4 p-4 rounded-lg border-l-4 ${
-          cartSyncError.includes('successfully') ? 'bg-green-50 border-green-400' : 'bg-yellow-50 border-yellow-400'
-        }`}>
-          <div className="flex items-center">
-            <ExclamationTriangleIcon className={`w-5 h-5 mr-2 ${cartSyncError.includes('successfully') ? 'text-green-600' : 'text-yellow-600'}`} />
-            <p className={`text-sm ${cartSyncError.includes('successfully') ? 'text-green-800' : 'text-yellow-800'}`}>
-              {cartSyncError}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Main Product Details - keeping original structure */}
-      <div id="product-details-section" ref={productDetailsRef} className="grid lg:grid-cols-2 gap-12 pt-4">
-        {/* Product image and details remain the same */}
-        <div className="flex justify-center items-start">
-          <Image.PreviewGroup>
-            <Image
-              src={imageUrl}
-              className="rounded-2xl shadow-xl object-cover max-w-full transition-transform duration-300 hover:scale-105"
-              alt={product.productName}
-            />
-          </Image.PreviewGroup>
-        </div>
-
-        <div className="space-y-4">
-          <div className="font-bold text-gray-900 text-lg md:text-xl">{product.productName}</div>
-
-          <div className="flex items-center gap-4 text-red-500 bg-red-50 rounded-lg p-3 shadow-md">
-            <div className="text-lg md:text-xl font-bold">GH₵{formatPrice(product.price)}.00</div>
-            {product.oldPrice > 0 && (
-              <div className="text-sm text-gray-400 line-through">GH₵ {formatPrice(product.oldPrice)}.00</div>
+        {/* ==================== FLIX MEDIA SECTION ==================== */}
+        {showFlixMedia && (
+          <div
+            id="flix-media-section"
+            ref={flixMediaSectionRef}
+            className="mt-8 bg-white border border-gray-200 overflow-hidden p-6"
+            style={{ borderRadius: 'var(--pd-radius)', contain: 'layout style paint' }}
+          >
+            <div className="pd-section-header" style={{ marginBottom: '24px' }}>
+              <div className="pd-title-wrap">
+                <div className="pd-title-accent" />
+                <h2 className="pd-section-title">More Product Details</h2>
+              </div>
+              <div className="pd-header-line" />
+            </div>
+            {flixMediaError && (
+              <div className="text-center py-8" style={{ color: 'var(--pd-light)' }}>
+                <p>Unable to load additional product details at this time.</p>
+              </div>
             )}
           </div>
+        )}
 
-          <div className="flex items-center flex-wrap justify-between gap-2">
-            <div className="flex items-center flex-wrap gap-2">
-              {product.tag && (
-                <div className="bg-gradient-to-r from-orange-400 to-red-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-md">
-                  {product.tag}
-                </div>
-              )}
-              {product.productColor && (
-                <div className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-medium border">
-                  Color: {product.productColor}
-                </div>
-              )}
-            </div>
-            <IconButton
-              onClick={() => handleShare("general")}
-              className="bg-red-400 text-white rounded-full p-3 shadow-lg transition duration-300 hover:scale-110"
-            >
-              <ShareIcon className="w-5 h-5" />
-            </IconButton>
-          </div>
-
-          <div className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm border transition duration-200 w-max ${
-            outOfStock ? 'bg-red-50 text-red-800 border-red-200' : 'bg-green-50 text-green-800 border-green-200 hover:shadow-md'
-          }`}>
-            {outOfStock ? (
-              <><ExclamationTriangleIcon className="w-4 h-4 text-red-600" /><span>Out of Stock</span></>
-            ) : (
-              <><CheckCircleIcon className="w-4 h-4 text-green-600" /><span>In Stock</span></>
-            )}
-          </div>
-
-          <div className="mt-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm md:text-md font-bold text-gray-700 relative whitespace-nowrap mt-4 mb-3">
-                Product Description
-                <span className="absolute -bottom-1 left-0 w-16 h-1 bg-red-400 rounded-full"></span>
-              </h2>
-            </div>
-            <div className="bg-white p-2 max-h-72 overflow-y-auto scrollbar-thin scrollbar-thumb-blue-400 scrollbar-track-gray-100">
-              <div className="space-y-4 text-gray-800 text-base leading-relaxed">{descriptionLines}</div>
-            </div>
-          </div>
-
-          {/* Desktop Add to Cart */}
-          <div className="pt-2">
-            <div className="hidden md:flex flex-wrap gap-4 items-center">
-              <Button
-                variant="outlined"
-                className={`group relative flex items-center justify-center gap-2.5 px-6 py-3.5 w-full rounded-2xl font-semibold text-sm transition-all duration-300 ease-out shadow-xl shadow-red-200 hover:shadow-2xl hover:shadow-red-300 focus:outline-none focus:ring-3 focus:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:transform-none overflow-hidden ${
-                  outOfStock
-                    ? 'bg-gray-50 text-gray-400 border-2 border-gray-200 shadow-sm shadow-gray-200 cursor-not-allowed'
-                    : isAddingToCart
-                    ? 'bg-red-300 text-white border-2 border-red-500 shadow-red-300'
-                    : 'bg-red-500 text-white border-2 border-red-500 hover:bg-red-600 hover:border-red-600 focus:ring-red-300'
-                }`}
-                onClick={() => handleAddToCartAndOpenSidebar(product)}
-                disabled={isAddingToCart || outOfStock}
-              >
-                {!outOfStock && (
-                  <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-red-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl" />
-                )}
-                <div className="relative z-10 flex items-center gap-2.5">
-                  {isAddingToCart ? (
-                    <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /><span className="font-medium">Adding to Cart...</span></>
-                  ) : outOfStock ? (
-                    <><ExclamationTriangleIcon className="w-5 h-5 text-gray-400 group-hover:scale-110 transition-transform duration-200" /><span className="font-medium">Out of Stock</span></>
-                  ) : (
-                    <><ShoppingCartIcon className="w-5 h-5 transition-all duration-300 group-hover:scale-110 text-white" /><span className="font-medium text-white transition-colors duration-300">Add to Cart</span></>
-                  )}
-                </div>
-                {!outOfStock && !isAddingToCart && (
-                  <div className="absolute inset-0 bg-green-400 rounded-2xl scale-0 opacity-0 group-active:scale-100 group-active:opacity-30 transition-all duration-150" />
-                )}
-              </Button>
-            </div>
-
-            {/* Mobile Add to Cart */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 shadow-xl z-40 flex items-center justify-between md:hidden">
-              <div className="flex gap-2 w-full">
-                <Button
-                  variant="outlined"
-                  className={`flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-2xl transition-all duration-300 ease-in-out shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-300 disabled:opacity-50 disabled:cursor-not-allowed flex-1 ${
-                    outOfStock
-                      ? 'bg-gray-100 text-gray-500 border border-gray-300'
-                      : 'bg-red-500 text-white border border-red-500 hover:bg-red-600 hover:border-red-600'
-                  }`}
-                  onClick={() => handleAddToCartAndOpenSidebar(product)}
-                  disabled={isAddingToCart || outOfStock}
-                >
-                  {isAddingToCart ? (
-                    <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /><span className="text-sm">Adding...</span></>
-                  ) : outOfStock ? (
-                    <><ExclamationTriangleIcon className="w-5 h-5" /><span className="text-sm">Out of Stock</span></>
-                  ) : (
-                    <><ShoppingCartIcon className="w-5 h-5" /><span className="text-sm">Add to Cart</span></>
-                  )}
-                </Button>
+        {/* ==================== SERVICE FEATURES ==================== */}
+        <div className="pd-features">
+          {[
+            { title: "Fast Shipping", subtitle: "All over Ghana", icon: <TruckIcon className="pd-feature-icon" style={{ color: 'var(--pd-green)' }} /> },
+            { title: "Quality Assurance", subtitle: "Certified products", icon: <ShieldCheckIcon className="pd-feature-icon" style={{ color: 'var(--pd-green-accent)' }} /> },
+            { title: "Customer Support", subtitle: "Dedicated support team", icon: <PhoneIcon className="pd-feature-icon" style={{ color: 'var(--pd-green-mid)' }} /> },
+            { title: "Secure Payment", subtitle: "Safe Payment Processing", icon: <CreditCardIcon className="pd-feature-icon" style={{ color: 'var(--pd-green)' }} /> },
+          ].map((item, idx) => (
+            <div key={idx} className="pd-feature">
+              {item.icon}
+              <div>
+                <p className="pd-feature-title">{item.title}</p>
+                <p className="pd-feature-subtitle">{item.subtitle}</p>
               </div>
             </div>
-          </div>
+          ))}
         </div>
-      </div>
 
-      {/* Keeping all other sections the same (Flix Media, Service Features, Recently Viewed, Related Products) */}
-      
-      {/* ==================== ENHANCED CART SIDEBAR ==================== */}
-      <Drawer
-        placement="right"
-        open={cartSidebarOpen}
-        onClose={() => setCartSidebarOpen(false)}
-        className="p-0"
-        size={400}
-      >
-        <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between p-4 border-b bg-white">
-            <div className="flex items-center gap-2">
-              <ShoppingCartIcon className="w-6 h-6 text-red-600" />
-              <h2 className="text-lg font-bold text-gray-800">Shopping Cart</h2>
-            </div>
-            <div className="flex items-center gap-2">
-              {localCart.length > 0 && (
-                <div className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">
-                  {totalCartItems} Item{totalCartItems !== 1 ? 's' : ''}
-                </div>
-              )}
-              <IconButton variant="text" onClick={() => setCartSidebarOpen(false)} className="rounded-full">
-                <XMarkIcon className="w-5 h-5" />
-              </IconButton>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto">
-            {/* ✅ ENHANCED LOADING STATE - Full overlay with spinner */}
-            {cartLoading ? (
-              <div className="flex flex-col items-center justify-center h-full p-6 text-center bg-white">
-                <div className="relative">
-                  <div className="w-16 h-16 border-4 border-red-200 border-t-red-500 rounded-full animate-spin mb-4" />
-                  <ArrowPathIcon className="w-6 h-6 text-red-500 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 animate-pulse" />
-                </div>
-                <p className="text-gray-700 font-semibold text-base mb-1">Updating your cart...</p>
-               
+        {/* ==================== RECENTLY VIEWED PRODUCTS ==================== */}
+        {viewedProducts.length > 0 && (
+          <section className="mt-16">
+            <div className="pd-section-header">
+              <div className="pd-title-wrap">
+                <div className="pd-title-accent" />
+                <h2 className="pd-section-title">Recently Viewed Products</h2>
               </div>
-            ) : !Array.isArray(localCart) || localCart.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-                <ShoppingCartIcon className="w-16 h-16 text-gray-300 mb-4" />
-                <h3 className="text-lg font-semibold text-gray-600 mb-2">Your cart is empty</h3>
-                <p className="text-gray-500 text-sm">Start shopping to fill it up!</p>
-              </div>
-            ) : (
-              <div className="p-4 space-y-4">
-                {localCart.map((item, index) => {
-                  const isUpdating = updatingQuantity[item.productId];
-                  const isRemoving = removingItem[item.productId];
-                  const lineTotal = getItemLineTotal(item);
+              <div className="pd-header-line" />
+            </div>
+            <div className="pd-grid">
+              {viewedProducts.map((viewedProduct, index) => {
+                if (!viewedProduct || !viewedProduct.id) return null;
+                const productOutOfStock = isOutOfStock(viewedProduct);
+                const discount = viewedProduct.oldPrice > 0
+                  ? Math.round(((viewedProduct.oldPrice - viewedProduct.price) / viewedProduct.oldPrice) * 100)
+                  : 0;
+                const imgUrl = getValidImageUrl(viewedProduct.image);
 
-                  return (
-                    <div 
-                      key={`${item.productId}-${index}`} 
-                      className={`bg-white border rounded-lg p-3 shadow-sm transition-all duration-200 ${
-                        isUpdating || isRemoving ? 'opacity-50 pointer-events-none' : ''
-                      }`}
-                    >
-                      {/* ✅ Item-specific loading overlay */}
-                      {(isUpdating || isRemoving) && (
-                        <div className="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center rounded-lg z-10">
-                          <div className="flex flex-col items-center">
-                            <div className="w-8 h-8 border-3 border-red-500 border-t-transparent rounded-full animate-spin mb-2" />
-                            <span className="text-xs text-gray-600 font-medium">
-                              {isRemoving ? 'Removing...' : 'Updating...'}
-                            </span>
-                          </div>
-                        </div>
+                return (
+                  <div
+                    key={`viewed-${viewedProduct.id}-${index}`}
+                    className="pd-card"
+                    style={{ opacity: productOutOfStock ? 0.75 : 1 }}
+                  >
+                    <div className="pd-card-img">
+                      {productOutOfStock && (
+                        <span className="pd-card-badge pd-card-badge-sold">Sold Out</span>
                       )}
-                      
-                      <div className="flex items-center gap-3 relative">
-                        <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                          {renderImage(item.imagePath)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-gray-800 text-sm line-clamp-2 mb-1">
-                            {item.productName || "Product Name"}
-                          </h4>
-                          <p className="text-red-500 font-bold text-sm">
-                            ₵{formatPrice(item.price || 0)}.00
-                          </p>
-                          <div className="flex items-center justify-between mt-2">
-                            <div className="flex items-center bg-gray-50 rounded border">
-                              <Button
-                                size="sm"
-                                variant="text"
-                                className="min-w-0 px-2 py-1"
-                                onClick={() => handleQuantityChange(item.productId, (item.quantity || 1) - 1)}
-                                disabled={isUpdating || isRemoving || (item.quantity || 1) <= 1}
-                              >
-                                <MinusIcon className="h-3 w-3" />
-                              </Button>
-                              <span className="w-8 text-center text-xs font-semibold">{item.quantity || 1}</span>
-                              <Button
-                                size="sm"
-                                variant="text"
-                                className="min-w-0 px-2 py-1"
-                                onClick={() => handleQuantityChange(item.productId, (item.quantity || 1) + 1)}
-                                disabled={isUpdating || isRemoving}
-                              >
-                                <PlusIcon className="h-3 w-3" />
-                              </Button>
-                            </div>
+                      {discount > 0 && !productOutOfStock && (
+                        <span className="pd-card-badge pd-card-badge-discount">-{discount}%</span>
+                      )}
+                      <div
+                        style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        onClick={() => navigate(`/product/${viewedProduct.id}`)}
+                      >
+                        <img
+                          src={imgUrl}
+                          alt={viewedProduct.name}
+                          onError={(e) => { e.target.src = "https://via.placeholder.com/150"; }}
+                        />
+                      </div>
+                      <div className="pd-card-overlay" onClick={() => navigate(`/product/${viewedProduct.id}`)}>
+                        <Tooltip content="Add to Wishlist" placement="top">
+                          <button className="pd-card-action" onClick={(e) => e.stopPropagation()}>
+                            <SolidHeartIcon className="w-4 h-4" style={{ color: 'var(--pd-mid)' }} />
+                          </button>
+                        </Tooltip>
+                        <Tooltip content="View Details" placement="top">
+                          <button className="pd-card-action" onClick={(e) => { e.stopPropagation(); navigate(`/product/${viewedProduct.id}`); }}>
+                            <EyeIcon className="w-4 h-4" style={{ color: 'var(--pd-green)' }} />
+                          </button>
+                        </Tooltip>
+                        <Tooltip content={productOutOfStock ? "Out of Stock" : "Add to Cart"} placement="top">
+                          <button 
+                            className="pd-card-action" 
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              if (!productOutOfStock) handleAddToCartAndOpenSidebar(viewedProduct); 
+                            }}
+                            disabled={productOutOfStock}
+                          >
+                            <ShoppingCartIcon className="w-4 h-4" style={{ color: 'var(--pd-green-mid)' }} />
+                          </button>
+                        </Tooltip>
+                      </div>
+                    </div>
+                    <div className="pd-card-body">
+                      <h3 className="pd-card-name">{viewedProduct.name || "Unnamed Product"}</h3>
+                      <div className="pd-card-price">₵{formatPrice(viewedProduct.price)}</div>
+                      {viewedProduct.oldPrice > 0 && (
+                        <div className="pd-card-old-price">₵{formatPrice(viewedProduct.oldPrice)}</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
-                            <div className="flex items-center gap-2">
-                              <span className="text-gray-700 font-bold text-sm">
-                                ₵{formatPrice(lineTotal)}.00
-                              </span>
-                              <IconButton
-                                size="sm"
-                                variant="text"
-                                color="red"
-                                className="p-1"
-                                onClick={() => handleRemoveItem(item.productId)}
-                                disabled={isUpdating || isRemoving}
-                              >
-                                <TrashIcon className="h-4 w-4" />
-                              </IconButton>
+        {/* ==================== YOU MAY ALSO LIKE (RELATED PRODUCTS) ==================== */}
+        {related.length > 0 && (
+          <section className="mt-10">
+            <div className="pd-section-header">
+              <div className="pd-title-wrap">
+                <div className="pd-title-accent" />
+                <h2 className="pd-section-title">You May Also Like</h2>
+              </div>
+              <div className="pd-header-line" />
+            </div>
+            <div className="pd-grid-related">
+              {related.slice(0, 12).map((relatedProduct, index) => {
+                if (!relatedProduct || !relatedProduct.productID) return null;
+                
+                const productOutOfStock = isOutOfStock(relatedProduct);
+                const discount = relatedProduct.oldPrice > 0
+                  ? Math.round(((relatedProduct.oldPrice - relatedProduct.price) / relatedProduct.oldPrice) * 100)
+                  : 0;
+                const imgUrl = getValidImageUrl(relatedProduct.productImage);
+
+                return (
+                  <div
+                    key={`related-${relatedProduct.productID}-${index}`}
+                    className="pd-card"
+                    style={{ opacity: productOutOfStock ? 0.75 : 1 }}
+                  >
+                    <div className="pd-card-img">
+                      {productOutOfStock && (
+                        <span className="pd-card-badge pd-card-badge-sold">Sold Out</span>
+                      )}
+                      {discount > 0 && !productOutOfStock && (
+                        <span className="pd-card-badge pd-card-badge-discount">-{discount}%</span>
+                      )}
+                      <div
+                        style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        onClick={() => navigate(`/product/${relatedProduct.productID}`)}
+                      >
+                        <img
+                          src={imgUrl}
+                          alt={relatedProduct.productName}
+                          onError={(e) => { e.target.src = "https://via.placeholder.com/150"; }}
+                        />
+                      </div>
+                      <div className="pd-card-overlay" onClick={() => navigate(`/product/${relatedProduct.productID}`)}>
+                        <Tooltip content="Add to Wishlist" placement="top">
+                          <button 
+                            className="pd-card-action"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Add wishlist logic here if needed
+                            }}
+                          >
+                            <SolidHeartIcon className="w-4 h-4" style={{ color: 'var(--pd-mid)' }} />
+                          </button>
+                        </Tooltip>
+                        <Tooltip content="View Details" placement="top">
+                          <button 
+                            className="pd-card-action" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/product/${relatedProduct.productID}`);
+                            }}
+                          >
+                            <EyeIcon className="w-4 h-4" style={{ color: 'var(--pd-green)' }} />
+                          </button>
+                        </Tooltip>
+                        <Tooltip content={productOutOfStock ? "Out of Stock" : "Add to Cart"} placement="top">
+                          <button 
+                            className="pd-card-action"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!productOutOfStock) {
+                                handleAddToCartAndOpenSidebar(relatedProduct);
+                              }
+                            }}
+                            disabled={productOutOfStock}
+                          >
+                            <ShoppingCartIcon className="w-4 h-4" style={{ color: 'var(--pd-green-mid)' }} />
+                          </button>
+                        </Tooltip>
+                      </div>
+                    </div>
+                    <div className="pd-card-body">
+                                    <h3 className="pd-card-name">{relatedProduct.productName || "Unnamed Product"}</h3>
+                      <div className="pd-card-price">₵{formatPrice(relatedProduct.price)}</div>
+                      {relatedProduct.oldPrice > 0 && (
+                        <div className="pd-card-old-price">₵{formatPrice(relatedProduct.oldPrice)}</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* ==================== CART SIDEBAR ==================== */}
+        <Drawer
+          placement="right"
+          open={cartSidebarOpen}
+          onClose={() => setCartSidebarOpen(false)}
+          className="p-0"
+          size={400}
+        >
+          <div className="flex flex-col h-full" style={{ fontFamily: 'var(--pd-font)' }}>
+            <div className="pd-cart-header">
+              <div className="pd-cart-title">
+                <ShoppingCartIcon className="w-5 h-5" style={{ color: 'var(--pd-green)' }} />
+                <span>Shopping Cart</span>
+                {localCart.length > 0 && (
+                  <span className="pd-cart-count">
+                    {totalCartItems} Item{totalCartItems !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+              <button className="pd-cart-close" onClick={() => setCartSidebarOpen(false)}>
+                <XMarkIcon className="w-4 h-4" style={{ color: 'var(--pd-mid)' }} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {cartLoading ? (
+                <div className="pd-cart-empty">
+                  <div style={{ position: 'relative' }}>
+                    <div className="w-16 h-16 border-4 rounded-full animate-spin mb-4" style={{ borderColor: 'var(--pd-green-light)', borderTopColor: 'var(--pd-green)' }} />
+                    <ArrowPathIcon className="w-6 h-6 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 animate-pulse" style={{ color: 'var(--pd-green)' }} />
+                  </div>
+                  <p style={{ color: 'var(--pd-mid)', fontWeight: 600 }}>Updating your cart...</p>
+                </div>
+              ) : !Array.isArray(localCart) || localCart.length === 0 ? (
+                <div className="pd-cart-empty">
+                  <ShoppingCartIcon className="pd-cart-empty-icon" />
+                  <h3 className="pd-cart-empty-title">Your cart is empty</h3>
+                  <p className="pd-cart-empty-text">Start shopping to fill it up!</p>
+                </div>
+              ) : (
+                <div className="p-4 space-y-4">
+                  {localCart.map((item, index) => {
+                    const isUpdating = updatingQuantity[item.productId];
+                    const isRemoving = removingItem[item.productId];
+                    const lineTotal = getItemLineTotal(item);
+
+                    return (
+                      <div
+                        key={`${item.productId}-${index}`}
+                        className="pd-cart-item"
+                        style={{ opacity: isUpdating || isRemoving ? 0.5 : 1, pointerEvents: isUpdating || isRemoving ? 'none' : 'auto' }}
+                      >
+                        <div className="pd-cart-item-inner">
+                          <div className="pd-cart-item-img">
+                            {renderImage(item.imagePath)}
+                          </div>
+                          <div className="pd-cart-item-info">
+                            <h4 className="pd-cart-item-name">{item.productName || "Product Name"}</h4>
+                            <p className="pd-cart-item-price">₵{formatPrice(item.price || 0)}</p>
+                            <div className="pd-cart-item-actions">
+                              <div className="pd-qty-control">
+                                <button
+                                  className="pd-qty-btn"
+                                  onClick={() => handleQuantityChange(item.productId, (item.quantity || 1) - 1)}
+                                  disabled={isUpdating || isRemoving || (item.quantity || 1) <= 1}
+                                >
+                                  <MinusIcon className="w-3 h-3" />
+                                </button>
+                                <span className="pd-qty-value">{item.quantity || 1}</span>
+                                <button
+                                  className="pd-qty-btn"
+                                  onClick={() => handleQuantityChange(item.productId, (item.quantity || 1) + 1)}
+                                  disabled={isUpdating || isRemoving}
+                                >
+                                  <PlusIcon className="w-3 h-3" />
+                                </button>
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center' }}>
+                                <span className="pd-cart-item-total">₵{formatPrice(lineTotal)}</span>
+                                <button
+                                  className="pd-cart-item-remove"
+                                  onClick={() => handleRemoveItem(item.productId)}
+                                  disabled={isUpdating || isRemoving}
+                                >
+                                  <TrashIcon className="w-3 h-3" style={{ color: 'var(--pd-red)' }} />
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {Array.isArray(localCart) && localCart.length > 0 && !cartLoading && (
+              <div className="pd-cart-footer">
+                <div className="pd-cart-total-row">
+                  <span className="pd-cart-total-label">Total:</span>
+                  <span className="pd-cart-total-value">₵{formatPrice(cartTotal)}</span>
+                </div>
+                <p className="pd-cart-note">* Taxes & shipping calculated at checkout</p>
+                <Divider style={{ margin: '12px 0' }} />
+                <button
+                  className="pd-cart-checkout"
+                  onClick={handleCheckout}
+                >
+                  Proceed to Checkout
+                </button>
+                <button
+                  className="pd-cart-continue"
+                  onClick={handleContinueShopping}
+                >
+                  Continue Shopping
+                </button>
               </div>
             )}
           </div>
+        </Drawer>
 
-          {Array.isArray(localCart) && localCart.length > 0 && !cartLoading && (
-            <div className="border-t bg-white p-4">
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 font-medium">Total:</span>
-                  <span className="text-lg font-bold text-red-600">₵{formatPrice(cartTotal)}.00</span>
-                </div>
-                <p className="text-xs text-center text-gray-500">* Taxes & shipping calculated at checkout</p>
-                <Divider className="my-2" />
-                <div className="space-y-2">
-                  <Button
-                    fullWidth
-                    className="bg-red-500 hover:bg-red-600 text-white font-semibold py-3 rounded-lg shadow-md transition duration-200"
-                    onClick={handleCheckout}
-                  >
-                    Proceed to Checkout
-                  </Button>
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    className="border-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-50"
-                    onClick={handleContinueShopping}
-                  >
-                    Continue Shopping
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </Drawer>
-
-      <AuthModal open={authModalOpen} onClose={handleAuthModalClose} onSuccess={handleAuthSuccess} />
-    </div>
+        <AuthModal open={authModalOpen} onClose={handleAuthModalClose} onSuccess={handleAuthSuccess} />
+      </div>
+    </>
   );
 };
 

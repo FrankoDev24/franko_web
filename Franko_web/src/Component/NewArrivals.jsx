@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   addToWishlist,
@@ -12,59 +12,73 @@ import {
   ShoppingCartIcon,
   EyeIcon,
   CheckCircleIcon,
-  XCircleIcon
+  XCircleIcon,
+  ChevronRightIcon,
 } from "@heroicons/react/24/solid";
 import useAddToCart from "./Cart";
 import { useNavigate, Link } from "react-router-dom";
 
-// Format image URL
-const getValidImageUrl = (imagePath) => {
-  if (!imagePath) return "https://via.placeholder.com/150";
-  return imagePath.includes("\\")
-    ? `https://ct002.frankotrading.com:444/Media/Products_Images/${imagePath.split("\\").pop()}`
-    : imagePath;
-};
+// ==================== NOTIFICATION ====================
 
-// Format price
-const formatPrice = (price) =>
-  new Intl.NumberFormat("en-GH", {
-    style: "currency",
-    currency: "GHS",
-  }).format(price || 0);
-
-// Skeleton loader
-const SkeletonCard = () => (
-  <div className="animate-pulse bg-white rounded-2xl shadow-md p-4 space-y-4">
-    <div className="h-40 bg-gray-200 rounded-xl"></div>
-    <div className="h-4 bg-gray-300 rounded w-3/4 mx-auto"></div>
-    <div className="h-4 bg-gray-300 rounded w-1/2 mx-auto"></div>
-  </div>
-);
-
-// Notification
 const Notification = ({ message, type, isVisible, onClose }) => {
+  const timeoutRef = useRef(null);
+
   useEffect(() => {
-    if (isVisible) {
-      const timer = setTimeout(onClose, 3000);
-      return () => clearTimeout(timer);
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (isVisible && message) {
+      timeoutRef.current = setTimeout(() => onClose(), 3000);
     }
-  }, [isVisible, onClose]);
+  }, [isVisible, message, onClose]);
 
-  if (!isVisible) return null;
+  if (!isVisible || !message) return null;
 
-  const bgColor = type === "success" ? "bg-green-500" : "bg-red-500";
+  const bgColor = type === "success" ? "bg-green-800" : "bg-red-600";
   const Icon = type === "success" ? CheckCircleIcon : XCircleIcon;
 
   return (
-    <div className="fixed top-4 right-4 z-50 animate-slide-in">
-      <div className={`${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 min-w-[300px]`}>
+    <div className="fixed top-4 right-4 z-50 na-animate-slide-in">
+      <div
+        className={`${bgColor} text-white px-4 py-3 rounded shadow-lg flex items-center gap-2 min-w-[280px]`}
+        style={{ fontFamily: "var(--na-font)" }}
+      >
         <Icon className="w-5 h-5 flex-shrink-0" />
         <span className="text-sm font-medium">{message}</span>
-        <button onClick={onClose} className="ml-auto text-white/80 hover:text-white">×</button>
+        <button
+          onClick={onClose}
+          className="ml-auto text-white/80 hover:text-white text-lg leading-none"
+        >
+          ×
+        </button>
       </div>
     </div>
   );
 };
+
+// ==================== SKELETON ====================
+
+const SkeletonCard = () => (
+  <div className="na-skeleton">
+    <div className="na-skeleton-img" />
+    <div style={{ padding: "10px 12px" }}>
+      <div
+        className="na-skeleton-line"
+        style={{ width: "80%", marginBottom: 8, marginLeft: "auto", marginRight: "auto" }}
+      />
+      <div
+        className="na-skeleton-line"
+        style={{ width: "50%", height: 8, marginLeft: "auto", marginRight: "auto" }}
+      />
+    </div>
+  </div>
+);
+
+// ==================== MAIN COMPONENT ====================
 
 const NewArrivals = () => {
   const dispatch = useDispatch();
@@ -86,31 +100,33 @@ const NewArrivals = () => {
   // Get the 10 most recent products based on creation date
   const recentProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
-    
-    // Sort products by creation date (most recent first)
+
     const sortedProducts = [...products].sort((a, b) => {
-      // Handle different possible date field names - fixed the typo and prioritize dateCreated
-      const dateA = new Date(a.dateCreated || a.createdAt || a.created_at || a.date_created || a.creationDate || 0);
-      const dateB = new Date(b.dateCreated || b.createdAt || b.created_at || b.date_created || b.creationDate || 0);
-      
-      return dateB - dateA; // Descending order (newest first)
+      const dateA = new Date(
+        a.dateCreated || a.createdAt || a.created_at || a.date_created || a.creationDate || 0
+      );
+      const dateB = new Date(
+        b.dateCreated || b.createdAt || b.created_at || b.date_created || b.creationDate || 0
+      );
+      return dateB - dateA;
     });
-    
-    // Return the first 10 products
+
     return sortedProducts.slice(0, 10);
   }, [products]);
 
-  const showNotification = (message, type = "success") => {
-    setNotification({ message, type, isVisible: true });
-  };
-
-  const hideNotification = () => {
+  const hideNotification = useCallback(() => {
     setNotification((prev) => ({ ...prev, isVisible: false }));
-  };
+  }, []);
 
-const isInWishlist = (id) =>
-  Array.isArray(wishlist) && wishlist.some((item) => item.id === id);
+  const showNotification = useCallback((message, type = "success") => {
+    setNotification({ message: "", type: "success", isVisible: false });
+    requestAnimationFrame(() => {
+      setNotification({ message, type, isVisible: true });
+    });
+  }, []);
 
+  const isInWishlist = (id) =>
+    Array.isArray(wishlist) && wishlist.some((item) => item.id === id);
 
   const handleWishlistToggle = (product) => {
     const id = product.productID;
@@ -132,25 +148,27 @@ const isInWishlist = (id) =>
     }
   };
 
+  // ==================== HELPERS ====================
+
+  const getValidImageUrl = (imagePath) => {
+    if (!imagePath) return "https://via.placeholder.com/150";
+    return imagePath.includes("\\")
+      ? `https://ct002.frankotrading.com:444/Media/Products_Images/${imagePath.split("\\").pop()}`
+      : imagePath;
+  };
+
+  const formatPrice = (price) => {
+    if (!price || isNaN(price)) return "₵0.00";
+    return `GH₵${Number(price).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
+  // ==================== RENDER ====================
+
   return (
-    <div className="mx-auto px-4 md:px-24 py-4">
-       {/* Header */}
-           <div className="mb-6 flex items-center gap-4 flex-wrap md:flex-nowrap">
-             <h2 className="text-sm md:text-xl font-bold text-gray-900 relative whitespace-nowrap">
-            New Arrivals
-               <span className="absolute -bottom-1 left-0 w-16 h-1 bg-red-400 rounded-full" />
-             </h2>
-             <div className="flex-grow h-px bg-gray-300" />
-             <Link
-               to="/products"
-               className="flex items-center gap-1 text-red-500 hover:text-red-600 transition"
-             >
-               <span className="text-sm font-medium">Shop All Products</span>
-               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-               </svg>
-             </Link>
-           </div>
+    <>
       <Notification
         message={notification.message}
         type={notification.type}
@@ -158,138 +176,495 @@ const isInWishlist = (id) =>
         onClose={hideNotification}
       />
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-        {(loading ? Array.from({ length: 10 }) : recentProducts).map(
-          (product, index) => {
-            if (loading) return <SkeletonCard key={index} />;
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800;900&display=swap');
 
-            const {
-              productID,
-              productName,
-              productImage,
-              price,
-              oldPrice,
-              stock,
-            } = product;
+        :root {
+          --na-font: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          --na-green: #14532d;
+          --na-green-mid: #166534;
+          --na-green-light: #dcfce7;
+          --na-green-lighter: #f0fdf4;
+          --na-green-accent: #22c55e;
+          --na-dark: #1a1a1a;
+          --na-mid: #555;
+          --na-light: #888;
+          --na-border: #e0e0e0;
+          --na-bg-subtle: #f7f7f7;
+          --na-red: #dc2626;
+          --na-pink: #e11d48;
+          --na-radius: 4px;
+        }
 
-            const imageUrl = getValidImageUrl(productImage);
-            const isOnSale = oldPrice > 0 && oldPrice > price;
-            const inWishlist = isInWishlist(productID);
+        .na-root, .na-root * {
+          font-family: var(--na-font);
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+          box-sizing: border-box;
+        }
 
-            return (
-              <div
-                key={productID}
-                className="group bg-white rounded-2xl shadow-md hover:shadow-xl transition duration-300 overflow-hidden"
-              >
-                <div className="relative overflow-hidden">
-                  {isOnSale && (
-                    <span className="absolute top-2 left-2 bg-red-400 text-white text-xs font-semibold w-10 h-10 rounded-full z-10 flex items-center justify-center">
-                      SALE
-                    </span>
-                  )}
+        /* ==================== HEADER ==================== */
 
-                  <div
-                    className="h-40 md:h-52 flex items-center justify-center cursor-pointer"
-                    onClick={() => navigate(`/product/${productID}`)}
-                  >
-                    <img
-                      src={imageUrl}
-                      alt={productName}
-                      className="h-full object-contain transition-transform group-hover:scale-105"
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = "https://via.placeholder.com/150";
+        .na-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          margin-bottom: 16px;
+        }
+
+        .na-title-wrap {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-shrink: 0;
+        }
+
+        .na-title-accent {
+          width: 4px;
+          height: 22px;
+          border-radius: 2px;
+          background: var(--na-green);
+          flex-shrink: 0;
+        }
+
+        @media (min-width: 768px) {
+          .na-title-accent { height: 26px; }
+        }
+
+        .na-title {
+          font-size: 17px;
+          font-weight: 800;
+          color: var(--na-dark);
+          letter-spacing: -0.02em;
+          line-height: 1;
+          white-space: nowrap;
+        }
+
+        @media (min-width: 768px) {
+          .na-title { font-size: 20px; }
+        }
+
+        .na-header-line {
+          flex: 1;
+          height: 1px;
+          background: var(--na-border);
+          min-width: 20px;
+        }
+
+        .na-see-more {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--na-green);
+          text-decoration: none;
+          transition: all 0.15s;
+          white-space: nowrap;
+          flex-shrink: 0;
+          cursor: pointer;
+          font-family: var(--na-font);
+          background: none;
+          border: none;
+          padding: 0;
+        }
+
+        .na-see-more:hover {
+          color: var(--na-green-mid);
+        }
+
+        .na-see-more-arrow {
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background: var(--na-green-light);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.15s;
+        }
+
+        .na-see-more:hover .na-see-more-arrow {
+          background: var(--na-green);
+        }
+
+        .na-see-more:hover .na-see-more-arrow svg {
+          color: #fff !important;
+        }
+
+        /* ==================== GRID ==================== */
+
+        .na-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 12px;
+        }
+
+        @media (min-width: 640px) {
+          .na-grid {
+            grid-template-columns: repeat(3, 1fr);
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .na-grid {
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+          }
+        }
+
+        @media (min-width: 1280px) {
+          .na-grid {
+            grid-template-columns: repeat(5, 1fr);
+          }
+        }
+
+        /* ==================== CARDS ==================== */
+
+        .na-card {
+          border: 1px solid var(--na-border);
+          border-radius: var(--na-radius);
+          overflow: hidden;
+          background: #fff;
+          transition: all 0.2s ease;
+          cursor: pointer;
+        }
+
+        .na-card:hover {
+          border-color: var(--na-green-accent);
+          box-shadow: 0 4px 16px rgba(20, 83, 45, 0.08);
+        }
+
+        .na-card-img {
+          position: relative;
+          height: 150px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 10px;
+          overflow: hidden;
+        }
+
+        @media (min-width: 768px) {
+          .na-card-img { height: 195px; }
+        }
+
+        .na-card-img img {
+          height: 100%;
+          width: 100%;
+          object-fit: contain;
+          transition: transform 0.3s ease;
+        }
+
+        .na-card:hover .na-card-img img {
+          transform: scale(1.05);
+        }
+
+        .na-card-overlay {
+          position: absolute;
+          inset: 0;
+          background: rgba(20, 83, 45, 0.45);
+          display: none;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          z-index: 2;
+        }
+
+        .na-card:hover .na-card-overlay {
+          display: flex;
+        }
+
+        .na-card-action {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          background: #fff;
+          border: none;
+          cursor: pointer;
+          transition: all 0.15s;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .na-card-action:hover {
+          transform: scale(1.1);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .na-card-action:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        .na-card-body {
+          padding: 10px 12px;
+          text-align: center;
+        }
+
+        .na-card-name {
+          font-size: 15px;
+          font-weight: 600;
+          color: var(--na-dark);
+          line-height: 1.35;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          min-height: 35px;
+        }
+
+        .na-card-price {
+          font-size: 14px;
+          font-weight: 900;
+          color: var(--na-red);
+          margin-top: 2px;
+        }
+
+        .na-card-old-price {
+          font-size: 12px;
+          font-weight: 400;
+          color: var(--na-light);
+          text-decoration: line-through;
+          margin-top: 2px;
+        }
+
+        .na-card-sold {
+          position: absolute;
+          top: 8px;
+          left: 8px;
+          font-size: 9px;
+          font-weight: 700;
+          padding: 3px 8px;
+          border-radius: 100px;
+          background: var(--na-dark);
+          color: #fff;
+          z-index: 3;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+        }
+
+        .na-card-discount {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          font-size: 10px;
+          font-weight: 700;
+          padding: 3px 7px;
+          border-radius: 100px;
+          background: var(--na-red);
+          color: #fff;
+          z-index: 3;
+        }
+
+        /* ==================== SKELETON ==================== */
+
+        .na-skeleton {
+          border: 1px solid #eee;
+          border-radius: var(--na-radius);
+          overflow: hidden;
+          background: #fff;
+        }
+
+        .na-skeleton-img {
+          height: 150px;
+          background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+          background-size: 200% 100%;
+          animation: na-shimmer 1.5s infinite;
+        }
+
+        @media (min-width: 768px) {
+          .na-skeleton-img { height: 195px; }
+        }
+
+        @keyframes na-shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+
+        .na-skeleton-line {
+          height: 10px;
+          border-radius: 2px;
+          background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+          background-size: 200% 100%;
+          animation: na-shimmer 1.5s infinite;
+        }
+
+        /* ==================== ANIMATIONS ==================== */
+
+        @keyframes na-slide-in {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+
+        .na-animate-slide-in {
+          animation: na-slide-in 0.3s ease-out;
+        }
+      `}</style>
+
+      <div className="na-root mx-auto px-4 md:px-16 py-6">
+        {/* ==================== HEADER ==================== */}
+        <div className="na-header">
+          <div className="na-title-wrap">
+            <div className="na-title-accent" />
+            <h2 className="na-title">New Arrivals</h2>
+          </div>
+
+          <div className="na-header-line" />
+
+          <Link to="/products" className="na-see-more">
+            <span>Shop All Products</span>
+            <span className="na-see-more-arrow">
+              <ChevronRightIcon
+                style={{ width: 10, height: 10, color: "var(--na-green)" }}
+              />
+            </span>
+          </Link>
+        </div>
+
+        {/* ==================== GRID ==================== */}
+        <div className="na-grid">
+          {(loading ? Array.from({ length: 10 }) : recentProducts).map(
+            (product, index) => {
+              if (loading || !product) return <SkeletonCard key={index} />;
+
+              const {
+                productID,
+                productName,
+                productImage,
+                price,
+                oldPrice,
+                stock,
+              } = product;
+
+              const isOnSale = oldPrice > 0 && oldPrice > price;
+              const discountPercent = isOnSale
+                ? Math.round(((oldPrice - price) / oldPrice) * 100)
+                : 0;
+              const soldOut = stock === 0;
+              const inWishlist = isInWishlist(productID);
+
+              return (
+                <div key={productID} className="na-card">
+                  <div className="na-card-img">
+                    {soldOut && <span className="na-card-sold">Sold Out</span>}
+                    {isOnSale && !soldOut && (
+                      <span className="na-card-discount">-{discountPercent}%</span>
+                    )}
+
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                       }}
-                    />
-                  </div>
- <div
-                                 className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20 transition-all cursor-pointer"
-                                 onClick={() => navigate(`/product/${product.productID}`)}
-                               >
-                                 {/* Wishlist Icon */}
-                                 <Tooltip content={inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}>
-                                   <button
-                                     className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-                                     onClick={(e) => {
-                                       e.stopPropagation();
-                                       handleWishlistToggle(product);
-                                     }}
-                                   >
-                                     {inWishlist ? (
-                                       <SolidHeartIcon className="w-5 h-5 text-red-500" />
-                                     ) : (
-                                       <OutlineHeartIcon className="w-5 h-5 text-white hover:text-red-400" />
-                                     )}
-                                   </button>
-                                 </Tooltip>
-                               
-                                 {/* View Details */}
-                                 <Tooltip content="View Details">
-                                   <button
-                                     onClick={(e) => {
-                                       e.stopPropagation();
-                                       navigate(`/product/${product.productID}`);
-                                     }}
-                                     className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-                                   >
-                                     <EyeIcon className="w-5 h-5 text-white hover:text-green-400" />
-                                   </button>
-                                 </Tooltip>
-                               
-                                 {/* Add to Cart */}
-                                 <Tooltip content={product.stock === 0 ? "Out of Stock" : "Add to Cart"}>
-                                   <button
-                                     onClick={(e) => {
-                                       e.stopPropagation();
-                                       handleAddToCart(product);
-                                     }}
-                                     className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                     disabled={cartLoading || product.stock === 0}
-                                   >
-                                     <ShoppingCartIcon className="w-5 h-5 text-white hover:text-red-400" />
-                                   </button>
-                                 </Tooltip>
-                               </div>
-                </div>
+                      onClick={() => navigate(`/product/${productID}`)}
+                    >
+                      <img
+                        src={getValidImageUrl(productImage)}
+                        alt={productName}
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = "https://via.placeholder.com/150";
+                        }}
+                      />
+                    </div>
 
-                {/* Product Info */}
-                <div className="p-3 text-center ">
-                  <h3 className="text-sm font-medium text-gray-800 line-clamp-2">
-                    {productName}
-                  </h3>
-                 <div className="flex flex-col md:flex-row items-center justify-center gap-1 mt-1">
-                    <span className="text-red-500 font-medium text-sm">
-                      {formatPrice(price)}
-                    </span>
-                    {isOnSale && (
-                      <span className="text-xs line-through text-gray-400">
-                        {formatPrice(oldPrice)}
-                      </span>
+                    <div
+                      className="na-card-overlay"
+                      onClick={() => navigate(`/product/${productID}`)}
+                    >
+                      <Tooltip
+                        content={
+                          inWishlist ? "Remove from Wishlist" : "Add to Wishlist"
+                        }
+                      >
+                        <button
+                          className="na-card-action"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleWishlistToggle(product);
+                          }}
+                        >
+                          {inWishlist ? (
+                            <SolidHeartIcon
+                              style={{
+                                width: 16,
+                                height: 16,
+                                color: "var(--na-pink)",
+                              }}
+                            />
+                          ) : (
+                            <OutlineHeartIcon
+                              style={{
+                                width: 16,
+                                height: 16,
+                                color: "var(--na-mid)",
+                              }}
+                            />
+                          )}
+                        </button>
+                      </Tooltip>
+
+                      <Tooltip content="View Details">
+                        <button
+                          className="na-card-action"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/product/${productID}`);
+                          }}
+                        >
+                          <EyeIcon
+                            style={{
+                              width: 16,
+                              height: 16,
+                              color: "var(--na-green)",
+                            }}
+                          />
+                        </button>
+                      </Tooltip>
+
+                      <Tooltip content={soldOut ? "Out of Stock" : "Add to Cart"}>
+                        <button
+                          className="na-card-action"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAddToCart(product);
+                          }}
+                          disabled={cartLoading || soldOut}
+                        >
+                          <ShoppingCartIcon
+                            style={{
+                              width: 16,
+                              height: 16,
+                              color: "var(--na-green-mid)",
+                            }}
+                          />
+                        </button>
+                      </Tooltip>
+                    </div>
+                  </div>
+
+                  <div className="na-card-body">
+                    <div className="na-card-name">{productName}</div>
+                    <div className="na-card-price">{formatPrice(price)}</div>
+                    {oldPrice > 0 && (
+                      <div className="na-card-old-price">{formatPrice(oldPrice)}</div>
                     )}
                   </div>
                 </div>
-              </div>
-            );
-          }
-        )}
+              );
+            }
+          )}
+        </div>
       </div>
-
-      <style jsx>{`
-        @keyframes slide-in {
-          from {
-            transform: translateX(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-        .animate-slide-in {
-          animation: slide-in 0.3s ease-out;
-        }
-      `}</style>
-    </div>
+    </>
   );
 };
 
