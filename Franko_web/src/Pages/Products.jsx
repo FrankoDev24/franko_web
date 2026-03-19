@@ -146,7 +146,7 @@ const ProductsPage = () => {
 
   const formatPrice = (price) => {
     if (!price || isNaN(price)) return "₵0.00";
-    return `₵${Number(price).toLocaleString("en-US", {
+    return `GH₵${Number(price).toLocaleString("en-US", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
@@ -431,7 +431,7 @@ const ProductsPage = () => {
         }
 
         .pp-card-name {
-          font-size: 14px;
+          font-size: 15px;
           font-weight: 600;
           color: var(--pp-dark);
           line-height: 1.35;
@@ -443,7 +443,7 @@ const ProductsPage = () => {
         }
 
         .pp-card-price {
-          font-size: 14px;
+          font-size: 15px;
           font-weight: 900;
           color: var(--pp-red);
           margin-top: 6px;
@@ -684,7 +684,7 @@ const ProductsPage = () => {
 
                     <div className="pp-card-body">
                       <div className="pp-card-name">{productName || "Unnamed Product"}</div>
-                      <div className="pp-card-price">GH{formatPrice(price)}</div>
+                      <div className="pp-card-price">{formatPrice(price)}</div>
                       {oldPrice > 0 && (
                         <div className="pp-card-old-price">{formatPrice(oldPrice)}</div>
                       )}

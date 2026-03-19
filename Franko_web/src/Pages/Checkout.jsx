@@ -110,7 +110,7 @@ const formatCurrency = (amount, decimals = 2) => {
     maximumFractionDigits: decimals,
   });
 };
-const formatGHS = (amount) => `₵${formatCurrency(amount, 2)}`;
+const formatGHS = (amount) => `GH₵${formatCurrency(amount, 2)}`;
 const getItemUnitPrice = (item) =>
   parseFloat(item.unitPrice) || parseFloat(item.price) || 0;
 const getItemQuantity = (item) => parseInt(item.quantity, 10) || 1;

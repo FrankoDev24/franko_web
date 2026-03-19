@@ -381,7 +381,7 @@ const ProductDescription = () => {
 
   const isOutOfStock = (product) => {
     if (!product) return false;
-    const indicators = ["all brands", "products out of stock", "out of stock", "unavailable", "not available"];
+    const indicators = ["All brands", "Products out of stock", "out of stock", "unavailable", "not available"];
     const matchesAny = (field) =>
       field && indicators.some(i => field.toLowerCase().includes(i.toLowerCase()));
 
@@ -1023,7 +1023,7 @@ const ProductDescription = () => {
         }
 
         .pd-card-name {
-          font-size: 14px;
+          font-size: 15px;
           font-weight: 600;
           color: var(--pd-dark);
           line-height: 1.35;
@@ -1035,7 +1035,7 @@ const ProductDescription = () => {
         }
 
         .pd-card-price {
-          font-size: 14px;
+          font-size: 15px;
           font-weight: 900;
           color: var(--pd-red);
           margin-top: 6px;
@@ -1655,7 +1655,7 @@ const ProductDescription = () => {
         }
       `}</style>
 
-      <div className="pd-root max-w-7xl mx-auto px-4 py-10">
+      <div className="pd-root max-w-7xl mx-auto px-4 py-2">
         <Helmet>
           <title>{`${product?.productName || "Product"} - Best Price`}</title>
           <meta name="description" content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}. High-quality and best prices available.`} />
@@ -1720,9 +1720,9 @@ const ProductDescription = () => {
               <div className="pd-sticky-info">
                 <h3 className="pd-sticky-name">{product.productName}</h3>
                 <div>
-                  <span className="pd-sticky-price">₵{formatPrice(product.price)}</span>
+                  <span className="pd-sticky-price">GH₵{formatPrice(product.price)}</span>
                   {product.oldPrice > 0 && (
-                    <span className="pd-sticky-old-price">₵{formatPrice(product.oldPrice)}</span>
+                    <span className="pd-sticky-old-price">GH₵{formatPrice(product.oldPrice)}</span>
                   )}
                 </div>
               </div>
@@ -1781,9 +1781,9 @@ const ProductDescription = () => {
             <h1 className="pd-product-title">{product.productName}</h1>
 
             <div className="pd-price-container">
-              <span className="pd-price">₵{formatPrice(product.price)}</span>
+              <span className="pd-price">GH₵{formatPrice(product.price)}</span>
               {product.oldPrice > 0 && (
-                <span className="pd-old-price">₵{formatPrice(product.oldPrice)}</span>
+                <span className="pd-old-price">GH₵{formatPrice(product.oldPrice)}</span>
               )}
             </div>
 
@@ -1968,9 +1968,9 @@ const ProductDescription = () => {
                     </div>
                     <div className="pd-card-body">
                       <h3 className="pd-card-name">{viewedProduct.name || "Unnamed Product"}</h3>
-                      <div className="pd-card-price">₵{formatPrice(viewedProduct.price)}</div>
+                      <div className="pd-card-price">GH₵{formatPrice(viewedProduct.price)}</div>
                       {viewedProduct.oldPrice > 0 && (
-                        <div className="pd-card-old-price">₵{formatPrice(viewedProduct.oldPrice)}</div>
+                        <div className="pd-card-old-price">GH₵{formatPrice(viewedProduct.oldPrice)}</div>
                       )}
                     </div>
                   </div>
@@ -1982,7 +1982,7 @@ const ProductDescription = () => {
 
         {/* ==================== YOU MAY ALSO LIKE (RELATED PRODUCTS) ==================== */}
         {related.length > 0 && (
-          <section className="mt-10">
+          <section className="mt-10 mb-24 md:mb-1">
             <div className="pd-section-header">
               <div className="pd-title-wrap">
                 <div className="pd-title-accent" />
@@ -2064,9 +2064,9 @@ const ProductDescription = () => {
                     </div>
                     <div className="pd-card-body">
                                     <h3 className="pd-card-name">{relatedProduct.productName || "Unnamed Product"}</h3>
-                      <div className="pd-card-price">₵{formatPrice(relatedProduct.price)}</div>
+                      <div className="pd-card-price">GH₵{formatPrice(relatedProduct.price)}</div>
                       {relatedProduct.oldPrice > 0 && (
-                        <div className="pd-card-old-price">₵{formatPrice(relatedProduct.oldPrice)}</div>
+                        <div className="pd-card-old-price">GH₵{formatPrice(relatedProduct.oldPrice)}</div>
                       )}
                     </div>
                   </div>
@@ -2134,7 +2134,7 @@ const ProductDescription = () => {
                           </div>
                           <div className="pd-cart-item-info">
                             <h4 className="pd-cart-item-name">{item.productName || "Product Name"}</h4>
-                            <p className="pd-cart-item-price">₵{formatPrice(item.price || 0)}</p>
+                            <p className="pd-cart-item-price">GH₵{formatPrice(item.price || 0)}</p>
                             <div className="pd-cart-item-actions">
                               <div className="pd-qty-control">
                                 <button
@@ -2155,7 +2155,7 @@ const ProductDescription = () => {
                               </div>
 
                               <div style={{ display: 'flex', alignItems: 'center' }}>
-                                <span className="pd-cart-item-total">₵{formatPrice(lineTotal)}</span>
+                                <span className="pd-cart-item-total">GH₵{formatPrice(lineTotal)}</span>
                                 <button
                                   className="pd-cart-item-remove"
                                   onClick={() => handleRemoveItem(item.productId)}
@@ -2178,7 +2178,7 @@ const ProductDescription = () => {
               <div className="pd-cart-footer">
                 <div className="pd-cart-total-row">
                   <span className="pd-cart-total-label">Total:</span>
-                  <span className="pd-cart-total-value">₵{formatPrice(cartTotal)}</span>
+                  <span className="pd-cart-total-value">GH₵{formatPrice(cartTotal)}</span>
                 </div>
                 <p className="pd-cart-note">* Taxes & shipping calculated at checkout</p>
                 <Divider style={{ margin: '12px 0' }} />

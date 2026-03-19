@@ -25,7 +25,7 @@ const formatCurrency = (amount, decimals = 2) => {
   });
 };
 
-const formatGHS = (amount) => `₵${formatCurrency(amount, 2)}`;
+const formatGHS = (amount) => `GH₵${formatCurrency(amount, 2)}`;
 
 const getItemLineTotal = (item) => {
   const price = parseFloat(item.price) || 0;
@@ -943,7 +943,7 @@ const cartStyles = `
   }
 
   .cart-item-name {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
     color: var(--cart-dark);
     line-height: 1.4;
@@ -955,7 +955,7 @@ const cartStyles = `
   }
 
   .cart-item-price {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 900;
     color: var(--cart-red);
     margin: 0;
