@@ -27,6 +27,8 @@ import {
   XCircleIcon,
   ArrowPathIcon,
   ArrowUturnLeftIcon,
+  ShieldCheckIcon,
+  LockClosedIcon,
 } from "@heroicons/react/24/outline";
 import {
   CheckCircleIcon as CheckCircleSolid,
@@ -47,6 +49,12 @@ const INITIAL_DELAY_MS = 10000;
 const POLL_INTERVAL_MS = 5000;
 const MAX_POLL_DURATION_MS = 60000;
 const AUTO_CHECK_DELAY_MS = 120000; // 2 minutes
+
+// ==================== SUCCESS CHECK ====================
+// Only treat as success when BOTH responseCode === "01" AND responseMessage === "Successfully Processed Transaction"
+const isPaymentSuccess = (response) =>
+  response?.responseCode === "01" &&
+  response?.responseMessage === "Successfully Processed Transaction";
 
 // ==================== NETWORK STEPS CONFIG ====================
 const NETWORK_STEPS = {
@@ -460,127 +468,231 @@ const checkoutStyles = `
     .co-modal .ant-modal-content { border-radius: 12px !important; }
   }
 
-  /* ==================== PAYMENT MODAL INTERNALS ==================== */
-  .co-pay-header { text-align: center; margin-bottom: 4px; }
-  .co-pay-logo { height: 32px; object-fit: contain; margin: 0 auto 8px; display: block; }
-  @media (min-width: 768px) { .co-pay-logo { height: 40px; } }
-  .co-pay-company {
-    font-size: 12px; font-weight: 800; color: var(--co-dark);
-    letter-spacing: -0.01em;
-  }
+  /* ==================== PAYMENT MODAL — REDESIGNED ==================== */
 
-  .co-pay-amount-card {
-    background: linear-gradient(135deg, var(--co-green-mid), var(--co-green));
-    border-radius: var(--co-radius-xl); padding: 16px;
-    text-align: center; color: #fff;
-  }
-  .co-pay-amount-label {
-    font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.7);
-    text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;
-  }
-  .co-pay-amount-value {
-    font-size: 28px; font-weight: 900; letter-spacing: -0.02em;
-  }
-  @media (min-width: 768px) { .co-pay-amount-value { font-size: 32px; } }
-  .co-pay-ref {
-    font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 6px;
-  }
+  /* Modal wrapper: dark top bar */
+  .pm-modal-wrap { display: flex; flex-direction: column; gap: 0; }
 
-  .co-pay-field {
-    background: var(--co-bg); border-radius: var(--co-radius);
-    padding: 14px 16px; border: 1px solid #f0f0f0;
-  }
-  .co-pay-field-label {
-    font-size: 13px; font-weight: 800; color: var(--co-dark);
-    display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
-  }
-  .co-pay-step-num {
-    width: 22px; height: 22px; background: var(--co-green);
-    color: #fff; border-radius: 50%; display: flex; align-items: center;
-    justify-content: center; font-size: 11px; font-weight: 900; flex-shrink: 0;
-  }
-
-  .co-pay-validation {
-    font-size: 12px; font-weight: 600; margin-top: 6px; min-height: 18px;
-  }
-  .co-pay-validation-error { color: var(--co-red); }
-  .co-pay-validation-ok { color: var(--co-green-600); display: flex; align-items: center; gap: 4px; }
-
-  .co-network-option {
-    display: flex; align-items: center; padding: 12px;
-    border: 2px solid var(--co-border); border-radius: var(--co-radius);
-    cursor: pointer; transition: all 0.15s; background: #fff;
-  }
-  .co-network-option:hover { border-color: #d1d5db; }
-  .co-network-logo {
-    width: 32px; height: 32px; object-fit: contain; border-radius: 6px;
-  }
-  @media (min-width: 768px) { .co-network-logo { width: 36px; height: 36px; } }
-  .co-network-name { font-size: 14px; font-weight: 700; color: var(--co-dark); }
-  .co-network-sub { font-size: 11px; color: var(--co-light); }
-
-  .co-pay-info-box {
-    background: #eff6ff; border: 1px solid #bfdbfe;
-    border-radius: var(--co-radius); padding: 12px;
-  }
-  .co-pay-info-title { font-size: 12px; font-weight: 800; color: #1e40af; margin-bottom: 6px; }
-  .co-pay-info-list {
-    font-size: 12px; color: #2563eb; list-style: decimal;
-    padding-left: 16px; margin: 0;
-  }
-  .co-pay-info-list li { margin-bottom: 3px; }
-
-  /* ==================== PENDING STATE ==================== */
-  .co-pending-spinner {
-    position: relative; width: 80px; height: 80px; margin: 0 auto;
-  }
-  @media (min-width: 768px) {
-    .co-pending-spinner { width: 96px; height: 96px; }
-  }
-  .co-pending-ring {
-    position: absolute; inset: 0; border: 4px solid var(--co-green-light);
-    border-radius: 50%;
-  }
-  .co-pending-ring-active {
-    position: absolute; inset: 0; border: 4px solid var(--co-green-600);
-    border-top-color: transparent; border-radius: 50%;
-    animation: co-spin 1s linear infinite;
-  }
-  .co-pending-icon {
-    position: absolute; inset: 0; display: flex; align-items: center;
-    justify-content: center;
-  }
-
-  .co-pending-details {
-    background: var(--co-bg); border: 1px solid #f0f0f0;
-    border-radius: var(--co-radius); padding: 12px;
-  }
-  .co-pending-detail-row {
-    display: flex; justify-content: space-between;
-    font-size: 13px; padding: 4px 0;
-  }
-  .co-pending-detail-label { color: var(--co-light); font-weight: 500; }
-  .co-pending-detail-value { font-weight: 700; color: var(--co-dark); }
-  .co-pending-detail-amount { font-weight: 900; color: var(--co-green); }
-
-  .co-progress-bar {
-    background: var(--co-green-lighter); border: 1px solid #bbf7d0;
-    border-radius: var(--co-radius); padding: 12px;
-  }
-  .co-progress-bar-top {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 6px;
-  }
-  .co-progress-bar-label { font-size: 12px; font-weight: 700; color: var(--co-green); }
-  .co-progress-bar-count { font-size: 12px; font-weight: 900; color: var(--co-green); }
-  .co-progress-track {
-    width: 100%; height: 6px; background: #bbf7d0; border-radius: 3px;
+  /* Branded header strip */
+  .pm-header-strip {
+    background: linear-gradient(135deg, #0d3d20 0%, #14532d 50%, #166534 100%);
+    border-radius: 10px 10px 0 0;
+    padding: 20px 20px 24px;
+    text-align: center;
+    position: relative;
     overflow: hidden;
   }
-  .co-progress-fill {
-    height: 100%; background: var(--co-green-600); border-radius: 3px;
-    transition: width 1s linear;
+  .pm-header-strip::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
   }
+  .pm-header-strip::after {
+    content: '';
+    position: absolute;
+    bottom: -20px; left: -20px;
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.03);
+  }
+  .pm-logo { height: 28px; object-fit: contain; margin: 0 auto 8px; display: block; filter: brightness(0) invert(1); opacity: 0.9; }
+  .pm-company { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.5); letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 12px; }
+  .pm-amount-label { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 4px; }
+  .pm-amount-value {
+    font-size: 34px; font-weight: 900; color: #fff;
+    letter-spacing: -0.03em; margin: 0; line-height: 1;
+  }
+  @media (min-width: 480px) { .pm-amount-value { font-size: 40px; } }
+  .pm-ref-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 100px; padding: 4px 12px; margin-top: 12px;
+    font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.6);
+  }
+
+  /* Body */
+  .pm-body {
+    padding: 20px;
+    display: flex; flex-direction: column; gap: 14px;
+    background: #fff;
+    border-radius: 0 0 10px 10px;
+  }
+
+  /* Step field */
+  .pm-field {
+    border: 1.5px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+  .pm-field:focus-within { border-color: var(--co-green-600); }
+  .pm-field-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    background: #f9fafb;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .pm-field-step-num {
+    width: 20px; height: 20px; background: var(--co-green);
+    color: #fff; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 10px; font-weight: 900; flex-shrink: 0;
+  }
+  .pm-field-label { font-size: 12px; font-weight: 800; color: var(--co-dark); letter-spacing: 0.01em; }
+  .pm-field-body { padding: 12px 14px; }
+
+  /* Validation */
+  .pm-validation { font-size: 12px; font-weight: 600; margin-top: 6px; min-height: 16px; }
+  .pm-validation-error { color: var(--co-red); display: flex; align-items: center; gap: 4px; }
+  .pm-validation-ok { color: var(--co-green-600); display: flex; align-items: center; gap: 4px; }
+
+  /* Network tiles */
+  .pm-networks { display: flex; flex-direction: column; gap: 8px; }
+  .pm-network-tile {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px; border: 2px solid #e5e7eb;
+    border-radius: 8px; cursor: pointer; transition: all 0.15s;
+    background: #fff; position: relative;
+  }
+  .pm-network-tile:hover { border-color: #d1d5db; background: #fafafa; }
+  .pm-network-tile-active { border-width: 2px !important; }
+  .pm-network-logo { width: 36px; height: 36px; object-fit: contain; border-radius: 6px; flex-shrink: 0; }
+  .pm-network-name { font-size: 14px; font-weight: 800; color: var(--co-dark); }
+  .pm-network-sub { font-size: 11px; color: var(--co-light); }
+  .pm-network-check { margin-left: auto; flex-shrink: 0; }
+
+  /* Pay button */
+  .pm-pay-btn {
+    width: 100%; padding: 15px;
+    background: linear-gradient(135deg, #14532d, #166534);
+    color: #fff; border: none; border-radius: 8px;
+    font-size: 16px; font-weight: 800; cursor: pointer;
+    transition: all 0.15s; font-family: var(--co-font);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    box-shadow: 0 4px 12px rgba(20, 83, 45, 0.3);
+    letter-spacing: -0.01em;
+  }
+  .pm-pay-btn:hover { background: linear-gradient(135deg, #166534, #15803d); box-shadow: 0 6px 16px rgba(20, 83, 45, 0.35); transform: translateY(-1px); }
+  .pm-pay-btn:active { transform: translateY(0); }
+  .pm-pay-btn:disabled { background: linear-gradient(135deg, #9ca3af, #6b7280); box-shadow: none; cursor: not-allowed; transform: none; }
+
+  /* Security badge */
+  .pm-security {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    font-size: 11px; font-weight: 600; color: #6b7280;
+    padding: 8px; background: #f9fafb; border-radius: 6px;
+    border: 1px solid #f0f0f0;
+  }
+
+  /* Info box */
+  .pm-info-box {
+    background: linear-gradient(135deg, #f0fdf4, #f7fdf9);
+    border: 1px solid #bbf7d0;
+    border-radius: 8px; padding: 12px 14px;
+  }
+  .pm-info-title {
+    font-size: 12px; font-weight: 800; color: var(--co-green);
+    margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+  }
+  .pm-info-list {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .pm-info-list li {
+    font-size: 12px; color: #16a34a; font-weight: 500;
+    display: flex; align-items: flex-start; gap: 7px; line-height: 1.4;
+  }
+  .pm-info-list li::before {
+    content: ''; width: 5px; height: 5px; border-radius: 50%;
+    background: var(--co-green-600); flex-shrink: 0; margin-top: 5px;
+  }
+
+  /* ==================== PENDING STATE ==================== */
+  .pm-pending-wrap {
+    padding: 8px 0 16px; display: flex; flex-direction: column;
+    align-items: center; gap: 20px;
+  }
+  .pm-pending-anim {
+    position: relative; width: 88px; height: 88px;
+  }
+  .pm-pending-ring-outer {
+    position: absolute; inset: 0; border: 3px solid #dcfce7; border-radius: 50%;
+  }
+  .pm-pending-ring-spin {
+    position: absolute; inset: 0; border: 3px solid transparent;
+    border-top-color: var(--co-green-600); border-right-color: var(--co-green-accent);
+    border-radius: 50%; animation: co-spin 1s linear infinite;
+  }
+  .pm-pending-ring-inner {
+    position: absolute; inset: 10px; border: 2px solid #f0fdf4; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+  }
+
+  .pm-pending-text-wrap { text-align: center; }
+  .pm-pending-title { font-size: 18px; font-weight: 900; color: var(--co-dark); margin: 0 0 4px; }
+  .pm-pending-desc { font-size: 13px; color: var(--co-light); margin: 0; }
+
+  .pm-pending-details {
+    width: 100%; background: #f9fafb; border: 1px solid #f0f0f0;
+    border-radius: 8px; overflow: hidden;
+  }
+  .pm-pending-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px; border-bottom: 1px solid #f5f5f5; font-size: 13px;
+  }
+  .pm-pending-row:last-child { border-bottom: none; }
+  .pm-pending-row-label { color: var(--co-light); font-weight: 500; }
+  .pm-pending-row-value { font-weight: 700; color: var(--co-dark); }
+  .pm-pending-row-amount { font-weight: 900; color: var(--co-green); font-size: 15px; }
+
+  .pm-progress-wrap {
+    width: 100%; background: var(--co-green-lighter); border: 1px solid #bbf7d0;
+    border-radius: 8px; padding: 12px 14px;
+  }
+  .pm-progress-top {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+  }
+  .pm-progress-label { font-size: 12px; font-weight: 700; color: var(--co-green); }
+  .pm-progress-count {
+    font-size: 13px; font-weight: 900; color: var(--co-green);
+    background: rgba(22,163,74,0.12); padding: 2px 8px; border-radius: 100px;
+    font-variant-numeric: tabular-nums;
+  }
+  .pm-progress-track {
+    width: 100%; height: 6px; background: #bbf7d0; border-radius: 3px; overflow: hidden;
+  }
+  .pm-progress-fill {
+    height: 100%; background: linear-gradient(90deg, var(--co-green-600), var(--co-green-accent));
+    border-radius: 3px; transition: width 1s linear;
+  }
+
+  /* ==================== SUCCESS / FAILED ==================== */
+  .pm-result-wrap { text-align: center; padding: 20px 0 28px; }
+  .pm-result-icon {
+    width: 80px; height: 80px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+  }
+  .pm-result-icon-success {
+    background: radial-gradient(circle, #dcfce7, #bbf7d0);
+    border: 3px solid #86efac;
+    animation: pm-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .pm-result-icon-failed {
+    background: radial-gradient(circle, #fee2e2, #fecaca);
+    border: 3px solid #fca5a5;
+  }
+  @keyframes pm-pop {
+    from { transform: scale(0.5); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  .pm-result-title { font-size: 22px; font-weight: 900; margin: 0 0 6px; }
+  .pm-result-title-success { color: var(--co-green); }
+  .pm-result-title-failed { color: var(--co-red); }
+  .pm-result-desc { font-size: 14px; color: var(--co-light); margin: 0; }
 
   /* ==================== AUTO CHECK TIMER ==================== */
   .co-auto-check-bar {
@@ -596,20 +708,6 @@ const checkoutStyles = `
     font-size: 13px; font-weight: 900; color: #b45309;
     font-variant-numeric: tabular-nums;
   }
-
-  /* ==================== SUCCESS / FAILED ==================== */
-  .co-result-state { text-align: center; padding: 32px 0; }
-  .co-result-icon {
-    width: 72px; height: 72px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    margin: 0 auto 16px;
-  }
-  .co-result-icon-success { background: var(--co-green-light); }
-  .co-result-icon-failed { background: #fee2e2; }
-  .co-result-title { font-size: 22px; font-weight: 900; margin-bottom: 4px; }
-  .co-result-title-success { color: var(--co-green); }
-  .co-result-title-failed { color: var(--co-red); }
-  .co-result-desc { font-size: 14px; color: var(--co-light); }
 
   /* ==================== ACTION DIALOG ==================== */
   .co-dialog-overlay {
@@ -974,18 +1072,13 @@ const Checkout = () => {
       const totalSeconds = AUTO_CHECK_DELAY_MS / 1000;
       setAutoCheckCountdown(totalSeconds);
 
-      // Countdown timer
       const countdownTimer = setInterval(() => {
         setAutoCheckCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(countdownTimer);
-            return 0;
-          }
+          if (prev <= 1) { clearInterval(countdownTimer); return 0; }
           return prev - 1;
         });
       }, 1000);
 
-      // Auto-check after 2 minutes
       autoCheckRef.current = setTimeout(async () => {
         try {
           setVerifyingPayment(true);
@@ -993,7 +1086,7 @@ const Checkout = () => {
             checkTransactionStatus({ refNo: currentOrderId })
           ).unwrap();
 
-          if (response?.responseMessage === "Successfully Processed Transaction") {
+          if (isPaymentSuccess(response)) {
             setPaymentStatus("success");
             setIsApprovalGuideVisible(false);
             try {
@@ -1002,6 +1095,8 @@ const Checkout = () => {
                 pendingCheckoutDetails,
                 pendingAddressDetails
               );
+              // ✅ Clear cart only after successful checkout dispatch
+              clearCartAndStorage();
               localStorage.removeItem("checkoutDetails");
               localStorage.removeItem("orderAddressDetails");
               message.success("Payment confirmed! Your order is being processed.");
@@ -1013,7 +1108,7 @@ const Checkout = () => {
               message.error("Payment confirmed but order processing failed. Contact support.");
             }
           } else {
-            // Payment not successful after 2 minutes → navigate to cancelled
+            // Payment not confirmed after 2 minutes → cancel
             setIsApprovalGuideVisible(false);
             setIsPaymentModalVisible(false);
             localStorage.removeItem("checkoutDetails");
@@ -1022,7 +1117,6 @@ const Checkout = () => {
             navigate("/order-cancelled");
           }
         } catch {
-          // Error checking → navigate to cancelled
           setIsApprovalGuideVisible(false);
           setIsPaymentModalVisible(false);
           localStorage.removeItem("checkoutDetails");
@@ -1065,6 +1159,14 @@ const Checkout = () => {
   const generateOrderId = () =>
     `ORD-${new Date().getTime() % 10000}-${Math.floor(Math.random() * 1000)}`;
 
+  // ==================== CART CLEAR HELPER ====================
+  // Only called on confirmed success or navigation to order-success
+  const clearCartAndStorage = () => {
+    dispatch(clearCart());
+    localStorage.removeItem("cart");
+    localStorage.removeItem("cartId");
+  };
+
   // ==================== RETRY HELPERS ====================
   const dispatchOrderCheckoutWithRetry = async (orderId, checkoutDetails, maxRetries = 3) => {
     let lastError;
@@ -1081,15 +1183,13 @@ const Checkout = () => {
     }
     throw new Error(`Checkout failed after ${maxRetries} attempts: ${lastError?.message || "Unknown"}`);
   };
+
+  // Address update no longer clears cart — that's handled separately after success
   const dispatchOrderAddressWithRetry = async (orderId, addressDetails, maxRetries = 3) => {
     let lastError;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const result = await dispatch(updateOrderDelivery(addressDetails)).unwrap();
-        dispatch(clearCart());
-        localStorage.removeItem("cart");
-        localStorage.removeItem("cartId");
-        return result;
+        return await dispatch(updateOrderDelivery(addressDetails)).unwrap();
       } catch (error) {
         lastError = error;
         if (attempt < maxRetries)
@@ -1098,6 +1198,7 @@ const Checkout = () => {
     }
     throw new Error(`Address update failed after ${maxRetries} attempts: ${lastError?.message || "Unknown"}`);
   };
+
   const processDirectCheckout = async (orderId, checkoutDetails, addressDetails) => {
     await dispatchOrderCheckoutWithRetry(orderId, checkoutDetails);
     await dispatchOrderAddressWithRetry(orderId, addressDetails);
@@ -1120,12 +1221,16 @@ const Checkout = () => {
           const response = await dispatch(
             checkTransactionStatus({ refNo: orderId })
           ).unwrap();
-          if (response?.responseMessage === "Successfully Processed Transaction") {
+
+          // ✅ Only treat as success when responseCode === "01" AND correct message
+          if (isPaymentSuccess(response)) {
             clearInterval(pollingRef.current);
             clearInterval(countdownRef.current);
             setPaymentStatus("success");
             try {
               await processDirectCheckout(orderId, checkoutDetails, addressDetails);
+              // ✅ Clear cart only after successful dispatch
+              clearCartAndStorage();
               localStorage.removeItem("checkoutDetails");
               localStorage.removeItem("orderAddressDetails");
               message.success("Payment confirmed! Processing your order...");
@@ -1162,6 +1267,7 @@ const Checkout = () => {
     setPaymentStatus("idle");
     localStorage.removeItem("checkoutDetails");
     localStorage.removeItem("orderAddressDetails");
+    // ❌ Do NOT clear cart on cancel — user may want to retry
     navigate("/order-cancelled");
   };
 
@@ -1174,13 +1280,16 @@ const Checkout = () => {
         checkTransactionStatus({ refNo: currentOrderId })
       ).unwrap();
 
-      if (response?.responseMessage === "Successfully Processed Transaction") {
+      // ✅ Only treat as success when responseCode === "01" AND correct message
+      if (isPaymentSuccess(response)) {
         if (autoCheckRef.current) clearTimeout(autoCheckRef.current);
         setActionDialog({ open: false, mode: "cancel" });
         setPaymentStatus("success");
         setIsApprovalGuideVisible(false);
         try {
           await processDirectCheckout(currentOrderId, pendingCheckoutDetails, pendingAddressDetails);
+          // ✅ Clear cart only after successful dispatch
+          clearCartAndStorage();
           localStorage.removeItem("checkoutDetails");
           localStorage.removeItem("orderAddressDetails");
           message.success("Payment confirmed! Your order is being processed...");
@@ -1266,10 +1375,13 @@ const Checkout = () => {
     try {
       setLoading(true);
       if (isAgent || !["Mobile Money"].includes(paymentMethod)) {
+        // Non-MoMo orders: process and clear cart immediately
         await processDirectCheckout(orderId, checkoutDetails, addressDetails);
+        clearCartAndStorage();
         message.success("Your order has been placed successfully!");
         navigate("/order-received");
       } else {
+        // MoMo orders: save details and show payment modal — do NOT clear cart yet
         localStorage.setItem("checkoutDetails", checkoutDetails);
         localStorage.setItem("orderAddressDetails", addressDetails);
         dispatch(saveCheckoutDetails(checkoutDetails));
@@ -1296,7 +1408,10 @@ const Checkout = () => {
     try {
       setPayButtonLoading(true);
       setPaymentStatus("pending");
-      await dispatch(debitCustomer({ refNo: currentOrderId, msisdn: momoNumber, amount: paymentAmount, network: selectedNetwork, narration })).unwrap();
+      await dispatch(debitCustomer({
+        refNo: currentOrderId, msisdn: momoNumber,
+        amount: paymentAmount, network: selectedNetwork, narration
+      })).unwrap();
       startPolling(currentOrderId, pendingCheckoutDetails, pendingAddressDetails);
     } catch {
       setPaymentStatus("failed");
@@ -1599,7 +1714,7 @@ const Checkout = () => {
           </div>
         </Modal>
 
-        {/* ══════ PAYMENT MODAL ══════ */}
+        {/* ══════ PAYMENT MODAL — REDESIGNED ══════ */}
         {!isAgent && (
           <Modal
             open={isPaymentModalVisible}
@@ -1612,160 +1727,219 @@ const Checkout = () => {
                 setPaymentStatus("idle");
               }
             }}
-            footer={null} closable={paymentStatus === "input"} centered width={500}
-            styles={{ body: { padding: "16px 20px" } }} className="co-modal"
+            footer={null}
+            closable={paymentStatus === "input"}
+            centered
+            width={480}
+            styles={{ body: { padding: 0 }, content: { borderRadius: 12, overflow: "hidden" } }}
+            className="co-modal"
           >
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              {/* Header */}
-              <div className="co-pay-header">
-                <img src={frankoLogo} alt="Franko" className="co-pay-logo" onError={(e) => { e.target.style.display = "none"; }} />
-                <p className="co-pay-company">Franko Trading Limited</p>
+            <div className="pm-modal-wrap">
+              {/* ── Branded Header Strip ── */}
+              <div className="pm-header-strip">
+                <img src={frankoLogo} alt="Franko" className="pm-logo" onError={(e) => { e.target.style.display = "none"; }} />
+                <p className="pm-company">Franko Trading Limited</p>
+                <p className="pm-amount-label">Amount to Pay</p>
+                <p className="pm-amount-value">{formatGHS(calculateDisplayTotalWithCharge())}</p>
+                <div className="pm-ref-badge">
+                  <LockClosedIcon style={{ width: 10, height: 10 }} />
+                  {currentOrderId}
+                </div>
               </div>
 
-              {/* Amount */}
-              <div className="co-pay-amount-card">
-                <p className="co-pay-amount-label">You will be charged</p>
-                <p className="co-pay-amount-value">{formatGHS(calculateDisplayTotalWithCharge())}</p>
-                <p className="co-pay-ref">Ref: {currentOrderId}</p>
-              </div>
+              {/* ── Modal Body ── */}
+              <div className="pm-body">
 
-              {/* INPUT */}
-              {paymentStatus === "input" && (
-                <>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                    <div className="co-pay-field">
-                      <label className="co-pay-field-label">
-                        <span className="co-pay-step-num">1</span>
-                        Mobile Money Number
-                      </label>
-                      <Input placeholder="233XXXXXXXXX" value={momoNumber} onChange={handleMomoNumberChange}
-                        prefix={<PhoneIcon style={{ width: 16, height: 16, color: "#888" }} />}
-                        size="large" maxLength={12} style={{ fontSize: 16, fontWeight: 700, borderRadius: "var(--co-radius)" }} />
-                      <div className="co-pay-validation">
-                        {startsWithZeroAfter233() && <span className="co-pay-validation-error">Do not begin with 0 after 233</span>}
-                        {momoNumber.length === 12 && !isValidMomoNumber() && !startsWithZeroAfter233() && (
-                          <span className="co-pay-validation-error">Please enter a valid 9-digit number after 233</span>
-                        )}
-                        {isValidMomoNumber() && (
-                          <span className="co-pay-validation-ok">
-                            <CheckCircleIcon style={{ width: 14, height: 14 }} /> Valid number
-                          </span>
-                        )}
+                {/* INPUT STATE */}
+                {paymentStatus === "input" && (
+                  <>
+                    {/* Step 1: Phone number */}
+                    <div className="pm-field">
+                      <div className="pm-field-header">
+                        <span className="pm-field-step-num">1</span>
+                        <span className="pm-field-label">Enter Mobile Money Number</span>
+                      </div>
+                      <div className="pm-field-body">
+                        <Input
+                          placeholder="233XXXXXXXXX"
+                          value={momoNumber}
+                          onChange={handleMomoNumberChange}
+                          prefix={<PhoneIcon style={{ width: 16, height: 16, color: "#888" }} />}
+                          size="large"
+                          maxLength={12}
+                          style={{ fontSize: 16, fontWeight: 700, borderRadius: 6 }}
+                        />
+                        <div className="pm-validation">
+                          {startsWithZeroAfter233() && (
+                            <span className="pm-validation-error">
+                              <XCircleIcon style={{ width: 13, height: 13 }} /> Do not begin with 0 after 233
+                            </span>
+                          )}
+                          {momoNumber.length === 12 && !isValidMomoNumber() && !startsWithZeroAfter233() && (
+                            <span className="pm-validation-error">
+                              <XCircleIcon style={{ width: 13, height: 13 }} /> Please enter a valid 9-digit number
+                            </span>
+                          )}
+                          {isValidMomoNumber() && (
+                            <span className="pm-validation-ok">
+                              <CheckCircleIcon style={{ width: 13, height: 13 }} /> Valid number
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="co-pay-field">
-                      <label className="co-pay-field-label">
-                        <span className="co-pay-step-num">2</span>
-                        Select Network
-                      </label>
-                      <Radio.Group value={selectedNetwork} onChange={(e) => setSelectedNetwork(e.target.value)} style={{ width: "100%" }}>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                          {[
-                            { value: "mtn", logo: mtnLogo, name: "MTN", sub: "Mobile Money", activeBg: "#fffbeb", activeBorder: "#fcd34d", checkColor: "#d97706" },
-                            { value: "vodafone", logo: vodafoneLogo, name: "Vodafone", sub: "Vodafone Cash", activeBg: "#fff1f2", activeBorder: "#fecdd3", checkColor: "#e11d48" },
-                            { value: "airteltigo", logo: airteltigoLogo, name: "AirtelTigo", sub: "AirtelTigo Money", activeBg: "#eff6ff", activeBorder: "#bfdbfe", checkColor: "#2563eb" },
-                          ].map((net) => (
-                            <label key={net.value} className="co-network-option"
-                              style={selectedNetwork === net.value ? { background: net.activeBg, borderColor: net.activeBorder } : {}}>
-                              <Radio value={net.value} />
-                              <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: 8, flex: 1 }}>
-                                <img src={net.logo} alt={net.name} className="co-network-logo" onError={(e) => { e.target.style.display = "none"; }} />
-                                <div>
-                                  <p className="co-network-name">{net.name}</p>
-                                  <p className="co-network-sub">{net.sub}</p>
+                    {/* Step 2: Network */}
+                    <div className="pm-field">
+                      <div className="pm-field-header">
+                        <span className="pm-field-step-num">2</span>
+                        <span className="pm-field-label">Choose Network Provider</span>
+                      </div>
+                      <div className="pm-field-body">
+                        <Radio.Group value={selectedNetwork} onChange={(e) => setSelectedNetwork(e.target.value)} style={{ width: "100%" }}>
+                          <div className="pm-networks">
+                            {[
+                              { value: "mtn", logo: mtnLogo, name: "MTN Mobile Money", sub: "Dial *170#", activeBg: "#fffbeb", activeBorder: "#fbbf24", checkColor: "#d97706" },
+                              { value: "vodafone", logo: vodafoneLogo, name: "Vodafone Cash", sub: "Dial *110#", activeBg: "#fff1f2", activeBorder: "#fda4af", checkColor: "#e11d48" },
+                              { value: "airteltigo", logo: airteltigoLogo, name: "AirtelTigo Money", sub: "Dial *110#", activeBg: "#eff6ff", activeBorder: "#93c5fd", checkColor: "#2563eb" },
+                            ].map((net) => (
+                              <label
+                                key={net.value}
+                                className={`pm-network-tile ${selectedNetwork === net.value ? "pm-network-tile-active" : ""}`}
+                                style={selectedNetwork === net.value
+                                  ? { background: net.activeBg, borderColor: net.activeBorder }
+                                  : {}}
+                              >
+                                <Radio value={net.value} style={{ flexShrink: 0 }} />
+                                <img src={net.logo} alt={net.name} className="pm-network-logo" onError={(e) => { e.target.style.display = "none"; }} />
+                                <div style={{ flex: 1 }}>
+                                  <p className="pm-network-name">{net.name}</p>
+                                  <p className="pm-network-sub">{net.sub}</p>
                                 </div>
-                              </div>
-                              {selectedNetwork === net.value && <CheckCircleSolid style={{ width: 20, height: 20, color: net.checkColor }} />}
-                            </label>
-                          ))}
-                        </div>
-                      </Radio.Group>
+                                {selectedNetwork === net.value && (
+                                  <div className="pm-network-check">
+                                    <CheckCircleSolid style={{ width: 20, height: 20, color: net.checkColor }} />
+                                  </div>
+                                )}
+                              </label>
+                            ))}
+                          </div>
+                        </Radio.Group>
+                      </div>
                     </div>
-                  </div>
 
-                  <button onClick={handlePayNow} disabled={!isValidMomoNumber() || !selectedNetwork || payButtonLoading} className="co-btn-primary">
-                    {payButtonLoading ? (
-                      <><div className="co-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Sending request…</>
-                    ) : (
-                      <><CreditCardIcon style={{ width: 18, height: 18 }} /> Pay {formatGHS(calculateDisplayTotalWithCharge())}</>
-                    )}
-                  </button>
+                    {/* Pay Button */}
+                    <button
+                      onClick={handlePayNow}
+                      disabled={!isValidMomoNumber() || !selectedNetwork || payButtonLoading}
+                      className="pm-pay-btn"
+                    >
+                      {payButtonLoading ? (
+                        <>
+                          <div className="co-spinner" style={{ width: 18, height: 18, borderWidth: 2, borderTopColor: "#fff", borderColor: "rgba(255,255,255,0.3)" }} />
+                          Sending request…
+                        </>
+                      ) : (
+                        <>
+                          <LockClosedIcon style={{ width: 16, height: 16 }} />
+                          Pay {formatGHS(calculateDisplayTotalWithCharge())} Securely
+                        </>
+                      )}
+                    </button>
 
-                  <div className="co-pay-info-box">
-                    <p className="co-pay-info-title">What happens next?</p>
-                    <ol className="co-pay-info-list">
-                      <li>You'll receive a payment prompt on your phone</li>
-                      <li>Enter your MoMo PIN to approve the payment</li>
-                      <li>We check for confirmation every 5 seconds</li>
-                      <li>Your order processes immediately after payment</li>
-                    </ol>
-                  </div>
-                </>
-              )}
+                    {/* Security note */}
+                    <div className="pm-security">
+                      <ShieldCheckIcon style={{ width: 13, height: 13 }} />
+                      Secured by Ghana Interbank Payment &amp; Settlement Systems (GhIPSS)
+                    </div>
 
-              {/* PENDING */}
-              {paymentStatus === "pending" && (
-                <div style={{ textAlign: "center", padding: "16px 0", display: "flex", flexDirection: "column", gap: 16 }}>
-                  <div className="co-pending-spinner">
-                    <div className="co-pending-ring" />
-                    <div className="co-pending-ring-active" />
-                    <div className="co-pending-icon">
-                      <PhoneIcon style={{ width: 28, height: 28, color: "var(--co-green-600)" }} />
+                    {/* What happens next */}
+                    <div className="pm-info-box">
+                      <p className="pm-info-title">
+                        <CheckCircleIcon style={{ width: 14, height: 14 }} />
+                        What happens next?
+                      </p>
+                      <ol className="pm-info-list">
+                        <li>You'll receive a payment prompt on your phone</li>
+                        <li>Enter your MoMo PIN to approve the payment</li>
+                        <li>We automatically check for confirmation every 5 seconds</li>
+                        <li>Your order is processed immediately after payment clears</li>
+                      </ol>
                     </div>
-                  </div>
-                  <div>
-                    <p style={{ fontSize: 17, fontWeight: 900, color: "var(--co-dark)" }}>Awaiting Approval</p>
-                    <p style={{ fontSize: 14, color: "var(--co-light)", marginTop: 4 }}>Approve the payment prompt on your phone</p>
-                  </div>
-                  <div className="co-pending-details">
-                    <div className="co-pending-detail-row">
-                      <span className="co-pending-detail-label">Number</span>
-                      <span className="co-pending-detail-value">{momoNumber}</span>
-                    </div>
-                    <div className="co-pending-detail-row">
-                      <span className="co-pending-detail-label">Network</span>
-                      <span className="co-pending-detail-value">{selectedNetwork?.toUpperCase()}</span>
-                    </div>
-                    <div className="co-pending-detail-row">
-                      <span className="co-pending-detail-label">Amount</span>
-                      <span className="co-pending-detail-amount">{formatGHS(calculateDisplayTotalWithCharge())}</span>
-                    </div>
-                  </div>
-                  <div className="co-progress-bar">
-                    <div className="co-progress-bar-top">
-                      <span className="co-progress-bar-label">Checking for payment…</span>
-                      <span className="co-progress-bar-count">{timeoutCountdown}s</span>
-                    </div>
-                    <div className="co-progress-track">
-                      <div className="co-progress-fill" style={{ width: `${(timeoutCountdown / 60) * 100}%` }} />
-                    </div>
-                  </div>
-                </div>
-              )}
+                  </>
+                )}
 
-              {/* SUCCESS */}
-              {paymentStatus === "success" && (
-                <div className="co-result-state">
-                  <div className="co-result-icon co-result-icon-success">
-                    <CheckCircleSolid style={{ width: 40, height: 40, color: "var(--co-green-600)" }} />
-                  </div>
-                  <p className="co-result-title co-result-title-success">Payment Confirmed!</p>
-                  <p className="co-result-desc">Processing your order now…</p>
-                </div>
-              )}
+                {/* PENDING STATE */}
+                {paymentStatus === "pending" && (
+                  <div className="pm-pending-wrap">
+                    <div className="pm-pending-anim">
+                      <div className="pm-pending-ring-outer" />
+                      <div className="pm-pending-ring-spin" />
+                      <div className="pm-pending-ring-inner">
+                        <PhoneIcon style={{ width: 30, height: 30, color: "var(--co-green-600)" }} />
+                      </div>
+                    </div>
 
-              {/* FAILED */}
-              {paymentStatus === "failed" && (
-                <div className="co-result-state">
-                  <div className="co-result-icon co-result-icon-failed">
-                    <XCircleIcon style={{ width: 40, height: 40, color: "var(--co-red)" }} />
+                    <div className="pm-pending-text-wrap">
+                      <p className="pm-pending-title">Awaiting Your Approval</p>
+                      <p className="pm-pending-desc">Check your phone for a payment prompt</p>
+                    </div>
+
+                    <div className="pm-pending-details" style={{ width: "100%" }}>
+                      <div className="pm-pending-row">
+                        <span className="pm-pending-row-label">Number</span>
+                        <span className="pm-pending-row-value">{momoNumber}</span>
+                      </div>
+                      <div className="pm-pending-row">
+                        <span className="pm-pending-row-label">Network</span>
+                        <span className="pm-pending-row-value">{selectedNetwork?.toUpperCase()}</span>
+                      </div>
+                      <div className="pm-pending-row">
+                        <span className="pm-pending-row-label">Amount</span>
+                        <span className="pm-pending-row-amount">{formatGHS(calculateDisplayTotalWithCharge())}</span>
+                      </div>
+                    </div>
+
+                    <div className="pm-progress-wrap" style={{ width: "100%" }}>
+                      <div className="pm-progress-top">
+                        <span className="pm-progress-label">Checking for confirmation…</span>
+                        <span className="pm-progress-count">{timeoutCountdown}s</span>
+                      </div>
+                      <div className="pm-progress-track">
+                        <div className="pm-progress-fill" style={{ width: `${(timeoutCountdown / 60) * 100}%` }} />
+                      </div>
+                    </div>
                   </div>
-                  <p className="co-result-title co-result-title-failed">Payment Failed</p>
-                  <p className="co-result-desc">Redirecting you…</p>
-                  <div className="co-spinner" style={{ width: 24, height: 24, borderWidth: 3, margin: "12px auto 0", borderTopColor: "var(--co-red)" }} />
-                </div>
-              )}
+                )}
+
+                {/* SUCCESS STATE */}
+                {paymentStatus === "success" && (
+                  <div className="pm-result-wrap">
+                    <div className="pm-result-icon pm-result-icon-success">
+                      <CheckCircleSolid style={{ width: 44, height: 44, color: "var(--co-green-600)" }} />
+                    </div>
+                    <p className="pm-result-title pm-result-title-success">Payment Confirmed!</p>
+                    <p className="pm-result-desc">Processing your order now…</p>
+                    <div style={{ marginTop: 16 }}>
+                      <div className="co-spinner" style={{ width: 24, height: 24, borderWidth: 3, margin: "0 auto", borderTopColor: "var(--co-green-600)", borderColor: "var(--co-green-light)" }} />
+                    </div>
+                  </div>
+                )}
+
+                {/* FAILED STATE */}
+                {paymentStatus === "failed" && (
+                  <div className="pm-result-wrap">
+                    <div className="pm-result-icon pm-result-icon-failed">
+                      <XCircleSolid style={{ width: 44, height: 44, color: "var(--co-red)" }} />
+                    </div>
+                    <p className="pm-result-title pm-result-title-failed">Payment Failed</p>
+                    <p className="pm-result-desc">Redirecting you now…</p>
+                    <div style={{ marginTop: 16 }}>
+                      <div className="co-spinner" style={{ width: 24, height: 24, borderWidth: 3, margin: "0 auto", borderTopColor: "var(--co-red)", borderColor: "#fee2e2" }} />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </Modal>
         )}
