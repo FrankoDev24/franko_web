@@ -16,7 +16,7 @@ const loadFromStorage = () => {
     const parsed = localStorage.getItem(CUSTOMER_KEY);
     return parsed && typeof parsed === "object" ? parsed : null;
   } catch (error) {
-    console.error("Failed to load customer from storage:", error);
+
     return null;
   }
 };
@@ -30,7 +30,7 @@ const saveToStorage = (customer) => {
       localStorage.setItem(CUSTOMER_KEY, JSON.stringify(customer));
     }
   } catch (error) {
-    console.error("Failed to save customer to storage:", error);
+
   }
 };
 
@@ -81,6 +81,40 @@ const buildAuthHeaders = (providedToken = null) => {
 };
 
 // ═══════════════════════════════════════════════════════════════════
+// TOKEN GENERATION FOR LEGACY CUSTOMERS (NEW)
+// ═══════════════════════════════════════════════════════════════════
+const generateCustomerToken = async (contactNumber) => {
+  try {
+    const res = await callBackend({
+      endpoint: "/Users/GenerateCustomerToken",
+      method: "POST",
+      data: { contactNumber },
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const data = safeParseJSON(res.data);
+
+    if (
+      res.status >= 200 &&
+      res.status < 300 &&
+      data?.accessToken &&
+      data?.refreshToken
+    ) {
+      return {
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+      };
+    }
+
+
+    return null;
+  } catch (error) {
+  
+    return null;
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════
 // TOKEN REFRESH FOR CUSTOMERS
 // ═══════════════════════════════════════════════════════════════════
 const refreshCustomerToken = async (refreshToken) => {
@@ -95,11 +129,15 @@ const refreshCustomerToken = async (refreshToken) => {
     const data = safeParseJSON(res.data);
 
     if (res.status < 200 || res.status >= 300) {
-      throw new Error(data?.response?.responseMessage || "Token refresh failed");
+      throw new Error(
+        data?.response?.responseMessage || "Token refresh failed"
+      );
     }
 
     if (data?.response?.responseCode !== "1") {
-      throw new Error(data?.response?.responseMessage || "Invalid refresh response");
+      throw new Error(
+        data?.response?.responseMessage || "Invalid refresh response"
+      );
     }
 
     return {
@@ -107,36 +145,8 @@ const refreshCustomerToken = async (refreshToken) => {
       refreshToken: data.refreshToken,
     };
   } catch (error) {
-    console.error("Customer token refresh error:", error);
+
     throw error;
-  }
-};
-
-// ═══════════════════════════════════════════════════════════════════
-// TOKEN GENERATION FOR LEGACY CUSTOMERS
-// ═══════════════════════════════════════════════════════════════════
-const generateCustomerToken = async (contactNumber) => {
-  try {
-    const res = await callBackend({
-      endpoint: "/Users/GenerateCustomerToken",
-      method: "POST",
-      data: { contactNumber },
-      headers: { "Content-Type": "application/json" },
-    });
-
-    const data = safeParseJSON(res.data);
-
-    if (res.status >= 200 && res.status < 300 && data?.accessToken) {
-      return {
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-      };
-    }
-
-    return null;
-  } catch (error) {
-    console.warn("Failed to generate customer token:", error);
-    return null;
   }
 };
 
@@ -156,7 +166,13 @@ const requestWithAutoRefresh = async ({
   // First attempt
   let res;
   try {
-    res = await callBackend({ endpoint, method, data, extraParams, headers });
+    res = await callBackend({
+      endpoint,
+      method,
+      data,
+      extraParams,
+      headers,
+    });
   } catch (err) {
     if (err.response?.status !== 401) {
       throw err;
@@ -164,27 +180,22 @@ const requestWithAutoRefresh = async ({
     res = err.response;
   }
 
-  // If not 401, return response
+  // Not 401 → return
   if (res.status !== 401) {
     return res;
   }
 
-  // 401: Attempt silent refresh
+  // 401 → try refresh
   const refreshToken = stored?.refreshToken;
   if (!refreshToken) {
-    console.warn("No refresh token available for customer");
     throw new Error("NO_REFRESH_TOKEN");
   }
 
   try {
-    // Refresh the token
     const newTokens = await refreshCustomerToken(refreshToken);
-
-    // Update storage
     const updatedCustomer = { ...stored, ...newTokens };
     saveToStorage(updatedCustomer);
 
-    // Retry original request with new token
     headers = buildAuthHeaders(newTokens.accessToken);
     const retryRes = await callBackend({
       endpoint,
@@ -196,8 +207,7 @@ const requestWithAutoRefresh = async ({
 
     return retryRes;
   } catch (refreshError) {
-    console.error("Token refresh failed for customer:", refreshError);
-    // Even if refresh fails, DO NOT log out customers
+
     throw new Error("TOKEN_REFRESH_FAILED");
   }
 };
@@ -206,9 +216,7 @@ const requestWithAutoRefresh = async ({
 // ASYNC THUNKS
 // ═══════════════════════════════════════════════════════════════════
 
-// ──────────────────────────────────────────────────────────────────
-// MIGRATE CUSTOMER TOKEN
-// ──────────────────────────────────────────────────────────────────
+// ── MIGRATE CUSTOMER TOKEN ──────────────────────────────────────
 export const migrateCustomerToken = createAsyncThunk(
   "customers/migrateToken",
   async (_, { rejectWithValue }) => {
@@ -216,39 +224,50 @@ export const migrateCustomerToken = createAsyncThunk(
       const stored = loadFromStorage();
       const migrated = localStorage.getItem(CUSTOMER_TOKEN_MIGRATION_FLAG);
 
-      // Skip if already migrated or has token
-      if (migrated || !stored || stored.accessToken) {
+      if (migrated === "true") {
+
+        return null;
+      }
+
+      if (!stored) {
+       
+        return null;
+      }
+
+      if (stored.accessToken) {
+
+        localStorage.setItem(CUSTOMER_TOKEN_MIGRATION_FLAG, "true");
         return null;
       }
 
       const contactNumber = stored.contactNumber || stored.contact;
       if (!contactNumber) {
-        return null;
+
+        return rejectWithValue({ message: "No contact number" });
       }
 
-      console.log("🔄 Migrating customer token for:", contactNumber);
+
 
       const tokens = await generateCustomerToken(contactNumber);
 
-      if (tokens) {
+      if (tokens && tokens.accessToken) {
         const updated = { ...stored, ...tokens };
         saveToStorage(updated);
         localStorage.setItem(CUSTOMER_TOKEN_MIGRATION_FLAG, "true");
-        console.log("✅ Customer token migrated successfully");
+       
         return updated;
       }
 
-      return null;
+
+      return rejectWithValue({ message: "Token generation returned no tokens" });
     } catch (error) {
-      console.warn("Customer token migration failed:", error);
+
       return rejectWithValue({ message: error.message });
     }
   }
 );
 
-// ──────────────────────────────────────────────────────────────────
-// CREATE CUSTOMER
-// ──────────────────────────────────────────────────────────────────
+// ── CREATE CUSTOMER ─────────────────────────────────────────────
 export const createCustomer = createAsyncThunk(
   "customers/createCustomer",
   async (customerData, { rejectWithValue }) => {
@@ -279,9 +298,7 @@ export const createCustomer = createAsyncThunk(
   }
 );
 
-// ──────────────────────────────────────────────────────────────────
-// FETCH ALL CUSTOMERS
-// ──────────────────────────────────────────────────────────────────
+// ── FETCH ALL CUSTOMERS ─────────────────────────────────────────
 export const fetchCustomers = createAsyncThunk(
   "customers/fetchCustomers",
   async (_, { rejectWithValue }) => {
@@ -310,9 +327,7 @@ export const fetchCustomers = createAsyncThunk(
   }
 );
 
-// ──────────────────────────────────────────────────────────────────
-// GET CUSTOMER BY ID
-// ──────────────────────────────────────────────────────────────────
+// ── GET CUSTOMER BY ID ──────────────────────────────────────────
 export const getCustomerById = createAsyncThunk(
   "customers/getCustomerById",
   async ({ contactNumber, accessToken = null }, { rejectWithValue }) => {
@@ -352,9 +367,7 @@ export const getCustomerById = createAsyncThunk(
   }
 );
 
-// ──────────────────────────────────────────────────────────────────
-// LOGIN CUSTOMER
-// ──────────────────────────────────────────────────────────────────
+// ── LOGIN CUSTOMER ──────────────────────────────────────────────
 export const loginCustomer = createAsyncThunk(
   "customers/loginCustomer",
   async ({ contactNumber, password }, { dispatch, rejectWithValue }) => {
@@ -397,7 +410,6 @@ export const loginCustomer = createAsyncThunk(
         });
       }
 
-      // Password change required
       if (loginStatus === false) {
         return {
           contactNumber,
@@ -408,7 +420,6 @@ export const loginCustomer = createAsyncThunk(
         };
       }
 
-      // Normal login flow
       const tempCustomer = {
         contactNumber,
         accessToken: data.accessToken,
@@ -436,7 +447,7 @@ export const loginCustomer = createAsyncThunk(
         localStorage.setItem(CUSTOMER_TOKEN_MIGRATION_FLAG, "true");
         return merged;
       } catch (profileError) {
-        console.warn("Failed to fetch customer profile:", profileError);
+
         const basicCustomer = {
           contactNumber,
           accessToken: data.accessToken,
@@ -460,9 +471,7 @@ export const loginCustomer = createAsyncThunk(
   }
 );
 
-// ──────────────────────────────────────────────────────────────────
-// UPDATE CUSTOMER PASSWORD
-// ──────────────────────────────────────────────────────────────────
+// ── UPDATE CUSTOMER PASSWORD ────────────────────────────────────
 export const updateCustomerPassword = createAsyncThunk(
   "customers/updateCustomerPassword",
   async ({ contactNumber, oldPassword, newPassword }, { rejectWithValue }) => {
@@ -475,7 +484,11 @@ export const updateCustomerPassword = createAsyncThunk(
 
       const data = safeParseJSON(res.data);
 
-      if (res.status < 200 || res.status >= 300 || data?.ResponseCode !== "1") {
+      if (
+        res.status < 200 ||
+        res.status >= 300 ||
+        data?.ResponseCode !== "1"
+      ) {
         return rejectWithValue({
           message: data?.ResponseMessage || "Password update failed.",
           responseCode: data?.ResponseCode || String(res.status),
@@ -492,9 +505,7 @@ export const updateCustomerPassword = createAsyncThunk(
   }
 );
 
-// ──────────────────────────────────────────────────────────────────
-// UPDATE ACCOUNT STATUS
-// ──────────────────────────────────────────────────────────────────
+// ── UPDATE ACCOUNT STATUS ───────────────────────────────────────
 export const updateAccountStatus = createAsyncThunk(
   "customers/updateAccountStatus",
   async (_, { getState, rejectWithValue }) => {
@@ -530,9 +541,7 @@ export const updateAccountStatus = createAsyncThunk(
   }
 );
 
-// ──────────────────────────────────────────────────────────────────
-// FORGOT PASSWORD
-// ──────────────────────────────────────────────────────────────────
+// ── FORGOT PASSWORD ─────────────────────────────────────────────
 export const forgotPassword = createAsyncThunk(
   "customers/forgotPassword",
   async ({ contactNumber, email }, { rejectWithValue }) => {
@@ -546,7 +555,11 @@ export const forgotPassword = createAsyncThunk(
 
       const data = safeParseJSON(res.data);
 
-      if (res.status < 200 || res.status >= 300 || data?.ResponseCode !== "1") {
+      if (
+        res.status < 200 ||
+        res.status >= 300 ||
+        data?.ResponseCode !== "1"
+      ) {
         return rejectWithValue({
           message: data?.ResponseMessage || "Password reset request failed.",
           responseCode: data?.ResponseCode || String(res.status),
@@ -563,9 +576,7 @@ export const forgotPassword = createAsyncThunk(
   }
 );
 
-// ──────────────────────────────────────────────────────────────────
-// RESET PASSWORD
-// ──────────────────────────────────────────────────────────────────
+// ── RESET PASSWORD ──────────────────────────────────────────────
 export const resetPassword = createAsyncThunk(
   "customers/resetPassword",
   async ({ contactNumber, token, newPassword }, { rejectWithValue }) => {
@@ -579,7 +590,11 @@ export const resetPassword = createAsyncThunk(
 
       const data = safeParseJSON(res.data);
 
-      if (res.status < 200 || res.status >= 300 || data?.ResponseCode !== "1") {
+      if (
+        res.status < 200 ||
+        res.status >= 300 ||
+        data?.ResponseCode !== "1"
+      ) {
         return rejectWithValue({
           message: data?.ResponseMessage || "Password reset failed.",
           responseCode: data?.ResponseCode || String(res.status),
@@ -653,6 +668,9 @@ const customerSlice = createSlice({
           state.isAuthenticated = true;
           state.tokenMigrated = true;
         }
+      })
+      .addCase(migrateCustomerToken.rejected, (state) => {
+        state.tokenMigrated = true; // Prevent retry loops
       })
 
       // Create Customer
