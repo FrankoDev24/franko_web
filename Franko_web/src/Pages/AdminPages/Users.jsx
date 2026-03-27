@@ -1,6 +1,7 @@
+// src/Pages/Users/Users.jsx (for example)
 import { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchUsers } from "../../Redux/Slice/userSlice";
+import { fetchUsers, clearError } from "../../Redux/Slice/userSlice";
 import { Table, Spin, Alert, Input } from "antd";
 
 const { Search } = Input;
@@ -11,23 +12,32 @@ const Users = () => {
 
   const [searchText, setSearchText] = useState("");
 
+  // Load all users on mount
   useEffect(() => {
     dispatch(fetchUsers());
   }, [dispatch]);
 
+  // Optional: clear error when unmounting or when users change
   useEffect(() => {
-
-  }, [users]);
+    return () => {
+      dispatch(clearError());
+    };
+  }, [dispatch]);
 
   const filteredUsers = useMemo(() => {
     if (!searchText) return users;
-    const lowercasedValue = searchText.toLowerCase();
 
-    return users.filter(
-      (user) =>
-        user?.fullName?.toLowerCase().includes(lowercasedValue) ||
-        user?.contact?.toLowerCase().includes(lowercasedValue) ||
-        user?.position?.toLowerCase().includes(lowercasedValue)
+    const lower = searchText.toLowerCase();
+    return users.filter((user) =>
+      [
+        user?.fullName,
+        user?.contact,
+        user?.position,
+        user?.email,
+        user?.address,
+      ]
+        .filter(Boolean)
+        .some((field) => field.toLowerCase().includes(lower))
     );
   }, [users, searchText]);
 
@@ -49,7 +59,7 @@ const Users = () => {
       <h1 className="text-2xl font-bold mb-4 text-red-500">Users</h1>
 
       <Search
-        placeholder="Search by name, contact number, or position"
+        placeholder="Search by name, contact number, email, or position"
         allowClear
         enterButton="Search"
         size="large"
@@ -69,7 +79,7 @@ const Users = () => {
         <Table
           dataSource={filteredUsers.map((user, index) => ({
             ...user,
-            key: user.uuserid || index, // Ensure unique row key
+            key: user.uuserid || index, // unique key per row
           }))}
           columns={columns}
           bordered

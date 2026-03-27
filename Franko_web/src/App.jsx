@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react'
-import {Routes, Route, useLocation, Navigate } from 'react-router-dom'
+import { Routes, Route, useLocation, Navigate } from 'react-router-dom'
+import { useSelector, useDispatch } from 'react-redux'
+import { refreshUserSession, forceSessionExpire, clearSessionExpiring } from './Redux/Slice/userSlice'
+import { useTokenMigration } from './hooks/useTokenMigration' // ✅ Import the hook
 import Nav from './Component/Nav/Navbar'
 import Home from './Pages/Home'
 import About from './Pages/About'
@@ -72,6 +75,203 @@ import DigiProducts from './Pages/DigitalMarketer/Digi/DigiProducts'
 import ContentBranchProduct from './Pages/ContentManager/ContentManagerPage/ContentBranchProduct'
 import BranchProductsPage from './Pages/AdminPages/BranchProductsPage'
 
+// ==================== SESSION EXPIRY MODAL COMPONENT ====================
+
+const SessionExpiryModal = () => {
+  const dispatch = useDispatch()
+  const { sessionExpiring, sessionExpiresAt, currentUser } = useSelector((state) => state.user)
+  const [timeLeft, setTimeLeft] = useState(0)
+
+  useEffect(() => {
+    if (!sessionExpiring || !sessionExpiresAt) return
+
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, Math.floor((sessionExpiresAt - Date.now()) / 1000))
+      setTimeLeft(remaining)
+
+      // Auto-logout when time expires
+      if (remaining === 0) {
+        handleLogout()
+      }
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [sessionExpiring, sessionExpiresAt])
+
+  const handleKeepLoggedIn = async () => {
+    try {
+      await dispatch(refreshUserSession()).unwrap()
+      dispatch(clearSessionExpiring())
+    } catch (error) {
+      console.error('Failed to refresh session:', error)
+      handleLogout()
+    }
+  }
+
+  const handleLogout = () => {
+    dispatch(forceSessionExpire())
+    window.location.href = '/admin/login'
+  }
+
+  // Only show for logged-in users (not customers)
+  if (!sessionExpiring || !currentUser) return null
+
+  const minutes = Math.floor(timeLeft / 60)
+  const seconds = timeLeft % 60
+
+  return (
+    <div 
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+      }}
+    >
+      <div 
+        style={{
+          backgroundColor: 'white',
+          borderRadius: '12px',
+          padding: '32px',
+          maxWidth: '450px',
+          width: '90%',
+          boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3)',
+          textAlign: 'center',
+        }}
+      >
+        <div 
+          style={{
+            width: '64px',
+            height: '64px',
+            margin: '0 auto 20px',
+            backgroundColor: '#FEF3C7',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <svg 
+            width="32" 
+            height="32" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="#F59E0B" 
+            strokeWidth="2"
+          >
+            <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+
+        <h2 
+          style={{
+            fontSize: '24px',
+            fontWeight: '700',
+            color: '#111827',
+            marginBottom: '12px',
+          }}
+        >
+          Session Expiring Soon
+        </h2>
+
+        <p 
+          style={{
+            fontSize: '16px',
+            color: '#6B7280',
+            marginBottom: '24px',
+            lineHeight: '1.6',
+          }}
+        >
+          Your session will expire in{' '}
+          <span 
+            style={{
+              fontWeight: '700',
+              color: timeLeft < 60 ? '#DC2626' : '#F59E0B',
+              fontSize: '20px',
+            }}
+          >
+            {minutes}:{seconds < 10 ? `0${seconds}` : seconds}
+          </span>
+          {' '}due to inactivity.
+        </p>
+
+        <div 
+          style={{
+            display: 'flex',
+            gap: '12px',
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+          }}
+        >
+          <button
+            onClick={handleKeepLoggedIn}
+            style={{
+              flex: '1',
+              minWidth: '140px',
+              padding: '12px 24px',
+              backgroundColor: '#3B82F6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s',
+            }}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#2563EB'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#3B82F6'}
+          >
+            Keep Me Logged In
+          </button>
+
+          <button
+            onClick={handleLogout}
+            style={{
+              flex: '1',
+              minWidth: '140px',
+              padding: '12px 24px',
+              backgroundColor: 'transparent',
+              color: '#6B7280',
+              border: '2px solid #D1D5DB',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+            onMouseOver={(e) => {
+              e.target.style.borderColor = '#9CA3AF'
+              e.target.style.color = '#374151'
+            }}
+            onMouseOut={(e) => {
+              e.target.style.borderColor = '#D1D5DB'
+              e.target.style.color = '#6B7280'
+            }}
+          >
+            Logout
+          </button>
+        </div>
+
+        <p 
+          style={{
+            fontSize: '13px',
+            color: '#9CA3AF',
+            marginTop: '20px',
+          }}
+        >
+          Click "Keep Me Logged In" to continue working or "Logout" to end your session.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 // ==================== UTILITY FUNCTIONS ====================
 
 const getUserRole = () => {
@@ -83,7 +283,6 @@ const getUserRole = () => {
     if (user?.position) return user.position; // Supervisor, Developer, etc.
     return customer?.accountType || null; // customer, agent, admin
   } catch (err) {
-   
     return null;
   }
 };
@@ -120,10 +319,6 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
 
 // ==================== 🔒 BLOCKED ROUTE COMPONENT ====================
 
-/**
- * BlockedRoute - Prevents access to specified routes entirely
- * This is used for /admin/process to block all access
- */
 const BlockedRoute = () => {
   return <Navigate to="/" replace />;
 };
@@ -137,7 +332,7 @@ const ConditionalNavbar = () => {
   const hiddenPaths = [
     "/admin/login",
     "/admin/register",
-    "/admin/process", // ✅ Hide navbar on blocked route too
+    "/admin/process",
   ];
 
   const isAdminPath = pathname.startsWith("/admin/");
@@ -159,6 +354,9 @@ const ConditionalNavbar = () => {
 
 function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // ✅ RUN TOKEN MIGRATION ON APP STARTUP
+  useTokenMigration();
 
   // Monitor network status
   useEffect(() => {
@@ -183,6 +381,9 @@ function App() {
 
   return (
     <>
+      {/* ✅ SESSION EXPIRY MODAL - Only for Users/Admins */}
+      <SessionExpiryModal />
+
       <ConditionalNavbar />
       <ScrollToTop />
 

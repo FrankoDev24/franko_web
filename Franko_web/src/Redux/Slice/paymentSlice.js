@@ -1,14 +1,23 @@
-// src/redux/slice/paymentSlice.js
+// src/Redux/Slice/paymentSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axiosInstance from "./AxiosInstance"; // <= adjust path as needed
+import axiosInstance from "./AxiosInstance";
 
-const PSP = "fte"; // constant PSP query parameter
-const COMPANY_CODE = "fte"; // constant company code for report
-const LAMBDA_TARGET = "payment"; // tells Lambda to route to payment backend
+const PSP = "fte";
+const COMPANY_CODE = "fte";
+const LAMBDA_TARGET = "payment";
 
-// ------------------------
-// Async Thunks via Lambda
-// ------------------------
+// Helper: map error
+const toErrorPayload = (error, fallback) => {
+  const server =
+    error.response?.data?.message ??
+    error.response?.data?.responseMessage ??
+    (typeof error.response?.data === "string"
+      ? error.response.data
+      : null);
+  return server || error.message || fallback;
+};
+
+// ==================== ASYNC THUNKS ====================
 
 // 1️⃣ Debit Customer
 export const debitCustomer = createAsyncThunk(
@@ -17,13 +26,7 @@ export const debitCustomer = createAsyncThunk(
     try {
       const response = await axiosInstance.post(
         "",
-        {
-          refNo,
-          msisdn,
-          amount,
-          network,
-          narration,
-        },
+        { refNo, msisdn, amount, network, narration },
         {
           params: {
             endpoint: "/PaymentPrompt/DebitCustomer",
@@ -32,9 +35,11 @@ export const debitCustomer = createAsyncThunk(
           },
         }
       );
+
+      // Return raw gateway response: { responseCode, responseMessage, ... }
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data || error.message);
+      return rejectWithValue(toErrorPayload(error, "Payment request failed"));
     }
   }
 );
@@ -57,7 +62,7 @@ export const validateAccount = createAsyncThunk(
       );
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data || error.message);
+      return rejectWithValue(toErrorPayload(error, "Failed to validate account"));
     }
   }
 );
@@ -78,9 +83,9 @@ export const checkTransactionStatus = createAsyncThunk(
           },
         }
       );
-      return response.data;
+      return response.data; // raw gateway response
     } catch (error) {
-      return rejectWithValue(error.response?.data || error.message);
+      return rejectWithValue(toErrorPayload(error, "Failed to check transaction status"));
     }
   }
 );
@@ -111,7 +116,9 @@ export const debitByCustomerNetworkProviderId = createAsyncThunk(
       );
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data || error.message);
+      return rejectWithValue(
+        toErrorPayload(error, "Failed to debit by customer network provider")
+      );
     }
   }
 );
@@ -134,7 +141,7 @@ export const getAccountHoldName = createAsyncThunk(
       );
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data || error.message);
+      return rejectWithValue(toErrorPayload(error, "Failed to get account hold name"));
     }
   }
 );
@@ -155,14 +162,14 @@ export const getPSPTransactionsByCompany = createAsyncThunk(
       });
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data || error.message);
+      return rejectWithValue(
+        toErrorPayload(error, "Failed to fetch PSP transactions report")
+      );
     }
   }
 );
 
-// ------------------------
-// Slice
-// ------------------------
+// ==================== SLICE ====================
 const initialState = {
   debitCustomerData: null,
   validateAccountData: null,
@@ -170,7 +177,10 @@ const initialState = {
   debitNetworkData: null,
   accountHoldName: null,
   pspTransactionsReport: null,
+
   loading: false,
+  validating: false,
+  checkingStatus: false,
   error: null,
 };
 
@@ -185,12 +195,23 @@ const paymentSlice = createSlice({
       state.debitNetworkData = null;
       state.accountHoldName = null;
       state.pspTransactionsReport = null;
+
       state.loading = false;
+      state.validating = false;
+      state.checkingStatus = false;
       state.error = null;
     },
     resetPSPTransactionsReport: (state) => {
       state.pspTransactionsReport = null;
       state.error = null;
+    },
+    resetValidateAccountData: (state) => {
+      state.validateAccountData = null;
+      state.validating = false;
+    },
+    resetTransactionStatus: (state) => {
+      state.transactionStatus = null;
+      state.checkingStatus = false;
     },
   },
   extraReducers: (builder) => {
@@ -206,35 +227,35 @@ const paymentSlice = createSlice({
       })
       .addCase(debitCustomer.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
+        state.error = action.payload || action.error?.message || "Payment failed";
       })
 
       // Validate Account
       .addCase(validateAccount.pending, (state) => {
-        state.loading = true;
+        state.validating = true;
         state.error = null;
       })
       .addCase(validateAccount.fulfilled, (state, action) => {
-        state.loading = false;
+        state.validating = false;
         state.validateAccountData = action.payload;
       })
       .addCase(validateAccount.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
+        state.validating = false;
+        state.error = action.payload || action.error?.message;
       })
 
       // Check Transaction Status
       .addCase(checkTransactionStatus.pending, (state) => {
-        state.loading = true;
+        state.checkingStatus = true;
         state.error = null;
       })
       .addCase(checkTransactionStatus.fulfilled, (state, action) => {
-        state.loading = false;
+        state.checkingStatus = false;
         state.transactionStatus = action.payload;
       })
       .addCase(checkTransactionStatus.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
+        state.checkingStatus = false;
+        state.error = action.payload || action.error?.message;
       })
 
       // Debit by Customer Network Provider ID
@@ -248,7 +269,7 @@ const paymentSlice = createSlice({
       })
       .addCase(debitByCustomerNetworkProviderId.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
+        state.error = action.payload || action.error?.message;
       })
 
       // Account Hold Name
@@ -262,7 +283,7 @@ const paymentSlice = createSlice({
       })
       .addCase(getAccountHoldName.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
+        state.error = action.payload || action.error?.message;
       })
 
       // Get PSP Transactions By Company
@@ -276,11 +297,16 @@ const paymentSlice = createSlice({
       })
       .addCase(getPSPTransactionsByCompany.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
+        state.error = action.payload || action.error?.message;
       });
   },
 });
 
-export const { resetPaymentState, resetPSPTransactionsReport } =
-  paymentSlice.actions;
+export const {
+  resetPaymentState,
+  resetPSPTransactionsReport,
+  resetValidateAccountData,
+  resetTransactionStatus,
+} = paymentSlice.actions;
+
 export default paymentSlice.reducer;

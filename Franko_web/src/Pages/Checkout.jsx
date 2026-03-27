@@ -1,5 +1,5 @@
 // src/pages/Checkout.jsx
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import {
@@ -11,6 +11,10 @@ import {
 import {
   debitCustomer,
   checkTransactionStatus,
+  validateAccount,
+  resetPaymentState,
+  resetValidateAccountData,
+  resetTransactionStatus,
 } from "../Redux/Slice/paymentSlice";
 import { clearCart, getCartById } from "../Redux/Slice/cartSlice";
 import { message, Typography, Radio, Divider, Modal, Input } from "antd";
@@ -37,7 +41,7 @@ import {
 
 import frankoLogo from "../assets/frankoIcon.png";
 import mtnLogo from "../assets/momo.png";
-import vodafoneLogo from "../assets/voda.jpeg";
+import vodafoneLogo from "../assets/voda.png";
 import airteltigoLogo from "../assets/AT.png";
 
 const { Text } = Typography;
@@ -48,13 +52,60 @@ const SERVICE_CHARGE_CAP = 20.0;
 const INITIAL_DELAY_MS = 10000;
 const POLL_INTERVAL_MS = 5000;
 const MAX_POLL_DURATION_MS = 60000;
-const AUTO_CHECK_DELAY_MS = 120000; // 2 minutes
+const AUTO_CHECK_DELAY_MS = 120000;
 
-// ==================== SUCCESS CHECK ====================
-// Only treat as success when BOTH responseCode === "01" AND responseMessage === "Successfully Processed Transaction"
-const isPaymentSuccess = (response) =>
-  response?.responseCode === "01" &&
-  response?.responseMessage === "Successfully Processed Transaction";
+const NETWORK_API_MAP = {
+  mtn: "MTN",
+  vodafone: "VODAFONE",
+  airteltigo: "AIRTELTIGO",
+};
+
+// ==================== PAYMENT SUCCESS CHECK ====================
+const isPaymentSuccess = (response) => {
+  if (!response) return false;
+  const code = response.responseCode;
+  const msg = (response.responseMessage || "").toLowerCase().trim();
+  return (
+    code === "01" &&
+    msg.includes("successfully") &&
+    msg.includes("processed") &&
+    msg.includes("transaction")
+  );
+};
+
+const isAccountValid = (response) => response?.responseCode === "01";
+
+// ==================== MSISDN UTILITIES ====================
+const sanitizeMsisdn = (msisdn) => {
+  if (!msisdn) return msisdn;
+  if (msisdn.startsWith("2330")) {
+    return "233" + msisdn.slice(4);
+  }
+  return msisdn;
+};
+
+const isValidMsisdn = (msisdn) => {
+  if (!msisdn) return false;
+  if (msisdn.length === 12 && /^233[1-9]\d{8}$/.test(msisdn)) return true;
+  if (msisdn.length === 13 && /^2330[1-9]\d{8}$/.test(msisdn)) return true;
+  return false;
+};
+
+const getMsisdnValidationStatus = (msisdn) => {
+  const len = msisdn.length;
+  if (len <= 3) return { type: "info", message: "Enter your phone number" };
+  const startsWithZero = msisdn[3] === "0";
+  const expectedLength = startsWithZero ? 13 : 12;
+  const remaining = expectedLength - len;
+  if (remaining > 0) {
+    return {
+      type: "warning",
+      message: `Enter ${remaining} more digit${remaining > 1 ? "s" : ""}`,
+    };
+  }
+  if (isValidMsisdn(msisdn)) return { type: "success", message: null };
+  return { type: "error", message: "Invalid phone number" };
+};
 
 // ==================== NETWORK STEPS CONFIG ====================
 const NETWORK_STEPS = {
@@ -118,11 +169,17 @@ const formatCurrency = (amount, decimals = 2) => {
     maximumFractionDigits: decimals,
   });
 };
+
 const formatGHS = (amount) => `GH₵${formatCurrency(amount, 2)}`;
+
 const getItemUnitPrice = (item) =>
   parseFloat(item.unitPrice) || parseFloat(item.price) || 0;
+
 const getItemQuantity = (item) => parseInt(item.quantity, 10) || 1;
-const getItemLineTotal = (item) => getItemUnitPrice(item) * getItemQuantity(item);
+
+const getItemLineTotal = (item) =>
+  getItemUnitPrice(item) * getItemQuantity(item);
+
 const buildCartNarration = (items, maxLen = 120) => {
   if (!items || items.length === 0) return "Franko Trading Purchase";
   const parts = items.map((item) => {
@@ -131,11 +188,31 @@ const buildCartNarration = (items, maxLen = 120) => {
     return qty > 1 ? `${name} (x${qty})` : name;
   });
   let narration = parts.join(", ");
-  if (narration.length > maxLen) narration = narration.substring(0, maxLen - 3) + "...";
+  if (narration.length > maxLen)
+    narration = narration.substring(0, maxLen - 3) + "...";
   return narration;
 };
 
+// ==================== SAFE JSON HELPERS ====================
+const safeJsonParse = (value, fallback = null) => {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+};
+
+const safeJsonStringify = (value) => {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return null;
+  }
+};
+
 // ==================== STYLES ====================
+// (Same styles as previous code)
 const checkoutStyles = `
   @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800;900&display=swap');
 
@@ -176,7 +253,6 @@ const checkoutStyles = `
     .co-container { padding: 32px 40px; padding-bottom: 32px; }
   }
 
-  /* ==================== HEADER ==================== */
   .co-page-header {
     display: flex;
     align-items: center;
@@ -202,7 +278,6 @@ const checkoutStyles = `
   }
   @media (min-width: 768px) { .co-page-header-line { display: block; } }
 
-  /* ==================== LAYOUT ==================== */
   .co-layout {
     display: flex; flex-direction: column; gap: 20px;
   }
@@ -213,7 +288,6 @@ const checkoutStyles = `
   @media (min-width: 1024px) { .co-sidebar { width: 380px; } }
   .co-main { flex: 1; min-width: 0; }
 
-  /* ==================== CARDS ==================== */
   .co-card {
     background: #fff;
     border: 1px solid var(--co-border);
@@ -230,7 +304,6 @@ const checkoutStyles = `
   }
   .co-card-body { padding: 16px 20px; }
 
-  /* ==================== SECTION ACCENT ==================== */
   .co-section-accent {
     display: flex; gap: 4px; margin-top: 8px;
   }
@@ -241,7 +314,6 @@ const checkoutStyles = `
     height: 2px; flex: 1; border-radius: 1px; background: #f0f0f0;
   }
 
-  /* ==================== TOGGLE ==================== */
   .co-toggle-wrap {
     display: flex; align-items: center; justify-content: space-between;
     padding: 12px 16px; background: var(--co-bg);
@@ -266,7 +338,6 @@ const checkoutStyles = `
   }
   .co-toggle-knob-on { transform: translateX(18px); }
 
-  /* ==================== WARNING BANNER ==================== */
   .co-warning-banner {
     display: flex; align-items: flex-start; gap: 10px;
     padding: 10px 14px; background: #fffbeb; border: 1px solid #fde68a;
@@ -276,7 +347,6 @@ const checkoutStyles = `
     font-size: 12px; font-weight: 600; color: #92400e; margin: 0; line-height: 1.5;
   }
 
-  /* ==================== CART ITEMS ==================== */
   .co-items-list {
     max-height: 380px; overflow-y: auto; padding-right: 4px;
   }
@@ -317,7 +387,6 @@ const checkoutStyles = `
     flex-shrink: 0;
   }
 
-  /* ==================== TOTALS ==================== */
   .co-totals { padding-top: 16px; border-top: 1px solid var(--co-border); }
   .co-total-row {
     display: flex; align-items: center; justify-content: space-between;
@@ -355,7 +424,6 @@ const checkoutStyles = `
     font-style: italic; margin-top: 6px;
   }
 
-  /* ==================== PAYMENT METHOD ==================== */
   .co-payment-section { margin-top: 20px; }
   .co-payment-title {
     font-size: 14px; font-weight: 800; color: var(--co-dark);
@@ -377,7 +445,6 @@ const checkoutStyles = `
     font-size: 14px; font-weight: 600; color: var(--co-mid);
   }
 
-  /* ==================== BUTTONS ==================== */
   .co-btn-primary {
     width: 100%; padding: 14px; background: var(--co-green);
     color: #fff; border: none; border-radius: var(--co-radius);
@@ -400,7 +467,17 @@ const checkoutStyles = `
   .co-btn-danger:hover { background: #fef2f2; border-color: var(--co-red); }
   .co-btn-danger:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  /* ==================== STICKY MOBILE BUTTON ==================== */
+  .co-btn-secondary {
+    width: 100%; padding: 8px 12px; background: #fff;
+    color: var(--co-dark); border: 1px solid var(--co-border);
+    border-radius: var(--co-radius); font-size: 12px;
+    font-weight: 600; cursor: pointer; transition: all 0.15s;
+    font-family: var(--co-font);
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .co-btn-secondary:hover { background: var(--co-bg); border-color: #bbb; }
+  .co-btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
   .co-sticky-bottom {
     position: fixed; bottom: 0; left: 0; right: 0;
     background: #fff; border-top: 1px solid var(--co-border);
@@ -413,7 +490,6 @@ const checkoutStyles = `
   .co-desktop-btn { display: none; margin-top: 20px; }
   @media (min-width: 1024px) { .co-desktop-btn { display: block; } }
 
-  /* ==================== EMPTY STATE ==================== */
   .co-empty {
     display: flex; flex-direction: column; align-items: center;
     justify-content: center; text-align: center; padding: 60px 24px;
@@ -432,7 +508,6 @@ const checkoutStyles = `
     font-size: 14px; color: var(--co-light); margin-bottom: 24px;
   }
 
-  /* ==================== LOADING OVERLAY ==================== */
   .co-loading-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,0.5);
     backdrop-filter: blur(4px); display: flex; align-items: center;
@@ -455,226 +530,478 @@ const checkoutStyles = `
     font-size: 15px; font-weight: 700; color: var(--co-mid);
   }
 
-  /* ==================== MODAL OVERRIDES ==================== */
   .co-modal .ant-modal {
     max-width: calc(100vw - 32px) !important;
     margin: 16px !important;
   }
   @media (max-width: 640px) {
     .co-modal .ant-modal {
-      max-width: calc(100vw - 24px) !important;
-      margin: 12px !important;
+      max-width: calc(100vw - 16px) !important;
+      margin: 8px !important;
+      top: 8px !important;
     }
-    .co-modal .ant-modal-content { border-radius: 12px !important; }
+    .co-modal .ant-modal-content {
+      border-radius: 16px !important;
+      max-height: calc(100vh - 16px);
+      overflow: hidden;
+    }
   }
 
-  /* ==================== PAYMENT MODAL — REDESIGNED ==================== */
+  .pm-modal-wrap {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 32px);
+  }
 
-  /* Modal wrapper: dark top bar */
-  .pm-modal-wrap { display: flex; flex-direction: column; gap: 0; }
-
-  /* Branded header strip */
-  .pm-header-strip {
+  .pm-header-compact {
     background: linear-gradient(135deg, #0d3d20 0%, #14532d 50%, #166534 100%);
-    border-radius: 10px 10px 0 0;
-    padding: 20px 20px 24px;
-    text-align: center;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     position: relative;
-    overflow: hidden;
   }
-  .pm-header-strip::before {
+  @media (min-width: 480px) {
+    .pm-header-compact { padding: 18px 20px; }
+  }
+  .pm-header-compact::before {
     content: '';
     position: absolute;
-    top: -40px; right: -40px;
-    width: 120px; height: 120px;
+    top: -30px; right: -30px;
+    width: 80px; height: 80px;
     border-radius: 50%;
     background: rgba(255,255,255,0.04);
   }
-  .pm-header-strip::after {
-    content: '';
-    position: absolute;
-    bottom: -20px; left: -20px;
-    width: 80px; height: 80px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.03);
+
+  .pm-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
-  .pm-logo { height: 28px; object-fit: contain; margin: 0 auto 8px; display: block; filter: brightness(0) invert(1); opacity: 0.9; }
-  .pm-company { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.5); letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 12px; }
-  .pm-amount-label { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 4px; }
-  .pm-amount-value {
-    font-size: 34px; font-weight: 900; color: #fff;
-    letter-spacing: -0.03em; margin: 0; line-height: 1;
+  .pm-logo-small {
+    height: 24px;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
+    opacity: 0.9;
   }
-  @media (min-width: 480px) { .pm-amount-value { font-size: 40px; } }
-  .pm-ref-badge {
-    display: inline-flex; align-items: center; gap: 6px;
-    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 100px; padding: 4px 12px; margin-top: 12px;
-    font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.6);
+  @media (min-width: 480px) {
+    .pm-logo-small { height: 28px; }
+  }
+  .pm-header-text {
+    display: flex;
+    flex-direction: column;
+  }
+  .pm-company-small {
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 0;
+    line-height: 1;
+  }
+  @media (min-width: 480px) {
+    .pm-company-small { font-size: 10px; }
+  }
+  .pm-ref-small {
+    font-size: 10px;
+    color: rgba(255,255,255,0.6);
+    margin-top: 2px;
   }
 
-  /* Body */
+  .pm-header-right {
+    text-align: right;
+  }
+  .pm-amount-label-small {
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0;
+  }
+  .pm-amount-value-small {
+    font-size: 22px;
+    font-weight: 900;
+    color: #fff;
+    letter-spacing: -0.02em;
+    margin: 0;
+    line-height: 1.1;
+  }
+  @media (min-width: 480px) {
+    .pm-amount-value-small { font-size: 26px; }
+  }
+
   .pm-body {
-    padding: 20px;
-    display: flex; flex-direction: column; gap: 14px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
     background: #fff;
-    border-radius: 0 0 10px 10px;
+    overflow-y: auto;
+    flex: 1;
+  }
+  @media (min-width: 480px) {
+    .pm-body { padding: 18px 20px; gap: 14px; }
   }
 
-  /* Step field */
   .pm-field {
     border: 1.5px solid #e5e7eb;
-    border-radius: 8px;
+    border-radius: 10px;
     overflow: hidden;
     transition: border-color 0.15s;
   }
   .pm-field:focus-within { border-color: var(--co-green-600); }
   .pm-field-header {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
     background: #f9fafb;
     border-bottom: 1px solid #f0f0f0;
   }
   .pm-field-step-num {
-    width: 20px; height: 20px; background: var(--co-green);
-    color: #fff; border-radius: 50%; display: flex; align-items: center;
-    justify-content: center; font-size: 10px; font-weight: 900; flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    background: var(--co-green);
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 900;
+    flex-shrink: 0;
   }
-  .pm-field-label { font-size: 12px; font-weight: 800; color: var(--co-dark); letter-spacing: 0.01em; }
-  .pm-field-body { padding: 12px 14px; }
+  .pm-field-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--co-dark);
+    letter-spacing: 0.01em;
+  }
+  .pm-field-body { padding: 10px 12px; }
 
-  /* Validation */
-  .pm-validation { font-size: 12px; font-weight: 600; margin-top: 6px; min-height: 16px; }
-  .pm-validation-error { color: var(--co-red); display: flex; align-items: center; gap: 4px; }
-  .pm-validation-ok { color: var(--co-green-600); display: flex; align-items: center; gap: 4px; }
+  .pm-validation {
+    font-size: 11px;
+    font-weight: 600;
+    margin-top: 6px;
+    min-height: 16px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .pm-validation-error { color: var(--co-red); }
+  .pm-validation-ok { color: var(--co-green-600); }
+  .pm-validation-warning { color: #d97706; }
+  .pm-validation-checking { color: #6b7280; }
 
-  /* Network tiles */
-  .pm-networks { display: flex; flex-direction: column; gap: 8px; }
+  .pm-account-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .pm-account-valid {
+    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+    border: 1px solid #86efac;
+    color: var(--co-green);
+  }
+  .pm-account-invalid {
+    background: linear-gradient(135deg, #fef2f2, #fee2e2);
+    border: 1px solid #fca5a5;
+    color: var(--co-red);
+  }
+  .pm-account-checking {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    color: #6b7280;
+  }
+  .pm-account-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+
+  .pm-networks {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
   .pm-network-tile {
-    display: flex; align-items: center; gap: 12px;
-    padding: 10px 14px; border: 2px solid #e5e7eb;
-    border-radius: 8px; cursor: pointer; transition: all 0.15s;
-    background: #fff; position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: #fff;
+    position: relative;
+    min-height: 56px;
   }
   .pm-network-tile:hover { border-color: #d1d5db; background: #fafafa; }
   .pm-network-tile-active { border-width: 2px !important; }
-  .pm-network-logo { width: 36px; height: 36px; object-fit: contain; border-radius: 6px; flex-shrink: 0; }
-  .pm-network-name { font-size: 14px; font-weight: 800; color: var(--co-dark); }
-  .pm-network-sub { font-size: 11px; color: var(--co-light); }
-  .pm-network-check { margin-left: auto; flex-shrink: 0; }
+  .pm-network-tile-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  .pm-network-logo {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+  @media (min-width: 480px) {
+    .pm-network-logo { width: 36px; height: 36px; }
+  }
+  .pm-network-info { flex: 1; min-width: 0; }
+  .pm-network-name {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--co-dark);
+    margin: 0;
+    line-height: 1.2;
+  }
+  @media (min-width: 480px) {
+    .pm-network-name { font-size: 14px; }
+  }
+  .pm-network-sub {
+    font-size: 10px;
+    color: var(--co-light);
+    margin: 0;
+  }
+  .pm-network-check {
+    margin-left: auto;
+    flex-shrink: 0;
+  }
 
-  /* Pay button */
   .pm-pay-btn {
-    width: 100%; padding: 15px;
+    width: 100%;
+    padding: 14px;
     background: linear-gradient(135deg, #14532d, #166534);
-    color: #fff; border: none; border-radius: 8px;
-    font-size: 16px; font-weight: 800; cursor: pointer;
-    transition: all 0.15s; font-family: var(--co-font);
-    display: flex; align-items: center; justify-content: center; gap: 8px;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: var(--co-font);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     box-shadow: 0 4px 12px rgba(20, 83, 45, 0.3);
     letter-spacing: -0.01em;
+    min-height: 50px;
   }
-  .pm-pay-btn:hover { background: linear-gradient(135deg, #166534, #15803d); box-shadow: 0 6px 16px rgba(20, 83, 45, 0.35); transform: translateY(-1px); }
+  .pm-pay-btn:hover {
+    background: linear-gradient(135deg, #166534, #15803d);
+    box-shadow: 0 6px 16px rgba(20, 83, 45, 0.35);
+    transform: translateY(-1px);
+  }
   .pm-pay-btn:active { transform: translateY(0); }
-  .pm-pay-btn:disabled { background: linear-gradient(135deg, #9ca3af, #6b7280); box-shadow: none; cursor: not-allowed; transform: none; }
+  .pm-pay-btn:disabled {
+    background: linear-gradient(135deg, #9ca3af, #6b7280);
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+  }
 
-  /* Security badge */
   .pm-security {
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-    font-size: 11px; font-weight: 600; color: #6b7280;
-    padding: 8px; background: #f9fafb; border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #6b7280;
+    padding: 6px;
+    background: #f9fafb;
+    border-radius: 6px;
     border: 1px solid #f0f0f0;
   }
 
-  /* Info box */
   .pm-info-box {
     background: linear-gradient(135deg, #f0fdf4, #f7fdf9);
     border: 1px solid #bbf7d0;
-    border-radius: 8px; padding: 12px 14px;
+    border-radius: 8px;
+    padding: 10px 12px;
   }
   .pm-info-title {
-    font-size: 12px; font-weight: 800; color: var(--co-green);
-    margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--co-green);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
   }
   .pm-info-list {
-    list-style: none; padding: 0; margin: 0;
-    display: flex; flex-direction: column; gap: 5px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
   .pm-info-list li {
-    font-size: 12px; color: #16a34a; font-weight: 500;
-    display: flex; align-items: flex-start; gap: 7px; line-height: 1.4;
+    font-size: 11px;
+    color: #16a34a;
+    font-weight: 500;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    line-height: 1.3;
   }
   .pm-info-list li::before {
-    content: ''; width: 5px; height: 5px; border-radius: 50%;
-    background: var(--co-green-600); flex-shrink: 0; margin-top: 5px;
+    content: '';
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--co-green-600);
+    flex-shrink: 0;
+    margin-top: 5px;
   }
 
-  /* ==================== PENDING STATE ==================== */
   .pm-pending-wrap {
-    padding: 8px 0 16px; display: flex; flex-direction: column;
-    align-items: center; gap: 20px;
+    padding: 12px 0 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
   }
   .pm-pending-anim {
-    position: relative; width: 88px; height: 88px;
+    position: relative;
+    width: 72px;
+    height: 72px;
+  }
+  @media (min-width: 480px) {
+    .pm-pending-anim { width: 88px; height: 88px; }
   }
   .pm-pending-ring-outer {
-    position: absolute; inset: 0; border: 3px solid #dcfce7; border-radius: 50%;
+    position: absolute;
+    inset: 0;
+    border: 3px solid #dcfce7;
+    border-radius: 50%;
   }
   .pm-pending-ring-spin {
-    position: absolute; inset: 0; border: 3px solid transparent;
-    border-top-color: var(--co-green-600); border-right-color: var(--co-green-accent);
-    border-radius: 50%; animation: co-spin 1s linear infinite;
+    position: absolute;
+    inset: 0;
+    border: 3px solid transparent;
+    border-top-color: var(--co-green-600);
+    border-right-color: var(--co-green-accent);
+    border-radius: 50%;
+    animation: co-spin 1s linear infinite;
   }
   .pm-pending-ring-inner {
-    position: absolute; inset: 10px; border: 2px solid #f0fdf4; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
+    position: absolute;
+    inset: 8px;
+    border: 2px solid #f0fdf4;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+  }
+  @media (min-width: 480px) {
+    .pm-pending-ring-inner { inset: 10px; }
   }
 
   .pm-pending-text-wrap { text-align: center; }
-  .pm-pending-title { font-size: 18px; font-weight: 900; color: var(--co-dark); margin: 0 0 4px; }
-  .pm-pending-desc { font-size: 13px; color: var(--co-light); margin: 0; }
+  .pm-pending-title {
+    font-size: 16px;
+    font-weight: 900;
+    color: var(--co-dark);
+    margin: 0 0 4px;
+  }
+  @media (min-width: 480px) {
+    .pm-pending-title { font-size: 18px; }
+  }
+  .pm-pending-desc {
+    font-size: 12px;
+    color: var(--co-light);
+    margin: 0;
+  }
 
   .pm-pending-details {
-    width: 100%; background: #f9fafb; border: 1px solid #f0f0f0;
-    border-radius: 8px; overflow: hidden;
+    width: 100%;
+    background: #f9fafb;
+    border: 1px solid #f0f0f0;
+    border-radius: 8px;
+    overflow: hidden;
   }
   .pm-pending-row {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 10px 14px; border-bottom: 1px solid #f5f5f5; font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid #f5f5f5;
+    font-size: 12px;
   }
   .pm-pending-row:last-child { border-bottom: none; }
   .pm-pending-row-label { color: var(--co-light); font-weight: 500; }
   .pm-pending-row-value { font-weight: 700; color: var(--co-dark); }
-  .pm-pending-row-amount { font-weight: 900; color: var(--co-green); font-size: 15px; }
+  .pm-pending-row-amount { font-weight: 900; color: var(--co-green); font-size: 14px; }
 
   .pm-progress-wrap {
-    width: 100%; background: var(--co-green-lighter); border: 1px solid #bbf7d0;
-    border-radius: 8px; padding: 12px 14px;
+    width: 100%;
+    background: var(--co-green-lighter);
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 10px 12px;
   }
   .pm-progress-top {
-    display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
   }
-  .pm-progress-label { font-size: 12px; font-weight: 700; color: var(--co-green); }
+  .pm-progress-label { font-size: 11px; font-weight: 700; color: var(--co-green); }
   .pm-progress-count {
-    font-size: 13px; font-weight: 900; color: var(--co-green);
-    background: rgba(22,163,74,0.12); padding: 2px 8px; border-radius: 100px;
+    font-size: 12px;
+    font-weight: 900;
+    color: var(--co-green);
+    background: rgba(22,163,74,0.12);
+    padding: 2px 8px;
+    border-radius: 100px;
     font-variant-numeric: tabular-nums;
   }
   .pm-progress-track {
-    width: 100%; height: 6px; background: #bbf7d0; border-radius: 3px; overflow: hidden;
+    width: 100%;
+    height: 5px;
+    background: #bbf7d0;
+    border-radius: 3px;
+    overflow: hidden;
   }
   .pm-progress-fill {
-    height: 100%; background: linear-gradient(90deg, var(--co-green-600), var(--co-green-accent));
-    border-radius: 3px; transition: width 1s linear;
+    height: 100%;
+    background: linear-gradient(90deg, var(--co-green-600), var(--co-green-accent));
+    border-radius: 3px;
+    transition: width 1s linear;
   }
 
-  /* ==================== SUCCESS / FAILED ==================== */
-  .pm-result-wrap { text-align: center; padding: 20px 0 28px; }
+  .pm-result-wrap {
+    text-align: center;
+    padding: 16px 0 24px;
+  }
   .pm-result-icon {
-    width: 80px; height: 80px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    margin: 0 auto 16px;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 12px;
+  }
+  @media (min-width: 480px) {
+    .pm-result-icon { width: 80px; height: 80px; margin-bottom: 16px; }
   }
   .pm-result-icon-success {
     background: radial-gradient(circle, #dcfce7, #bbf7d0);
@@ -689,27 +1016,40 @@ const checkoutStyles = `
     from { transform: scale(0.5); opacity: 0; }
     to { transform: scale(1); opacity: 1; }
   }
-  .pm-result-title { font-size: 22px; font-weight: 900; margin: 0 0 6px; }
+  .pm-result-title {
+    font-size: 18px;
+    font-weight: 900;
+    margin: 0 0 4px;
+  }
+  @media (min-width: 480px) {
+    .pm-result-title { font-size: 22px; margin-bottom: 6px; }
+  }
   .pm-result-title-success { color: var(--co-green); }
   .pm-result-title-failed { color: var(--co-red); }
-  .pm-result-desc { font-size: 14px; color: var(--co-light); margin: 0; }
+  .pm-result-desc { font-size: 13px; color: var(--co-light); margin: 0; }
 
-  /* ==================== AUTO CHECK TIMER ==================== */
   .co-auto-check-bar {
-    background: #fef3c7; border: 1px solid #fde68a;
-    border-radius: var(--co-radius); padding: 10px 14px;
-    display: flex; align-items: center; justify-content: space-between;
-    margin-top: 8px;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    border-radius: var(--co-radius);
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 6px;
   }
   .co-auto-check-label {
-    font-size: 12px; font-weight: 700; color: #92400e;
+    font-size: 11px;
+    font-weight: 700;
+    color: #92400e;
   }
   .co-auto-check-time {
-    font-size: 13px; font-weight: 900; color: #b45309;
+    font-size: 12px;
+    font-weight: 900;
+    color: #b45309;
     font-variant-numeric: tabular-nums;
   }
 
-  /* ==================== ACTION DIALOG ==================== */
   .co-dialog-overlay {
     position: fixed; inset: 0; z-index: 9999;
     display: flex; align-items: center; justify-content: center;
@@ -750,7 +1090,6 @@ const checkoutStyles = `
   }
   .co-dialog-actions { display: flex; flex-direction: column; gap: 8px; }
 
-  /* ==================== APPROVAL GUIDE ==================== */
   .co-guide-header {
     display: flex; align-items: flex-start; gap: 12px;
   }
@@ -869,7 +1208,6 @@ const checkoutStyles = `
     font-size: 12px; font-weight: 600; color: #92400e; line-height: 1.5;
   }
 
-  /* Guide mobile sticky */
   .co-guide-sticky {
     position: fixed; bottom: 0; left: 0; right: 0;
     background: #fff; border-top: 1px solid var(--co-border);
@@ -883,21 +1221,43 @@ const checkoutStyles = `
 `;
 
 // ==================== ACTION DIALOG COMPONENT ====================
-const PaymentActionDialog = ({ open, mode, verifying, onRetry, onCancel, onClose }) => {
+const PaymentActionDialog = ({
+  open,
+  mode,
+  verifying,
+  onRetry,
+  onCancel,
+  onClose,
+}) => {
   if (!open) return null;
   const isCancel = mode === "cancel";
 
   return (
     <div className="co-dialog-overlay">
-      <div className="co-dialog-backdrop" onClick={() => !verifying && onClose()} />
+      <div
+        className="co-dialog-backdrop"
+        onClick={() => !verifying && onClose()}
+      />
       <div className="co-dialog-card">
-        <div className={`co-dialog-bar ${isCancel ? "co-dialog-bar-cancel" : "co-dialog-bar-warning"}`} />
+        <div
+          className={`co-dialog-bar ${
+            isCancel ? "co-dialog-bar-cancel" : "co-dialog-bar-warning"
+          }`}
+        />
         <div className="co-dialog-body">
-          <div className={`co-dialog-icon ${isCancel ? "co-dialog-icon-cancel" : "co-dialog-icon-warning"}`}>
+          <div
+            className={`co-dialog-icon ${
+              isCancel ? "co-dialog-icon-cancel" : "co-dialog-icon-warning"
+            }`}
+          >
             {isCancel ? (
-              <XCircleSolid style={{ width: 32, height: 32, color: "#ef4444" }} />
+              <XCircleSolid
+                style={{ width: 32, height: 32, color: "#ef4444" }}
+              />
             ) : (
-              <ExclamationTriangleIcon style={{ width: 32, height: 32, color: "#f59e0b" }} />
+              <ExclamationTriangleIcon
+                style={{ width: 32, height: 32, color: "#f59e0b" }}
+              />
             )}
           </div>
           <div className="co-dialog-title">
@@ -909,10 +1269,17 @@ const PaymentActionDialog = ({ open, mode, verifying, onRetry, onCancel, onClose
               : "We couldn't verify your payment. Please approve via your MoMo app or USSD, then try again."}
           </div>
           <div className="co-dialog-actions">
-            <button onClick={onRetry} disabled={verifying} className="co-btn-primary">
+            <button
+              onClick={onRetry}
+              disabled={verifying}
+              className="co-btn-primary"
+            >
               {verifying ? (
                 <>
-                  <div className="co-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
+                  <div
+                    className="co-spinner"
+                    style={{ width: 18, height: 18, borderWidth: 2 }}
+                  />
                   Verifying…
                 </>
               ) : (
@@ -922,7 +1289,11 @@ const PaymentActionDialog = ({ open, mode, verifying, onRetry, onCancel, onClose
                 </>
               )}
             </button>
-            <button onClick={onCancel} disabled={verifying} className="co-btn-danger">
+            <button
+              onClick={onCancel}
+              disabled={verifying}
+              className="co-btn-danger"
+            >
               <XCircleIcon style={{ width: 16, height: 16 }} />
               Yes, Cancel Order
             </button>
@@ -937,58 +1308,103 @@ const PaymentActionDialog = ({ open, mode, verifying, onRetry, onCancel, onClose
 const Checkout = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+
+  // ── Refs for timers ──
   const pollingRef = useRef(null);
   const countdownRef = useRef(null);
   const initialDelayRef = useRef(null);
   const autoCheckRef = useRef(null);
+  const autoCountdownRef = useRef(null);
+  const validationTimeoutRef = useRef(null);
+  // Guard: prevents double-firing of auto-check
+  const autoCheckFiredRef = useRef(false);
+  // Guard: prevents acting on stale polling results after success
+  const paymentResolvedRef = useRef(false);
 
+  // ── Redux selectors ──
+  const { cart: reduxCart, cartId: reduxCartId } = useSelector(
+    (state) => state.cart
+  );
+  const {
+    loading: paymentLoading,
+    validating: accountValidating,
+    validateAccountData,
+    error: paymentError,
+  } = useSelector((state) => state.payment);
+
+  // ── Local state: checkout form ──
   const [loading, setLoading] = useState(false);
   const [orderNote, setOrderNote] = useState("");
   const [paymentMethod, setPaymentMethod] = useState(null);
-  const [timeoutCountdown, setTimeoutCountdown] = useState(60);
-  const [autoCheckCountdown, setAutoCheckCountdown] = useState(0);
-
   const [deliveryFee, setDeliveryFee] = useState(0);
-  const [deliveryInfo, setDeliveryInfo] = useState({ address: "", fee: 0, feeDisplay: "" });
-
-  const [isValidationModalVisible, setIsValidationModalVisible] = useState(false);
-  const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
-  const [isGuestWarningVisible, setIsGuestWarningVisible] = useState(false);
-  const [isApprovalGuideVisible, setIsApprovalGuideVisible] = useState(false);
-
-  const [actionDialog, setActionDialog] = useState({ open: false, mode: "cancel" });
-
-  const [paymentStatus, setPaymentStatus] = useState("idle");
-  const [currentOrderId, setCurrentOrderId] = useState(null);
-  const [pendingCheckoutDetails, setPendingCheckoutDetails] = useState(null);
-  const [pendingAddressDetails, setPendingAddressDetails] = useState(null);
-
-  const [momoNumber, setMomoNumber] = useState("233");
-  const [selectedNetwork, setSelectedNetwork] = useState(null);
-  const [payButtonLoading, setPayButtonLoading] = useState(false);
-  const [verifyingPayment, setVerifyingPayment] = useState(false);
-
-  const { cart: reduxCart, cartId: reduxCartId } = useSelector((state) => state.cart);
-
-  const getCartItemsFromLocalStorage = () => {
-    try {
-      const stored = localStorage.getItem("cart");
-      if (!stored) return [];
-      return Array.isArray(stored) ? stored : [];
-    } catch { return []; }
-  };
-  const resolveCartItems = () => {
-    if (Array.isArray(reduxCart) && reduxCart.length > 0) return reduxCart;
-    return getCartItemsFromLocalStorage();
-  };
-  const [cartItems, setCartItems] = useState(resolveCartItems);
-  const getCartId = () => reduxCartId || localStorage.getItem("cartId") || `cart_${Date.now()}`;
-
+  const [deliveryInfo, setDeliveryInfo] = useState({
+    address: "",
+    fee: 0,
+    feeDisplay: "",
+  });
   const [customerData, setCustomerData] = useState(null);
   const [isDifferentRecipient, setIsDifferentRecipient] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerNumber, setCustomerNumber] = useState("");
 
+  // ── Local state: modals ──
+  const [isValidationModalVisible, setIsValidationModalVisible] =
+    useState(false);
+  const [isGuestWarningVisible, setIsGuestWarningVisible] = useState(false);
+
+  // ── Local state: payment flow ──
+  const [paymentStatus, setPaymentStatus] = useState("idle");
+  const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
+  const [isApprovalGuideVisible, setIsApprovalGuideVisible] = useState(false);
+  const [currentOrderId, setCurrentOrderId] = useState(null);
+  const [pendingCheckoutDetails, setPendingCheckoutDetails] = useState(null);
+  const [pendingAddressDetails, setPendingAddressDetails] = useState(null);
+  const [payButtonLoading, setPayButtonLoading] = useState(false);
+  const [manualVerifying, setManualVerifying] = useState(false);
+  const [timeoutCountdown, setTimeoutCountdown] = useState(60);
+  const [autoCheckCountdown, setAutoCheckCountdown] = useState(0);
+  const [debitErrorMessage, setDebitErrorMessage] = useState("");
+
+  // ── Local state: MoMo input & Validation ──
+  const [momoNumber, setMomoNumber] = useState("233");
+  const [selectedNetwork, setSelectedNetwork] = useState(null);
+  const [isValidationDebouncing, setIsValidationDebouncing] = useState(false);
+  
+  // ── 503 Error Handling ──
+  const [isServiceUnavailable, setIsServiceUnavailable] = useState(false);
+  const [retryValidationLoading, setRetryValidationLoading] = useState(false);
+
+  // ── Action dialog ──
+  const [actionDialog, setActionDialog] = useState({
+    open: false,
+    mode: "cancel",
+  });
+
+  // ── Cart resolution ──
+  const getCartItemsFromLocalStorage = useCallback(() => {
+    try {
+      const stored = localStorage.getItem("cart");
+      if (!stored) return [];
+      const parsed = safeJsonParse(stored, []);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const resolveCartItems = useCallback(() => {
+    if (Array.isArray(reduxCart) && reduxCart.length > 0) return reduxCart;
+    return getCartItemsFromLocalStorage();
+  }, [reduxCart, getCartItemsFromLocalStorage]);
+
+  const [cartItems, setCartItems] = useState(resolveCartItems);
+
+  const getCartId = useCallback(
+    () => reduxCartId || localStorage.getItem("cartId") || `cart_${Date.now()}`,
+    [reduxCartId]
+  );
+
+  // ── Derived values ──
   const customerId = customerData?.customerAccountNumber;
   const customerAccountType = customerData?.accountType;
   const selectedAddress = deliveryInfo?.address || "";
@@ -1004,57 +1420,119 @@ const Checkout = () => {
       deliveryInfo?.feeDisplay === "" ||
       (typeof deliveryInfo?.feeDisplay === "string" &&
         deliveryInfo.feeDisplay.toLowerCase() === "n/a"));
-
   const netCfg = selectedNetwork ? NETWORK_STEPS[selectedNetwork] : null;
 
-  // ==================== CLEANUP ====================
+  // ── Derive account validation status from Redux state ──
+  const accountStatus = useMemo(() => {
+    if (isServiceUnavailable) return "service_unavailable";
+    if (retryValidationLoading) return "checking";
+    if (isValidationDebouncing || accountValidating) return "checking";
+    if (validateAccountData) {
+      return isAccountValid(validateAccountData) ? "valid" : "invalid";
+    }
+    return "idle";
+  }, [isValidationDebouncing, accountValidating, validateAccountData, isServiceUnavailable, retryValidationLoading]);
+
+  const accountHolderName = validateAccountData?.name || null;
+  const accountValidationMessage =
+    validateAccountData?.responseMessage || paymentError || "";
+
+  // ==================== CLEANUP ON UNMOUNT ====================
   useEffect(() => {
     return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-      if (countdownRef.current) clearInterval(countdownRef.current);
-      if (initialDelayRef.current) clearTimeout(initialDelayRef.current);
-      if (autoCheckRef.current) clearInterval(autoCheckRef.current);
+      clearAllTimers();
+      dispatch(resetPaymentState());
     };
+  }, [dispatch]);
+
+  const clearAllTimers = useCallback(() => {
+    if (pollingRef.current) clearInterval(pollingRef.current);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    if (initialDelayRef.current) clearTimeout(initialDelayRef.current);
+    if (autoCheckRef.current) clearTimeout(autoCheckRef.current);
+    if (autoCountdownRef.current) clearInterval(autoCountdownRef.current);
+    if (validationTimeoutRef.current)
+      clearTimeout(validationTimeoutRef.current);
+    pollingRef.current = null;
+    countdownRef.current = null;
+    initialDelayRef.current = null;
+    autoCheckRef.current = null;
+    autoCountdownRef.current = null;
+    validationTimeoutRef.current = null;
   }, []);
 
-  // ==================== DATA INIT ====================
+  // ==================== DATA INIT (FROM LOCAL STORAGE) ====================
   useEffect(() => {
+    // Load Customer Data from LocalStorage exactly as previous code
     try {
-      const customerObj = localStorage.getItem("customer");
+      const rawCustomer = localStorage.getItem("customer");
+      // The original code checked if it was an object. We parse it.
+      // If it was stringified object, safeJsonParse handles it.
+      // If it was already an object (some older versions of LS might store weirdly), we handle that too.
+      let customerObj = rawCustomer;
+      if (typeof rawCustomer === "string") {
+        customerObj = safeJsonParse(rawCustomer, null);
+      }
+
       if (customerObj && typeof customerObj === "object") {
         setCustomerData(customerObj);
-        setCustomerName(`${customerObj.firstName || ""} ${customerObj.lastName || ""}`.trim());
-        setCustomerNumber(customerObj.contactNumber || customerObj.ContactNumber || "");
+        // Map to fields used in form
+        setCustomerName(
+          `${customerObj.firstName || ""} ${
+            customerObj.lastName || ""
+          }`.trim()
+        );
+        setCustomerNumber(
+          customerObj.contactNumber || customerObj.ContactNumber || ""
+        );
       }
     } catch {}
+
+    // Load Delivery Info from LocalStorage exactly as previous code
     try {
-      const storedInfo = localStorage.getItem("deliveryInfo") || {};
-      setDeliveryInfo({
-        address: storedInfo?.address || "",
-        fee: storedInfo?.fee ?? 0,
-        feeDisplay: storedInfo?.feeDisplay || "",
-      });
-      setDeliveryFee(Number(storedInfo?.fee) || 0);
+      const rawDelivery = localStorage.getItem("deliveryInfo");
+      let storedInfo = rawDelivery;
+      if (typeof rawDelivery === "string") {
+        storedInfo = safeJsonParse(rawDelivery, {});
+      }
+
+      if (storedInfo && typeof storedInfo === "object") {
+        setDeliveryInfo({
+          address: storedInfo?.address || "",
+          fee: storedInfo?.fee ?? 0,
+          feeDisplay: storedInfo?.feeDisplay || "",
+        });
+        setDeliveryFee(Number(storedInfo?.fee) || 0);
+      }
     } catch {}
   }, []);
 
   useEffect(() => {
     const activeCartId = reduxCartId || localStorage.getItem("cartId");
     if (activeCartId) dispatch(getCartById(activeCartId));
-  }, []);
+  }, [dispatch, reduxCartId]);
 
   useEffect(() => {
     if (isDifferentRecipient) {
       setCustomerName("");
       setCustomerNumber("");
     } else if (customerData) {
-      setCustomerName(`${customerData.firstName || ""} ${customerData.lastName || ""}`.trim());
-      setCustomerNumber(customerData.contactNumber || customerData.ContactNumber || "");
+      setCustomerName(
+        `${customerData.firstName || ""} ${
+          customerData.lastName || ""
+        }`.trim()
+      );
+      setCustomerNumber(
+        customerData.contactNumber || customerData.ContactNumber || ""
+      );
     }
-  }, [isDifferentRecipient]);
+  }, [isDifferentRecipient, customerData]);
 
   useEffect(() => {
-    if (deliveryInfo?.fee !== undefined && !Number.isNaN(Number(deliveryInfo.fee)))
+    if (
+      deliveryInfo?.fee !== undefined &&
+      !Number.isNaN(Number(deliveryInfo.fee))
+    )
       setDeliveryFee(Number(deliveryInfo.fee));
   }, [deliveryInfo]);
 
@@ -1064,111 +1542,220 @@ const Checkout = () => {
       const f = getCartItemsFromLocalStorage();
       if (f.length > 0) setCartItems(f);
     }
-  }, [reduxCart]);
+  }, [reduxCart, getCartItemsFromLocalStorage]);
 
-  // ==================== AUTO-CHECK after 2 minutes when approval guide is visible ====================
+  // ==================== ACCOUNT VALIDATION (uses Redux + 503 Retry) ====================
+  const handleRetryValidation = useCallback(async () => {
+    if (!isValidMsisdn(momoNumber) || !selectedNetwork) return;
+    
+    setRetryValidationLoading(true);
+    setIsServiceUnavailable(false);
+    dispatch(resetValidateAccountData());
+
+    try {
+      const sanitizedNumber = sanitizeMsisdn(momoNumber);
+      const networkForApi = NETWORK_API_MAP[selectedNetwork];
+      await dispatch(
+        validateAccount({ msisdn: sanitizedNumber, network: networkForApi })
+      ).unwrap();
+    } catch (err) {
+      // Check if still 503
+      if (String(err).includes("503") || err?.message?.includes("503")) {
+        setIsServiceUnavailable(true);
+      }
+    } finally {
+      setRetryValidationLoading(false);
+    }
+  }, [momoNumber, selectedNetwork, dispatch]);
+
+  useEffect(() => {
+    if (validationTimeoutRef.current)
+      clearTimeout(validationTimeoutRef.current);
+
+    if (isValidMsisdn(momoNumber) && selectedNetwork) {
+      // Don't debounce if user is manually retrying
+      if (retryValidationLoading) return;
+
+      setIsValidationDebouncing(true);
+      
+      // Check for existing 503 error before dispatching again automatically
+      if (paymentError && (paymentError.includes("503") || paymentError.includes("Service Unavailable"))) {
+        setIsServiceUnavailable(true);
+        setIsValidationDebouncing(false);
+        return; // Stop auto dispatch, wait for manual retry
+      }
+
+      dispatch(resetValidateAccountData());
+
+      validationTimeoutRef.current = setTimeout(() => {
+        setIsValidationDebouncing(false);
+        const sanitizedNumber = sanitizeMsisdn(momoNumber);
+        const networkForApi = NETWORK_API_MAP[selectedNetwork];
+        dispatch(
+          validateAccount({ msisdn: sanitizedNumber, network: networkForApi })
+        ).unwrap().catch((err) => {
+            if (String(err).includes("503") || err?.message?.includes("503")) {
+                setIsServiceUnavailable(true);
+            }
+        });
+      }, 500);
+    } else {
+      setIsValidationDebouncing(false);
+      dispatch(resetValidateAccountData());
+      setIsServiceUnavailable(false);
+    }
+
+    return () => {
+      if (validationTimeoutRef.current)
+        clearTimeout(validationTimeoutRef.current);
+    };
+  }, [momoNumber, selectedNetwork, dispatch, paymentError, retryValidationLoading]);
+
+  // ==================== HANDLE SUCCESSFUL PAYMENT ====================
+  const handlePaymentSuccessFlow = useCallback(
+    async (orderId, checkoutDetails, addressDetails) => {
+      if (paymentResolvedRef.current) return;
+      paymentResolvedRef.current = true;
+
+      setPaymentStatus("success");
+      setIsApprovalGuideVisible(false);
+      clearAllTimers();
+
+      try {
+        await processDirectCheckout(orderId, checkoutDetails, addressDetails);
+        clearCartAndStorage();
+        localStorage.removeItem("checkoutDetails");
+        localStorage.removeItem("orderAddressDetails");
+
+        message.success("Payment confirmed! Your order is being processed.");
+
+        setTimeout(() => {
+          setIsPaymentModalVisible(false);
+          navigate(`/order-success/${orderId}`);
+        }, 1500);
+      } catch (error) {
+        message.error(
+          "Payment confirmed but order processing failed. Please contact support with your order ID."
+        );
+      }
+    },
+    [clearAllTimers, navigate, dispatch]
+  );
+
+  // ==================== AUTO-CHECK (NO AUTO-CANCEL) ====================
   useEffect(() => {
     if (isApprovalGuideVisible && currentOrderId) {
+      autoCheckFiredRef.current = false;
       const totalSeconds = AUTO_CHECK_DELAY_MS / 1000;
       setAutoCheckCountdown(totalSeconds);
 
-      const countdownTimer = setInterval(() => {
+      autoCountdownRef.current = setInterval(() => {
         setAutoCheckCountdown((prev) => {
-          if (prev <= 1) { clearInterval(countdownTimer); return 0; }
+          if (prev <= 1) {
+            clearInterval(autoCountdownRef.current);
+            autoCountdownRef.current = null;
+            return 0;
+          }
           return prev - 1;
         });
       }, 1000);
 
       autoCheckRef.current = setTimeout(async () => {
+        if (autoCheckFiredRef.current || paymentResolvedRef.current) return;
+        autoCheckFiredRef.current = true;
+
         try {
-          setVerifyingPayment(true);
+          dispatch(resetTransactionStatus());
           const response = await dispatch(
             checkTransactionStatus({ refNo: currentOrderId })
           ).unwrap();
 
           if (isPaymentSuccess(response)) {
-            setPaymentStatus("success");
-            setIsApprovalGuideVisible(false);
-            try {
-              await processDirectCheckout(
-                currentOrderId,
-                pendingCheckoutDetails,
-                pendingAddressDetails
-              );
-              // ✅ Clear cart only after successful checkout dispatch
-              clearCartAndStorage();
-              localStorage.removeItem("checkoutDetails");
-              localStorage.removeItem("orderAddressDetails");
-              message.success("Payment confirmed! Your order is being processed.");
-              setTimeout(() => {
-                setIsPaymentModalVisible(false);
-                navigate(`/order-success/${currentOrderId}`);
-              }, 1200);
-            } catch {
-              message.error("Payment confirmed but order processing failed. Contact support.");
-            }
+            await handlePaymentSuccessFlow(
+              currentOrderId,
+              pendingCheckoutDetails,
+              pendingAddressDetails
+            );
           } else {
-            // Payment not confirmed after 2 minutes → cancel
-            setIsApprovalGuideVisible(false);
-            setIsPaymentModalVisible(false);
-            localStorage.removeItem("checkoutDetails");
-            localStorage.removeItem("orderAddressDetails");
-            message.error("Payment was not confirmed. Your order has been cancelled.");
-            navigate("/order-cancelled");
+            message.warning(
+              "Payment not yet confirmed. Please approve on your phone or try 'I've Approved' again."
+            );
           }
         } catch {
-          setIsApprovalGuideVisible(false);
-          setIsPaymentModalVisible(false);
-          localStorage.removeItem("checkoutDetails");
-          localStorage.removeItem("orderAddressDetails");
-          message.error("Unable to verify payment. Your order has been cancelled.");
-          navigate("/order-cancelled");
-        } finally {
-          setVerifyingPayment(false);
+          message.warning(
+            "Could not verify payment automatically. Use 'I've Approved' to check manually."
+          );
         }
       }, AUTO_CHECK_DELAY_MS);
 
       return () => {
-        clearInterval(countdownTimer);
+        if (autoCountdownRef.current)
+          clearInterval(autoCountdownRef.current);
         if (autoCheckRef.current) clearTimeout(autoCheckRef.current);
+        autoCountdownRef.current = null;
+        autoCheckRef.current = null;
       };
     }
-  }, [isApprovalGuideVisible, currentOrderId]);
+  }, [
+    isApprovalGuideVisible,
+    currentOrderId,
+    pendingCheckoutDetails,
+    pendingAddressDetails,
+    dispatch,
+    handlePaymentSuccessFlow,
+  ]);
 
-  // ==================== MOMO NUMBER ====================
+  // ==================== MOMO NUMBER INPUT ====================
   const handleMomoNumberChange = (e) => {
     let value = e.target.value.replace(/[^0-9]/g, "");
     if (value.startsWith("0")) value = "233" + value.slice(1);
     if (!value.startsWith("233")) value = "233";
-    if (value.length > 12) value = value.slice(0, 12);
+    if (value.length > 13) value = value.slice(0, 13);
+    
+    // Reset error state on new input
+    setIsServiceUnavailable(false);
     setMomoNumber(value);
   };
-  const isValidMomoNumber = () => /^233[1-9]\d{8}$/.test(momoNumber);
-  const startsWithZeroAfter233 = () => momoNumber.length > 3 && momoNumber[3] === "0";
 
   // ==================== CALCULATIONS ====================
-  const calculateSubtotal = () =>
-    cartItems.reduce((sum, item) => sum + getItemLineTotal(item), 0);
-  const calculateTotalAmount = () => calculateSubtotal() + deliveryFee;
-  const calculateServiceCharge = () => {
+  const calculateSubtotal = useCallback(
+    () => cartItems.reduce((sum, item) => sum + getItemLineTotal(item), 0),
+    [cartItems]
+  );
+
+  const calculateTotalAmount = useCallback(
+    () => calculateSubtotal() + deliveryFee,
+    [calculateSubtotal, deliveryFee]
+  );
+
+  const calculateServiceCharge = useCallback(() => {
     const base = calculateTotalAmount();
     return base > 2000 ? SERVICE_CHARGE_CAP : base * SERVICE_CHARGE_RATE;
-  };
-  const calculateDisplayTotalWithCharge = () =>
-    calculateTotalAmount() + calculateServiceCharge();
+  }, [calculateTotalAmount]);
+
+  const calculateDisplayTotalWithCharge = useCallback(
+    () => calculateTotalAmount() + calculateServiceCharge(),
+    [calculateTotalAmount, calculateServiceCharge]
+  );
+
   const generateOrderId = () =>
-    `ORD-${new Date().getTime() % 10000}-${Math.floor(Math.random() * 1000)}`;
+    `ORD-${new Date().getTime() % 10000}-${Math.floor(
+      Math.random() * 1000
+    )}`;
 
   // ==================== CART CLEAR HELPER ====================
-  // Only called on confirmed success or navigation to order-success
-  const clearCartAndStorage = () => {
+  const clearCartAndStorage = useCallback(() => {
     dispatch(clearCart());
     localStorage.removeItem("cart");
     localStorage.removeItem("cartId");
-  };
+  }, [dispatch]);
 
   // ==================== RETRY HELPERS ====================
-  const dispatchOrderCheckoutWithRetry = async (orderId, checkoutDetails, maxRetries = 3) => {
+  const dispatchOrderCheckoutWithRetry = async (
+    orderId,
+    checkoutDetails,
+    maxRetries = 3
+  ) => {
     let lastError;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -1178,14 +1765,23 @@ const Checkout = () => {
       } catch (error) {
         lastError = error;
         if (attempt < maxRetries)
-          await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
+          await new Promise((r) =>
+            setTimeout(r, Math.pow(2, attempt) * 1000)
+          );
       }
     }
-    throw new Error(`Checkout failed after ${maxRetries} attempts: ${lastError?.message || "Unknown"}`);
+    throw new Error(
+      `Checkout failed after ${maxRetries} attempts: ${
+        lastError?.message || "Unknown"
+      }`
+    );
   };
 
-  // Address update no longer clears cart — that's handled separately after success
-  const dispatchOrderAddressWithRetry = async (orderId, addressDetails, maxRetries = 3) => {
+  const dispatchOrderAddressWithRetry = async (
+    orderId,
+    addressDetails,
+    maxRetries = 3
+  ) => {
     let lastError;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -1193,144 +1789,195 @@ const Checkout = () => {
       } catch (error) {
         lastError = error;
         if (attempt < maxRetries)
-          await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
+          await new Promise((r) =>
+            setTimeout(r, Math.pow(2, attempt) * 1000)
+          );
       }
     }
-    throw new Error(`Address update failed after ${maxRetries} attempts: ${lastError?.message || "Unknown"}`);
+    throw new Error(
+      `Address update failed after ${maxRetries} attempts: ${
+        lastError?.message || "Unknown"
+      }`
+    );
   };
 
-  const processDirectCheckout = async (orderId, checkoutDetails, addressDetails) => {
+  const processDirectCheckout = async (
+    orderId,
+    checkoutDetails,
+    addressDetails
+  ) => {
     await dispatchOrderCheckoutWithRetry(orderId, checkoutDetails);
     await dispatchOrderAddressWithRetry(orderId, addressDetails);
   };
 
   // ==================== POLLING ====================
-  const startPolling = (orderId, checkoutDetails, addressDetails) => {
-    setTimeoutCountdown(60);
-    countdownRef.current = setInterval(() => {
-      setTimeoutCountdown((prev) => (prev <= 1 ? 0 : prev - 1));
-    }, 1000);
+  const startPolling = useCallback(
+    (orderId, checkoutDetails, addressDetails) => {
+      setTimeoutCountdown(60);
 
-    initialDelayRef.current = setTimeout(() => {
-      let pollCount = 0;
-      const maxPolls = MAX_POLL_DURATION_MS / POLL_INTERVAL_MS;
+      countdownRef.current = setInterval(() => {
+        setTimeoutCountdown((prev) => (prev <= 1 ? 0 : prev - 1));
+      }, 1000);
 
-      pollingRef.current = setInterval(async () => {
-        pollCount++;
-        try {
-          const response = await dispatch(
-            checkTransactionStatus({ refNo: orderId })
-          ).unwrap();
+      initialDelayRef.current = setTimeout(() => {
+        let pollCount = 0;
+        const maxPolls = MAX_POLL_DURATION_MS / POLL_INTERVAL_MS;
 
-          // ✅ Only treat as success when responseCode === "01" AND correct message
-          if (isPaymentSuccess(response)) {
+        pollingRef.current = setInterval(async () => {
+          if (paymentResolvedRef.current) {
             clearInterval(pollingRef.current);
             clearInterval(countdownRef.current);
-            setPaymentStatus("success");
-            try {
-              await processDirectCheckout(orderId, checkoutDetails, addressDetails);
-              // ✅ Clear cart only after successful dispatch
-              clearCartAndStorage();
-              localStorage.removeItem("checkoutDetails");
-              localStorage.removeItem("orderAddressDetails");
-              message.success("Payment confirmed! Processing your order...");
-              setTimeout(() => {
-                setIsPaymentModalVisible(false);
-                navigate(`/order-success/${orderId}`);
-              }, 1200);
-            } catch {
-              message.error("Payment succeeded, but order processing failed. Contact support.");
-            }
+            pollingRef.current = null;
+            countdownRef.current = null;
             return;
           }
-        } catch {}
 
-        if (pollCount >= maxPolls) {
-          clearInterval(pollingRef.current);
-          clearInterval(countdownRef.current);
-          setPaymentStatus("awaiting_manual");
-          setIsApprovalGuideVisible(true);
-        }
-      }, POLL_INTERVAL_MS);
-    }, INITIAL_DELAY_MS);
-  };
+          pollCount++;
+
+          try {
+            const response = await dispatch(
+              checkTransactionStatus({ refNo: orderId })
+            ).unwrap();
+
+            if (isPaymentSuccess(response)) {
+              clearInterval(pollingRef.current);
+              clearInterval(countdownRef.current);
+              pollingRef.current = null;
+              countdownRef.current = null;
+              await handlePaymentSuccessFlow(
+                orderId,
+                checkoutDetails,
+                addressDetails
+              );
+              return;
+            }
+          } catch {}
+
+          if (pollCount >= maxPolls) {
+            clearInterval(pollingRef.current);
+            clearInterval(countdownRef.current);
+            pollingRef.current = null;
+            countdownRef.current = null;
+            setPaymentStatus("awaiting_manual");
+            setIsApprovalGuideVisible(true);
+          }
+        }, POLL_INTERVAL_MS);
+      }, INITIAL_DELAY_MS);
+    },
+    [dispatch, handlePaymentSuccessFlow]
+  );
 
   // ==================== CANCEL ====================
-  const performCancelOrder = () => {
-    if (pollingRef.current) clearInterval(pollingRef.current);
-    if (countdownRef.current) clearInterval(countdownRef.current);
-    if (initialDelayRef.current) clearTimeout(initialDelayRef.current);
-    if (autoCheckRef.current) clearTimeout(autoCheckRef.current);
+  const performCancelOrder = useCallback(() => {
+    clearAllTimers();
+    paymentResolvedRef.current = false;
+    autoCheckFiredRef.current = false;
+
     setActionDialog({ open: false, mode: "cancel" });
     setIsApprovalGuideVisible(false);
     setIsPaymentModalVisible(false);
     setPaymentStatus("idle");
+    setDebitErrorMessage("");
+
+    dispatch(resetPaymentState());
     localStorage.removeItem("checkoutDetails");
     localStorage.removeItem("orderAddressDetails");
-    // ❌ Do NOT clear cart on cancel — user may want to retry
+
     navigate("/order-cancelled");
-  };
+  }, [clearAllTimers, dispatch, navigate]);
 
   // ==================== MANUAL CONFIRM ====================
   const handleManualConfirm = async () => {
-    if (!currentOrderId) return;
+    if (!currentOrderId || paymentResolvedRef.current) return;
+
     try {
-      setVerifyingPayment(true);
+      setManualVerifying(true);
+      dispatch(resetTransactionStatus());
+
       const response = await dispatch(
         checkTransactionStatus({ refNo: currentOrderId })
       ).unwrap();
 
-      // ✅ Only treat as success when responseCode === "01" AND correct message
       if (isPaymentSuccess(response)) {
         if (autoCheckRef.current) clearTimeout(autoCheckRef.current);
+        if (autoCountdownRef.current)
+          clearInterval(autoCountdownRef.current);
         setActionDialog({ open: false, mode: "cancel" });
-        setPaymentStatus("success");
-        setIsApprovalGuideVisible(false);
-        try {
-          await processDirectCheckout(currentOrderId, pendingCheckoutDetails, pendingAddressDetails);
-          // ✅ Clear cart only after successful dispatch
-          clearCartAndStorage();
-          localStorage.removeItem("checkoutDetails");
-          localStorage.removeItem("orderAddressDetails");
-          message.success("Payment confirmed! Your order is being processed...");
-          setTimeout(() => {
-            setIsPaymentModalVisible(false);
-            navigate(`/order-success/${currentOrderId}`);
-          }, 1200);
-        } catch {
-          message.error("Payment confirmed but order processing failed. Please contact support.");
-        }
+        await handlePaymentSuccessFlow(
+          currentOrderId,
+          pendingCheckoutDetails,
+          pendingAddressDetails
+        );
       } else {
         setActionDialog({ open: true, mode: "not_confirmed" });
       }
     } catch {
       setActionDialog({ open: true, mode: "not_confirmed" });
     } finally {
-      setVerifyingPayment(false);
+      setManualVerifying(false);
     }
   };
 
-  const handleCancelFromGuide = () => setActionDialog({ open: true, mode: "cancel" });
+  const handleCancelFromGuide = () =>
+    setActionDialog({ open: true, mode: "cancel" });
+
   const handleDialogRetry = () => {
     setActionDialog({ open: false, mode: "cancel" });
     if (actionDialog.mode === "not_confirmed") handleManualConfirm();
   };
+
   const handleDialogCancel = () => performCancelOrder();
+
+  // ==================== RESET PAYMENT TO INPUT ====================
+  const resetToPaymentInput = useCallback(() => {
+    clearAllTimers();
+    paymentResolvedRef.current = false;
+    autoCheckFiredRef.current = false;
+
+    dispatch(resetPaymentState());
+    setPaymentStatus("input");
+    setDebitErrorMessage("");
+    setMomoNumber("233");
+    setSelectedNetwork(null);
+    setIsApprovalGuideVisible(false);
+    setIsServiceUnavailable(false);
+    setTimeoutCountdown(60);
+    setAutoCheckCountdown(0);
+  }, [clearAllTimers, dispatch]);
 
   // ==================== VALIDATION ====================
   const validateRequiredFields = () => {
     const errors = [];
-    if (!customerName?.trim()) errors.push({ field: "name", message: "Recipient name is required" });
-    if (!customerNumber?.trim()) errors.push({ field: "phone", message: "Recipient contact number is required" });
-    if (!selectedAddress?.trim()) errors.push({ field: "address", message: "Delivery address is required" });
-    if (!paymentMethod) errors.push({ field: "payment", message: "Payment method is required" });
+    if (!customerName?.trim())
+      errors.push({ field: "name", message: "Recipient name is required" });
+    if (!customerNumber?.trim())
+      errors.push({
+        field: "phone",
+        message: "Recipient contact number is required",
+      });
+    if (!selectedAddress?.trim())
+      errors.push({
+        field: "address",
+        message: "Delivery address is required",
+      });
+    if (!paymentMethod)
+      errors.push({
+        field: "payment",
+        message: "Payment method is required",
+      });
     return errors;
   };
+
   const getSafeCustomerDetails = () => {
     let name = customerName?.trim();
     let number = customerNumber?.trim();
-    if (!name && customerData) name = `${customerData.firstName || ""} ${customerData.lastName || ""}`.trim();
-    if (!number && customerData) number = customerData.contactNumber || customerData.ContactNumber || "";
+    if (!name && customerData)
+      name = `${customerData.firstName || ""} ${
+        customerData.lastName || ""
+      }`.trim();
+    if (!number && customerData)
+      number =
+        customerData.contactNumber || customerData.ContactNumber || "";
     if (!number) number = "0000000000";
     return { name, number };
   };
@@ -1344,10 +1991,15 @@ const Checkout = () => {
     setCustomerNumber(safeNumber);
 
     const nameLower = safeName.toLowerCase().trim();
-    if (nameLower === "guest" || nameLower === "guest user" || nameLower.startsWith("guest ")) {
+    if (
+      nameLower === "guest" ||
+      nameLower === "guest user" ||
+      nameLower.startsWith("guest ")
+    ) {
       setIsGuestWarningVisible(true);
       return;
     }
+
     const validationErrors = validateRequiredFields();
     if (validationErrors.length > 0) {
       setIsValidationModalVisible(true);
@@ -1361,35 +2013,59 @@ const Checkout = () => {
     const cartId = getCartId();
 
     const checkoutDetails = {
-      Cartid: cartId, customerId, orderCode: orderId, PaymentMode: paymentMethod,
-      PaymentAccountNumber: safeNumber || "0000000000", customerAccountType,
-      paymentService: "Mtn", totalAmount, recipientName: safeName,
-      recipientContactNumber: safeNumber, orderNote: orderNote || "N/A", orderDate,
+      Cartid: cartId,
+      customerId,
+      orderCode: orderId,
+      PaymentMode: paymentMethod,
+      PaymentAccountNumber: safeNumber || "0000000000",
+      customerAccountType,
+      paymentService: "Mtn",
+      totalAmount,
+      recipientName: safeName,
+      recipientContactNumber: safeNumber,
+      orderNote: orderNote || "N/A",
+      orderDate,
     };
+
     const addressDetails = {
-      orderCode: orderId, address: selectedAddress, Customerid: customerId,
-      recipientName: safeName, recipientContactNumber: safeNumber,
-      orderNote: orderNote || "N/A", geoLocation: "N/A",
+      orderCode: orderId,
+      address: selectedAddress,
+      Customerid: customerId,
+      recipientName: safeName,
+      recipientContactNumber: safeNumber,
+      orderNote: orderNote || "N/A",
+      geoLocation: "N/A",
     };
 
     try {
       setLoading(true);
+
       if (isAgent || !["Mobile Money"].includes(paymentMethod)) {
-        // Non-MoMo orders: process and clear cart immediately
         await processDirectCheckout(orderId, checkoutDetails, addressDetails);
         clearCartAndStorage();
         message.success("Your order has been placed successfully!");
         navigate("/order-received");
       } else {
-        // MoMo orders: save details and show payment modal — do NOT clear cart yet
-        localStorage.setItem("checkoutDetails", checkoutDetails);
-        localStorage.setItem("orderAddressDetails", addressDetails);
+        const checkoutStr = safeJsonStringify(checkoutDetails);
+        const addressStr = safeJsonStringify(addressDetails);
+        if (checkoutStr)
+          localStorage.setItem("checkoutDetails", checkoutStr);
+        if (addressStr)
+          localStorage.setItem("orderAddressDetails", addressStr);
+
         dispatch(saveCheckoutDetails(checkoutDetails));
         dispatch(saveAddressDetails(addressDetails));
         setPendingCheckoutDetails(checkoutDetails);
         setPendingAddressDetails(addressDetails);
+
+        dispatch(resetPaymentState());
+        paymentResolvedRef.current = false;
+        autoCheckFiredRef.current = false;
+
         setMomoNumber("233");
         setSelectedNetwork(null);
+        setDebitErrorMessage("");
+        setIsServiceUnavailable(false);
         setPaymentStatus("input");
         setIsPaymentModalVisible(true);
       }
@@ -1401,46 +2077,233 @@ const Checkout = () => {
   };
 
   const handlePayNow = async () => {
-    if (!isValidMomoNumber()) { message.error("Please enter a valid 9-digit number after 233"); return; }
-    if (!selectedNetwork) { message.error("Please select your network provider"); return; }
+    if (!isValidMsisdn(momoNumber)) {
+      message.error("Please enter a valid mobile money number");
+      return;
+    }
+    if (!selectedNetwork) {
+      message.error("Please select your network provider");
+      return;
+    }
+    if (accountStatus !== "valid") {
+      message.error(
+        "Please wait for account validation or check your details"
+      );
+      return;
+    }
+
     const paymentAmount = calculateSubtotal();
     const narration = buildCartNarration(cartItems);
+    const sanitizedNumber = sanitizeMsisdn(momoNumber);
+    const networkForApi = NETWORK_API_MAP[selectedNetwork];
+
     try {
       setPayButtonLoading(true);
+      setDebitErrorMessage("");
+      paymentResolvedRef.current = false;
+      autoCheckFiredRef.current = false;
+
+      dispatch(resetTransactionStatus());
+
       setPaymentStatus("pending");
-      await dispatch(debitCustomer({
-        refNo: currentOrderId, msisdn: momoNumber,
-        amount: paymentAmount, network: selectedNetwork, narration
-      })).unwrap();
-      startPolling(currentOrderId, pendingCheckoutDetails, pendingAddressDetails);
-    } catch {
+
+      const debitResponse = await dispatch(
+        debitCustomer({
+          refNo: currentOrderId,
+          msisdn: sanitizedNumber,
+          amount: paymentAmount,
+          network: networkForApi,
+          narration,
+        })
+      ).unwrap();
+
+      if (isPaymentSuccess(debitResponse)) {
+        await handlePaymentSuccessFlow(
+          currentOrderId,
+          pendingCheckoutDetails,
+          pendingAddressDetails
+        );
+        return;
+      }
+
+      startPolling(
+        currentOrderId,
+        pendingCheckoutDetails,
+        pendingAddressDetails
+      );
+    } catch (error) {
+      const errorMsg =
+        typeof error === "string"
+          ? error
+          : error?.message || "Payment request failed. Please try again.";
+      setDebitErrorMessage(errorMsg);
       setPaymentStatus("failed");
-      localStorage.removeItem("checkoutDetails");
-      localStorage.removeItem("orderAddressDetails");
-      message.error("Payment initiation failed. Redirecting...");
-      setTimeout(() => { setIsPaymentModalVisible(false); navigate("/order-cancelled"); }, 2000);
     } finally {
       setPayButtonLoading(false);
     }
   };
 
+  const handleClosePaymentModal = useCallback(() => {
+    if (paymentStatus === "input" || paymentStatus === "failed") {
+      clearAllTimers();
+      dispatch(resetPaymentState());
+      paymentResolvedRef.current = false;
+      autoCheckFiredRef.current = false;
+      setIsPaymentModalVisible(false);
+      setPaymentStatus("idle");
+      setDebitErrorMessage("");
+    }
+  }, [paymentStatus, clearAllTimers, dispatch]);
+
   // ==================== RENDER HELPERS ====================
   const renderImage = (imagePath) => {
-    if (!imagePath) return <div className="co-item-img-placeholder">No Image</div>;
-    const imageUrl = `https://ct002.frankotrading.com:444/Media/Products_Images/${imagePath.split("\\").pop()}`;
+    if (!imagePath)
+      return <div className="co-item-img-placeholder">No Image</div>;
+    const imageUrl = `https://ct002.frankotrading.com:444/Media/Products_Images/${imagePath
+      .split("\\")
+      .pop()}`;
     return (
-      <img src={imageUrl} alt="Product" className="co-item-img"
-        onError={(e) => { e.target.style.display = "none"; if (e.target.nextSibling) e.target.nextSibling.style.display = "flex"; }} />
+      <img
+        src={imageUrl}
+        alt="Product"
+        className="co-item-img"
+        onError={(e) => {
+          e.target.style.display = "none";
+          if (e.target.nextSibling) e.target.nextSibling.style.display = "flex";
+        }}
+      />
     );
   };
 
   const getServiceChargeLabel = () =>
-    calculateTotalAmount() > 2000 ? "Momo Service Charge:" : "Momo Service Charge (1%):";
+    calculateTotalAmount() > 2000
+      ? "Momo Service Charge:"
+      : "Momo Service Charge (1%):";
 
   const formatAutoCheckTime = (seconds) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
+  const canProceedWithPayment = () =>
+    isValidMsisdn(momoNumber) &&
+    selectedNetwork &&
+    accountStatus === "valid";
+
+  const renderAccountValidationStatus = () => {
+    if (accountStatus === "idle") return null;
+
+    // NEW: Service Unavailable (503) State
+    if (accountStatus === "service_unavailable") {
+      return (
+        <div className="pm-account-status pm-account-invalid">
+          <ExclamationTriangleIcon className="pm-account-icon" />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 800 }}>Service Busy (503)</div>
+            <div style={{ fontSize: 11, opacity: 0.8, marginTop: 1 }}>
+              Unable to validate. Please try again.
+            </div>
+            <button
+              onClick={handleRetryValidation}
+              disabled={retryValidationLoading}
+              className="co-btn-secondary"
+              style={{ marginTop: 4, height: 24 }}
+            >
+              {retryValidationLoading ? (
+                <>
+                  <div
+                    className="co-spinner"
+                    style={{ width: 12, height: 12, borderWidth: 2 }}
+                  />{" "}
+                  Retrying
+                </>
+              ) : (
+                <>
+                  <ArrowPathIcon style={{ width: 12, height: 12 }} /> Retry
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (accountStatus === "checking") {
+      return (
+        <div className="pm-account-status pm-account-checking">
+          <div
+            className="co-spinner"
+            style={{ width: 16, height: 16, borderWidth: 2 }}
+          />
+          <span>Validating account...</span>
+        </div>
+      );
+    }
+
+    if (accountStatus === "valid") {
+      return (
+        <div className="pm-account-status pm-account-valid">
+          <CheckCircleSolid className="pm-account-icon" />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 800 }}>Account Valid</div>
+            {accountHolderName && (
+              <div style={{ fontSize: 11, opacity: 0.8, marginTop: 1 }}>
+                {accountHolderName}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    if (accountStatus === "invalid") {
+      return (
+        <div className="pm-account-status pm-account-invalid">
+          <XCircleSolid className="pm-account-icon" />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 800 }}>Invalid Details</div>
+            <div style={{ fontSize: 11, opacity: 0.8, marginTop: 1 }}>
+              {accountValidationMessage || "Please check your number and network"}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  const renderNumberValidation = () => {
+    const status = getMsisdnValidationStatus(momoNumber);
+
+    if (status.type === "success" && !selectedNetwork) {
+      return (
+        <span className="pm-validation pm-validation-ok">
+          <CheckCircleIcon style={{ width: 12, height: 12 }} /> Select network
+          below
+        </span>
+      );
+    }
+
+    if (status.type === "warning") {
+      return (
+        <span className="pm-validation pm-validation-warning">
+          <ExclamationTriangleIcon style={{ width: 12, height: 12 }} />{" "}
+          {status.message}
+        </span>
+      );
+    }
+
+    if (status.type === "error") {
+      return (
+        <span className="pm-validation pm-validation-error">
+          <XCircleIcon style={{ width: 12, height: 12 }} /> {status.message}
+        </span>
+      );
+    }
+
+    return null;
   };
 
   // ==================== EMPTY CART ====================
@@ -1452,11 +2315,19 @@ const Checkout = () => {
           <div className="co-container">
             <div className="co-empty">
               <div className="co-empty-icon">
-                <ShoppingBagIcon style={{ width: 36, height: 36, color: "var(--co-light)" }} />
+                <ShoppingBagIcon
+                  style={{ width: 36, height: 36, color: "var(--co-light)" }}
+                />
               </div>
               <div className="co-empty-title">Your cart is empty</div>
-              <div className="co-empty-desc">Add items to your cart to proceed with checkout.</div>
-              <button onClick={() => navigate("/")} className="co-btn-primary" style={{ maxWidth: 280 }}>
+              <div className="co-empty-desc">
+                Add items to your cart to proceed with checkout.
+              </div>
+              <button
+                onClick={() => navigate("/")}
+                className="co-btn-primary"
+                style={{ maxWidth: 280 }}
+              >
                 Continue Shopping
               </button>
             </div>
@@ -1487,7 +2358,10 @@ const Checkout = () => {
             <div className="co-page-header-accent" />
             <div>
               <h1 className="co-page-title">Checkout</h1>
-              <p className="co-page-count">{cartItems.length} item{cartItems.length !== 1 ? "s" : ""} in cart</p>
+              <p className="co-page-count">
+                {cartItems.length} item
+                {cartItems.length !== 1 ? "s" : ""} in cart
+              </p>
             </div>
             <div className="co-page-header-line" />
           </div>
@@ -1504,29 +2378,63 @@ const Checkout = () => {
                   </div>
                 </div>
                 <div className="co-card-body">
-                  <div className="co-toggle-wrap" onClick={() => setIsDifferentRecipient((v) => !v)}>
+                  <div
+                    className="co-toggle-wrap"
+                    onClick={() => setIsDifferentRecipient((v) => !v)}
+                  >
                     <div className="co-toggle-left">
-                      <UserIcon style={{ width: 16, height: 16, color: "var(--co-light)" }} />
+                      <UserIcon
+                        style={{
+                          width: 16,
+                          height: 16,
+                          color: "var(--co-light)",
+                        }}
+                      />
                       <span>Different recipient?</span>
                     </div>
-                    <div className={`co-toggle-track ${isDifferentRecipient ? "co-toggle-track-on" : "co-toggle-track-off"}`}>
-                      <div className={`co-toggle-knob ${isDifferentRecipient ? "co-toggle-knob-on" : ""}`} />
+                    <div
+                      className={`co-toggle-track ${
+                        isDifferentRecipient
+                          ? "co-toggle-track-on"
+                          : "co-toggle-track-off"
+                      }`}
+                    >
+                      <div
+                        className={`co-toggle-knob ${
+                          isDifferentRecipient ? "co-toggle-knob-on" : ""
+                        }`}
+                      />
                     </div>
                   </div>
 
                   {isDifferentRecipient && (
                     <div className="co-warning-banner">
-                      <ExclamationTriangleIcon style={{ width: 16, height: 16, color: "#d97706", flexShrink: 0, marginTop: 1 }} />
-                      <p>Enter the recipient's name and contact number below.</p>
+                      <ExclamationTriangleIcon
+                        style={{
+                          width: 16,
+                          height: 16,
+                          color: "#d97706",
+                          flexShrink: 0,
+                          marginTop: 1,
+                        }}
+                      />
+                      <p>
+                        Enter the recipient's name and contact number below.
+                      </p>
                     </div>
                   )}
 
                   <CheckoutForm
-                    customerName={customerName} setCustomerName={setCustomerName}
-                    customerNumber={customerNumber} setCustomerNumber={setCustomerNumber}
-                    deliveryInfo={deliveryInfo} setDeliveryInfo={setDeliveryInfo}
-                    orderNote={orderNote} setOrderNote={setOrderNote}
-                    locations={locations} customerAccountType={customerAccountType}
+                    customerName={customerName}
+                    setCustomerName={setCustomerName}
+                    customerNumber={customerNumber}
+                    setCustomerNumber={setCustomerNumber}
+                    deliveryInfo={deliveryInfo}
+                    setDeliveryInfo={setDeliveryInfo}
+                    orderNote={orderNote}
+                    setOrderNote={setOrderNote}
+                    locations={locations}
+                    customerAccountType={customerAccountType}
                     firstName={customerData?.firstName || "Guest"}
                     isDifferentRecipient={isDifferentRecipient}
                     readOnlyRecipient={!isDifferentRecipient}
@@ -1557,15 +2465,26 @@ const Checkout = () => {
                           <div className="co-item-left">
                             <div style={{ position: "relative" }}>
                               {renderImage(item.imagePath)}
-                              <div className="co-item-img-placeholder" style={{ display: "none" }}>No Image</div>
+                              <div
+                                className="co-item-img-placeholder"
+                                style={{ display: "none" }}
+                              >
+                                No Image
+                              </div>
                             </div>
                             <div className="co-item-info">
-                              <p className="co-item-name">{item.productName || "Product"}</p>
-                              <p className="co-item-unit">Unit: {formatGHS(unitPrice)}</p>
+                              <p className="co-item-name">
+                                {item.productName || "Product"}
+                              </p>
+                              <p className="co-item-unit">
+                                Unit: {formatGHS(unitPrice)}
+                              </p>
                               <span className="co-item-qty">Qty {qty}</span>
                             </div>
                           </div>
-                          <span className="co-item-price">{formatGHS(lineTotal)}</span>
+                          <span className="co-item-price">
+                            {formatGHS(lineTotal)}
+                          </span>
                         </div>
                       );
                     })}
@@ -1575,19 +2494,31 @@ const Checkout = () => {
                   <div className="co-totals">
                     <div className="co-total-row">
                       <span className="co-total-row-label">Subtotal</span>
-                      <span className="co-total-row-value">{formatGHS(calculateSubtotal())}</span>
+                      <span className="co-total-row-value">
+                        {formatGHS(calculateSubtotal())}
+                      </span>
                     </div>
 
                     <div className="co-total-row">
                       <span className="co-total-row-label">Shipping Fee</span>
                       {isFreeDelivery ? (
-                        <span className="co-total-row-free">FREE DELIVERY</span>
+                        <span className="co-total-row-free">
+                          FREE DELIVERY
+                        </span>
                       ) : isNADelivery ? (
-                        <span className="co-total-row-warning">{isAgent ? "Agent delivery" : "Delivery charges apply"}</span>
+                        <span className="co-total-row-warning">
+                          {isAgent
+                            ? "Agent delivery"
+                            : "Delivery charges apply"}
+                        </span>
                       ) : deliveryFee > 0 ? (
-                        <span className="co-total-row-value">{formatGHS(deliveryFee)}</span>
+                        <span className="co-total-row-value">
+                          {formatGHS(deliveryFee)}
+                        </span>
                       ) : (
-                        <span className="co-total-row-warning">Select location</span>
+                        <span className="co-total-row-warning">
+                          Select location
+                        </span>
                       )}
                     </div>
 
@@ -1599,7 +2530,9 @@ const Checkout = () => {
                     )}
 
                     <div className="co-grand-total">
-                      <span className="co-grand-total-label">Total Amount</span>
+                      <span className="co-grand-total-label">
+                        Total Amount
+                      </span>
                       <span className="co-grand-total-value">
                         {paymentMethod === "Mobile Money"
                           ? formatGHS(calculateDisplayTotalWithCharge())
@@ -1608,7 +2541,10 @@ const Checkout = () => {
                     </div>
 
                     {paymentMethod === "Mobile Money" && (
-                      <p className="co-charge-note">* Service charge is applied by your mobile money provider.</p>
+                      <p className="co-charge-note">
+                        * Service charge is applied by your mobile money
+                        provider.
+                      </p>
                     )}
                   </div>
 
@@ -1617,29 +2553,67 @@ const Checkout = () => {
                   {/* Payment Method */}
                   <div className="co-payment-section">
                     <p className="co-payment-title">Payment Method</p>
-                    <Radio.Group value={paymentMethod} onChange={handlePaymentMethodChange} style={{ width: "100%" }}>
+                    <Radio.Group
+                      value={paymentMethod}
+                      onChange={handlePaymentMethodChange}
+                      style={{ width: "100%" }}
+                    >
                       <div className="co-payment-options">
-                        {(isAgent || isFreeDelivery || (deliveryFee > 0 && !isNADelivery)) && (
-                          <label className={`co-payment-option ${paymentMethod === "Cash on Delivery" ? "co-payment-option-active" : ""}`}>
+                        {(isAgent ||
+                          isFreeDelivery ||
+                          (deliveryFee > 0 && !isNADelivery)) && (
+                          <label
+                            className={`co-payment-option ${
+                              paymentMethod === "Cash on Delivery"
+                                ? "co-payment-option-active"
+                                : ""
+                            }`}
+                          >
                             <Radio value="Cash on Delivery" />
-                            <span className="co-payment-option-text">Cash on Delivery</span>
+                            <span className="co-payment-option-text">
+                              Cash on Delivery
+                            </span>
                           </label>
                         )}
                         {!isAgent && (
-                          <label className={`co-payment-option ${paymentMethod === "Mobile Money" ? "co-payment-option-active" : ""}`}>
+                          <label
+                            className={`co-payment-option ${
+                              paymentMethod === "Mobile Money"
+                                ? "co-payment-option-active"
+                                : ""
+                            }`}
+                          >
                             <Radio value="Mobile Money" />
-                            <span className="co-payment-option-text">Mobile Money</span>
+                            <span className="co-payment-option-text">
+                              Mobile Money
+                            </span>
                           </label>
                         )}
                         {isAgent && (
                           <>
-                            <label className={`co-payment-option ${paymentMethod === "Pick Up" ? "co-payment-option-active" : ""}`}>
+                            <label
+                              className={`co-payment-option ${
+                                paymentMethod === "Pick Up"
+                                  ? "co-payment-option-active"
+                                  : ""
+                              }`}
+                            >
                               <Radio value="Pick Up" />
-                              <span className="co-payment-option-text">Pick Up</span>
+                              <span className="co-payment-option-text">
+                                Pick Up
+                              </span>
                             </label>
-                            <label className={`co-payment-option ${paymentMethod === "Paid Already" ? "co-payment-option-active" : ""}`}>
+                            <label
+                              className={`co-payment-option ${
+                                paymentMethod === "Paid Already"
+                                  ? "co-payment-option-active"
+                                  : ""
+                              }`}
+                            >
                               <Radio value="Paid Already" />
-                              <span className="co-payment-option-text">Paid Already</span>
+                              <span className="co-payment-option-text">
+                                Paid Already
+                              </span>
                             </label>
                           </>
                         )}
@@ -1649,11 +2623,30 @@ const Checkout = () => {
 
                   {/* Desktop Place Order */}
                   <div className="co-desktop-btn">
-                    <button onClick={handleCheckout} disabled={loading} className="co-btn-primary">
+                    <button
+                      onClick={handleCheckout}
+                      disabled={loading}
+                      className="co-btn-primary"
+                    >
                       {loading ? (
-                        <><div className="co-spinner" style={{ width: 20, height: 20, borderWidth: 3 }} /> Processing Order...</>
+                        <>
+                          <div
+                            className="co-spinner"
+                            style={{
+                              width: 20,
+                              height: 20,
+                              borderWidth: 3,
+                            }}
+                          />{" "}
+                          Processing Order...
+                        </>
                       ) : (
-                        <><ShoppingBagIcon style={{ width: 20, height: 20 }} /> Place Order</>
+                        <>
+                          <ShoppingBagIcon
+                            style={{ width: 20, height: 20 }}
+                          />{" "}
+                          Place Order
+                        </>
                       )}
                     </button>
                   </div>
@@ -1665,26 +2658,63 @@ const Checkout = () => {
 
         {/* Sticky Mobile Button */}
         <div className="co-sticky-bottom">
-          <button onClick={handleCheckout} disabled={loading} className="co-btn-primary">
+          <button
+            onClick={handleCheckout}
+            disabled={loading}
+            className="co-btn-primary"
+          >
             {loading ? (
-              <><div className="co-spinner" style={{ width: 20, height: 20, borderWidth: 3 }} /> Processing...</>
+              <>
+                <div
+                  className="co-spinner"
+                  style={{ width: 20, height: 20, borderWidth: 3 }}
+                />{" "}
+                Processing...
+              </>
             ) : (
-              <><ShoppingBagIcon style={{ width: 20, height: 20 }} /> Place Order</>
+              <>
+                <ShoppingBagIcon style={{ width: 20, height: 20 }} /> Place
+                Order
+              </>
             )}
           </button>
         </div>
 
         {/* ══════ GUEST WARNING ══════ */}
-        <Modal open={isGuestWarningVisible} onCancel={() => setIsGuestWarningVisible(false)} centered footer={null} width={400} className="co-modal">
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "16px 0", gap: 16 }}>
+        <Modal
+          open={isGuestWarningVisible}
+          onCancel={() => setIsGuestWarningVisible(false)}
+          centered
+          footer={null}
+          width={400}
+          className="co-modal"
+        >
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              textAlign: "center",
+              padding: "16px 0",
+              gap: 16,
+            }}
+          >
             <div className="co-dialog-icon co-dialog-icon-warning">
-              <ExclamationTriangleIcon style={{ width: 28, height: 28, color: "#f59e0b" }} />
+              <ExclamationTriangleIcon
+                style={{ width: 28, height: 28, color: "#f59e0b" }}
+              />
             </div>
             <div>
               <div className="co-dialog-title">Real name required</div>
-              <div className="co-dialog-desc">Please enter your actual full name before placing an order.</div>
+              <div className="co-dialog-desc">
+                Please enter your actual full name before placing an order.
+              </div>
             </div>
-            <button onClick={() => setIsGuestWarningVisible(false)} className="co-btn-primary" style={{ maxWidth: 280 }}>
+            <button
+              onClick={() => setIsGuestWarningVisible(false)}
+              className="co-btn-primary"
+              style={{ maxWidth: 280 }}
+            >
               OK, I'll update my name
             </button>
           </div>
@@ -1692,64 +2722,148 @@ const Checkout = () => {
 
         {/* ══════ VALIDATION MODAL ══════ */}
         <Modal
-          title={<div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--co-red)", fontFamily: "var(--co-font)", fontWeight: 800 }}>
-            <ExclamationTriangleIcon style={{ width: 18, height: 18 }} /> Complete Required Fields
-          </div>}
-          open={isValidationModalVisible} onCancel={() => setIsValidationModalVisible(false)} centered className="co-modal"
-          footer={[<button key="ok" onClick={() => setIsValidationModalVisible(false)} className="co-btn-primary" style={{ maxWidth: 140, margin: "0 auto" }}>Got It</button>]}
+          title={
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                color: "var(--co-red)",
+                fontFamily: "var(--co-font)",
+                fontWeight: 800,
+              }}
+            >
+              <ExclamationTriangleIcon style={{ width: 18, height: 18 }} />{" "}
+              Complete Required Fields
+            </div>
+          }
+          open={isValidationModalVisible}
+          onCancel={() => setIsValidationModalVisible(false)}
+          centered
+          className="co-modal"
+          footer={[
+            <button
+              key="ok"
+              onClick={() => setIsValidationModalVisible(false)}
+              className="co-btn-primary"
+              style={{ maxWidth: 140, margin: "0 auto" }}
+            >
+              Got It
+            </button>,
+          ]}
         >
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
-            <p style={{ fontSize: 13, color: "var(--co-light)", marginBottom: 4 }}>Please fill in the following:</p>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              marginTop: 12,
+            }}
+          >
+            <p
+              style={{
+                fontSize: 13,
+                color: "var(--co-light)",
+                marginBottom: 4,
+              }}
+            >
+              Please fill in the following:
+            </p>
             {validateRequiredFields().map((error, index) => {
-              const icons = { name: UserIcon, phone: PhoneIcon, address: MapPinIcon, payment: CreditCardIcon };
-              const labels = { name: "Recipient Name", phone: "Contact Number", address: "Delivery Address", payment: "Payment Method" };
+              const icons = {
+                name: UserIcon,
+                phone: PhoneIcon,
+                address: MapPinIcon,
+                payment: CreditCardIcon,
+              };
+              const labels = {
+                name: "Recipient Name",
+                phone: "Contact Number",
+                address: "Delivery Address",
+                payment: "Payment Method",
+              };
               const Icon = icons[error.field] || ExclamationTriangleIcon;
               return (
-                <div key={index} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "var(--co-radius)" }}>
-                  <Icon style={{ width: 16, height: 16, color: "#ef4444", flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#991b1b" }}>{labels[error.field]}</span>
+                <div
+                  key={index}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "8px 12px",
+                    background: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    borderRadius: "var(--co-radius)",
+                  }}
+                >
+                  <Icon
+                    style={{
+                      width: 16,
+                      height: 16,
+                      color: "#ef4444",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: "#991b1b",
+                    }}
+                  >
+                    {labels[error.field]}
+                  </span>
                 </div>
               );
             })}
           </div>
         </Modal>
 
-        {/* ══════ PAYMENT MODAL — REDESIGNED ══════ */}
+        {/* ══════ PAYMENT MODAL ══════ */}
         {!isAgent && (
           <Modal
             open={isPaymentModalVisible}
-            onCancel={() => {
-              if (paymentStatus === "input") {
-                if (initialDelayRef.current) clearTimeout(initialDelayRef.current);
-                if (pollingRef.current) clearInterval(pollingRef.current);
-                if (countdownRef.current) clearInterval(countdownRef.current);
-                setIsPaymentModalVisible(false);
-                setPaymentStatus("idle");
-              }
-            }}
+            onCancel={handleClosePaymentModal}
             footer={null}
-            closable={paymentStatus === "input"}
+            closable={
+              paymentStatus === "input" || paymentStatus === "failed"
+            }
+            maskClosable={
+              paymentStatus === "input" || paymentStatus === "failed"
+            }
             centered
-            width={480}
-            styles={{ body: { padding: 0 }, content: { borderRadius: 12, overflow: "hidden" } }}
+            width={440}
+            styles={{
+              body: { padding: 0 },
+              content: { borderRadius: 16, overflow: "hidden" },
+            }}
             className="co-modal"
           >
             <div className="pm-modal-wrap">
-              {/* ── Branded Header Strip ── */}
-              <div className="pm-header-strip">
-                <img src={frankoLogo} alt="Franko" className="pm-logo" onError={(e) => { e.target.style.display = "none"; }} />
-                <p className="pm-company">Franko Trading Limited</p>
-                <p className="pm-amount-label">Amount to Pay</p>
-                <p className="pm-amount-value">{formatGHS(calculateDisplayTotalWithCharge())}</p>
-                <div className="pm-ref-badge">
-                  <LockClosedIcon style={{ width: 10, height: 10 }} />
-                  {currentOrderId}
+              <div className="pm-header-compact">
+                <div className="pm-header-left">
+                  <img
+                    src={frankoLogo}
+                    alt="Franko"
+                    className="pm-logo-small"
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                    }}
+                  />
+                  <div className="pm-header-text">
+                    <p className="pm-company-small">Franko Trading</p>
+                    <p className="pm-ref-small">{currentOrderId}</p>
+                  </div>
+                </div>
+                <div className="pm-header-right">
+                  <p className="pm-amount-label-small">Pay</p>
+                  <p className="pm-amount-value-small">
+                    {formatGHS(calculateDisplayTotalWithCharge())}
+                  </p>
                 </div>
               </div>
 
-              {/* ── Modal Body ── */}
               <div className="pm-body">
-
                 {/* INPUT STATE */}
                 {paymentStatus === "input" && (
                   <>
@@ -1757,34 +2871,34 @@ const Checkout = () => {
                     <div className="pm-field">
                       <div className="pm-field-header">
                         <span className="pm-field-step-num">1</span>
-                        <span className="pm-field-label">Enter Mobile Money Number</span>
+                        <span className="pm-field-label">
+                          Mobile Money Number
+                        </span>
                       </div>
                       <div className="pm-field-body">
                         <Input
                           placeholder="233XXXXXXXXX"
                           value={momoNumber}
                           onChange={handleMomoNumberChange}
-                          prefix={<PhoneIcon style={{ width: 16, height: 16, color: "#888" }} />}
+                          prefix={
+                            <PhoneIcon
+                              style={{
+                                width: 16,
+                                height: 16,
+                                color: "#888",
+                              }}
+                            />
+                          }
                           size="large"
-                          maxLength={12}
-                          style={{ fontSize: 16, fontWeight: 700, borderRadius: 6 }}
+                          maxLength={13}
+                          style={{
+                            fontSize: 16,
+                            fontWeight: 700,
+                            borderRadius: 8,
+                          }}
                         />
                         <div className="pm-validation">
-                          {startsWithZeroAfter233() && (
-                            <span className="pm-validation-error">
-                              <XCircleIcon style={{ width: 13, height: 13 }} /> Do not begin with 0 after 233
-                            </span>
-                          )}
-                          {momoNumber.length === 12 && !isValidMomoNumber() && !startsWithZeroAfter233() && (
-                            <span className="pm-validation-error">
-                              <XCircleIcon style={{ width: 13, height: 13 }} /> Please enter a valid 9-digit number
-                            </span>
-                          )}
-                          {isValidMomoNumber() && (
-                            <span className="pm-validation-ok">
-                              <CheckCircleIcon style={{ width: 13, height: 13 }} /> Valid number
-                            </span>
-                          )}
+                          {renderNumberValidation()}
                         </div>
                       </div>
                     </div>
@@ -1793,32 +2907,94 @@ const Checkout = () => {
                     <div className="pm-field">
                       <div className="pm-field-header">
                         <span className="pm-field-step-num">2</span>
-                        <span className="pm-field-label">Choose Network Provider</span>
+                        <span className="pm-field-label">
+                          Network Provider
+                        </span>
                       </div>
                       <div className="pm-field-body">
-                        <Radio.Group value={selectedNetwork} onChange={(e) => setSelectedNetwork(e.target.value)} style={{ width: "100%" }}>
+                        <Radio.Group
+                          value={selectedNetwork}
+                          onChange={(e) => {
+                            setSelectedNetwork(e.target.value);
+                            setIsServiceUnavailable(false);
+                          }}
+                          style={{ width: "100%" }}
+                        >
                           <div className="pm-networks">
                             {[
-                              { value: "mtn", logo: mtnLogo, name: "MTN Mobile Money", sub: "Dial *170#", activeBg: "#fffbeb", activeBorder: "#fbbf24", checkColor: "#d97706" },
-                              { value: "vodafone", logo: vodafoneLogo, name: "Vodafone Cash", sub: "Dial *110#", activeBg: "#fff1f2", activeBorder: "#fda4af", checkColor: "#e11d48" },
-                              { value: "airteltigo", logo: airteltigoLogo, name: "AirtelTigo Money", sub: "Dial *110#", activeBg: "#eff6ff", activeBorder: "#93c5fd", checkColor: "#2563eb" },
+                              {
+                                value: "mtn",
+                                logo: mtnLogo,
+                                name: "MTN MoMo",
+                                sub: "*170#",
+                                activeBg: "#fffbeb",
+                                activeBorder: "#fbbf24",
+                                checkColor: "#d97706",
+                              },
+                              {
+                                value: "vodafone",
+                                logo: vodafoneLogo,
+                                name: "Vodafone Cash",
+                                sub: "*110#",
+                                activeBg: "#fff1f2",
+                                activeBorder: "#fda4af",
+                                checkColor: "#e11d48",
+                              },
+                              {
+                                value: "airteltigo",
+                                logo: airteltigoLogo,
+                                name: "AirtelTigo",
+                                sub: "*110#",
+                                activeBg: "#eff6ff",
+                                activeBorder: "#93c5fd",
+                                checkColor: "#2563eb",
+                              },
                             ].map((net) => (
                               <label
                                 key={net.value}
-                                className={`pm-network-tile ${selectedNetwork === net.value ? "pm-network-tile-active" : ""}`}
-                                style={selectedNetwork === net.value
-                                  ? { background: net.activeBg, borderColor: net.activeBorder }
-                                  : {}}
+                                className={`pm-network-tile ${
+                                  selectedNetwork === net.value
+                                    ? "pm-network-tile-active"
+                                    : ""
+                                }`}
+                                style={
+                                  selectedNetwork === net.value
+                                    ? {
+                                        background: net.activeBg,
+                                        borderColor: net.activeBorder,
+                                      }
+                                    : {}
+                                }
                               >
-                                <Radio value={net.value} style={{ flexShrink: 0 }} />
-                                <img src={net.logo} alt={net.name} className="pm-network-logo" onError={(e) => { e.target.style.display = "none"; }} />
-                                <div style={{ flex: 1 }}>
-                                  <p className="pm-network-name">{net.name}</p>
-                                  <p className="pm-network-sub">{net.sub}</p>
+                                <Radio
+                                  value={net.value}
+                                  style={{ display: "none" }}
+                                />
+                                <img
+                                  src={net.logo}
+                                  alt={net.name}
+                                  className="pm-network-logo"
+                                  onError={(e) => {
+                                    e.target.style.display = "none";
+                                  }}
+                                />
+                                <div className="pm-network-info">
+                                  <p className="pm-network-name">
+                                    {net.name}
+                                  </p>
+                                  <p className="pm-network-sub">
+                                    {net.sub}
+                                  </p>
                                 </div>
                                 {selectedNetwork === net.value && (
                                   <div className="pm-network-check">
-                                    <CheckCircleSolid style={{ width: 20, height: 20, color: net.checkColor }} />
+                                    <CheckCircleSolid
+                                      style={{
+                                        width: 22,
+                                        height: 22,
+                                        color: net.checkColor,
+                                      }}
+                                    />
                                   </div>
                                 )}
                               </label>
@@ -1828,42 +3004,78 @@ const Checkout = () => {
                       </div>
                     </div>
 
+                    {/* Account Validation Status */}
+                    {renderAccountValidationStatus()}
+
                     {/* Pay Button */}
                     <button
                       onClick={handlePayNow}
-                      disabled={!isValidMomoNumber() || !selectedNetwork || payButtonLoading}
+                      disabled={
+                        !canProceedWithPayment() || payButtonLoading
+                      }
                       className="pm-pay-btn"
                     >
                       {payButtonLoading ? (
                         <>
-                          <div className="co-spinner" style={{ width: 18, height: 18, borderWidth: 2, borderTopColor: "#fff", borderColor: "rgba(255,255,255,0.3)" }} />
+                          <div
+                            className="co-spinner"
+                            style={{
+                              width: 18,
+                              height: 18,
+                              borderWidth: 2,
+                              borderTopColor: "#fff",
+                              borderColor: "rgba(255,255,255,0.3)",
+                            }}
+                          />
                           Sending request…
+                        </>
+                      ) : accountStatus === "checking" ? (
+                        <>
+                          <div
+                            className="co-spinner"
+                            style={{
+                              width: 18,
+                              height: 18,
+                              borderWidth: 2,
+                              borderTopColor: "#fff",
+                              borderColor: "rgba(255,255,255,0.3)",
+                            }}
+                          />
+                          Validating...
                         </>
                       ) : (
                         <>
-                          <LockClosedIcon style={{ width: 16, height: 16 }} />
-                          Pay {formatGHS(calculateDisplayTotalWithCharge())} Securely
+                          <LockClosedIcon
+                            style={{ width: 16, height: 16 }}
+                          />
+                          Pay{" "}
+                          {formatGHS(calculateDisplayTotalWithCharge())}
                         </>
                       )}
                     </button>
 
                     {/* Security note */}
                     <div className="pm-security">
-                      <ShieldCheckIcon style={{ width: 13, height: 13 }} />
-                      Secured by Ghana Interbank Payment &amp; Settlement Systems (GhIPSS)
+                      <ShieldCheckIcon
+                        style={{ width: 12, height: 12 }}
+                      />
+                      Secured by GhIPSS
                     </div>
 
                     {/* What happens next */}
                     <div className="pm-info-box">
                       <p className="pm-info-title">
-                        <CheckCircleIcon style={{ width: 14, height: 14 }} />
+                        <CheckCircleIcon
+                          style={{ width: 12, height: 12 }}
+                        />
                         What happens next?
                       </p>
                       <ol className="pm-info-list">
-                        <li>You'll receive a payment prompt on your phone</li>
-                        <li>Enter your MoMo PIN to approve the payment</li>
-                        <li>We automatically check for confirmation every 5 seconds</li>
-                        <li>Your order is processed immediately after payment clears</li>
+                        <li>
+                          You'll receive a payment prompt on your phone
+                        </li>
+                        <li>Enter your MoMo PIN to approve</li>
+                        <li>We auto-check for confirmation</li>
                       </ol>
                     </div>
                   </>
@@ -1876,37 +3088,72 @@ const Checkout = () => {
                       <div className="pm-pending-ring-outer" />
                       <div className="pm-pending-ring-spin" />
                       <div className="pm-pending-ring-inner">
-                        <PhoneIcon style={{ width: 30, height: 30, color: "var(--co-green-600)" }} />
+                        <PhoneIcon
+                          style={{
+                            width: 26,
+                            height: 26,
+                            color: "var(--co-green-600)",
+                          }}
+                        />
                       </div>
                     </div>
 
                     <div className="pm-pending-text-wrap">
-                      <p className="pm-pending-title">Awaiting Your Approval</p>
-                      <p className="pm-pending-desc">Check your phone for a payment prompt</p>
+                      <p className="pm-pending-title">Awaiting Approval</p>
+                      <p className="pm-pending-desc">
+                        Check your phone for prompt
+                      </p>
                     </div>
 
-                    <div className="pm-pending-details" style={{ width: "100%" }}>
+                    <div
+                      className="pm-pending-details"
+                      style={{ width: "100%" }}
+                    >
                       <div className="pm-pending-row">
-                        <span className="pm-pending-row-label">Number</span>
-                        <span className="pm-pending-row-value">{momoNumber}</span>
+                        <span className="pm-pending-row-label">
+                          Number
+                        </span>
+                        <span className="pm-pending-row-value">
+                          {sanitizeMsisdn(momoNumber)}
+                        </span>
                       </div>
                       <div className="pm-pending-row">
-                        <span className="pm-pending-row-label">Network</span>
-                        <span className="pm-pending-row-value">{selectedNetwork?.toUpperCase()}</span>
+                        <span className="pm-pending-row-label">
+                          Network
+                        </span>
+                        <span className="pm-pending-row-value">
+                          {NETWORK_API_MAP[selectedNetwork]}
+                        </span>
                       </div>
                       <div className="pm-pending-row">
-                        <span className="pm-pending-row-label">Amount</span>
-                        <span className="pm-pending-row-amount">{formatGHS(calculateDisplayTotalWithCharge())}</span>
+                        <span className="pm-pending-row-label">
+                          Amount
+                        </span>
+                        <span className="pm-pending-row-amount">
+                          {formatGHS(calculateDisplayTotalWithCharge())}
+                        </span>
                       </div>
                     </div>
 
-                    <div className="pm-progress-wrap" style={{ width: "100%" }}>
+                    <div
+                      className="pm-progress-wrap"
+                      style={{ width: "100%" }}
+                    >
                       <div className="pm-progress-top">
-                        <span className="pm-progress-label">Checking for confirmation…</span>
-                        <span className="pm-progress-count">{timeoutCountdown}s</span>
+                        <span className="pm-progress-label">
+                          Checking…
+                        </span>
+                        <span className="pm-progress-count">
+                          {timeoutCountdown}s
+                        </span>
                       </div>
                       <div className="pm-progress-track">
-                        <div className="pm-progress-fill" style={{ width: `${(timeoutCountdown / 60) * 100}%` }} />
+                        <div
+                          className="pm-progress-fill"
+                          style={{
+                            width: `${(timeoutCountdown / 60) * 100}%`,
+                          }}
+                        />
                       </div>
                     </div>
                   </div>
@@ -1916,12 +3163,32 @@ const Checkout = () => {
                 {paymentStatus === "success" && (
                   <div className="pm-result-wrap">
                     <div className="pm-result-icon pm-result-icon-success">
-                      <CheckCircleSolid style={{ width: 44, height: 44, color: "var(--co-green-600)" }} />
+                      <CheckCircleSolid
+                        style={{
+                          width: 36,
+                          height: 36,
+                          color: "var(--co-green-600)",
+                        }}
+                      />
                     </div>
-                    <p className="pm-result-title pm-result-title-success">Payment Confirmed!</p>
-                    <p className="pm-result-desc">Processing your order now…</p>
-                    <div style={{ marginTop: 16 }}>
-                      <div className="co-spinner" style={{ width: 24, height: 24, borderWidth: 3, margin: "0 auto", borderTopColor: "var(--co-green-600)", borderColor: "var(--co-green-light)" }} />
+                    <p className="pm-result-title pm-result-title-success">
+                      Payment Confirmed!
+                    </p>
+                    <p className="pm-result-desc">
+                      Processing your order…
+                    </p>
+                    <div style={{ marginTop: 12 }}>
+                      <div
+                        className="co-spinner"
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderWidth: 3,
+                          margin: "0 auto",
+                          borderTopColor: "var(--co-green-600)",
+                          borderColor: "var(--co-green-light)",
+                        }}
+                      />
                     </div>
                   </div>
                 )}
@@ -1930,12 +3197,47 @@ const Checkout = () => {
                 {paymentStatus === "failed" && (
                   <div className="pm-result-wrap">
                     <div className="pm-result-icon pm-result-icon-failed">
-                      <XCircleSolid style={{ width: 44, height: 44, color: "var(--co-red)" }} />
+                      <XCircleSolid
+                        style={{
+                          width: 36,
+                          height: 36,
+                          color: "var(--co-red)",
+                        }}
+                      />
                     </div>
-                    <p className="pm-result-title pm-result-title-failed">Payment Failed</p>
-                    <p className="pm-result-desc">Redirecting you now…</p>
-                    <div style={{ marginTop: 16 }}>
-                      <div className="co-spinner" style={{ width: 24, height: 24, borderWidth: 3, margin: "0 auto", borderTopColor: "var(--co-red)", borderColor: "#fee2e2" }} />
+                    <p className="pm-result-title pm-result-title-failed">
+                      Payment Failed
+                    </p>
+                    <p className="pm-result-desc">
+                      {debitErrorMessage ||
+                        "Unable to initiate payment. Please try again."}
+                    </p>
+                    <div
+                      style={{
+                        marginTop: 16,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 8,
+                      }}
+                    >
+                      <button
+                        onClick={resetToPaymentInput}
+                        className="co-btn-primary"
+                      >
+                        <ArrowPathIcon
+                          style={{ width: 16, height: 16 }}
+                        />
+                        Try Again
+                      </button>
+                      <button
+                        onClick={performCancelOrder}
+                        className="co-btn-danger"
+                      >
+                        <XCircleIcon
+                          style={{ width: 16, height: 16 }}
+                        />
+                        Cancel Order
+                      </button>
                     </div>
                   </div>
                 )}
@@ -1945,54 +3247,152 @@ const Checkout = () => {
         )}
 
         {/* ══════ APPROVAL GUIDE MODAL ══════ */}
-        <Modal open={isApprovalGuideVisible} onCancel={undefined} footer={null} closable={false} centered width={520}
-          styles={{ body: { padding: "16px 20px", paddingBottom: "100px" } }} className="co-modal">
+        <Modal
+          open={isApprovalGuideVisible}
+          onCancel={undefined}
+          footer={null}
+          closable={false}
+          maskClosable={false}
+          centered
+          width={520}
+          styles={{
+            body: { padding: "16px 20px", paddingBottom: "100px" },
+          }}
+          className="co-modal"
+        >
           {netCfg && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              {/* Header */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 16,
+              }}
+            >
               <div className="co-guide-header">
-                <div className="co-guide-logo-wrap" style={{ background: netCfg.bg, borderColor: netCfg.border }}>
-                  <img src={netCfg.logo} alt={netCfg.label} className="co-guide-logo" onError={(e) => { e.target.style.display = "none"; }} />
+                <div
+                  className="co-guide-logo-wrap"
+                  style={{
+                    background: netCfg.bg,
+                    borderColor: netCfg.border,
+                  }}
+                >
+                  <img
+                    src={netCfg.logo}
+                    alt={netCfg.label}
+                    className="co-guide-logo"
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                    }}
+                  />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div className="co-guide-badge" style={{ background: netCfg.bg, borderColor: netCfg.border, color: netCfg.color }}>
-                    <span className="co-guide-badge-dot" style={{ background: netCfg.color }} />
+                  <div
+                    className="co-guide-badge"
+                    style={{
+                      background: netCfg.bg,
+                      borderColor: netCfg.border,
+                      color: netCfg.color,
+                    }}
+                  >
+                    <span
+                      className="co-guide-badge-dot"
+                      style={{ background: netCfg.color }}
+                    />
                     Payment Pending
                   </div>
                   <h3 className="co-guide-title">Approve Your Payment</h3>
-                  <p className="co-guide-subtitle">We haven't received confirmation yet. Please approve manually.</p>
+                  <p className="co-guide-subtitle">
+                    We haven't received confirmation yet. Please approve
+                    manually.
+                  </p>
                 </div>
               </div>
 
-              {/* Amount + number */}
-              <div className="co-guide-info-row" style={{ background: netCfg.bg, borderColor: netCfg.border }}>
+              <div
+                className="co-guide-info-row"
+                style={{
+                  background: netCfg.bg,
+                  borderColor: netCfg.border,
+                }}
+              >
                 <div>
                   <p className="co-guide-info-label">Amount Due</p>
-                  <p className="co-guide-info-value" style={{ color: netCfg.color, fontSize: 20 }}>{formatGHS(calculateDisplayTotalWithCharge())}</p>
+                  <p
+                    className="co-guide-info-value"
+                    style={{ color: netCfg.color, fontSize: 20 }}
+                  >
+                    {formatGHS(calculateDisplayTotalWithCharge())}
+                  </p>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <p className="co-guide-info-label">Number</p>
-                  <p className="co-guide-info-value" style={{ color: "var(--co-dark)", fontSize: 13 }}>{momoNumber}</p>
+                  <p
+                    className="co-guide-info-value"
+                    style={{
+                      color: "var(--co-dark)",
+                      fontSize: 13,
+                    }}
+                  >
+                    {sanitizeMsisdn(momoNumber)}
+                  </p>
                 </div>
               </div>
 
-              {/* USSD */}
-              <div className="co-guide-ussd-row" style={{ background: netCfg.bg, borderColor: netCfg.border }}>
-                <div className="co-guide-ussd-icon" style={{ background: `${netCfg.color}15` }}>
-                  <PhoneIcon style={{ width: 16, height: 16, color: netCfg.color }} />
+              <div
+                className="co-guide-ussd-row"
+                style={{
+                  background: netCfg.bg,
+                  borderColor: netCfg.border,
+                }}
+              >
+                <div
+                  className="co-guide-ussd-icon"
+                  style={{ background: `${netCfg.color}15` }}
+                >
+                  <PhoneIcon
+                    style={{
+                      width: 16,
+                      height: 16,
+                      color: netCfg.color,
+                    }}
+                  />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <p className="co-guide-ussd-label" style={{ color: netCfg.color }}>Quick Dial</p>
-                  <p className="co-guide-ussd-value" style={{ color: netCfg.color }}>{netCfg.ussd}</p>
+                  <p
+                    className="co-guide-ussd-label"
+                    style={{ color: netCfg.color }}
+                  >
+                    Quick Dial
+                  </p>
+                  <p
+                    className="co-guide-ussd-value"
+                    style={{ color: netCfg.color }}
+                  >
+                    {netCfg.ussd}
+                  </p>
                 </div>
-                <ArrowPathIcon style={{ width: 16, height: 16, color: "var(--co-light)" }} />
+                <ArrowPathIcon
+                  style={{
+                    width: 16,
+                    height: 16,
+                    color: "var(--co-light)",
+                  }}
+                />
               </div>
 
-              {/* Steps */}
               <div className="co-guide-steps-wrap">
                 <div className="co-guide-steps-header">
-                  <p className="co-guide-steps-title">Step-by-step approval</p>
-                  <span className="co-guide-steps-count" style={{ background: netCfg.bg, borderColor: netCfg.border, color: netCfg.color }}>
+                  <p className="co-guide-steps-title">
+                    Step-by-step approval
+                  </p>
+                  <span
+                    className="co-guide-steps-count"
+                    style={{
+                      background: netCfg.bg,
+                      borderColor: netCfg.border,
+                      color: netCfg.color,
+                    }}
+                  >
                     {netCfg.steps.length} steps
                   </span>
                 </div>
@@ -2002,11 +3402,26 @@ const Checkout = () => {
                     return (
                       <div key={idx} className="co-guide-step">
                         <div className="co-guide-step-col">
-                          <div className="co-guide-step-num" style={{ background: isLast ? netCfg.color : "#059669" }}>{step.num}</div>
-                          {!isLast && <div className="co-guide-step-line" />}
+                          <div
+                            className="co-guide-step-num"
+                            style={{
+                              background: isLast
+                                ? netCfg.color
+                                : "#059669",
+                            }}
+                          >
+                            {step.num}
+                          </div>
+                          {!isLast && (
+                            <div className="co-guide-step-line" />
+                          )}
                         </div>
-                        <p className={`co-guide-step-text ${isLast ? "co-guide-step-text-last" : ""}`}
-                          style={isLast ? { color: netCfg.color } : {}}>
+                        <p
+                          className={`co-guide-step-text ${
+                            isLast ? "co-guide-step-text-last" : ""
+                          }`}
+                          style={isLast ? { color: netCfg.color } : {}}
+                        >
                           {step.text}
                         </p>
                       </div>
@@ -2015,45 +3430,93 @@ const Checkout = () => {
                 </div>
               </div>
 
-              {/* Tip */}
               <div className="co-guide-tip">
                 <div className="co-guide-tip-icon">💡</div>
                 <p className="co-guide-tip-text">{netCfg.tip}</p>
               </div>
 
-              {/* Auto-check countdown */}
               {autoCheckCountdown > 0 && (
                 <div className="co-auto-check-bar">
-                  <span className="co-auto-check-label">Auto-checking payment in</span>
-                  <span className="co-auto-check-time">{formatAutoCheckTime(autoCheckCountdown)}</span>
+                  <span className="co-auto-check-label">
+                    Auto-checking payment in
+                  </span>
+                  <span className="co-auto-check-time">
+                    {formatAutoCheckTime(autoCheckCountdown)}
+                  </span>
                 </div>
               )}
 
-              {/* Desktop buttons */}
               <div className="co-guide-desktop-actions">
-                <button onClick={handleManualConfirm} disabled={verifyingPayment} className="co-btn-primary">
-                  {verifyingPayment ? (
-                    <><div className="co-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Verifying Payment…</>
+                <button
+                  onClick={handleManualConfirm}
+                  disabled={manualVerifying}
+                  className="co-btn-primary"
+                >
+                  {manualVerifying ? (
+                    <>
+                      <div
+                        className="co-spinner"
+                        style={{
+                          width: 18,
+                          height: 18,
+                          borderWidth: 2,
+                        }}
+                      />{" "}
+                      Verifying Payment…
+                    </>
                   ) : (
-                    <><CheckCircleSolid style={{ width: 18, height: 18 }} /> I've Approved — Confirm Payment</>
+                    <>
+                      <CheckCircleSolid
+                        style={{ width: 18, height: 18 }}
+                      />{" "}
+                      I've Approved — Confirm Payment
+                    </>
                   )}
                 </button>
-                <button onClick={handleCancelFromGuide} disabled={verifyingPayment} className="co-btn-danger">
-                  <XCircleIcon style={{ width: 16, height: 16 }} /> Cancel Order
+                <button
+                  onClick={handleCancelFromGuide}
+                  disabled={manualVerifying}
+                  className="co-btn-danger"
+                >
+                  <XCircleIcon style={{ width: 16, height: 16 }} /> Cancel
+                  Order
                 </button>
               </div>
 
-              {/* Mobile sticky buttons */}
               <div className="co-guide-sticky">
-                <button onClick={handleManualConfirm} disabled={verifyingPayment} className="co-btn-primary">
-                  {verifyingPayment ? (
-                    <><div className="co-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Verifying…</>
+                <button
+                  onClick={handleManualConfirm}
+                  disabled={manualVerifying}
+                  className="co-btn-primary"
+                >
+                  {manualVerifying ? (
+                    <>
+                      <div
+                        className="co-spinner"
+                        style={{
+                          width: 18,
+                          height: 18,
+                          borderWidth: 2,
+                        }}
+                      />{" "}
+                      Verifying…
+                    </>
                   ) : (
-                    <><CheckCircleSolid style={{ width: 18, height: 18 }} /> I've Approved — Confirm</>
+                    <>
+                      <CheckCircleSolid
+                        style={{ width: 18, height: 18 }}
+                      />{" "}
+                      I've Approved — Confirm
+                    </>
                   )}
                 </button>
-                <button onClick={handleCancelFromGuide} disabled={verifyingPayment} className="co-btn-danger">
-                  <XCircleIcon style={{ width: 14, height: 14 }} /> Cancel Order
+                <button
+                  onClick={handleCancelFromGuide}
+                  disabled={manualVerifying}
+                  className="co-btn-danger"
+                >
+                  <XCircleIcon style={{ width: 14, height: 14 }} /> Cancel
+                  Order
                 </button>
               </div>
             </div>
@@ -2062,9 +3525,15 @@ const Checkout = () => {
 
         {/* ══════ ACTION DIALOG ══════ */}
         <PaymentActionDialog
-          open={actionDialog.open} mode={actionDialog.mode} verifying={verifyingPayment}
-          onRetry={handleDialogRetry} onCancel={handleDialogCancel}
-          onClose={() => !verifyingPayment && setActionDialog((d) => ({ ...d, open: false }))}
+          open={actionDialog.open}
+          mode={actionDialog.mode}
+          verifying={manualVerifying}
+          onRetry={handleDialogRetry}
+          onCancel={handleDialogCancel}
+          onClose={() =>
+            !manualVerifying &&
+            setActionDialog((d) => ({ ...d, open: false }))
+          }
         />
       </div>
     </>
