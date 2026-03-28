@@ -153,15 +153,35 @@ const Nav = () => {
     if (products.length === 0) dispatch(fetchProducts());
   }, [dispatch, products.length]);
 
-  useEffect(() => {
-    if (!currentCustomer) {
-      try {
-        const stored = localStorage.getItem("customer");
-        if (stored && typeof stored === "object" && stored.customerAccountNumber)
-          dispatch(setCurrentCustomer(stored));
-      } catch {}
+useEffect(() => {
+  if (!currentCustomer) {
+    try {
+      const stored = localStorage.getItem("customer");
+      
+      // Handle both string and object returns from monkey-patched localStorage
+      let customer = null;
+      
+      if (stored) {
+        if (typeof stored === "object") {
+          customer = stored;
+        } else if (typeof stored === "string") {
+          try {
+            customer = JSON.parse(stored);
+          } catch {
+     
+          }
+        }
+      }
+      
+      if (customer && customer.customerAccountNumber) {
+       
+        dispatch(setCurrentCustomer(customer));
+      }
+    } catch (err) {
+
     }
-  }, [currentCustomer, dispatch]);
+  }
+}, [currentCustomer, dispatch]);
 
   useEffect(() => {
     if (currentCustomer?.customerAccountNumber) {

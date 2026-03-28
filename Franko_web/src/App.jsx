@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import {Routes, Route, useLocation, Navigate } from 'react-router-dom'
+import { Routes, Route, useLocation, Navigate } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import Nav from './Component/Nav/Navbar'
 import Home from './Pages/Home'
 import About from './Pages/About'
@@ -69,24 +70,8 @@ import ScrollToTop from './Pages/ScrollToTop'
 import DigiPage from './Pages/DigitalMarketer/DigiPage'
 import DigiOrders from './Pages/DigitalMarketer/Digi/DigiOrders'
 import DigiProducts from './Pages/DigitalMarketer/Digi/DigiProducts'
-import ContentBranchProduct from './Pages/ContentManager/ContentManagerPage/ContentBranchProduct'
-import BranchProductsPage from './Pages/AdminPages/BranchProductsPage'
 
 // ==================== UTILITY FUNCTIONS ====================
-
-const getUserRole = () => {
-  try {
-    const customer = localStorage.getItem("customer");
-    const user = localStorage.getItem("user");
-    if (!customer && !user) return null;
-
-    if (user?.position) return user.position; // Supervisor, Developer, etc.
-    return customer?.accountType || null; // customer, agent, admin
-  } catch (err) {
-   
-    return null;
-  }
-};
 
 const isWebBrowser = () => {
   const ua = navigator.userAgent;
@@ -95,37 +80,53 @@ const isWebBrowser = () => {
 
 const isElectron = () => navigator.userAgent.includes("Electron");
 
-// ==================== PROTECTED ROUTE COMPONENT ====================
+// ==================== PROTECTED ROUTE USING REDUX ====================
 
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
-  const userRole = getUserRole();
+  // ✅ USE REDUX STATE DIRECTLY - This is the key fix!
+  const customer = useSelector((state) => state.customer?.currentCustomer);
+  const location = useLocation();
+  
+  // Get role from Redux state
+  const userRole = customer?.accountType || null;
 
-  // ✅ Web-only restriction: allow only Developer, agent, and Fulfillment
-  if (isWebBrowser() && userRole && !["Developer", "agent", "Fulfillment"].includes(userRole)) {
+  // No customer in Redux state
+  if (!customer) {
+
+    return <Navigate to="/" state={{ from: location }} replace />;
+  }
+
+  // No role found
+  if (!userRole) {
+
     return <Navigate to="/" replace />;
   }
 
-  // ✅ Electron allows all roles (you can modify this as needed)
-  if (isElectron()) {
-    return children;
+  // Web browser restrictions - only allow certain roles
+  if (isWebBrowser()) {
+    const webAllowedRoles = ["Developer", "agent", "Fulfillment"];
+    
+    if (!webAllowedRoles.includes(userRole)) {
+
+      return <Navigate to="/" replace />;
+    }
   }
 
-  // ✅ Check if user's role is in the allowed roles
-  if (!userRole || !allowedRoles.includes(userRole)) {
+  // Electron allows all authenticated roles
+  if (isElectron()) {
+    if (allowedRoles.includes(userRole)) {
+  
+      return children;
+    }
+  }
+
+  // Check if role is in allowed roles for this route
+  if (!allowedRoles.includes(userRole)) {
+
     return <Navigate to="/" replace />;
   }
 
   return children;
-};
-
-// ==================== 🔒 BLOCKED ROUTE COMPONENT ====================
-
-/**
- * BlockedRoute - Prevents access to specified routes entirely
- * This is used for /admin/process to block all access
- */
-const BlockedRoute = () => {
-  return <Navigate to="/" replace />;
 };
 
 // ==================== CONDITIONAL NAVBAR ====================
@@ -137,28 +138,31 @@ const ConditionalNavbar = () => {
   const hiddenPaths = [
     "/admin/login",
     "/admin/register",
-    "/admin/process", // ✅ Hide navbar on blocked route too
   ];
 
-  const isAdminPath = pathname.startsWith("/admin/");
-  const isFulfillmentPath = pathname.startsWith("/fulfillment/");
-  const isContentPath = pathname.startsWith("/content/");
-  const isDevPath = pathname.startsWith("/dev/");
-  const isDigiPath = pathname.startsWith("/digi/");
+  const shouldHideNav = 
+    hiddenPaths.includes(pathname) ||
+    pathname.startsWith("/admin/") ||
+    pathname.startsWith("/agent/") ||
+    pathname.startsWith("/fulfillment/") ||
+    pathname.startsWith("/content/") ||
+    pathname.startsWith("/dev/") ||
+    pathname.startsWith("/digi/");
 
-  return !hiddenPaths.includes(pathname) && 
-         !isAdminPath && 
-         !isFulfillmentPath && 
-         !isContentPath &&
-         !isDevPath && 
-         !isDigiPath &&
-         <Nav />;
+  return shouldHideNav ? null : <Nav />;
 };
 
 // ==================== MAIN APP COMPONENT ====================
 
 function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  
+  // Debug: Log Redux customer state
+  const customer = useSelector((state) => state.customer?.currentCustomer);
+  
+  useEffect(() => {
+
+  }, [customer]);
 
   // Monitor network status
   useEffect(() => {
@@ -174,11 +178,7 @@ function App() {
   }, []);
 
   if (!isOnline) {
-    return (
-      <div>
-        <NoInternetPage />
-      </div>
-    );
+    return <NoInternetPage />;
   }
 
   return (
@@ -217,17 +217,193 @@ function App() {
 
         {/* ==================== AUTH ROUTES ==================== */}
         <Route path="/admin/login" element={<UserLogin />} />
-        
-        {/* 🔒 BLOCKED ROUTE - No one can access this */}
-        <Route path="/admin/process" element={<BlockedRoute />} />
-        <Route path="/admin/register" element={<BlockedRoute />} />
+        <Route path="/admin/register" element={<UserRegistration />} />
 
-        {/* ==================== ADMIN ROUTES - PROTECTED ==================== */}
+        {/* ==================== AGENT ROUTES ==================== */}
+        {/* NO WILDCARD - Specific routes only */}
         <Route 
-          path="/admin/*" 
+          path="/agent" 
+          element={
+            <ProtectedRoute allowedRoles={['agent']}>
+              <AgentPage>
+                <AgentDashboard />
+              </AgentPage>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/agent/dashboard" 
+          element={
+            <ProtectedRoute allowedRoles={['agent']}>
+              <AgentPage>
+                <AgentDashboard />
+              </AgentPage>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/agent/orders" 
+          element={
+            <ProtectedRoute allowedRoles={['agent']}>
+              <AgentPage>
+                <AgentOrders />
+              </AgentPage>
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* ==================== FULFILLMENT ROUTES ==================== */}
+        <Route 
+          path="/fulfillment" 
+          element={
+            <ProtectedRoute allowedRoles={['Fulfillment']}>
+              <FulfillmentPage>
+                <FulfilmentsDashboard />
+              </FulfillmentPage>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/fulfillment/dashboard" 
+          element={
+            <ProtectedRoute allowedRoles={['Fulfillment']}>
+              <FulfillmentPage>
+                <FulfilmentsDashboard />
+              </FulfillmentPage>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/fulfillment/orders" 
+          element={
+            <ProtectedRoute allowedRoles={['Fulfillment']}>
+              <FulfillmentPage>
+                <FulfilmentsOrder />
+              </FulfillmentPage>
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* ==================== DEVELOPER ROUTES ==================== */}
+        <Route 
+          path="/dev" 
+          element={
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage>
+                <DevDashboard />
+              </DevPage>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/dev/dashboard" 
+          element={
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage>
+                <DevDashboard />
+              </DevPage>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/dev/brands" 
+          element={
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage>
+                <DevBrands />
+              </DevPage>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/dev/categories" 
+          element={
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage>
+                <DevCategory />
+              </DevPage>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/dev/products" 
+          element={
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage>
+                <DevProducts />
+              </DevPage>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/dev/orders" 
+          element={
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage>
+                <DevOrders />
+              </DevPage>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/dev/showroom" 
+          element={
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage>
+                <DevShowroom />
+              </DevPage>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/dev/banner" 
+          element={
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage>
+                <DevBanners />
+              </DevPage>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/dev/users" 
+          element={
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage>
+                <DevUsers />
+              </DevPage>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/dev/customers" 
+          element={
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage>
+                <DevCustomers />
+              </DevPage>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/dev/payments" 
+          element={
+            <ProtectedRoute allowedRoles={['Developer']}>
+              <DevPage>
+                <Payments />
+              </DevPage>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ==================== ADMIN ROUTES (Electron Only) ==================== */}
+        <Route 
+          path="/admin" 
           element={
             <ProtectedRoute allowedRoles={['admin', 'Supervisor']}>
-              <AdminPage />
+              <AdminPage>
+                <Dashboard />
+              </AdminPage>
             </ProtectedRoute>
           } 
         />
@@ -282,11 +458,11 @@ function App() {
           } 
         />
         <Route 
-          path="/admin/branch-products" 
+          path="/admin/users" 
           element={
             <ProtectedRoute allowedRoles={['admin', 'Supervisor']}>
               <AdminPage>
-                <BranchProductsPage />
+                <Users />
               </AdminPage>
             </ProtectedRoute>
           } 
@@ -322,72 +498,14 @@ function App() {
           } 
         />
 
-        {/* ==================== AGENT ROUTES - PROTECTED ==================== */}
+        {/* ==================== CONTENT MANAGER ROUTES ==================== */}
         <Route 
-          path="/agent/*" 
-          element={
-            <ProtectedRoute allowedRoles={['agent']}>
-              <AgentPage />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/agent/dashboard" 
-          element={
-            <ProtectedRoute allowedRoles={['agent']}>
-              <AgentPage>
-                <AgentDashboard />
-              </AgentPage>
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/agent/orders" 
-          element={
-            <ProtectedRoute allowedRoles={['agent']}>
-              <AgentPage>
-                <AgentOrders />
-              </AgentPage>
-            </ProtectedRoute>
-          } 
-        />
-
-        {/* ==================== FULFILLMENT ROUTES - PROTECTED ==================== */}
-        <Route 
-          path="/fulfillment/*" 
-          element={
-            <ProtectedRoute allowedRoles={['Fulfillment']}>
-              <FulfillmentPage />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/fulfillment/dashboard" 
-          element={
-            <ProtectedRoute allowedRoles={['Fulfillment']}>
-              <FulfillmentPage>
-                <FulfilmentsDashboard />
-              </FulfillmentPage>
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/fulfillment/orders" 
-          element={
-            <ProtectedRoute allowedRoles={['Fulfillment']}>
-              <FulfillmentPage>
-                <FulfilmentsOrder />
-              </FulfillmentPage>
-            </ProtectedRoute>
-          } 
-        />
-
-        {/* ==================== CONTENT MANAGER ROUTES - PROTECTED ==================== */}
-        <Route 
-          path="/content/*" 
+          path="/content" 
           element={
             <ProtectedRoute allowedRoles={['Webcontentmanager']}>
-              <ContentPage />
+              <ContentPage>
+                <ContentDashboard />
+              </ContentPage>
             </ProtectedRoute>
           } 
         />
@@ -442,142 +560,26 @@ function App() {
           } 
         />
         <Route 
-          path="/content/branch-products" 
+          path="/content/banner" 
           element={
             <ProtectedRoute allowedRoles={['Webcontentmanager']}>
               <ContentPage>
-                <ContentBranchProduct />
+                <ContentBanner />
               </ContentPage>
             </ProtectedRoute>
           } 
         />
 
-        {/* ==================== DEVELOPER ROUTES - PROTECTED ==================== */}
+        {/* ==================== DIGITAL MARKETER ROUTES ==================== */}
         <Route 
-          path="/dev/*" 
-          element={
-            <ProtectedRoute allowedRoles={['Developer']}>
-              <DevPage />       
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/dev/dashboard" 
-          element={
-            <ProtectedRoute allowedRoles={['Developer']}>
-              <DevPage>
-                <DevDashboard />
-              </DevPage>
-            </ProtectedRoute>
-          }       
-        />
-        <Route 
-          path="/dev/brands" 
-          element={
-            <ProtectedRoute allowedRoles={['Developer']}>
-              <DevPage>
-                <DevBrands />
-              </DevPage>
-            </ProtectedRoute>
-          }
-        />
-        <Route 
-          path="/dev/categories" 
-          element={
-            <ProtectedRoute allowedRoles={['Developer']}>
-              <DevPage>
-                <DevCategory /> 
-              </DevPage>
-            </ProtectedRoute>
-          }
-        />
-        <Route 
-          path="/dev/products" 
-          element={ 
-            <ProtectedRoute allowedRoles={['Developer']}>
-              <DevPage>
-                <DevProducts />
-              </DevPage>
-            </ProtectedRoute>
-          }
-        />
-        <Route 
-          path="/dev/orders" 
-          element={  
-            <ProtectedRoute allowedRoles={['Developer']}>
-              <DevPage>
-                <DevOrders />
-              </DevPage>
-            </ProtectedRoute>
-          }
-        />
-        <Route 
-          path="/dev/showroom" 
-          element={   
-            <ProtectedRoute allowedRoles={['Developer']}>
-              <DevPage>
-                <DevShowroom />
-              </DevPage>
-            </ProtectedRoute>
-          }
-        />
-        <Route 
-          path="/dev/banner" 
-          element={   
-            <ProtectedRoute allowedRoles={['Developer']}>
-              <DevPage>
-                <DevBanners />
-              </DevPage>
-            </ProtectedRoute>
-          }
-        />
-        <Route 
-          path="/dev/users" 
-          element={
-            <ProtectedRoute allowedRoles={['Developer']}>
-              <DevPage>
-                <DevUsers />
-              </DevPage>
-            </ProtectedRoute>
-          }
-        />
-        <Route 
-          path="/dev/customers" 
-          element={   
-            <ProtectedRoute allowedRoles={['Developer']}>
-              <DevPage>
-                <DevCustomers />
-              </DevPage>
-            </ProtectedRoute>
-          }
-        />
-        <Route 
-          path="/dev/payments" 
-          element={
-            <ProtectedRoute allowedRoles={['Developer']}>
-              <DevPage>
-                <Payments />
-              </DevPage>
-            </ProtectedRoute>
-          }
-        />
-        <Route 
-          path="/dev" 
-          element={
-            <ProtectedRoute allowedRoles={['Developer']}>
-              <DevPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* ==================== DIGITAL MARKETER ROUTES - PROTECTED ==================== */}
-        <Route 
-          path="/digi/*" 
+          path="/digi" 
           element={
             <ProtectedRoute allowedRoles={['Social']}>
-              <DigiPage/>       
+              <DigiPage>
+                <DigiOrders />
+              </DigiPage>
             </ProtectedRoute>
-          } 
+          }
         />
         <Route 
           path="/digi/orders" 
@@ -594,25 +596,17 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['Social']}>
               <DigiPage>
-                <DigiProducts/>
+                <DigiProducts />
               </DigiPage>
             </ProtectedRoute>
           }
         />
-        <Route 
-          path="/digi" 
-          element={
-            <ProtectedRoute allowedRoles={['Social']}>
-              <DigiPage />
-            </ProtectedRoute>
-          }
-        />
 
-        {/* ==================== DEFAULT REDIRECT ==================== */}
+        {/* ==================== CATCH-ALL ==================== */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </>
-  )
+  );
 }
 
-export default App
+export default App;

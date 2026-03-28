@@ -7,29 +7,62 @@ import axiosInstance from "./AxiosInstance"; // Lambda-based axios instance
 // -------------------------
 const CUSTOMER_KEY = "customer";
 
+/**
+ * Load customer from localStorage
+ * Handles both encrypted objects and regular JSON strings
+ */
 const loadCustomerFromStorage = () => {
   try {
     const value = localStorage.getItem(CUSTOMER_KEY);
-    // Your monkey-patch returns either object or string. For "customer" we expect an object.
+    
+  
+    
+    // If monkey-patch returned an object directly
     if (value && typeof value === "object") {
       return value;
     }
+    
+    // If it's a string, try to parse it
+    if (typeof value === "string") {
+      try {
+        const parsed = JSON.parse(value);
+        return parsed;
+      } catch {
+  
+        return null;
+      }
+    }
+    
     return null;
-  } catch {
+  } catch (err) {
+
     return null;
   }
 };
 
+/**
+ * Save customer to localStorage
+ * Your monkey-patch handles encryption and stringification
+ */
 const saveCustomerToStorage = (customer) => {
   try {
+  
+    
     if (!customer) {
       localStorage.removeItem(CUSTOMER_KEY);
-    } else {
-      // NO JSON.stringify – your setItem encrypts + JSON.stringifies internally
-      localStorage.setItem(CUSTOMER_KEY, customer);
+    
+      return;
     }
+    
+    // Pass the object directly - monkey-patch will handle encryption
+    localStorage.setItem(CUSTOMER_KEY, customer);
+
+    
+    // Verify it was saved correctly
+    const verification = localStorage.getItem(CUSTOMER_KEY);
+
   } catch (e) {
-    console.error("Failed to save customer:", e);
+
   }
 };
 
@@ -42,15 +75,19 @@ export const createCustomer = createAsyncThunk(
   "customers/createCustomer",
   async (customerData, { rejectWithValue }) => {
     try {
+
       const response = await axiosInstance.post(
-        "/", // Lambda root
+        "/",
         customerData,
         {
           params: { endpoint: "/Users/Customer-Post" },
         }
       );
+      
+
       return response.data;
     } catch (error) {
+   
       return rejectWithValue(
         error.response?.data || "An unknown error occurred."
       );
@@ -80,6 +117,8 @@ export const getCustomerById = createAsyncThunk(
   "customers/getCustomerById",
   async (contactNumber, { rejectWithValue }) => {
     try {
+
+      
       const response = await axiosInstance.get("/", {
         params: {
           endpoint: "/Users/GetCustomerById",
@@ -91,12 +130,15 @@ export const getCustomerById = createAsyncThunk(
         ? response.data[0]
         : response.data;
 
+   
+
       if (!data || !data.contactNumber) {
         return rejectWithValue("No customer found with that contact number.");
       }
 
       return data;
     } catch (error) {
+
       return rejectWithValue(
         error.response?.data ||
           "An unknown error occurred while fetching the customer."
@@ -110,8 +152,10 @@ export const loginCustomer = createAsyncThunk(
   "customers/loginCustomer",
   async ({ contactNumber, password }, { dispatch, rejectWithValue }) => {
     try {
+
+      
       const loginResponse = await axiosInstance.post(
-        "/", // Lambda root
+        "/",
         {
           contactNumber,
           password,
@@ -127,10 +171,11 @@ export const loginCustomer = createAsyncThunk(
         try {
           loginData = JSON.parse(loginData);
         } catch (e) {
-          console.error("Failed to parse loginData JSON:", e, loginData);
+  
           return rejectWithValue("Invalid response from server.");
         }
       }
+
 
       // Now loginData should be: { ResponseCode: "1", ResponseMessage: "successfully Login" }
       if (loginData?.ResponseCode !== "1") {
@@ -142,15 +187,13 @@ export const loginCustomer = createAsyncThunk(
       // Load full customer record using the contact number
       const customer = await dispatch(getCustomerById(contactNumber)).unwrap();
 
-      // Persist to localStorage (your monkey-patch will encrypt + JSON.parse on get)
-      try {
-        saveCustomerToStorage(customer);
-      } catch (e) {
-        console.warn("Failed to write customer to localStorage:", e);
-      }
+
+      // Persist to localStorage (your monkey-patch will encrypt)
+      saveCustomerToStorage(customer);
 
       return customer;
     } catch (error) {
+ 
       return rejectWithValue(
         error.response?.data ||
           error.message ||
@@ -190,7 +233,7 @@ export const updateAccountStatus = createAsyncThunk(
       }
 
       const response = await axiosInstance.post(
-        "/", // Lambda root
+        "/",
         {
           accountNumber,
           accountStatus: "0",
@@ -203,7 +246,7 @@ export const updateAccountStatus = createAsyncThunk(
 
       return response.data;
     } catch (error) {
-      console.error("Error updating account status:", error);
+
       return rejectWithValue(
         error.response?.data?.message ||
           error.response?.data ||
@@ -236,6 +279,7 @@ const customerSlice = createSlice({
   initialState,
   reducers: {
     logoutCustomer: (state) => {
+
       state.currentCustomer = null;
       state.currentCustomerDetails = null;
       saveCustomerToStorage(null);
@@ -254,6 +298,7 @@ const customerSlice = createSlice({
     },
 
     setCurrentCustomer: (state, action) => {
+
       state.currentCustomer = action.payload;
       state.currentCustomerDetails = action.payload;
       saveCustomerToStorage(action.payload);
@@ -269,11 +314,15 @@ const customerSlice = createSlice({
       })
       .addCase(createCustomer.fulfilled, (state, action) => {
         state.loading = false;
+
+        
         const { ResponseCode } = action.payload || {};
 
-        if (ResponseCode === "1") {
-          // Combine original form data and response; this is what the UI expects
+        if (ResponseCode === "1" || ResponseCode === 1) {
+          // Combine original form data and response
           const customer = { ...action.meta.arg, ...action.payload };
+
+          
           state.currentCustomer = customer;
           state.currentCustomerDetails = customer;
           saveCustomerToStorage(customer);
@@ -281,6 +330,7 @@ const customerSlice = createSlice({
           state.error =
             action.payload?.ResponseMessage ||
             "Account creation failed. Invalid server response.";
+
         }
       })
       .addCase(createCustomer.rejected, (state, action) => {
@@ -289,6 +339,7 @@ const customerSlice = createSlice({
           action.payload ||
           action.error?.message ||
           "An unknown error occurred.";
+
       })
 
       // FETCH
@@ -316,10 +367,12 @@ const customerSlice = createSlice({
       .addCase(getCustomerById.fulfilled, (state, action) => {
         state.loading = false;
         state.currentCustomerDetails = action.payload;
+
       })
       .addCase(getCustomerById.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+
       })
 
       // LOGIN
@@ -329,6 +382,8 @@ const customerSlice = createSlice({
       })
       .addCase(loginCustomer.fulfilled, (state, action) => {
         state.loading = false;
+
+        
         state.currentCustomer = action.payload;
         state.currentCustomerDetails = action.payload;
         saveCustomerToStorage(action.payload);
@@ -336,6 +391,7 @@ const customerSlice = createSlice({
       .addCase(loginCustomer.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || "Login failed.";
+        
       })
 
       // UPDATE STATUS

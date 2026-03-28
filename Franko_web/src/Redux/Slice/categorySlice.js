@@ -38,7 +38,7 @@ export const addCategory = createAsyncThunk(
       );
       return response.data;
     } catch (error) {
-      console.error("Error adding category:", error);
+  
       return rejectWithValue(
         error.response?.data || "Failed to add category"
       );
@@ -61,7 +61,7 @@ export const updateCategory = createAsyncThunk(
       );
       return response.data;
     } catch (error) {
-      console.error("Error updating category:", error);
+
       return rejectWithValue(
         error.response?.data || "Failed to update category"
       );
@@ -108,7 +108,7 @@ const categorySlice = createSlice({
       })
       .addCase(addCategory.rejected, (state, action) => {
         state.loading = false;
-        console.error("Error while adding category:", action.payload);
+     
         state.error = action.payload;
       })
 
@@ -133,7 +133,7 @@ const categorySlice = createSlice({
       })
       .addCase(updateCategory.rejected, (state, action) => {
         state.loading = false;
-        console.error("Error while updating category:", action.payload);
+   
         state.error = action.payload;
       });
   },

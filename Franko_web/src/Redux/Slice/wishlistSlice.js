@@ -6,7 +6,7 @@ const loadWishlist = () => {
     const data = localStorage.getItem('wishlist');
     return data ? (data) : [];
   } catch (e) {
-    console.error('Error loading wishlist from localStorage', e);
+ 
     return [];
   }
 };
@@ -16,7 +16,7 @@ const saveWishlist = (wishlist) => {
   try {
     localStorage.setItem('wishlist', (wishlist));
   } catch (e) {
-    console.error('Error saving wishlist to localStorage', e);
+
   }
 };
 
@@ -34,7 +34,7 @@ const wishlistSlice = createSlice({
         if (state.items.length < 10) {
           state.items.push(action.payload);
         } else {
-          console.warn('Wishlist limit reached (10 items).');
+     
         }
         saveWishlist(state.items);
       }

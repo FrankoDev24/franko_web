@@ -226,12 +226,30 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
     const { firstName, lastName, contactNumber, password } = signupData;
     const normalizedContact = normalizePhone(contactNumber);
 
-    if (!firstName.trim()) { showNotification("First name is required", "error"); return false; }
-    if (!lastName.trim()) { showNotification("Last name is required", "error"); return false; }
-    if (!normalizedContact) { showNotification("Contact number is required", "error"); return false; }
-    if (normalizedContact.length !== 10) { showNotification("Contact number must be exactly 10 digits", "error"); return false; }
-    if (!password.trim()) { showNotification("Password is required", "error"); return false; }
-    if (password.length < 6) { showNotification("Password must be at least 6 characters long", "error"); return false; }
+    if (!firstName.trim()) {
+      showNotification("First name is required", "error");
+      return false;
+    }
+    if (!lastName.trim()) {
+      showNotification("Last name is required", "error");
+      return false;
+    }
+    if (!normalizedContact) {
+      showNotification("Contact number is required", "error");
+      return false;
+    }
+    if (normalizedContact.length !== 10) {
+      showNotification("Contact number must be exactly 10 digits", "error");
+      return false;
+    }
+    if (!password.trim()) {
+      showNotification("Password is required", "error");
+      return false;
+    }
+    if (password.length < 6) {
+      showNotification("Password must be at least 6 characters long", "error");
+      return false;
+    }
     return true;
   };
 
@@ -239,9 +257,18 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
     const { contactNumber, password } = loginData;
     const normalizedContact = normalizePhone(contactNumber);
 
-    if (!normalizedContact) { showNotification("Contact number is required", "error"); return false; }
-    if (normalizedContact.length !== 10) { showNotification("Contact number must be exactly 10 digits", "error"); return false; }
-    if (!password.trim()) { showNotification("Password is required", "error"); return false; }
+    if (!normalizedContact) {
+      showNotification("Contact number is required", "error");
+      return false;
+    }
+    if (normalizedContact.length !== 10) {
+      showNotification("Contact number must be exactly 10 digits", "error");
+      return false;
+    }
+    if (!password.trim()) {
+      showNotification("Password is required", "error");
+      return false;
+    }
     return true;
   };
 
@@ -249,8 +276,14 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
     const { contactNumber } = guestData;
     const normalizedContact = normalizePhone(contactNumber);
 
-    if (!normalizedContact) { showNotification("Contact number is required", "error"); return false; }
-    if (normalizedContact.length !== 10) { showNotification("Contact number must be exactly 10 digits", "error"); return false; }
+    if (!normalizedContact) {
+      showNotification("Contact number is required", "error");
+      return false;
+    }
+    if (normalizedContact.length !== 10) {
+      showNotification("Contact number must be exactly 10 digits", "error");
+      return false;
+    }
     return true;
   };
 
@@ -265,22 +298,40 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
     try {
       let result = await dispatch(createCustomer(signupData)).unwrap();
 
+   
       if (typeof result === "string") {
-        try { result = JSON.parse(result); } catch { /* leave as is */ }
+        try {
+          result = JSON.parse(result);
+        } catch {
+          /* leave as is */
+        }
       }
 
       if (result && typeof result === "object" && "ResponseCode" in result) {
         if (result.ResponseCode === "2") {
           const message = result.ResponseMessage || "Account already exists";
-          showNotification(`${message}. Please login with your existing account.`, "error");
+          showNotification(
+            `${message}. Please login with your existing account.`,
+            "error"
+          );
           setTimeout(() => {
             setAuthMode("login");
-            setLoginData((prev) => ({ ...prev, contactNumber: signupData.contactNumber }));
+            setLoginData((prev) => ({
+              ...prev,
+              contactNumber: signupData.contactNumber,
+            }));
           }, 2500);
           return;
         }
-        if (result.ResponseCode && result.ResponseCode !== "1" && result.ResponseCode !== "0") {
-          showNotification(result.ResponseMessage || "Registration failed", "error");
+        if (
+          result.ResponseCode &&
+          result.ResponseCode !== "1" &&
+          result.ResponseCode !== "0"
+        ) {
+          showNotification(
+            result.ResponseMessage || "Registration failed",
+            "error"
+          );
           return;
         }
       }
@@ -290,26 +341,47 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
           ? result
           : { ...signupData, ...(result || {}) };
 
-      dispatch(setCurrentCustomer(customer));
-      try { localStorage.setItem("customer", JSON.stringify(customer)); } catch (e) { console.warn("Failed to write customer to localStorage:", e); }
+    
 
+      // ✅ ONLY dispatch to Redux - let the slice handle localStorage
+      dispatch(setCurrentCustomer(customer));
+
+      // Analytics tracking
       try {
         if (typeof window.fbq === "function") {
-          window.fbq("track", "CompleteRegistration", { content_name: "Customer Registration", status: "success", currency: "GHS", email: signupData.email, customer_type: "registered", contact_number: signupData.contactNumber });
+          window.fbq("track", "CompleteRegistration", {
+            content_name: "Customer Registration",
+            status: "success",
+            currency: "GHS",
+            email: signupData.email,
+            customer_type: "registered",
+            contact_number: signupData.contactNumber,
+          });
         }
         if (typeof window.gtag === "function") {
-          window.gtag("event", "sign_up", { method: "email", customer_type: "registered", contact_number: signupData.contactNumber });
+          window.gtag("event", "sign_up", {
+            method: "email",
+            customer_type: "registered",
+            contact_number: signupData.contactNumber,
+          });
         }
-      } catch { /* silent */ }
+      } catch {
+        /* silent */
+      }
 
       showNotification("Registration successful!", "success");
-      setTimeout(() => { if (onSuccess && typeof onSuccess === "function") onSuccess(); else onClose(); }, 1500);
+      setTimeout(() => {
+        if (onSuccess && typeof onSuccess === "function") onSuccess();
+        else onClose();
+      }, 1500);
     } catch (error) {
-      console.error("Registration error:", error);
+  
       let errorMessage = "Registration failed. Please try again.";
       if (error?.message) errorMessage = error.message;
-      else if (error?.response?.data?.message) errorMessage = error.response.data.message;
-      else if (error?.response?.data?.error) errorMessage = error.response.data.error;
+      else if (error?.response?.data?.message)
+        errorMessage = error.response.data.message;
+      else if (error?.response?.data?.error)
+        errorMessage = error.response.data.error;
       showNotification(errorMessage, "error");
     } finally {
       setLoading(false);
@@ -327,19 +399,32 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
     try {
       const customer = await dispatch(loginCustomer(loginData)).unwrap();
 
+  
+
       if (!customer || !customer.contactNumber) {
-        showNotification("No customer found with the provided contact number.", "error");
+        showNotification(
+          "No customer found with the provided contact number.",
+          "error"
+        );
         return;
       }
 
+
+
+      // ✅ ONLY dispatch to Redux - let the slice handle localStorage
       dispatch(setCurrentCustomer(customer));
-      try { localStorage.setItem("customer", JSON.stringify(customer)); } catch (e) { console.warn("Failed to write customer to localStorage:", e); }
 
       showNotification("Login successful!", "success");
-      setTimeout(() => { if (onSuccess && typeof onSuccess === "function") onSuccess(); else onClose(); }, 1500);
+      setTimeout(() => {
+        if (onSuccess && typeof onSuccess === "function") onSuccess();
+        else onClose();
+      }, 1500);
     } catch (error) {
-      console.error("Login error:", error);
-      const message = error?.response?.data?.message || error?.message || "Login failed. Please check your credentials.";
+    
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Login failed. Please check your credentials.";
       showNotification(message, "error");
     } finally {
       setLoading(false);
@@ -373,34 +458,54 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
 
     try {
       dbResult = await dispatch(createCustomer(guestCustomerData)).unwrap();
+
     } catch (error) {
       setLoading(false);
       let errorMessage = "Failed to create guest account. Please try again.";
       if (error?.message) errorMessage = error.message;
-      else if (error?.response?.data?.message) errorMessage = error.response.data.message;
-      else if (error?.response?.data?.error) errorMessage = error.response.data.error;
+      else if (error?.response?.data?.message)
+        errorMessage = error.response.data.message;
+      else if (error?.response?.data?.error)
+        errorMessage = error.response.data.error;
       showNotification(errorMessage, "error");
       return;
     }
 
     if (typeof dbResult === "string") {
-      try { dbResult = JSON.parse(dbResult); } catch { /* leave as is */ }
+      try {
+        dbResult = JSON.parse(dbResult);
+      } catch {
+        /* leave as is */
+      }
     }
 
     if (dbResult && typeof dbResult === "object" && "ResponseCode" in dbResult) {
       if (dbResult.ResponseCode === "2") {
         setLoading(false);
         const message = dbResult.ResponseMessage || "Account already exists";
-        showNotification(`${message}. Please login with your existing account.`, "error");
+        showNotification(
+          `${message}. Please login with your existing account.`,
+          "error"
+        );
         setTimeout(() => {
           setAuthMode("login");
-          setLoginData((prev) => ({ ...prev, contactNumber: guestData.contactNumber }));
+          setLoginData((prev) => ({
+            ...prev,
+            contactNumber: guestData.contactNumber,
+          }));
         }, 2500);
         return;
       }
-      if (dbResult.ResponseCode && dbResult.ResponseCode !== "1" && dbResult.ResponseCode !== "0") {
+      if (
+        dbResult.ResponseCode &&
+        dbResult.ResponseCode !== "1" &&
+        dbResult.ResponseCode !== "0"
+      ) {
         setLoading(false);
-        showNotification(dbResult.ResponseMessage || "Failed to create guest account", "error");
+        showNotification(
+          dbResult.ResponseMessage || "Failed to create guest account",
+          "error"
+        );
         return;
       }
     }
@@ -410,28 +515,48 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
         ? dbResult
         : { ...guestCustomerData, ...(dbResult || {}) };
 
+  
+    // ✅ ONLY dispatch to Redux - let the slice handle localStorage
     dispatch(setCurrentCustomer(guestCustomer));
-    try { localStorage.setItem("customer", JSON.stringify(guestCustomer)); } catch (e) { console.warn("Failed to write guest customer to localStorage:", e); }
 
+    // Analytics tracking
     try {
       if (typeof window.fbq === "function") {
-        window.fbq("track", "CompleteRegistration", { content_name: "Guest Registration", status: "success", currency: "GHS", email: guestCustomer.email, customer_type: "guest", contact_number: guestCustomer.contactNumber });
+        window.fbq("track", "CompleteRegistration", {
+          content_name: "Guest Registration",
+          status: "success",
+          currency: "GHS",
+          email: guestCustomer.email,
+          customer_type: "guest",
+          contact_number: guestCustomer.contactNumber,
+        });
       }
       if (typeof window.gtag === "function") {
-        window.gtag("event", "sign_up", { method: "guest", customer_type: "guest", contact_number: guestCustomer.contactNumber });
+        window.gtag("event", "sign_up", {
+          method: "guest",
+          customer_type: "guest",
+          contact_number: guestCustomer.contactNumber,
+        });
       }
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
 
     setLoading(false);
     showNotification("Guest account created!", "success");
-    setTimeout(() => { if (onSuccess && typeof onSuccess === "function") onSuccess(); else onClose(); }, 1500);
+    setTimeout(() => {
+      if (onSuccess && typeof onSuccess === "function") onSuccess();
+      else onClose();
+    }, 1500);
   };
 
   /* ===========================
      UI helpers
   ============================ */
 
-  useEffect(() => { hideNotification(); }, [authMode, hideNotification]);
+  useEffect(() => {
+    hideNotification();
+  }, [authMode, hideNotification]);
 
   useEffect(() => {
     if (!open) {
@@ -937,7 +1062,11 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
       <div className="auth-overlay" onClick={onClose}>
         <div className="auth-backdrop" />
 
-        <div className="auth-modal" onClick={(e) => e.stopPropagation()} onKeyDown={handleKeyDown}>
+        <div
+          className="auth-modal"
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={handleKeyDown}
+        >
           {/* Close Button */}
           <button className="auth-close" onClick={onClose}>
             <XMarkIcon style={{ width: 14, height: 14, color: "#888" }} />
@@ -954,7 +1083,8 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
             <p className="auth-subtitle">
               {authMode === "login" && "Sign in to your Franko account"}
               {authMode === "signup" && "Join Franko Trading today"}
-              {authMode === "guest" && "Continue without creating an account"}
+              {authMode === "guest" &&
+                "Continue without creating an account"}
             </p>
           </div>
 
@@ -966,7 +1096,9 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
                 <button
                   key={tab.key}
                   onClick={() => setAuthMode(tab.key)}
-                  className={`auth-tab ${authMode === tab.key ? "auth-tab-on" : ""}`}
+                  className={`auth-tab ${
+                    authMode === tab.key ? "auth-tab-on" : ""
+                  }`}
                 >
                   <Icon style={{ width: 14, height: 14 }} />
                   {tab.label}
@@ -1086,10 +1218,13 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
               <div className="auth-fields">
                 <div className="auth-guest-info">
                   <div className="auth-guest-icon-wrap">
-                    <UserGroupIcon style={{ width: 24, height: 24, color: "#14532d" }} />
+                    <UserGroupIcon
+                      style={{ width: 24, height: 24, color: "#14532d" }}
+                    />
                   </div>
                   <p className="auth-guest-desc">
-                    Enter your phone number to continue. A temporary account will be created for you automatically.
+                    Enter your phone number to continue. A temporary account
+                    will be created for you automatically.
                   </p>
                 </div>
                 <AuthInput
@@ -1131,7 +1266,10 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
             {authMode === "login" && (
               <div className="auth-switch">
                 Don&apos;t have an account?{" "}
-                <button onClick={() => setAuthMode("signup")} className="auth-switch-link">
+                <button
+                  onClick={() => setAuthMode("signup")}
+                  className="auth-switch-link"
+                >
                   Register here
                 </button>
               </div>
@@ -1139,7 +1277,10 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
             {authMode === "signup" && (
               <div className="auth-switch">
                 Already have an account?{" "}
-                <button onClick={() => setAuthMode("login")} className="auth-switch-link">
+                <button
+                  onClick={() => setAuthMode("login")}
+                  className="auth-switch-link"
+                >
                   Sign in
                 </button>
               </div>
@@ -1147,11 +1288,18 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
             {authMode === "guest" && (
               <div className="auth-switch">
                 Want full access?{" "}
-                <button onClick={() => setAuthMode("signup")} className="auth-switch-link" style={{ marginRight: 4 }}>
+                <button
+                  onClick={() => setAuthMode("signup")}
+                  className="auth-switch-link"
+                  style={{ marginRight: 4 }}
+                >
                   Register
                 </button>
                 or{" "}
-                <button onClick={() => setAuthMode("login")} className="auth-switch-link">
+                <button
+                  onClick={() => setAuthMode("login")}
+                  className="auth-switch-link"
+                >
                   Sign in
                 </button>
               </div>
