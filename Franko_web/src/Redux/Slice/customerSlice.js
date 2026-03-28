@@ -5,18 +5,31 @@ import axiosInstance from "./AxiosInstance";
 // ═══════════════════════════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════════
+
 const CUSTOMER_KEY = "customer";
-const CUSTOMER_TOKEN_MIGRATION_FLAG = "customer_token_migrated";
+const CUSTOMER_MIGRATION_FLAG = "customer_token_migrated";
+const CUSTOMER_FORCE_LOGOUT_KEY = "customer_force_logout";
 
 // ═══════════════════════════════════════════════════════════════════
-// LOCALSTORAGE HELPERS (Encrypted via monkey-patch)
+// LOCALSTORAGE HELPERS
 // ═══════════════════════════════════════════════════════════════════
+
 const loadFromStorage = () => {
   try {
-    const parsed = localStorage.getItem(CUSTOMER_KEY);
-    return parsed && typeof parsed === "object" ? parsed : null;
-  } catch (error) {
+    const raw = localStorage.getItem(CUSTOMER_KEY);
+    if (!raw) return null;
 
+    const parsed = typeof raw === "object" ? raw : JSON.parse(raw);
+
+    // ✅ Only return if the customer has valid tokens
+    if (!parsed?.accessToken || !parsed.accessToken.trim()) {
+      console.warn("⚠️ Customer in storage has no valid accessToken");
+      return null;
+    }
+
+    return parsed;
+  } catch (error) {
+    console.error("❌ Failed to load customer from storage:", error);
     return null;
   }
 };
@@ -25,18 +38,37 @@ const saveToStorage = (customer) => {
   try {
     if (!customer) {
       localStorage.removeItem(CUSTOMER_KEY);
-      localStorage.removeItem(CUSTOMER_TOKEN_MIGRATION_FLAG);
+      localStorage.removeItem(CUSTOMER_MIGRATION_FLAG);
     } else {
       localStorage.setItem(CUSTOMER_KEY, JSON.stringify(customer));
     }
   } catch (error) {
+    console.error("❌ Failed to save customer to storage:", error);
+  }
+};
 
+const markForceLogout = () => {
+  try {
+    localStorage.setItem(CUSTOMER_FORCE_LOGOUT_KEY, "true");
+    console.log("🔒 Force logout flag set");
+  } catch (error) {
+    console.error("❌ Failed to set force logout flag:", error);
+  }
+};
+
+const clearForceLogoutFlag = () => {
+  try {
+    localStorage.removeItem(CUSTOMER_FORCE_LOGOUT_KEY);
+    console.log("✅ Force logout flag cleared");
+  } catch (error) {
+    console.error("❌ Failed to clear force logout flag:", error);
   }
 };
 
 // ═══════════════════════════════════════════════════════════════════
 // SAFE JSON PARSER
 // ═══════════════════════════════════════════════════════════════════
+
 const safeParseJSON = (raw) => {
   if (typeof raw === "object" && raw !== null) return raw;
   try {
@@ -47,8 +79,33 @@ const safeParseJSON = (raw) => {
 };
 
 // ═══════════════════════════════════════════════════════════════════
+// ERROR CLASSIFIER
+// Detects authentication/token-related errors
+// ═══════════════════════════════════════════════════════════════════
+
+const isAuthError = (error) => {
+  if (!error) return false;
+
+  const message = typeof error === "string" ? error : error.message || "";
+  const messageLower = message.toLowerCase();
+
+  const authKeywords = [
+    "token",
+    "unauthorized",
+    "authentication",
+    "expired",
+    "invalid token",
+    "no_refresh_token",
+    "token_refresh_failed",
+  ];
+
+  return authKeywords.some((keyword) => messageLower.includes(keyword));
+};
+
+// ═══════════════════════════════════════════════════════════════════
 // AXIOS HELPERS
 // ═══════════════════════════════════════════════════════════════════
+
 const callBackend = async ({
   endpoint,
   method = "GET",
@@ -81,42 +138,9 @@ const buildAuthHeaders = (providedToken = null) => {
 };
 
 // ═══════════════════════════════════════════════════════════════════
-// TOKEN GENERATION FOR LEGACY CUSTOMERS (NEW)
-// ═══════════════════════════════════════════════════════════════════
-const generateCustomerToken = async (contactNumber) => {
-  try {
-    const res = await callBackend({
-      endpoint: "/Users/GenerateCustomerToken",
-      method: "POST",
-      data: { contactNumber },
-      headers: { "Content-Type": "application/json" },
-    });
-
-    const data = safeParseJSON(res.data);
-
-    if (
-      res.status >= 200 &&
-      res.status < 300 &&
-      data?.accessToken &&
-      data?.refreshToken
-    ) {
-      return {
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-      };
-    }
-
-
-    return null;
-  } catch (error) {
-  
-    return null;
-  }
-};
-
-// ═══════════════════════════════════════════════════════════════════
 // TOKEN REFRESH FOR CUSTOMERS
 // ═══════════════════════════════════════════════════════════════════
+
 const refreshCustomerToken = async (refreshToken) => {
   try {
     const res = await callBackend({
@@ -145,49 +169,42 @@ const refreshCustomerToken = async (refreshToken) => {
       refreshToken: data.refreshToken,
     };
   } catch (error) {
-
+    console.error("❌ Customer token refresh error:", error);
     throw error;
   }
 };
 
 // ═══════════════════════════════════════════════════════════════════
-// REQUEST WITH AUTO-REFRESH (Customers never logout)
+// REQUEST WITH AUTO-REFRESH
+// ✅ Now accepts dispatch to trigger force logout on failure
 // ═══════════════════════════════════════════════════════════════════
-const requestWithAutoRefresh = async ({
-  endpoint,
-  method = "GET",
-  data,
-  extraParams = {},
-  providedToken = null,
-}) => {
+
+const requestWithAutoRefresh = async (
+  { endpoint, method = "GET", data, extraParams = {}, providedToken = null },
+  dispatch = null
+) => {
   const stored = loadFromStorage();
   let headers = buildAuthHeaders(providedToken);
 
-  // First attempt
+  // ── First attempt ──────────────────────────────────────────────
   let res;
   try {
-    res = await callBackend({
-      endpoint,
-      method,
-      data,
-      extraParams,
-      headers,
-    });
+    res = await callBackend({ endpoint, method, data, extraParams, headers });
   } catch (err) {
-    if (err.response?.status !== 401) {
-      throw err;
-    }
+    if (err.response?.status !== 401) throw err;
     res = err.response;
   }
 
-  // Not 401 → return
-  if (res.status !== 401) {
-    return res;
-  }
+  if (res.status !== 401) return res;
 
-  // 401 → try refresh
+  // ── 401 detected — attempt token refresh ───────────────────────
   const refreshToken = stored?.refreshToken;
+
   if (!refreshToken) {
+    console.warn("❌ No refresh token available — triggering force logout");
+    if (dispatch) {
+      dispatch({ type: "customer/triggerForceLogout" });
+    }
     throw new Error("NO_REFRESH_TOKEN");
   }
 
@@ -196,17 +213,18 @@ const requestWithAutoRefresh = async ({
     const updatedCustomer = { ...stored, ...newTokens };
     saveToStorage(updatedCustomer);
 
-    headers = buildAuthHeaders(newTokens.accessToken);
-    const retryRes = await callBackend({
-      endpoint,
-      method,
-      data,
-      extraParams,
-      headers,
-    });
+    console.log("✅ Customer token refreshed successfully");
 
-    return retryRes;
+    // ── Retry request with new token ─────────────────────────────
+    headers = buildAuthHeaders(newTokens.accessToken);
+    return await callBackend({ endpoint, method, data, extraParams, headers });
   } catch (refreshError) {
+    console.error("❌ Token refresh failed — triggering force logout");
+
+    // ✅ Trigger force logout on refresh failure
+    if (dispatch) {
+      dispatch({ type: "customer/triggerForceLogout" });
+    }
 
     throw new Error("TOKEN_REFRESH_FAILED");
   }
@@ -215,57 +233,6 @@ const requestWithAutoRefresh = async ({
 // ═══════════════════════════════════════════════════════════════════
 // ASYNC THUNKS
 // ═══════════════════════════════════════════════════════════════════
-
-// ── MIGRATE CUSTOMER TOKEN ──────────────────────────────────────
-export const migrateCustomerToken = createAsyncThunk(
-  "customers/migrateToken",
-  async (_, { rejectWithValue }) => {
-    try {
-      const stored = loadFromStorage();
-      const migrated = localStorage.getItem(CUSTOMER_TOKEN_MIGRATION_FLAG);
-
-      if (migrated === "true") {
-
-        return null;
-      }
-
-      if (!stored) {
-       
-        return null;
-      }
-
-      if (stored.accessToken) {
-
-        localStorage.setItem(CUSTOMER_TOKEN_MIGRATION_FLAG, "true");
-        return null;
-      }
-
-      const contactNumber = stored.contactNumber || stored.contact;
-      if (!contactNumber) {
-
-        return rejectWithValue({ message: "No contact number" });
-      }
-
-
-
-      const tokens = await generateCustomerToken(contactNumber);
-
-      if (tokens && tokens.accessToken) {
-        const updated = { ...stored, ...tokens };
-        saveToStorage(updated);
-        localStorage.setItem(CUSTOMER_TOKEN_MIGRATION_FLAG, "true");
-       
-        return updated;
-      }
-
-
-      return rejectWithValue({ message: "Token generation returned no tokens" });
-    } catch (error) {
-
-      return rejectWithValue({ message: error.message });
-    }
-  }
-);
 
 // ── CREATE CUSTOMER ─────────────────────────────────────────────
 export const createCustomer = createAsyncThunk(
@@ -301,12 +268,15 @@ export const createCustomer = createAsyncThunk(
 // ── FETCH ALL CUSTOMERS ─────────────────────────────────────────
 export const fetchCustomers = createAsyncThunk(
   "customers/fetchCustomers",
-  async (_, { rejectWithValue }) => {
+  async (_, { dispatch, rejectWithValue }) => {
     try {
-      const res = await requestWithAutoRefresh({
-        endpoint: "/Users/Customer-Get",
-        method: "GET",
-      });
+      const res = await requestWithAutoRefresh(
+        {
+          endpoint: "/Users/Customer-Get",
+          method: "GET",
+        },
+        dispatch
+      );
 
       const data = safeParseJSON(res.data);
 
@@ -319,6 +289,11 @@ export const fetchCustomers = createAsyncThunk(
 
       return Array.isArray(data) ? data : [];
     } catch (error) {
+      // ✅ Trigger force logout on auth errors
+      if (isAuthError(error.message)) {
+        dispatch({ type: "customer/triggerForceLogout" });
+      }
+
       return rejectWithValue({
         message: error.message || "Failed to fetch customers.",
         responseCode: "0",
@@ -330,14 +305,17 @@ export const fetchCustomers = createAsyncThunk(
 // ── GET CUSTOMER BY ID ──────────────────────────────────────────
 export const getCustomerById = createAsyncThunk(
   "customers/getCustomerById",
-  async ({ contactNumber, accessToken = null }, { rejectWithValue }) => {
+  async ({ contactNumber, accessToken = null }, { dispatch, rejectWithValue }) => {
     try {
-      const res = await requestWithAutoRefresh({
-        endpoint: "/Users/GetCustomerById",
-        method: "GET",
-        extraParams: { contactNumber },
-        providedToken: accessToken,
-      });
+      const res = await requestWithAutoRefresh(
+        {
+          endpoint: "/Users/GetCustomerById",
+          method: "GET",
+          extraParams: { contactNumber },
+          providedToken: accessToken,
+        },
+        dispatch
+      );
 
       const data = safeParseJSON(res.data);
 
@@ -359,6 +337,11 @@ export const getCustomerById = createAsyncThunk(
 
       return customer;
     } catch (error) {
+      // ✅ Trigger force logout on auth errors
+      if (isAuthError(error.message)) {
+        dispatch({ type: "customer/triggerForceLogout" });
+      }
+
       return rejectWithValue({
         message: error.message || "Failed to fetch customer.",
         responseCode: "0",
@@ -410,6 +393,7 @@ export const loginCustomer = createAsyncThunk(
         });
       }
 
+      // ✅ Password change required
       if (loginStatus === false) {
         return {
           contactNumber,
@@ -420,12 +404,16 @@ export const loginCustomer = createAsyncThunk(
         };
       }
 
+      // ✅ Save temp tokens before fetching profile
       const tempCustomer = {
         contactNumber,
         accessToken: data.accessToken,
         refreshToken: data.refreshToken,
       };
       saveToStorage(tempCustomer);
+
+      // ✅ Clear force logout flag on successful login
+      clearForceLogoutFlag();
 
       try {
         const profile = await dispatch(
@@ -444,9 +432,10 @@ export const loginCustomer = createAsyncThunk(
         };
 
         saveToStorage(merged);
-        localStorage.setItem(CUSTOMER_TOKEN_MIGRATION_FLAG, "true");
+        localStorage.setItem(CUSTOMER_MIGRATION_FLAG, "true");
         return merged;
       } catch (profileError) {
+        console.warn("⚠️ Failed to fetch profile after login:", profileError);
 
         const basicCustomer = {
           contactNumber,
@@ -457,7 +446,7 @@ export const loginCustomer = createAsyncThunk(
         };
 
         saveToStorage(basicCustomer);
-        localStorage.setItem(CUSTOMER_TOKEN_MIGRATION_FLAG, "true");
+        localStorage.setItem(CUSTOMER_MIGRATION_FLAG, "true");
         return basicCustomer;
       }
     } catch (error) {
@@ -474,13 +463,19 @@ export const loginCustomer = createAsyncThunk(
 // ── UPDATE CUSTOMER PASSWORD ────────────────────────────────────
 export const updateCustomerPassword = createAsyncThunk(
   "customers/updateCustomerPassword",
-  async ({ contactNumber, oldPassword, newPassword }, { rejectWithValue }) => {
+  async (
+    { contactNumber, oldPassword, newPassword },
+    { dispatch, rejectWithValue }
+  ) => {
     try {
-      const res = await requestWithAutoRefresh({
-        endpoint: "/Users/UpdateCustomerPassword",
-        method: "POST",
-        data: { contactNumber, oldPassword, newPassword },
-      });
+      const res = await requestWithAutoRefresh(
+        {
+          endpoint: "/Users/UpdateCustomerPassword",
+          method: "POST",
+          data: { contactNumber, oldPassword, newPassword },
+        },
+        dispatch
+      );
 
       const data = safeParseJSON(res.data);
 
@@ -497,6 +492,11 @@ export const updateCustomerPassword = createAsyncThunk(
 
       return data;
     } catch (error) {
+      // ✅ Trigger force logout on auth errors
+      if (isAuthError(error.message)) {
+        dispatch({ type: "customer/triggerForceLogout" });
+      }
+
       return rejectWithValue({
         message: error.message || "Password update failed.",
         responseCode: "0",
@@ -508,18 +508,21 @@ export const updateCustomerPassword = createAsyncThunk(
 // ── UPDATE ACCOUNT STATUS ───────────────────────────────────────
 export const updateAccountStatus = createAsyncThunk(
   "customers/updateAccountStatus",
-  async (_, { getState, rejectWithValue }) => {
+  async (_, { dispatch, getState, rejectWithValue }) => {
     try {
       const customer = getState().customer.currentCustomer;
 
-      const res = await requestWithAutoRefresh({
-        endpoint: "/Users/Customer-Status",
-        method: "POST",
-        data: {
-          accountNumber: customer?.customerAccountNumber,
-          accountStatus: "0",
+      const res = await requestWithAutoRefresh(
+        {
+          endpoint: "/Users/Customer-Status",
+          method: "POST",
+          data: {
+            accountNumber: customer?.customerAccountNumber,
+            accountStatus: "0",
+          },
         },
-      });
+        dispatch
+      );
 
       const data = safeParseJSON(res.data);
 
@@ -533,6 +536,11 @@ export const updateAccountStatus = createAsyncThunk(
       saveToStorage(null);
       return data;
     } catch (error) {
+      // ✅ Trigger force logout on auth errors
+      if (isAuthError(error.message)) {
+        dispatch({ type: "customer/triggerForceLogout" });
+      }
+
       return rejectWithValue({
         message: error.message || "Status update failed.",
         responseCode: "0",
@@ -614,6 +622,7 @@ export const resetPassword = createAsyncThunk(
 // ═══════════════════════════════════════════════════════════════════
 // INITIAL STATE
 // ═══════════════════════════════════════════════════════════════════
+
 const hydrated = loadFromStorage();
 
 const initialState = {
@@ -623,32 +632,45 @@ const initialState = {
   loading: false,
   error: null,
   isAuthenticated: !!hydrated?.accessToken,
-  tokenMigrated: !!localStorage.getItem(CUSTOMER_TOKEN_MIGRATION_FLAG),
+  tokenMigrated: !!localStorage.getItem(CUSTOMER_MIGRATION_FLAG),
+  forceLogout: localStorage.getItem(CUSTOMER_FORCE_LOGOUT_KEY) === "true",
 };
 
 // ═══════════════════════════════════════════════════════════════════
 // SLICE
 // ═══════════════════════════════════════════════════════════════════
+
 const customerSlice = createSlice({
   name: "customer",
   initialState,
   reducers: {
+    // ✅ Standard logout
     logoutCustomer: (state) => {
       state.currentCustomer = null;
       state.currentCustomerDetails = null;
       state.isAuthenticated = false;
       state.tokenMigrated = false;
+      state.forceLogout = false;
       saveToStorage(null);
+      clearForceLogoutFlag();
     },
+
+    // ✅ Set customer (after login / registration)
     setCurrentCustomer: (state, action) => {
       state.currentCustomer = action.payload;
       state.currentCustomerDetails = action.payload;
       state.isAuthenticated = !!action.payload?.accessToken;
+      state.forceLogout = false;
+      clearForceLogoutFlag();
       saveToStorage(action.payload);
     },
+
+    // ✅ Clear error state
     clearError: (state) => {
       state.error = null;
     },
+
+    // ✅ Update tokens in-place (e.g. after silent refresh)
     updateToken: (state, action) => {
       if (state.currentCustomer) {
         state.currentCustomer.accessToken = action.payload.accessToken;
@@ -657,23 +679,31 @@ const customerSlice = createSlice({
         saveToStorage(state.currentCustomer);
       }
     },
+
+    // ✅ Force logout — used when tokens are invalidated externally
+    // Sets flag so AuthModal shows the security banner
+    triggerForceLogout: (state) => {
+      console.log("🚨 Force logout triggered");
+      state.currentCustomer = null;
+      state.currentCustomerDetails = null;
+      state.isAuthenticated = false;
+      state.tokenMigrated = false;
+      state.forceLogout = true;
+      markForceLogout();
+      saveToStorage(null);
+    },
+
+    // ✅ Clear the force logout flag after the modal has acknowledged it
+    clearForceLogout: (state) => {
+      state.forceLogout = false;
+      clearForceLogoutFlag();
+    },
   },
+
   extraReducers: (builder) => {
     builder
-      // Migration
-      .addCase(migrateCustomerToken.fulfilled, (state, action) => {
-        if (action.payload) {
-          state.currentCustomer = action.payload;
-          state.currentCustomerDetails = action.payload;
-          state.isAuthenticated = true;
-          state.tokenMigrated = true;
-        }
-      })
-      .addCase(migrateCustomerToken.rejected, (state) => {
-        state.tokenMigrated = true; // Prevent retry loops
-      })
 
-      // Create Customer
+      // ── Create Customer ────────────────────────────────────────
       .addCase(createCustomer.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -693,7 +723,7 @@ const customerSlice = createSlice({
         state.error = action.payload?.message || "Registration failed.";
       })
 
-      // Fetch Customers
+      // ── Fetch Customers ────────────────────────────────────────
       .addCase(fetchCustomers.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -707,7 +737,7 @@ const customerSlice = createSlice({
         state.error = action.payload?.message;
       })
 
-      // Get Customer By ID
+      // ── Get Customer By ID ─────────────────────────────────────
       .addCase(getCustomerById.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -721,7 +751,7 @@ const customerSlice = createSlice({
         state.error = action.payload?.message;
       })
 
-      // Login Customer
+      // ── Login Customer ─────────────────────────────────────────
       .addCase(loginCustomer.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -733,6 +763,8 @@ const customerSlice = createSlice({
           state.currentCustomerDetails = action.payload;
           state.isAuthenticated = true;
           state.tokenMigrated = true;
+          state.forceLogout = false;
+          clearForceLogoutFlag();
         }
       })
       .addCase(loginCustomer.rejected, (state, action) => {
@@ -741,7 +773,7 @@ const customerSlice = createSlice({
         state.isAuthenticated = false;
       })
 
-      // Update Customer Password
+      // ── Update Password ────────────────────────────────────────
       .addCase(updateCustomerPassword.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -754,7 +786,7 @@ const customerSlice = createSlice({
         state.error = action.payload?.message;
       })
 
-      // Update Account Status
+      // ── Update Account Status ──────────────────────────────────
       .addCase(updateAccountStatus.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -770,7 +802,7 @@ const customerSlice = createSlice({
         state.error = action.payload?.message;
       })
 
-      // Forgot Password
+      // ── Forgot Password ────────────────────────────────────────
       .addCase(forgotPassword.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -783,7 +815,7 @@ const customerSlice = createSlice({
         state.error = action.payload?.message;
       })
 
-      // Reset Password
+      // ── Reset Password ─────────────────────────────────────────
       .addCase(resetPassword.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -798,11 +830,17 @@ const customerSlice = createSlice({
   },
 });
 
+// ═══════════════════════════════════════════════════════════════════
+// EXPORTS
+// ═══════════════════════════════════════════════════════════════════
+
 export const {
   logoutCustomer,
   setCurrentCustomer,
   clearError,
   updateToken,
+  triggerForceLogout,
+  clearForceLogout,
 } = customerSlice.actions;
 
 export default customerSlice.reducer;

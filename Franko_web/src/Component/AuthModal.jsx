@@ -7,6 +7,7 @@ import {
   setCurrentCustomer,
   updateCustomerPassword,
   getCustomerById,
+  clearForceLogout,
 } from "../Redux/Slice/customerSlice";
 import { v4 as uuidv4 } from "uuid";
 import logo from "../assets/frankoIcon.png";
@@ -24,6 +25,7 @@ import {
   ShieldCheckIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
+  InformationCircleIcon,
 } from "@heroicons/react/24/outline";
 import { User, UserPlus, UserCheck } from "lucide-react";
 
@@ -40,11 +42,11 @@ const PASSWORD_RULES = [
 
 const getStrength = (password) => {
   const passed = PASSWORD_RULES.filter((r) => r.test(password)).length;
-  if (passed <= 1) return { score: passed, label: "Very weak",  color: "#ef4444" };
-  if (passed === 2) return { score: passed, label: "Weak",       color: "#f97316" };
-  if (passed === 3) return { score: passed, label: "Fair",       color: "#eab308" };
-  if (passed === 4) return { score: passed, label: "Strong",     color: "#22c55e" };
-  return              { score: passed, label: "Very strong", color: "#15803d" };
+  if (passed <= 1) return { score: passed, label: "Very weak",   color: "#ef4444" };
+  if (passed === 2) return { score: passed, label: "Weak",        color: "#f97316" };
+  if (passed === 3) return { score: passed, label: "Fair",        color: "#eab308" };
+  if (passed === 4) return { score: passed, label: "Strong",      color: "#22c55e" };
+  return               { score: passed, label: "Very strong",  color: "#15803d" };
 };
 
 const isStrongPassword = (p) => PASSWORD_RULES.every((r) => r.test(p));
@@ -73,6 +75,26 @@ const Notification = ({ message, type, isVisible, onClose }) => {
     </div>
   );
 };
+
+// ─────────────────────────────────────────────
+// Security Update Banner (shown when force-logged out)
+// ─────────────────────────────────────────────
+const SecurityUpdateBanner = ({ onDismiss }) => (
+  <div className="ft-security-banner">
+    <div className="ft-security-banner-icon">
+      <ShieldCheckIcon />
+    </div>
+    <div className="ft-security-banner-content">
+      <p className="ft-security-banner-title">Security Update</p>
+      <p className="ft-security-banner-sub">
+        We've upgraded our security. Please log in again to continue — this is a one-time requirement.
+      </p>
+    </div>
+    <button className="ft-security-banner-close" onClick={onDismiss}>
+      <XMarkIcon />
+    </button>
+  </div>
+);
 
 // ─────────────────────────────────────────────
 // Input field
@@ -142,56 +164,52 @@ const StrengthMeter = ({ password }) => {
 // ─────────────────────────────────────────────
 const ForceChangePasswordModal = ({ customer, onSuccess, onClose }) => {
   const dispatch = useDispatch();
-  const [form, setForm]     = useState({ oldPassword: "", newPassword: "", confirmPassword: "" });
+  const [form, setForm]       = useState({ oldPassword: "", newPassword: "", confirmPassword: "" });
   const [loading, setLoading] = useState(false);
-  const [error, setError]   = useState("");
-  const [done, setDone]     = useState(false);
+  const [error, setError]     = useState("");
+  const [done, setDone]       = useState(false);
 
   const handle = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
 
-// In the ForceChangePasswordModal submit function, update this part:
+  const submit = async () => {
+    setError("");
+    if (!form.oldPassword) return setError("Please enter your current password.");
+    if (!isStrongPassword(form.newPassword)) return setError("New password does not meet strength requirements.");
+    if (form.newPassword !== form.confirmPassword) return setError("Passwords do not match.");
+    if (form.oldPassword === form.newPassword) return setError("New password must differ from current password.");
 
-const submit = async () => {
-  setError("");
-  if (!form.oldPassword) return setError("Please enter your current password.");
-  if (!isStrongPassword(form.newPassword)) return setError("New password does not meet strength requirements.");
-  if (form.newPassword !== form.confirmPassword) return setError("Passwords do not match.");
-  if (form.oldPassword === form.newPassword) return setError("New password must differ from current password.");
+    setLoading(true);
+    try {
+      await dispatch(updateCustomerPassword({
+        contactNumber: customer.contactNumber,
+        oldPassword: form.oldPassword,
+        newPassword: form.newPassword,
+      })).unwrap();
 
-  setLoading(true);
-  try {
-    await dispatch(updateCustomerPassword({
-      contactNumber: customer.contactNumber,
-      oldPassword: form.oldPassword,
-      newPassword: form.newPassword,
-    })).unwrap();
+      const updated = await dispatch(getCustomerById({
+        contactNumber: customer.contactNumber,
+        accessToken: customer.accessToken,
+      })).unwrap();
 
-    // After successful password update, fetch the customer profile with the token
-    const updated = await dispatch(getCustomerById({
-      contactNumber: customer.contactNumber,
-      accessToken: customer.accessToken // Pass the access token
-    })).unwrap();
-    
-    // Merge the updated profile with tokens
-    const completeCustomer = {
-      ...updated,
-      accessToken: customer.accessToken,
-      refreshToken: customer.refreshToken,
-      loginStatus: true // Now the status should be true after password change
-    };
-    
-    dispatch(setCurrentCustomer(completeCustomer));
-    setDone(true);
-    setTimeout(onSuccess, 1800);
-  } catch (err) {
-    const msg = typeof err === "object"
-      ? err?.message || "Password update failed."
-      : err || "Password update failed.";
-    setError(msg);
-  } finally {
-    setLoading(false);
-  }
-};
+      const completeCustomer = {
+        ...updated,
+        accessToken: customer.accessToken,
+        refreshToken: customer.refreshToken,
+        loginStatus: true,
+      };
+
+      dispatch(setCurrentCustomer(completeCustomer));
+      setDone(true);
+      setTimeout(onSuccess, 1800);
+    } catch (err) {
+      const msg = typeof err === "object"
+        ? err?.message || "Password update failed."
+        : err || "Password update failed.";
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="ft-force-overlay">
@@ -206,7 +224,6 @@ const submit = async () => {
             Please set a strong new password.
           </p>
         </div>
-
         {done ? (
           <div className="ft-force-success">
             <CheckCircleIcon className="ft-force-check" />
@@ -242,10 +259,10 @@ const ChangePasswordPanel = ({ customer, showNotification, onClose }) => {
   const handle = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
 
   const submit = async () => {
-    if (!form.oldPassword)                  return showNotification("Enter your current password.", "error");
-    if (!isStrongPassword(form.newPassword)) return showNotification("New password doesn't meet requirements.", "error");
+    if (!form.oldPassword)                       return showNotification("Enter your current password.", "error");
+    if (!isStrongPassword(form.newPassword))     return showNotification("New password doesn't meet requirements.", "error");
     if (form.newPassword !== form.confirmPassword) return showNotification("Passwords do not match.", "error");
-    if (form.oldPassword === form.newPassword)    return showNotification("New password must differ from current.", "error");
+    if (form.oldPassword === form.newPassword)   return showNotification("New password must differ from current.", "error");
 
     setLoading(true);
     try {
@@ -297,13 +314,17 @@ const ChangePasswordPanel = ({ customer, showNotification, onClose }) => {
 const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
   const dispatch = useDispatch();
 
-  const [authMode, setAuthMode]                 = useState("login");
-  const [showChangePassword, setShowChangePassword] = useState(false);
-  const [loading, setLoading]                   = useState(false);
+  const [authMode, setAuthMode]                       = useState("login");
+  const [showChangePassword, setShowChangePassword]   = useState(false);
+  const [loading, setLoading]                         = useState(false);
   const [forcePasswordChange, setForcePasswordChange] = useState(false);
-  const [pendingCustomer, setPendingCustomer]   = useState(null);
-  const [redirecting, setRedirecting]           = useState(false);
-  const [notification, setNotification]         = useState({
+  const [pendingCustomer, setPendingCustomer]         = useState(null);
+  const [redirecting, setRedirecting]                 = useState(false);
+
+  // ✅ Force logout banner state
+  const [showSecurityBanner, setShowSecurityBanner]   = useState(false);
+
+  const [notification, setNotification] = useState({
     message: "", type: "success", isVisible: false,
   });
 
@@ -313,8 +334,8 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
     address: "", password: "", accountType: "customer",
     email: "", accountStatus: "1",
   });
-  const [loginData, setLoginData]   = useState({ contactNumber: "", password: "" });
-  const [guestData, setGuestData]   = useState({ contactNumber: "" });
+  const [loginData, setLoginData] = useState({ contactNumber: "", password: "" });
+  const [guestData, setGuestData] = useState({ contactNumber: "" });
 
   // ── Notification helpers ───────────────────
   const hideNotif = useCallback(
@@ -323,10 +344,29 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
   );
   const showNotif = useCallback((message, type = "success") => {
     setNotification({ message: "", type, isVisible: false });
-    requestAnimationFrame(() => setNotification({ message, type, isVisible: true }));
+    requestAnimationFrame(() =>
+      setNotification({ message, type, isVisible: true })
+    );
   }, []);
 
   const normalizePhone = (v = "") => v.replace(/\D/g, "");
+
+  // ✅ Check force logout flag when modal opens
+  useEffect(() => {
+    if (open) {
+      const wasForceLoggedOut = localStorage.getItem("customer_force_logout");
+      if (wasForceLoggedOut === "true") {
+        // Show security banner
+        setShowSecurityBanner(true);
+        // Clear the flag
+        localStorage.removeItem("customer_force_logout");
+        // Clear Redux flag
+        dispatch(clearForceLogout());
+        // Default to login tab
+        setAuthMode("login");
+      }
+    }
+  }, [open, dispatch]);
 
   // ── Side-effects ───────────────────────────
   useEffect(() => {
@@ -354,6 +394,7 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
       setForcePasswordChange(false);
       setPendingCustomer(null);
       setRedirecting(false);
+      setShowSecurityBanner(false);
       setLoginData({ contactNumber: "", password: "" });
     }
   }, [open, hideNotif]);
@@ -398,9 +439,11 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
     try {
       const result = await dispatch(createCustomer(signupData)).unwrap();
 
-      // Account already exists
       if (result?.ResponseCode === "2") {
-        showNotif((result.ResponseMessage || "Account already exists.") + " Please login.", "error");
+        showNotif(
+          (result.ResponseMessage || "Account already exists.") + " Please login.",
+          "error"
+        );
         setTimeout(() => {
           setLoginData((p) => ({ ...p, contactNumber: signupData.contactNumber }));
           setAuthMode("login");
@@ -440,25 +483,23 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
         password: loginData.password,
       })).unwrap();
 
-      // Check if login requires password change
-      // loginStatus === false means password change is required
+      // Password change required
       if (result.requiresPasswordChange || result.loginStatus === false) {
         setPendingCustomer(result);
         setForcePasswordChange(true);
         return;
       }
 
-      // Login successful and no password change required
       if (!result?.contactNumber) {
         showNotif("Login succeeded but account data is missing. Please try again.", "error");
         return;
       }
 
-      // Everything is good, proceed with login
+      // ✅ Successful login - clear security banner
+      setShowSecurityBanner(false);
       dispatch(setCurrentCustomer(result));
       showNotif("Welcome back!", "success");
       setTimeout(() => { onSuccess ? onSuccess() : onClose(); }, 1500);
-
     } catch (err) {
       const message = typeof err === "object"
         ? err?.message || "Login failed."
@@ -468,14 +509,12 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
         typeof err === "object" && err?.isAccountNotFound === true;
 
       if (isAccountNotFound) {
-        // Show banner + auto-redirect to signup
         setRedirecting(true);
         showNotif(
           "No account found with this number. Redirecting you to register…",
           "error"
         );
 
-        // Pre-fill signup form with the phone number they typed
         setSignupData((prev) => ({
           ...prev,
           contactNumber: loginData.contactNumber,
@@ -512,7 +551,10 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
       const result = await dispatch(createCustomer(guestPayload)).unwrap();
 
       if (result?.ResponseCode === "2") {
-        showNotif((result.ResponseMessage || "Number already registered.") + " Please login.", "error");
+        showNotif(
+          (result.ResponseMessage || "Number already registered.") + " Please login.",
+          "error"
+        );
         setTimeout(() => {
           setLoginData((p) => ({ ...p, contactNumber: phone }));
           setAuthMode("login");
@@ -576,11 +618,12 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
           onSuccess={() => {
             setForcePasswordChange(false);
             setPendingCustomer(null);
+            setShowSecurityBanner(false);
             showNotif("Password updated! You're now logged in.", "success");
             setTimeout(() => { onSuccess ? onSuccess() : onClose(); }, 1500);
           }}
-          onClose={() => { 
-            setForcePasswordChange(false); 
+          onClose={() => {
+            setForcePasswordChange(false);
             setPendingCustomer(null);
             showNotif("Password change cancelled. Please login again.", "error");
           }}
@@ -596,6 +639,13 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
         >
           {/* Close */}
           <button className="ft-close" onClick={onClose}><XMarkIcon /></button>
+
+          {/* ✅ Security Update Banner */}
+          {showSecurityBanner && (
+            <SecurityUpdateBanner
+              onDismiss={() => setShowSecurityBanner(false)}
+            />
+          )}
 
           {/* Header */}
           <div className="ft-head">
@@ -620,8 +670,6 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
 
           {/* Body */}
           <div className="ft-body">
-
-            {/* ── Inline Change Password ── */}
             {showChangePassword ? (
               <div>
                 <button
@@ -638,15 +686,13 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
               </div>
             ) : (
               <>
-                {/* ── Redirect banner ── */}
+                {/* Redirect banner */}
                 {redirecting && (
                   <div className="ft-redirect-banner">
                     <ExclamationTriangleIcon className="ft-redirect-ico" />
                     <div>
                       <p className="ft-redirect-title">Account not found</p>
-                      <p className="ft-redirect-sub">
-                        Redirecting you to register…
-                      </p>
+                      <p className="ft-redirect-sub">Redirecting you to register…</p>
                     </div>
                     <ArrowPathIcon className="ft-spin ft-redirect-spin" />
                   </div>
@@ -660,14 +706,18 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
                       placeholder="Contact Number (10 digits)"
                       name="contactNumber"
                       value={loginData.contactNumber}
-                      onChange={(e) => setLoginData((p) => ({ ...p, [e.target.name]: e.target.value }))}
+                      onChange={(e) =>
+                        setLoginData((p) => ({ ...p, [e.target.name]: e.target.value }))
+                      }
                     />
                     <Field
                       icon={LockClosedIcon}
                       placeholder="Password"
                       name="password"
                       value={loginData.password}
-                      onChange={(e) => setLoginData((p) => ({ ...p, [e.target.name]: e.target.value }))}
+                      onChange={(e) =>
+                        setLoginData((p) => ({ ...p, [e.target.name]: e.target.value }))
+                      }
                       isPassword
                     />
                     <button
@@ -691,7 +741,10 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
                           <span /><span className="ft-divider-text">account settings</span><span />
                         </div>
                         <div className="ft-cp-link-wrap">
-                          <button className="ft-cp-link" onClick={() => setShowChangePassword(true)}>
+                          <button
+                            className="ft-cp-link"
+                            onClick={() => setShowChangePassword(true)}
+                          >
                             <ShieldCheckIcon className="ft-cp-link-ico" />
                             Change Password
                           </button>
@@ -705,13 +758,13 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
                 {authMode === "signup" && (
                   <div className="ft-fields">
                     <div className="ft-row">
-                      <Field icon={UserIcon} placeholder="First Name" name="firstName" value={signupData.firstName} onChange={(e) => setSignupData((p) => ({ ...p, [e.target.name]: e.target.value }))} />
-                      <Field icon={UserIcon} placeholder="Last Name"  name="lastName"  value={signupData.lastName}  onChange={(e) => setSignupData((p) => ({ ...p, [e.target.name]: e.target.value }))} />
+                      <Field icon={UserIcon}  placeholder="First Name" name="firstName" value={signupData.firstName} onChange={(e) => setSignupData((p) => ({ ...p, [e.target.name]: e.target.value }))} />
+                      <Field icon={UserIcon}  placeholder="Last Name"  name="lastName"  value={signupData.lastName}  onChange={(e) => setSignupData((p) => ({ ...p, [e.target.name]: e.target.value }))} />
                     </div>
-                    <Field icon={EnvelopeIcon} type="email" placeholder="Email (optional)" name="email"        value={signupData.email}        onChange={(e) => setSignupData((p) => ({ ...p, [e.target.name]: e.target.value }))} />
-                    <Field icon={PhoneIcon}    placeholder="Contact Number (10 digits)"    name="contactNumber" value={signupData.contactNumber} onChange={(e) => setSignupData((p) => ({ ...p, [e.target.name]: e.target.value }))} />
-                    <Field icon={HomeIcon}     placeholder="Address"                       name="address"       value={signupData.address}       onChange={(e) => setSignupData((p) => ({ ...p, [e.target.name]: e.target.value }))} />
-                    <Field icon={LockClosedIcon} placeholder="Create Password"             name="password"      value={signupData.password}      onChange={(e) => setSignupData((p) => ({ ...p, [e.target.name]: e.target.value }))} isPassword />
+                    <Field icon={EnvelopeIcon}  type="email" placeholder="Email (optional)"        name="email"         value={signupData.email}         onChange={(e) => setSignupData((p) => ({ ...p, [e.target.name]: e.target.value }))} />
+                    <Field icon={PhoneIcon}      placeholder="Contact Number (10 digits)"           name="contactNumber" value={signupData.contactNumber}  onChange={(e) => setSignupData((p) => ({ ...p, [e.target.name]: e.target.value }))} />
+                    <Field icon={HomeIcon}       placeholder="Address"                              name="address"       value={signupData.address}        onChange={(e) => setSignupData((p) => ({ ...p, [e.target.name]: e.target.value }))} />
+                    <Field icon={LockClosedIcon} placeholder="Create Password"                     name="password"      value={signupData.password}       onChange={(e) => setSignupData((p) => ({ ...p, [e.target.name]: e.target.value }))} isPassword />
                     <StrengthMeter password={signupData.password} />
                     <button className="ft-btn ft-btn-primary" onClick={handleSignup} disabled={loading}>
                       {loading
@@ -737,7 +790,9 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
                       placeholder="Contact Number (10 digits)"
                       name="contactNumber"
                       value={guestData.contactNumber}
-                      onChange={(e) => setGuestData((p) => ({ ...p, [e.target.name]: e.target.value }))}
+                      onChange={(e) =>
+                        setGuestData((p) => ({ ...p, [e.target.name]: e.target.value }))
+                      }
                     />
                     <button className="ft-btn ft-btn-primary" onClick={handleGuest} disabled={loading}>
                       {loading
@@ -814,6 +869,41 @@ const CSS = `
     from { opacity:0; transform: translateY(14px) scale(.97) }
     to   { opacity:1; transform: translateY(0) scale(1) }
   }
+
+  /* ── Security Update Banner ── */
+  .ft-security-banner {
+    display: flex; align-items: flex-start; gap: 12px;
+    background: linear-gradient(135deg, #fef3c7, #fffbeb);
+    border-bottom: 2px solid #fbbf24;
+    padding: 14px 16px;
+    animation: ftFadeIn .3s ease;
+    position: relative;
+  }
+  .ft-security-banner-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: #fff; border: 1.5px solid #fbbf24;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .ft-security-banner-icon svg {
+    width: 18px; height: 18px; color: #d97706;
+  }
+  .ft-security-banner-content { flex: 1; min-width: 0; }
+  .ft-security-banner-title {
+    font-size: 13px; font-weight: 700; color: #92400e;
+    margin: 0 0 3px; font-family: var(--ft-font);
+  }
+  .ft-security-banner-sub {
+    font-size: 12px; color: #b45309; margin: 0;
+    line-height: 1.5; font-family: var(--ft-font);
+  }
+  .ft-security-banner-close {
+    width: 24px; height: 24px; border-radius: 4px;
+    border: none; background: rgba(251,191,36,.2);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0; transition: background .15s;
+  }
+  .ft-security-banner-close svg { width: 13px; height: 13px; color: #92400e; }
+  .ft-security-banner-close:hover { background: rgba(251,191,36,.4); }
 
   /* ── Close ── */
   .ft-close {
