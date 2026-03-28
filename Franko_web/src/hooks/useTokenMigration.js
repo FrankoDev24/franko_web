@@ -35,7 +35,7 @@ export const useTokenMigration = () => {
     const timer = setTimeout(() => {
       hasRun.current = true;
 
-      console.log("🔍 Post-mount token validation — Starting...");
+      
 
       // ── CUSTOMER VALIDATION ───────────────────────────────────
       if (currentCustomer) {
@@ -44,16 +44,14 @@ export const useTokenMigration = () => {
           currentCustomer?.refreshToken?.trim();
 
         if (!hasToken) {
-          console.warn(
-            "⚠️ Redux has customer with no valid token — forcing logout"
-          );
+        
           // ✅ Use triggerForceLogout so AuthModal shows security banner
           dispatch(triggerForceLogout());
         } else {
-          console.log("✅ Customer token valid in Redux");
+         
         }
       } else {
-        console.log("ℹ️ No customer in Redux");
+       
       }
 
       // ── USER VALIDATION ───────────────────────────────────────
@@ -63,9 +61,7 @@ export const useTokenMigration = () => {
           currentUser?.refreshToken?.trim();
 
         if (!hasToken) {
-          console.warn(
-            "⚠️ Redux has user with no valid token — forcing logout"
-          );
+        
           dispatch(logoutUser());
 
           // Redirect staff users to login
@@ -80,19 +76,19 @@ export const useTokenMigration = () => {
           ].some((p) => currentPath.startsWith(p));
 
           if (isStaffPath && currentPath !== "/admin/login") {
-            console.log("↗️ Redirecting staff to login");
+          
             setTimeout(() => {
               window.location.replace("/admin/login");
             }, 100);
           }
         } else {
-          console.log("✅ User token valid in Redux");
+        
         }
       } else {
-        console.log("ℹ️ No user in Redux");
+        
       }
 
-      console.log("✅ Post-mount token validation — Complete");
+     
     }, 300); // Small delay to ensure Redux is hydrated
 
     return () => clearTimeout(timer);

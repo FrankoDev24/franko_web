@@ -100,6 +100,45 @@ const readFromStorage = (key) => {
   }
 }
 
+// ==================== ENDPOINT CLASSIFIER ====================
+
+const isCustomerAuthenticatedEndpoint = (endpoint = '') => {
+  const lower = endpoint.toLowerCase()
+
+  // ✅ List of ALL customer-authenticated endpoints
+  const customerEndpoints = [
+    '/customer',           // Customer profile endpoints
+    '/order',              // Order endpoints (CheckOutDbCart, etc.)
+    '/cart',               // Cart endpoints
+    '/checkout',           // Checkout endpoints
+    '/wishlist',           // Wishlist endpoints
+    '/account',            // Account endpoints
+    'customerlogin',       // Login
+    'customerrefreshtoken', // Token refresh
+    'generatecustomertoken', // Token generation
+    'updatecustomerpassword', // Password update
+    'forgotpassword',      // Password reset
+    'resetpassword',       // Password reset confirmation
+  ]
+
+  return customerEndpoints.some((pattern) => lower.includes(pattern))
+}
+
+const isStaffAuthenticatedEndpoint = (endpoint = '') => {
+  const lower = endpoint.toLowerCase()
+
+  const staffEndpoints = [
+    '/users/login',
+    '/users/refresh',
+    '/users/getusers',
+    '/users/user-',
+    'access',
+    'admin',
+  ]
+
+  return staffEndpoints.some((pattern) => lower.includes(pattern))
+}
+
 // ==================== SESSION EXPIRY MODAL COMPONENT ====================
 
 const SessionExpiryModal = () => {
@@ -301,6 +340,14 @@ const useAuthModalController = () => {
 
     const shouldShowModal = hasNoToken || forceLogout
 
+    if (shouldShowModal) {
+      console.log('🔓 Opening AuthModal — Reason:', {
+        hasNoToken,
+        forceLogout,
+        currentCustomer: !!currentCustomer,
+      })
+    }
+
     setAuthModalOpen(shouldShowModal)
   }, [currentCustomer, isAuthenticated, forceLogout, isExcludedPath, location.pathname])
 
@@ -312,29 +359,47 @@ const useAuthModalController = () => {
 const useGlobal401Handler = () => {
   const dispatch = useDispatch()
   const location = useLocation()
+  const { currentCustomer } = useSelector((state) => state.customer)
 
   useEffect(() => {
-    // ✅ Setup response interceptor to catch 401s for customers
+    // ✅ Setup response interceptor to catch 401s
     const interceptor = axiosInstance.interceptors.response.use(
       (response) => response,
       (error) => {
         if (error.response?.status === 401) {
           const endpoint = error.config?.params?.endpoint || error.config?.url || ''
-          const isCustomerEndpoint = endpoint.toLowerCase().includes('customer')
+          
+          console.warn('🔒 401 Unauthorized detected:', {
+            endpoint,
+            currentPath: location.pathname,
+            hasCustomer: !!currentCustomer,
+          })
 
-          // Only auto-logout customers on 401 (users have their own session management)
-          if (isCustomerEndpoint) {
-            const currentPath = location.pathname
-            const isStaffPath = ['/admin', '/dev', '/fulfillment', '/content', '/agent', '/digi'].some(
-              (p) => currentPath.startsWith(p)
-            )
+          // ✅ Check if this is a customer-authenticated endpoint
+          const isCustomerEndpoint = isCustomerAuthenticatedEndpoint(endpoint)
+          
+          // ✅ Check if this is a staff-authenticated endpoint
+          const isStaffEndpoint = isStaffAuthenticatedEndpoint(endpoint)
 
-            // Don't logout on staff paths
-            if (!isStaffPath) {
-              console.warn('🔒 401 Unauthorized — triggering customer force logout')
-              dispatch(triggerForceLogout())
-            }
+          // ✅ Determine current context based on path
+          const currentPath = location.pathname
+          const isStaffPath = ['/admin', '/dev', '/fulfillment', '/content', '/agent', '/digi'].some(
+            (p) => currentPath.startsWith(p)
+          )
+
+          // ✅ CUSTOMER 401 HANDLING
+          if (isCustomerEndpoint && !isStaffPath) {
+            console.warn('🚨 Customer endpoint 401 — triggering force logout')
+            dispatch(triggerForceLogout())
           }
+
+          // ✅ STAFF 401 HANDLING (if needed in the future)
+          // Uncomment if you want to handle staff 401s
+          // if (isStaffEndpoint && isStaffPath) {
+          //   console.warn('🚨 Staff endpoint 401 — redirecting to login')
+          //   dispatch(logoutUser())
+          //   window.location.replace('/admin/login')
+          // }
         }
 
         return Promise.reject(error)
@@ -345,7 +410,7 @@ const useGlobal401Handler = () => {
     return () => {
       axiosInstance.interceptors.response.eject(interceptor)
     }
-  }, [dispatch, location.pathname])
+  }, [dispatch, location.pathname, currentCustomer])
 }
 
 // ==================== APP CONTENT COMPONENT ====================
