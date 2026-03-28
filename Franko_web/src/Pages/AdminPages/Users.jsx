@@ -1,7 +1,7 @@
 // src/Pages/Users/Users.jsx (for example)
 import { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchUsers, clearError } from "../../Redux/Slice/userSlice";
+import { fetchUsers } from "../../Redux/Slice/userSlice";
 import { Table, Spin, Alert, Input } from "antd";
 
 const { Search } = Input;
@@ -17,12 +17,7 @@ const Users = () => {
     dispatch(fetchUsers());
   }, [dispatch]);
 
-  // Optional: clear error when unmounting or when users change
-  useEffect(() => {
-    return () => {
-      dispatch(clearError());
-    };
-  }, [dispatch]);
+
 
   const filteredUsers = useMemo(() => {
     if (!searchText) return users;

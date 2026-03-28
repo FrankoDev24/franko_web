@@ -1,900 +1,218 @@
 // src/Redux/Slice/userSlice.js
-import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axiosInstance from "./AxiosInstance";
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import axiosInstance from './AxiosInstance';
 
-// ═══════════════════════════════════════════════════════════════════
-// CONSTANTS
-// ═══════════════════════════════════════════════════════════════════
-const USER_KEY = "user";
-const USER_TOKEN_MIGRATION_FLAG = "user_token_migrated";
 const AUTO_LOGOUT_INTERVAL = 3 * 60 * 60 * 1000; // 3 hours
-const SESSION_WARNING_TIME = 3 * 60 * 1000; // 3 minutes
 
-// ═══════════════════════════════════════════════════════════════════
-// LOCALSTORAGE HELPERS (Encrypted via monkey-patch)
-// ═══════════════════════════════════════════════════════════════════
-const loadFromStorage = () => {
-  try {
-    const parsed = localStorage.getItem(USER_KEY);
-    return parsed && typeof parsed === "object" ? parsed : null;
-  } catch (error) {
-    console.error("Failed to load user from storage:", error);
-    return null;
-  }
-};
-
-const saveToStorage = (user) => {
-  try {
-    if (!user) {
-      localStorage.removeItem(USER_KEY);
-      localStorage.removeItem("loginTime");
-      localStorage.removeItem(USER_TOKEN_MIGRATION_FLAG);
-    } else {
-      localStorage.setItem(USER_KEY, JSON.stringify(user));
-      localStorage.setItem("loginTime", String(Date.now()));
-    }
-  } catch (error) {
-    console.error("Failed to save user to storage:", error);
-  }
-};
-
-// ═══════════════════════════════════════════════════════════════════
-// SAFE JSON PARSER
-// ═══════════════════════════════════════════════════════════════════
-const safeParseJSON = (raw) => {
-  if (typeof raw === "object" && raw !== null) return raw;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-};
-
-// ═══════════════════════════════════════════════════════════════════
-// AXIOS HELPERS
-// ═══════════════════════════════════════════════════════════════════
-const callBackend = async ({
-  endpoint,
-  method = "GET",
-  data,
-  extraParams = {},
-  headers = {},
-}) => {
-  const config = {
-    method,
-    url: "/",
-    params: { endpoint, ...extraParams },
-    headers,
-  };
-
-  if (data !== undefined) {
-    config.data = data;
-  }
-
-  return await axiosInstance(config);
-};
-
-const buildAuthHeaders = (providedToken = null) => {
-  const stored = loadFromStorage();
-  const accessToken = providedToken || stored?.accessToken;
-  const headers = { "Content-Type": "application/json" };
-  if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`;
-  }
-  return headers;
-};
-
-// ═══════════════════════════════════════════════════════════════════
-// TOKEN REFRESH FOR USERS
-// ═══════════════════════════════════════════════════════════════════
-const refreshUserToken = async (refreshToken) => {
-  try {
-    const res = await callBackend({
-      endpoint: "/Users/UserRefreshToken",
-      method: "POST",
-      data: { refreshToken },
-      headers: { "Content-Type": "application/json" },
-    });
-
-    const data = safeParseJSON(res.data);
-
-    if (res.status < 200 || res.status >= 300) {
-      throw new Error(data?.response?.responseMessage || "Token refresh failed");
-    }
-
-    if (data?.response?.responseCode !== "1") {
-      throw new Error(data?.response?.responseMessage || "Invalid refresh response");
-    }
-
-    return {
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
-    };
-  } catch (error) {
-    console.error("User token refresh error:", error);
-    throw error;
-  }
-};
-
-// ═══════════════════════════════════════════════════════════════════
-// TOKEN GENERATION FOR LEGACY USERS
-// ═══════════════════════════════════════════════════════════════════
-const generateUserToken = async (contactNumber) => {
-  try {
-    const res = await callBackend({
-      endpoint: "/Users/GenerateUserToken",
-      method: "POST",
-      data: { contactNumber },
-      headers: { "Content-Type": "application/json" },
-    });
-
-    const data = safeParseJSON(res.data);
-
-    if (res.status >= 200 && res.status < 300 && data?.accessToken) {
-      return {
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-      };
-    }
-
-    return null;
-  } catch (error) {
-    console.warn("Failed to generate user token:", error);
-    return null;
-  }
-};
-
-// ═══════════════════════════════════════════════════════════════════
-// REQUEST WITHOUT AUTO-REFRESH (Users get modal instead)
-// ═══════════════════════════════════════════════════════════════════
-const requestWithoutAutoRefresh = async ({
-  endpoint,
-  method = "GET",
-  data,
-  extraParams = {},
-  providedToken = null,
-}) => {
-  const headers = buildAuthHeaders(providedToken);
-
-  try {
-    const res = await callBackend({ endpoint, method, data, extraParams, headers });
-    return res;
-  } catch (err) {
-    if (err.response?.status === 401) {
-      throw new Error("SESSION_EXPIRING");
-    }
-    throw err;
-  }
-};
-
-// ═══════════════════════════════════════════════════════════════════
-// ACTIVITY TRACKING
-// ═══════════════════════════════════════════════════════════════════
+// -------------------------
+// Helpers
+// -------------------------
 const updateLastActivityTime = () => {
-  const user = loadFromStorage();
-  if (user) {
-    localStorage.setItem("loginTime", String(Date.now()));
-  }
+  localStorage.setItem('loginTime', String(Date.now()));
 };
 
+// Call this once during app startup: startAutoLogoutCheck(store.dispatch)
 export const startAutoLogoutCheck = (dispatch) => {
   setInterval(() => {
-    const loginTime = Number(localStorage.getItem("loginTime") || 0);
+    const loginTime = Number(localStorage.getItem('loginTime') || 0);
     if (loginTime && Date.now() - loginTime > AUTO_LOGOUT_INTERVAL) {
       dispatch(logoutUser());
     }
-  }, 60_000); // Check every minute
+  }, 60_000); // every minute
 };
 
-// ═══════════════════════════════════════════════════════════════════
-// ASYNC THUNKS
-// ═══════════════════════════════════════════════════════════════════
+// -------------------------
+// Thunks
+// -------------------------
 
-// ──────────────────────────────────────────────────────────────────
-// MIGRATE USER TOKEN
-// ──────────────────────────────────────────────────────────────────
-export const migrateUserToken = createAsyncThunk(
-  "users/migrateToken",
-  async (_, { rejectWithValue }) => {
-    try {
-      const stored = loadFromStorage();
-      const migrated = localStorage.getItem(USER_TOKEN_MIGRATION_FLAG);
-
-      // Skip if already migrated or has token
-      if (migrated || !stored || stored.accessToken) {
-        return null;
-      }
-
-      const contactNumber = stored.contactNumber || stored.contact;
-      if (!contactNumber) {
-        return null;
-      }
-
-      console.log("🔄 Migrating user token for:", contactNumber);
-
-      const tokens = await generateUserToken(contactNumber);
-
-      if (tokens) {
-        const updated = { ...stored, ...tokens };
-        saveToStorage(updated);
-        localStorage.setItem(USER_TOKEN_MIGRATION_FLAG, "true");
-        console.log("✅ User token migrated successfully");
-        return updated;
-      }
-
-      return null;
-    } catch (error) {
-      console.warn("User token migration failed:", error);
-      return rejectWithValue({ message: error.message });
-    }
-  }
-);
-
-// ──────────────────────────────────────────────────────────────────
-// CREATE USER
-// ──────────────────────────────────────────────────────────────────
+// Create user
 export const createUser = createAsyncThunk(
-  "users/createUser",
+  'users/createUser',
   async (userData, { rejectWithValue }) => {
     try {
-      const res = await callBackend({
-        endpoint: "/Users/User-Post",
-        method: "POST",
-        data: userData,
-        headers: { "Content-Type": "application/json" },
-      });
-
-      const data = safeParseJSON(res.data);
-
-      if (res.status < 200 || res.status >= 300) {
-        return rejectWithValue({
-          message: data?.ResponseMessage || "Registration failed.",
-          responseCode: data?.ResponseCode || String(res.status),
-        });
-      }
-
-      return data;
+      const res = await axiosInstance.post(
+        '/', // Lambda root
+        userData,
+        {
+          params: {
+            endpoint: '/Users/User-Post',
+          },
+        }
+      );
+      return res.data;
     } catch (error) {
-      return rejectWithValue({
-        message: error.message || "Registration failed.",
-        responseCode: "0",
-      });
+      const payload =
+        error.response?.data?.message ??
+        error.response?.data ??
+        error.message ??
+        'An unknown error occurred.';
+      return rejectWithValue(payload);
     }
   }
 );
 
-// ──────────────────────────────────────────────────────────────────
-// FETCH ALL USERS
-// ──────────────────────────────────────────────────────────────────
+// Fetch all users
 export const fetchUsers = createAsyncThunk(
-  "users/fetchUsers",
-  async (_, { rejectWithValue, dispatch }) => {
+  'users/fetchUsers',
+  async (_, { rejectWithValue }) => {
     try {
-      const res = await requestWithoutAutoRefresh({
-        endpoint: "/Users/Access",
-        method: "GET",
-      });
-
-      const data = safeParseJSON(res.data);
-
-      if (res.status < 200 || res.status >= 300) {
-        return rejectWithValue({
-          message: data?.ResponseMessage || "Failed to fetch users.",
-          responseCode: data?.ResponseCode || String(res.status),
-        });
-      }
-
-      return Array.isArray(data) ? data : [];
-    } catch (error) {
-      if (error.message === "SESSION_EXPIRING") {
-        dispatch(setSessionExpiring());
-        return rejectWithValue({
-          message: "Session expiring. Please refresh.",
-          responseCode: "401",
-        });
-      }
-      return rejectWithValue({
-        message: error.message || "Failed to fetch users.",
-        responseCode: "0",
-      });
-    }
-  }
-);
-
-// ──────────────────────────────────────────────────────────────────
-// GET USER BY ID
-// ──────────────────────────────────────────────────────────────────
-export const getUserById = createAsyncThunk(
-  "users/getUserById",
-  async ({ contactNumber, accessToken = null }, { rejectWithValue, dispatch }) => {
-    try {
-      const res = await requestWithoutAutoRefresh({
-        endpoint: "/Users/GetUserById",
-        method: "GET",
-        extraParams: { contactNumber },
-        providedToken: accessToken,
-      });
-
-      const data = safeParseJSON(res.data);
-
-      if (res.status < 200 || res.status >= 300) {
-        return rejectWithValue({
-          message: data?.ResponseMessage || "Failed to fetch user.",
-          responseCode: data?.ResponseCode || String(res.status),
-        });
-      }
-
-      const user = Array.isArray(data) ? data[0] : data;
-
-      if (!user) {
-        return rejectWithValue({
-          message: "User not found.",
-          responseCode: "404",
-        });
-      }
-
-      return user;
-    } catch (error) {
-      if (error.message === "SESSION_EXPIRING") {
-        dispatch(setSessionExpiring());
-        return rejectWithValue({
-          message: "Session expiring. Please refresh.",
-          responseCode: "401",
-        });
-      }
-      return rejectWithValue({
-        message: error.message || "Failed to fetch user.",
-        responseCode: "0",
-      });
-    }
-  }
-);
-
-// ──────────────────────────────────────────────────────────────────
-// LOGIN USER
-// ──────────────────────────────────────────────────────────────────
-export const loginUser = createAsyncThunk(
-  "users/LogIn",
-  async ({ contact, password }, { dispatch, rejectWithValue }) => {
-    try {
-      const res = await callBackend({
-        endpoint: "/Users/LogIn",
-        method: "POST",
-        data: { contactNumber: contact, password, FullName: "N/A" },
-        headers: { "Content-Type": "application/json" },
-      });
-
-      const data = safeParseJSON(res.data);
-
-      if (res.status < 200 || res.status >= 300) {
-        return rejectWithValue({
-          message: data?.response?.responseMessage || "Login failed.",
-          responseCode: data?.response?.responseCode || String(res.status),
-          isAccountNotFound: false,
-        });
-      }
-
-      const responseCode = data?.response?.responseCode;
-      const responseMessage = data?.response?.responseMessage;
-      const loginStatus = data?.status;
-
-      if (!data || responseCode !== "1") {
-        const msg = responseMessage || "Access Denied";
-        const code = responseCode ?? "0";
-
-        const isAccountNotFound =
-          code === "0" ||
-          msg.toLowerCase().includes("access denied") ||
-          msg.toLowerCase().includes("not found") ||
-          msg.toLowerCase().includes("invalid");
-
-        return rejectWithValue({
-          message: msg,
-          responseCode: code,
-          isAccountNotFound,
-        });
-      }
-
-      // Password change required
-      if (loginStatus === false) {
-        return {
-          contactNumber: contact,
-          contact: contact,
-          accessToken: data.accessToken,
-          refreshToken: data.refreshToken,
-          requiresPasswordChange: true,
-          loginStatus: false,
-        };
-      }
-
-      // Normal login flow
-      const tempUser = {
-        contactNumber: contact,
-        contact: contact,
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-      };
-      saveToStorage(tempUser);
-
-      try {
-        const profile = await dispatch(
-          getUserById({
-            contactNumber: contact,
-            accessToken: data.accessToken,
-          })
-        ).unwrap();
-
-        const merged = {
-          ...profile,
-          accessToken: data.accessToken,
-          refreshToken: data.refreshToken,
-          contactNumber: contact,
-          contact: contact,
-          loginStatus: true,
-        };
-
-        saveToStorage(merged);
-        localStorage.setItem(USER_TOKEN_MIGRATION_FLAG, "true");
-        return merged;
-      } catch (profileError) {
-        console.warn("Failed to fetch user profile:", profileError);
-        const basicUser = {
-          contactNumber: contact,
-          contact: contact,
-          accessToken: data.accessToken,
-          refreshToken: data.refreshToken,
-          loginStatus: true,
-          isAuthenticated: true,
-        };
-
-        saveToStorage(basicUser);
-        localStorage.setItem(USER_TOKEN_MIGRATION_FLAG, "true");
-        return basicUser;
-      }
-    } catch (error) {
-      if (error?.responseCode) return rejectWithValue(error);
-      return rejectWithValue({
-        message: error.message || "Login failed.",
-        responseCode: "0",
-        isAccountNotFound: false,
-      });
-    }
-  }
-);
-
-// ──────────────────────────────────────────────────────────────────
-// UPDATE USER PASSWORD
-// ──────────────────────────────────────────────────────────────────
-export const updateUserPassword = createAsyncThunk(
-  "users/updateUserPassword",
-  async ({ contactNumber, oldPassword, newPassword }, { rejectWithValue, dispatch }) => {
-    try {
-      const res = await requestWithoutAutoRefresh({
-        endpoint: "/Users/UpdateUserPassword",
-        method: "POST",
-        data: { contactNumber, oldPassword, newPassword },
-      });
-
-      const data = safeParseJSON(res.data);
-
-      if (res.status < 200 || res.status >= 300 || data?.ResponseCode !== "1") {
-        return rejectWithValue({
-          message: data?.ResponseMessage || "Password update failed.",
-          responseCode: data?.ResponseCode || String(res.status),
-        });
-      }
-
-      return data;
-    } catch (error) {
-      if (error.message === "SESSION_EXPIRING") {
-        dispatch(setSessionExpiring());
-        return rejectWithValue({
-          message: "Session expiring. Please refresh.",
-          responseCode: "401",
-        });
-      }
-      return rejectWithValue({
-        message: error.message || "Password update failed.",
-        responseCode: "0",
-      });
-    }
-  }
-);
-
-// ──────────────────────────────────────────────────────────────────
-// UPDATE ACCOUNT STATUS
-// ──────────────────────────────────────────────────────────────────
-export const updateAccountStatus = createAsyncThunk(
-  "users/updateAccountStatus",
-  async (_, { getState, rejectWithValue, dispatch }) => {
-    try {
-      const user = getState().user.currentUser;
-
-      const res = await requestWithoutAutoRefresh({
-        endpoint: "/Users/User-Status",
-        method: "POST",
-        data: {
-          accountNumber: user?.userAccountNumber,
-          accountStatus: "0",
+      const response = await axiosInstance.get('/', {
+        params: {
+          endpoint: '/Users/Users-Get',
         },
       });
 
-      const data = safeParseJSON(res.data);
-
-      if (res.status < 200 || res.status >= 300) {
-        return rejectWithValue({
-          message: data?.ResponseMessage || "Status update failed.",
-          responseCode: data?.ResponseCode || String(res.status),
-        });
-      }
-
-      saveToStorage(null);
-      return data;
+      return response.data;
     } catch (error) {
-      if (error.message === "SESSION_EXPIRING") {
-        dispatch(setSessionExpiring());
-        return rejectWithValue({
-          message: "Session expiring. Please refresh.",
-          responseCode: "401",
-        });
-      }
-      return rejectWithValue({
-        message: error.message || "Status update failed.",
-        responseCode: "0",
-      });
+      return rejectWithValue(error.response?.data || 'An error occurred.');
     }
   }
 );
 
-// ──────────────────────────────────────────────────────────────────
-// FORGOT PASSWORD
-// ──────────────────────────────────────────────────────────────────
-export const forgotPassword = createAsyncThunk(
-  "users/forgotPassword",
-  async ({ contactNumber, email }, { rejectWithValue }) => {
+// Login user
+export const loginUser = createAsyncThunk(
+  'users/loginUser',
+  async ({ contact, password }, { dispatch, rejectWithValue }) => {
     try {
-      const res = await callBackend({
-        endpoint: "/Users/UserForgotPassword",
-        method: "POST",
-        data: { contactNumber, email },
-        headers: { "Content-Type": "application/json" },
-      });
+      const users = await dispatch(fetchUsers()).unwrap();
 
-      const data = safeParseJSON(res.data);
+      const normalizedUsers = (Array.isArray(users) ? users : []).map((u) => ({
+        ...u,
+        contact: u.contact ?? u.contactNumber,
+      }));
 
-      if (res.status < 200 || res.status >= 300 || data?.ResponseCode !== "1") {
-        return rejectWithValue({
-          message: data?.ResponseMessage || "Password reset request failed.",
-          responseCode: data?.ResponseCode || String(res.status),
-        });
+      const matchingUser = normalizedUsers.find(
+        (u) => u.contact === contact && u.password === password
+      );
+
+      if (!matchingUser) {
+        return rejectWithValue('Invalid contact number or password.');
       }
 
-      return data;
+      const loginTime = Date.now();
+      localStorage.setItem('user', JSON.stringify(matchingUser));
+      localStorage.setItem('loginTime', String(loginTime));
+      return matchingUser;
     } catch (error) {
-      return rejectWithValue({
-        message: error.message || "Password reset request failed.",
-        responseCode: "0",
-      });
+      const payload =
+        typeof error === 'string'
+          ? error
+          : error?.message ?? 'An unknown error occurred.';
+      return rejectWithValue(payload);
     }
   }
 );
 
-// ──────────────────────────────────────────────────────────────────
-// RESET PASSWORD
-// ──────────────────────────────────────────────────────────────────
-export const resetPassword = createAsyncThunk(
-  "users/resetPassword",
-  async ({ contactNumber, token, newPassword }, { rejectWithValue }) => {
-    try {
-      const res = await callBackend({
-        endpoint: "/Users/UserResetPassword",
-        method: "POST",
-        data: { contactNumber, token, newPassword },
-        headers: { "Content-Type": "application/json" },
-      });
-
-      const data = safeParseJSON(res.data);
-
-      if (res.status < 200 || res.status >= 300 || data?.ResponseCode !== "1") {
-        return rejectWithValue({
-          message: data?.ResponseMessage || "Password reset failed.",
-          responseCode: data?.ResponseCode || String(res.status),
-        });
-      }
-
-      return data;
-    } catch (error) {
-      return rejectWithValue({
-        message: error.message || "Password reset failed.",
-        responseCode: "0",
-      });
-    }
-  }
-);
-
-// ──────────────────────────────────────────────────────────────────
-// REFRESH USER SESSION (Manual - from modal)
-// ──────────────────────────────────────────────────────────────────
-export const refreshUserSession = createAsyncThunk(
-  "users/refreshUserSession",
-  async (_, { rejectWithValue }) => {
-    try {
-      const stored = loadFromStorage();
-      const refreshToken = stored?.refreshToken;
-
-      if (!refreshToken) {
-        return rejectWithValue({
-          message: "No refresh token available.",
-          responseCode: "401",
-        });
-      }
-
-      const newTokens = await refreshUserToken(refreshToken);
-      saveToStorage({ ...stored, ...newTokens });
-
-      return newTokens;
-    } catch (error) {
-      return rejectWithValue({
-        message: error.message || "Session refresh failed.",
-        responseCode: "401",
-      });
-    }
-  }
-);
-
-// ═══════════════════════════════════════════════════════════════════
-// INITIAL STATE
-// ═══════════════════════════════════════════════════════════════════
-const hydrated = loadFromStorage();
-
+// -------------------------
+// Initial state
+// -------------------------
 const initialState = {
-  currentUser: hydrated,
-  currentUserDetails: hydrated,
-  users: [],
+  currentUser: (() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || 'null');
+    } catch {
+      return null;
+    }
+  })(),
+  currentUserDetails: null,
+  users: [], // unified key (was userList)
   loading: false,
   error: null,
-  isAuthenticated: !!hydrated?.accessToken,
-  sessionExpiring: false,
-  sessionExpiresAt: null,
-  tokenMigrated: !!localStorage.getItem(USER_TOKEN_MIGRATION_FLAG),
 };
 
-// ═══════════════════════════════════════════════════════════════════
-// SLICE
-// ═══════════════════════════════════════════════════════════════════
+// -------------------------
+// Slice
+// -------------------------
 const userSlice = createSlice({
-  name: "user",
+  name: 'user',
   initialState,
   reducers: {
     logoutUser: (state) => {
       state.currentUser = null;
       state.currentUserDetails = null;
-      state.isAuthenticated = false;
-      state.sessionExpiring = false;
-      state.sessionExpiresAt = null;
-      state.tokenMigrated = false;
-      saveToStorage(null);
-    },
-    setUser: (state, action) => {
-      state.currentUser = action.payload;
-      state.currentUserDetails = action.payload;
-      state.isAuthenticated = !!action.payload?.accessToken;
-      saveToStorage(action.payload);
+      localStorage.removeItem('user');
+      localStorage.removeItem('loginTime');
     },
     clearUsers: (state) => {
       state.users = [];
     },
+    setUser: (state, action) => {
+      state.currentUser = action.payload;
+      localStorage.setItem('user', JSON.stringify(action.payload));
+      updateLastActivityTime();
+    },
     clearSelectedUser: (state) => {
       state.currentUserDetails = null;
-    },
-    clearError: (state) => {
-      state.error = null;
-    },
-    updateToken: (state, action) => {
-      if (state.currentUser) {
-        state.currentUser.accessToken = action.payload.accessToken;
-        state.currentUser.refreshToken = action.payload.refreshToken;
-        state.isAuthenticated = true;
-        saveToStorage(state.currentUser);
-      }
-    },
-    setSessionExpiring: (state) => {
-      state.sessionExpiring = true;
-      state.sessionExpiresAt = Date.now() + SESSION_WARNING_TIME;
-    },
-    clearSessionExpiring: (state) => {
-      state.sessionExpiring = false;
-      state.sessionExpiresAt = null;
-    },
-    forceSessionExpire: (state) => {
-      state.currentUser = null;
-      state.currentUserDetails = null;
-      state.isAuthenticated = false;
-      state.sessionExpiring = false;
-      state.sessionExpiresAt = null;
-      state.tokenMigrated = false;
-      saveToStorage(null);
     },
   },
   extraReducers: (builder) => {
     builder
-      // Migration
-      .addCase(migrateUserToken.fulfilled, (state, action) => {
-        if (action.payload) {
-          state.currentUser = action.payload;
-          state.currentUserDetails = action.payload;
-          state.isAuthenticated = true;
-          state.tokenMigrated = true;
-        }
-      })
-
-      // Create User
+      // createUser
       .addCase(createUser.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(createUser.fulfilled, (state, action) => {
         state.loading = false;
-        if (action.payload?.ResponseCode === "1") {
-          const user = { ...action.meta.arg, ...action.payload };
-          state.currentUser = user;
-          state.currentUserDetails = user;
-          state.isAuthenticated = !!user?.accessToken;
-          saveToStorage(user);
+
+        // If your API uses ResponseCode, check it; otherwise just store user
+        if (action.payload?.ResponseCode === '1' || action.payload) {
+          const newUser = { ...action.meta.arg, ...action.payload };
+          state.currentUser = newUser;
+          localStorage.setItem('user', JSON.stringify(newUser));
+        } else {
+          state.error = 'Failed to create user.';
         }
       })
       .addCase(createUser.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.message || "Registration failed.";
+        state.error =
+          action.payload ||
+          action.error?.message ||
+          'An unknown error occurred.';
       })
 
-      // Fetch Users
+      // fetchUsers
       .addCase(fetchUsers.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchUsers.fulfilled, (state, action) => {
         state.loading = false;
-        state.users = action.payload;
+        state.users = Array.isArray(action.payload) ? action.payload : [];
       })
       .addCase(fetchUsers.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.message;
+        // when using rejectWithValue, prefer action.payload
+        state.error =
+          action.payload || action.error?.message || 'An error occurred.';
       })
 
-      // Get User By ID
-      .addCase(getUserById.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(getUserById.fulfilled, (state, action) => {
-        state.loading = false;
-        state.currentUserDetails = action.payload;
-      })
-      .addCase(getUserById.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.message;
-      })
-
-      // Login User
+      // loginUser
       .addCase(loginUser.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.loading = false;
-        if (!action.payload.requiresPasswordChange) {
-          state.currentUser = action.payload;
-          state.currentUserDetails = action.payload;
-          state.isAuthenticated = true;
-          state.tokenMigrated = true;
-        }
+        state.currentUser = action.payload;
+        state.currentUserDetails = action.payload;
+        localStorage.setItem('user', JSON.stringify(action.payload));
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.message || "Login failed.";
-        state.isAuthenticated = false;
-      })
-
-      // Update User Password
-      .addCase(updateUserPassword.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(updateUserPassword.fulfilled, (state) => {
-        state.loading = false;
-      })
-      .addCase(updateUserPassword.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.message;
-      })
-
-      // Update Account Status
-      .addCase(updateAccountStatus.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(updateAccountStatus.fulfilled, (state) => {
-        state.loading = false;
-        state.currentUser = null;
-        state.currentUserDetails = null;
-        state.isAuthenticated = false;
-      })
-      .addCase(updateAccountStatus.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.message;
-      })
-
-      // Forgot Password
-      .addCase(forgotPassword.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(forgotPassword.fulfilled, (state) => {
-        state.loading = false;
-      })
-      .addCase(forgotPassword.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.message;
-      })
-
-      // Reset Password
-      .addCase(resetPassword.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(resetPassword.fulfilled, (state) => {
-        state.loading = false;
-      })
-      .addCase(resetPassword.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.message;
-      })
-
-      // Refresh User Session
-      .addCase(refreshUserSession.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(refreshUserSession.fulfilled, (state, action) => {
-        state.loading = false;
-        if (state.currentUser) {
-          state.currentUser.accessToken = action.payload.accessToken;
-          state.currentUser.refreshToken = action.payload.refreshToken;
-          state.isAuthenticated = true;
-        }
-        state.sessionExpiring = false;
-        state.sessionExpiresAt = null;
-      })
-      .addCase(refreshUserSession.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.message;
-        state.currentUser = null;
-        state.currentUserDetails = null;
-        state.isAuthenticated = false;
-        state.sessionExpiring = false;
-        state.sessionExpiresAt = null;
-        state.tokenMigrated = false;
+        state.error = action.payload || 'Login failed.';
       });
   },
 });
 
-// Activity tracking
-if (typeof document !== "undefined") {
-  document.addEventListener("mousemove", updateLastActivityTime);
-  document.addEventListener("keydown", updateLastActivityTime);
-}
+export const { logoutUser, clearUsers, setUser, clearSelectedUser } =
+  userSlice.actions;
 
-export const {
-  logoutUser,
-  setUser,
-  clearUsers,
-  clearSelectedUser,
-  clearError,
-  updateToken,
-  setSessionExpiring,
-  clearSessionExpiring,
-  forceSessionExpire,
-} = userSlice.actions;
+// -------------------------
+// Activity tracking
+// -------------------------
+document.addEventListener('mousemove', updateLastActivityTime);
+document.addEventListener('keydown', updateLastActivityTime);
 
 export default userSlice.reducer;
