@@ -95,6 +95,7 @@ const readFromStorage = (key) => {
     }
     return null
   } catch (error) {
+ 
     return null
   }
 }
@@ -104,32 +105,38 @@ const readFromStorage = (key) => {
 const isCustomerAuthenticatedEndpoint = (endpoint = '') => {
   const lower = endpoint.toLowerCase()
 
+  // ✅ List of ALL customer-authenticated endpoints
   const customerEndpoints = [
-    '/customer',
-    '/order',
-    '/cart',
-    '/checkout',
-    '/wishlist',
-    '/account',
-    'customerlogin',
-    'customerrefreshtoken',
-    'generatecustomertoken',
-    'updatecustomerpassword',
-    'forgotpassword',
-    'resetpassword',
+    '/customer',           // Customer profile endpoints
+    '/order',              // Order endpoints (CheckOutDbCart, etc.)
+    '/cart',               // Cart endpoints
+    '/checkout',           // Checkout endpoints
+    '/wishlist',           // Wishlist endpoints
+    '/account',            // Account endpoints
+    'customerlogin',       // Login
+    'customerrefreshtoken', // Token refresh
+    'generatecustomertoken', // Token generation
+    'updatecustomerpassword', // Password update
+    'forgotpassword',      // Password reset
+    'resetpassword',       // Password reset confirmation
   ]
 
   return customerEndpoints.some((pattern) => lower.includes(pattern))
 }
 
-// ✅ NEW: Check if endpoint requires authentication for checkout
-const isCheckoutEndpoint = (endpoint = '') => {
+const isStaffAuthenticatedEndpoint = (endpoint = '') => {
   const lower = endpoint.toLowerCase()
-  return (
-    lower.includes('checkoutdbcart') ||
-    lower.includes('/order/checkout') ||
-    lower.includes('placeorder')
-  )
+
+  const staffEndpoints = [
+    '/users/login',
+    '/users/refresh',
+    '/users/getusers',
+    '/users/user-',
+    'access',
+    'admin',
+  ]
+
+  return staffEndpoints.some((pattern) => lower.includes(pattern))
 }
 
 // ==================== SESSION EXPIRY MODAL COMPONENT ====================
@@ -159,6 +166,7 @@ const SessionExpiryModal = () => {
       await dispatch(refreshUserSession()).unwrap()
       dispatch(clearSessionExpiring())
     } catch (error) {
+    
       handleLogout()
     }
   }
@@ -238,6 +246,7 @@ const getUserRole = () => {
     if (user?.position) return user.position
     return customer?.accountType || null
   } catch (err) {
+   
     return null
   }
 }
@@ -295,7 +304,9 @@ const ConditionalNavbar = () => {
 // ==================== AUTH MODAL CONTROLLER HOOK ====================
 
 const useAuthModalController = () => {
-  const { currentCustomer, forceLogout } = useSelector((state) => state.customer)
+  const { currentCustomer, isAuthenticated, forceLogout } = useSelector(
+    (state) => state.customer
+  )
   const location = useLocation()
   const [authModalOpen, setAuthModalOpen] = useState(false)
 
@@ -320,10 +331,21 @@ const useAuthModalController = () => {
       return
     }
 
-    // ✅ Show modal ONLY when forceLogout is triggered
-    setAuthModalOpen(forceLogout)
+    // ✅ Show modal if:
+    // 1. Customer has NO bearer token
+    // 2. forceLogout flag is set (from token errors)
+    const hasNoToken =
+      !currentCustomer?.accessToken ||
+      currentCustomer?.accessToken?.trim() === ''
 
-  }, [currentCustomer, forceLogout, isExcludedPath])
+    const shouldShowModal = hasNoToken || forceLogout
+
+    if (shouldShowModal) {
+   
+    }
+
+    setAuthModalOpen(shouldShowModal)
+  }, [currentCustomer, isAuthenticated, forceLogout, isExcludedPath, location.pathname])
 
   return { authModalOpen, setAuthModalOpen }
 }
@@ -333,17 +355,24 @@ const useAuthModalController = () => {
 const useGlobal401Handler = () => {
   const dispatch = useDispatch()
   const location = useLocation()
+  const { currentCustomer } = useSelector((state) => state.customer)
 
   useEffect(() => {
+    // ✅ Setup response interceptor to catch 401s
     const interceptor = axiosInstance.interceptors.response.use(
       (response) => response,
       (error) => {
         if (error.response?.status === 401) {
           const endpoint = error.config?.params?.endpoint || error.config?.url || ''
           
+      
+          // ✅ Check if this is a customer-authenticated endpoint
           const isCustomerEndpoint = isCustomerAuthenticatedEndpoint(endpoint)
-          const isCheckout = isCheckoutEndpoint(endpoint)
           
+          // ✅ Check if this is a staff-authenticated endpoint
+          const isStaffEndpoint = isStaffAuthenticatedEndpoint(endpoint)
+
+          // ✅ Determine current context based on path
           const currentPath = location.pathname
           const isStaffPath = ['/admin', '/dev', '/fulfillment', '/content', '/agent', '/digi'].some(
             (p) => currentPath.startsWith(p)
@@ -351,27 +380,28 @@ const useGlobal401Handler = () => {
 
           // ✅ CUSTOMER 401 HANDLING
           if (isCustomerEndpoint && !isStaffPath) {
-            console.warn('🔒 401 Unauthorized for customer endpoint:', endpoint)
-
-            // ✅ Show specific alert for checkout endpoints
-            if (isCheckout) {
-              console.log('🛒 Checkout endpoint triggered without token')
-              alert('🔒 Please log in to continue with checkout.')
-            }
-
-            // Trigger force logout to show AuthModal
+  
             dispatch(triggerForceLogout())
           }
+
+          // ✅ STAFF 401 HANDLING (if needed in the future)
+          // Uncomment if you want to handle staff 401s
+          // if (isStaffEndpoint && isStaffPath) {
+        
+          //   dispatch(logoutUser())
+          //   window.location.replace('/admin/login')
+          // }
         }
 
         return Promise.reject(error)
       }
     )
 
+    // ✅ Cleanup on unmount
     return () => {
       axiosInstance.interceptors.response.eject(interceptor)
     }
-  }, [dispatch, location.pathname])
+  }, [dispatch, location.pathname, currentCustomer])
 }
 
 // ==================== APP CONTENT COMPONENT ====================
@@ -388,7 +418,7 @@ function AppContent() {
       {/* Session expiry for admin/staff users */}
       <SessionExpiryModal />
 
-      {/* ✅ Auth modal — appears when forceLogout is triggered (from 401 errors) */}
+      {/* ✅ Auth modal — appears when customer has no bearer token or after 401 errors */}
       <AuthModal
         open={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
