@@ -1535,7 +1535,7 @@ useEffect(() => {
                     </div>
                   ) : (
                     <button onClick={handleAccountClick} className="n-action n-action-green">
-                      <User style={{ width: 13, height: 13 }} /> Sign In
+                      <User style={{ width: 13, height: 13 }} /> Sign up
                     </button>
                   )}
 
