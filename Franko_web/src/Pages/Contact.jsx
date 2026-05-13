@@ -47,14 +47,14 @@ export default function ContactUsPage() {
     }, 3000);
   };
 
-  const handleWhatsAppClick = () => {
-    const phoneNumber = "233503607980";
-    const message = "Hello! I'd like to get in touch with you.";
-    window.open(
-      `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`,
-      "_blank"
-    );
-  };
+  // const handleWhatsAppClick = () => {
+  //   const phoneNumber = "233503607980";
+  //   const message = "Hello! I'd like to get in touch with you.";
+  //   window.open(
+  //     `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`,
+  //     "_blank"
+  //   );
+  // };
 
   const contactDetails = [
     {
@@ -649,7 +649,7 @@ export default function ContactUsPage() {
               </div>
 
               {/* WhatsApp Card */}
-              <div className="cu-card">
+              {/* <div className="cu-card">
                 <div
                   className="cu-accent-top"
                   style={{
@@ -678,7 +678,7 @@ export default function ContactUsPage() {
                     Typically replies within a few minutes
                   </p>
                 </div>
-              </div>
+              </div> */}
 
               {/* Social Media Card */}
               <div className="cu-card">

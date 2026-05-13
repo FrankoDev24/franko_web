@@ -566,10 +566,10 @@ const AnnouncementBar = () => {
                   }}
                 >
                   <PhoneIcon size={13} />
-                  <span className="ab-phone-text ab-text-3d-btn-light">030 222 5651</span>
+                  <span className="ab-phone-text ab-text-3d-btn-light">030 222 5651 / 024 642 2338</span>
                 </a>
 
-                <a
+                {/* <a
                   href="https://wa.me/233503607980"
                   className="ab-link ab-link-wa"
                   onMouseEnter={() => setHoveredLink("wa")}
@@ -594,7 +594,7 @@ const AnnouncementBar = () => {
                 >
                   <WhatsAppIcon size={14} />
                   <span className="ab-wa-text ab-text-3d-btn-dark">050 360 7980</span>
-                </a>
+                </a> */}
               </div>
 
               {/* Progress bar */}
@@ -740,9 +740,9 @@ const AnnouncementBar = () => {
                 }}
               >
                 <PhoneIcon size={11} />
-                <span className="ab-phone-text ab-text-3d-btn-light">030 222 5651</span>
+                <span className="ab-phone-text ab-text-3d-btn-light">030 222 5651 or 024 642 2338 </span>
               </a>
-
+{/* 
               <a
                 href="https://wa.me/233503607980"
                 className="ab-link ab-link-wa"
@@ -764,7 +764,7 @@ const AnnouncementBar = () => {
               >
                 <WhatsAppIcon size={12} />
                 <span className="ab-wa-text ab-text-3d-btn-dark">050 360 7980</span>
-              </a>
+              </a> */}
             </div>
           </div>
         </div>
