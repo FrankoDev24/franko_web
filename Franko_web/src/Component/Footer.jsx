@@ -482,13 +482,13 @@ const Footer = () => {
               </p>
               <div className="ft-contact-row">
                 <Phone className="ft-contact-icon" />
-                <a href="tel:+233246422338" className="ft-contact-link">+233 24 642 2338</a>
+                <a href="tel:+233503607980" className="ft-contact-link">+233 50 360 7980</a>
               </div>
               <div className="ft-contact-row">
                 <MapPin className="ft-contact-icon" />
                 <span className="ft-contact-text">Kingsway, Accra – Opposite GCB (Former UT Bank Building)</span>
               </div>
-              {/* <a
+              <a
                 href="https://wa.me/233503607980"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -496,7 +496,7 @@ const Footer = () => {
               >
                 <FaWhatsapp style={{ fontSize: 14 }} />
                 Chat on WhatsApp
-              </a> */}
+              </a>
             </div>
 
             {/* Company */}
