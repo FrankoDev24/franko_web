@@ -200,7 +200,7 @@ const ProductDescription = () => {
   useEffect(() => {
     if (currentProduct?.length > 0) {
       const prod = currentProduct[0];
-      const image = `https://ct002.frankotrading.com:444/Media/Products_Images/${prod.productImage.split("\\").pop()}`;
+      const image = `https://testing.frankotrading.com/Media/Products_Images/${prod.productImage.split("\\").pop()}`;
 
       const viewedItem = {
         id: prod.productID,
@@ -590,7 +590,7 @@ const ProductDescription = () => {
 
   const getValidImageUrl = (imagePath) => {
     if (!imagePath) return "https://via.placeholder.com/150";
-    const base = "https://ct002.frankotrading.com:444/Media/Products_Images/";
+    const base = "https://testing.frankotrading.com/Media/Products_Images/";
     if (imagePath.includes("\\")) return base + imagePath.split("\\").pop();
     if (imagePath.includes("/")) return base + imagePath.split("/").pop();
     return base + imagePath;
@@ -652,7 +652,7 @@ const ProductDescription = () => {
 
   const product = currentProduct[0];
   const outOfStock = isOutOfStock(product);
-  const imageUrl = `https://ct002.frankotrading.com:444/Media/Products_Images/${product.productImage.split("\\").pop()}`;
+  const imageUrl = `https://testing.frankotrading.com/Media/Products_Images/${product.productImage.split("\\").pop()}`;
   const descriptionLines = product.description.split("\n").map((line, i) => (
     <p key={i} className="pd-description-line">{line}</p>
   ));

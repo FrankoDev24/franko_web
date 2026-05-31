@@ -9,12 +9,12 @@ import brandReducer from "./Slice/brandSlice";
 import productReducer from "./Slice/productSlice";
 import showroomReducer from "./Slice/showRoomSlice";
 import orderReducer from "./Slice/orderSlice";
-import userReducer from "./Slice/userSlice";
+
 import customerReducer from "./Slice/customerSlice";
 import cartReducer from "./Slice/cartSlice";
 import advertismentReducer from "./Slice/advertismentSlice";
 import wishlistReducer from "./Slice/wishlistSlice";
-import paymentsReducer from "./Slice/paymentsSlice";
+
 import branchProductReducer from "./Slice/branchProductSlice";
 import branchOrderReducer from "./Slice/branchOrderSlice";
 import paymentReducer from "./Slice/paymentSlice";
@@ -29,11 +29,11 @@ const rootReducer = combineReducers({
   products: productReducer, // Product codes handled separately via productCodesStorage
   showrooms: showroomReducer,
   orders: orderReducer,
-  user: userReducer,
+
   customer: customerReducer,
   cart: cartReducer,
   advertisment: advertismentReducer,
-  payments: paymentsReducer,
+
   branchProducts: branchProductReducer,
   branchOrders: branchOrderReducer,
   payment: paymentReducer,

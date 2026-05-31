@@ -209,7 +209,7 @@ const Television = () => {
   const getValidImageUrl = (imagePath) => {
     if (!imagePath) return "https://via.placeholder.com/150";
     return imagePath.includes("\\")
-      ? `https://ct002.frankotrading.com:444/Media/Products_Images/${imagePath.split("\\").pop()}`
+      ? `https://testing.frankotrading.com/Media/Products_Images/${imagePath.split("\\").pop()}`
       : imagePath;
   };
 
@@ -366,7 +366,7 @@ const Television = () => {
       "@type": "Product",
       "position": index + 1,
       "name": item.productName,
-      "image": `https://ct002.frankotrading.com:444/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+      "image": `https://testing.frankotrading.com/Media/Products_Images/${item.productImage.split("\\").pop()}`,
       "description": item.description,
       "brand": {
         "@type": "Brand",
@@ -793,13 +793,13 @@ const Television = () => {
           <link rel="canonical" href="https://www.frankotrading.com/television" />
           <meta property="og:title" content="Buy the Latest Televisions Online | 4K, Smart TVs & Best Deals" />
           <meta property="og:description" content="Explore our latest televisions with high resolution and best prices. Available from top brands." />
-          <meta property="og:image" content={filteredProducts.length > 0 ? `https://ct002.frankotrading.com:444/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+          <meta property="og:image" content={filteredProducts.length > 0 ? `https://testing.frankotrading.com:/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
           <meta property="og:url" content="https://www.frankotrading.com/television" />
           <meta property="og:type" content="website" />
           <meta name="twitter:card" content="summary_large_image" />
           <meta name="twitter:title" content="Buy the Latest Televisions Online | 4K, Smart TVs & Best Deals" />
           <meta name="twitter:description" content="Explore our latest televisions with high resolution and best prices. Available from top brands." />
-          <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://ct002.frankotrading.com:444/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+          <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://testing.frankotrading.com/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
           <script type="application/ld+json">{JSON.stringify(structuredData)}</script>
         </Helmet>
 

@@ -112,7 +112,7 @@ const ProductDetailModal = ({ productID, isModalVisible, onClose }) => {
     );
   }
 
-  const imageUrl = `https://ct002.frankotrading.com:444/Media/Products_Images/${product.productImage?.split("\\").pop()}`;
+  const imageUrl = `https://testing.frankotrading.com/Media/Products_Images/${product.productImage?.split("\\").pop()}`;
 const hasDiscount = product.oldPrice > 0 && product.oldPrice > product.price;
   const discountPercent = hasDiscount
     ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)

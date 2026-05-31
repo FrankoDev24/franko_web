@@ -209,7 +209,7 @@ const Accessories = () => {
   const getValidImageUrl = (imagePath) => {
     if (!imagePath) return "https://via.placeholder.com/150";
     return imagePath.includes("\\")
-      ? `https://ct002.frankotrading.com:444/Media/Products_Images/${imagePath.split("\\").pop()}`
+      ? `https://testing.frankotrading./Media/Products_Images/${imagePath.split("\\").pop()}`
       : imagePath;
   };
 
@@ -738,12 +738,12 @@ const Accessories = () => {
           <meta property="og:description" content="Find high-quality accessories at the best prices. Shop now!" />
           <meta property="og:type" content="website" />
           <meta property="og:url" content="https://www.frankotrading.com/accessories" />
-          <meta property="og:image" content={filteredProducts.length > 0 ? `https://ct002.frankotrading.com:444/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+          <meta property="og:image" content={filteredProducts.length > 0 ? `https://testing.frankotrading./Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
           <meta property="og:site_name" content="Franko Trading" />
           <meta name="twitter:card" content="summary_large_image" />
           <meta name="twitter:title" content="Accessories - Shop the Best Products" />
           <meta name="twitter:description" content="Find high-quality accessories at the best prices. Shop now!" />
-          <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://ct002.frankotrading.com:444/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+          <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://testing.frankotrading./Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
           <link rel="canonical" href="https://www.frankotrading.com/accessories" />
           <script type="application/ld+json">
             {JSON.stringify({
@@ -756,7 +756,7 @@ const Accessories = () => {
                 "@type": "Product",
                 "position": index + 1,
                 "name": item.productName,
-                "image": `https://ct002.frankotrading.com:444/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+                "image": `https://testing.frankotrading.com/Media/Products_Images/${item.productImage.split("\\").pop()}`,
                 "description": item.description,
                 "brand": { "@type": "Brand", "name": item.brandName },
                 "sku": item.productID,

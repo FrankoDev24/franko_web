@@ -209,7 +209,7 @@ const Phones = () => {
   const getValidImageUrl = (imagePath) => {
     if (!imagePath) return "https://via.placeholder.com/150";
     return imagePath.includes("\\")
-      ? `https://ct002.frankotrading.com:444/Media/Products_Images/${imagePath.split("\\").pop()}`
+      ? `https://testing.frankotrading.com/Media/Products_Images/${imagePath.split("\\").pop()}`
       : imagePath;
   };
 
@@ -850,11 +850,11 @@ const Phones = () => {
           <meta property="og:description" content="Explore the newest smartphones in Ghana at Franko Trading. From budget to flagship devices, find phones from Samsung, Apple, Infinix, and Tecno — fast shipping and secure checkout." />
           <meta property="og:type" content="website" />
           <meta property="og:url" content={window.location.href} />
-          <meta property="og:image" content={filteredProducts.length > 0 ? `https://ct002.frankotrading.com:444/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+          <meta property="og:image" content={filteredProducts.length > 0 ? `https://testing.frankotrading.com/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
           <meta name="twitter:card" content="summary_large_image" />
           <meta name="twitter:title" content="Smartphones in Ghana | Latest Phones & Great Prices – Franko Trading" />
           <meta name="twitter:description" content="Explore the newest smartphones in Ghana at Franko Trading. From budget to flagship devices, find phones from Samsung, Apple, Infinix, and Tecno — fast shipping and secure checkout." />
-          <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://ct002.frankotrading.com:444/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+          <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://testing.frankotrading.com/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
           <link rel="canonical" href="https://www.frankotrading.com/phones" />
           <script type="application/ld+json">
             {JSON.stringify({
@@ -869,7 +869,7 @@ const Phones = () => {
                 "name": item.productName,
                 "description": item.productDescription,
                 "sku": item.productID,
-                "image": `https://ct002.frankotrading.com:444/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+                "image": `https://testing.frankotrading.com/Media/Products_Images/${item.productImage.split("\\").pop()}`,
                 "brand": {
                   "@type": "Brand",
                   "name": item.brandName

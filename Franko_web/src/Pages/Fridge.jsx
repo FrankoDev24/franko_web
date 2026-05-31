@@ -209,7 +209,7 @@ const Fridge = () => {
   const getValidImageUrl = (imagePath) => {
     if (!imagePath) return "https://via.placeholder.com/150";
     return imagePath.includes("\\")
-      ? `https://ct002.frankotrading.com:444/Media/Products_Images/${imagePath.split("\\").pop()}`
+      ? `https://testing.frankotrading.com/Media/Products_Images/${imagePath.split("\\").pop()}`
       : imagePath;
   };
 
@@ -847,13 +847,13 @@ const Fridge = () => {
           <meta name="description" content="Find the best refrigerators from top brands at unbeatable prices. Shop now and enjoy great deals on high-quality fridges!" />
           <meta property="og:title" content="Shop Refrigerators - Best Prices & Top Brands" />
           <meta property="og:description" content="Find the best refrigerators from top brands at unbeatable prices. Shop now and enjoy great deals on high-quality fridges!" />
-          <meta property="og:image" content={filteredProducts.length > 0 ? `https://ct002.frankotrading.com:444/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+          <meta property="og:image" content={filteredProducts.length > 0 ? `https://testing.frankotrading.com/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
           <meta property="og:url" content="https://www.frankotrading.com/refrigerator" />
           <meta property="og:type" content="website" />
           <meta name="twitter:card" content="summary_large_image" />
           <meta name="twitter:title" content="Shop Refrigerators - Best Prices & Top Brands" />
           <meta name="twitter:description" content="Find the best refrigerators from top brands at unbeatable prices. Shop now and enjoy great deals on high-quality fridges!" />
-          <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://ct002.frankotrading.com:444/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+          <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://testing.frankotrading.com/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
           <link rel="canonical" href="https://www.frankotrading.com/refrigerator" />
           <script type="application/ld+json">
             {JSON.stringify({
@@ -866,7 +866,7 @@ const Fridge = () => {
                 "@type": "Product",
                 "position": index + 1,
                 "name": item.productName,
-                "image": `https://ct002.frankotrading.com:444/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+                "image": `https://testing.frankotrading.com/Media/Products_Images/${item.productImage.split("\\").pop()}`,
                 "description": item.description,
                 "brand": {
                   "@type": "Brand",

@@ -1,422 +1,1011 @@
-// src/Redux/Slice/customerSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axiosInstance from "./AxiosInstance"; // Lambda-based axios instance
+import axiosInstance from "./AxiosInstance";
 
-// -------------------------
-// LocalStorage helpers
-// -------------------------
+// ─────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────
 const CUSTOMER_KEY = "customer";
 
-/**
- * Load customer from localStorage
- * Handles both encrypted objects and regular JSON strings
- */
-const loadCustomerFromStorage = () => {
+// ─────────────────────────────────────────────
+// Safe localStorage helpers
+// ─────────────────────────────────────────────
+const safeParseJSON = (raw) => {
+  if (!raw) return null;
+  if (typeof raw === "object") return raw;
   try {
-    const value = localStorage.getItem(CUSTOMER_KEY);
-    
-  
-    
-    // If monkey-patch returned an object directly
-    if (value && typeof value === "object") {
-      return value;
-    }
-    
-    // If it's a string, try to parse it
-    if (typeof value === "string") {
-      try {
-        const parsed = JSON.parse(value);
-        return parsed;
-      } catch {
-  
-        return null;
-      }
-    }
-    
-    return null;
-  } catch (err) {
-
+    return JSON.parse(raw);
+  } catch {
     return null;
   }
 };
 
-/**
- * Save customer to localStorage
- * Your monkey-patch handles encryption and stringification
- */
-const saveCustomerToStorage = (customer) => {
+const safeGetFromStorage = (key) => {
   try {
-  
-    
-    if (!customer) {
-      localStorage.removeItem(CUSTOMER_KEY);
-    
+    const data = localStorage.getItem(key);
+    if (!data) return null;
+
+    if (typeof data === "object" && data !== null) return data;
+
+    if (typeof data === "string" && data === "[object Object]") {
+      localStorage.removeItem(key);
+      return null;
+    }
+
+    return safeParseJSON(data);
+  } catch (error) {
+    console.warn(`Failed to read "${key}" from storage`, error);
+    return null;
+  }
+};
+
+const safeSetToStorage = (key, value) => {
+  try {
+    if (!value) {
+      localStorage.removeItem(key);
       return;
     }
-    
-    // Pass the object directly - monkey-patch will handle encryption
-    localStorage.setItem(CUSTOMER_KEY, customer);
-
-    
-    // Verify it was saved correctly
-    const verification = localStorage.getItem(CUSTOMER_KEY);
-
-  } catch (e) {
-
+    localStorage.setItem(key, value);
+  } catch (error) {
+    console.warn(`Failed to write "${key}" to storage`, error);
   }
 };
 
-// -------------------------
-// Async Thunks (via Lambda)
-// -------------------------
+const clearStorage = () => {
+  try {
+    localStorage.removeItem(CUSTOMER_KEY);
+  } catch (error) {
+    console.warn("Failed to clear customer storage", error);
+  }
+};
 
-// Create a new customer
+const validateCustomerData = (customerData) => {
+  if (!customerData || typeof customerData !== "object") return false;
+  return !!(
+    customerData.contactNumber &&
+    typeof customerData.contactNumber === "string" &&
+    customerData.contactNumber.trim() !== ""
+  );
+};
+
+const loadFromStorage = () => {
+  const stored = safeGetFromStorage(CUSTOMER_KEY);
+  if (!stored || typeof stored !== "object") return null;
+
+  const hasIdentity =
+    stored.contactNumber ||
+    stored.customerAccountNumber ||
+    stored.accessToken;
+
+  return hasIdentity ? stored : null;
+};
+
+const saveToStorage = (customer) => {
+  if (!customer) {
+    clearStorage();
+    return;
+  }
+
+  safeSetToStorage(CUSTOMER_KEY, {
+    ...customer,
+    lastUpdated: Date.now(),
+  });
+};
+
+// ─────────────────────────────────────────────
+// Backend helper
+// ─────────────────────────────────────────────
+const callBackend = async ({
+  endpoint,
+  method = "GET",
+  data,
+  extraParams = {},
+  headers = {},
+}) => {
+  const config = {
+    method,
+    url: "/",
+    params: {
+      endpoint,
+      ...extraParams,
+    },
+    headers,
+  };
+
+  if (data) {
+    config.data = data;
+  }
+
+  return axiosInstance(config);
+};
+
+const buildAuthHeaders = (providedToken = null) => {
+  const stored = loadFromStorage();
+  const accessToken = providedToken || stored?.accessToken;
+
+  const headers = {
+    "Content-Type": "application/json",
+  };
+
+  if (
+    accessToken &&
+    typeof accessToken === "string" &&
+    accessToken.trim() !== ""
+  ) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
+  return headers;
+};
+
+// ─────────────────────────────────────────────
+// Token refresh
+// ─────────────────────────────────────────────
+const refreshCustomerToken = async (refreshToken) => {
+  const res = await callBackend({
+    endpoint: "/Users/CustomerRefreshToken",
+    method: "POST",
+    data: { refreshToken },
+    headers: { "Content-Type": "application/json" },
+  });
+
+  const data = safeParseJSON(res.data);
+
+  if (!res.status || res.status < 200 || res.status >= 300) {
+    throw new Error(data?.response?.responseMessage || "Token refresh failed");
+  }
+
+  if (data?.response?.responseCode !== "1") {
+    throw new Error(data?.response?.responseMessage || "Token refresh failed");
+  }
+
+  return data;
+};
+
+let refreshPromise = null;
+
+const silentTokenRefresh = async (dispatch) => {
+  if (refreshPromise) return refreshPromise;
+
+  try {
+    const stored = loadFromStorage();
+    const refreshToken = stored?.refreshToken;
+
+    if (
+      !refreshToken ||
+      typeof refreshToken !== "string" ||
+      refreshToken.trim() === ""
+    ) {
+      dispatch(logoutCustomer());
+      return null;
+    }
+
+    refreshPromise = refreshCustomerToken(refreshToken);
+    const refreshed = await refreshPromise;
+
+    const updatedTokens = {
+      accessToken: refreshed.accessToken,
+      refreshToken: refreshed.refreshToken,
+    };
+
+    const updatedCustomer = {
+      ...stored,
+      ...updatedTokens,
+      lastTokenRefresh: Date.now(),
+    };
+
+    saveToStorage(updatedCustomer);
+    dispatch(updateToken(updatedTokens));
+
+    refreshPromise = null;
+    return updatedTokens.accessToken;
+  } catch (error) {
+    refreshPromise = null;
+    dispatch(logoutCustomer());
+    return null;
+  }
+};
+
+const requestWithAutoRefresh = async ({
+  endpoint,
+  method = "GET",
+  data,
+  extraParams = {},
+  providedToken = null,
+  dispatch = null,
+}) => {
+  let headers = buildAuthHeaders(providedToken);
+  let res;
+
+  try {
+    res = await callBackend({
+      endpoint,
+      method,
+      data,
+      extraParams,
+      headers,
+    });
+  } catch (error) {
+    if (error?.response?.status !== 401) throw error;
+    res = error.response;
+  }
+
+  if (res.status !== 401) return res;
+
+  if (dispatch) {
+    const newAccessToken = await silentTokenRefresh(dispatch);
+    if (newAccessToken) {
+      headers = buildAuthHeaders(newAccessToken);
+      return callBackend({
+        endpoint,
+        method,
+        data,
+        extraParams,
+        headers,
+      });
+    }
+  }
+
+  const stored = loadFromStorage();
+  const refreshToken = stored?.refreshToken;
+
+  if (!refreshToken) {
+    clearStorage();
+    throw new Error("SESSION_EXPIRED");
+  }
+
+  try {
+    const refreshed = await refreshCustomerToken(refreshToken);
+
+    const updatedTokens = {
+      accessToken: refreshed.accessToken,
+      refreshToken: refreshed.refreshToken,
+    };
+
+    const updatedCustomer = {
+      ...stored,
+      ...updatedTokens,
+      lastTokenRefresh: Date.now(),
+    };
+
+    saveToStorage(updatedCustomer);
+
+    headers = buildAuthHeaders(updatedTokens.accessToken);
+
+    return callBackend({
+      endpoint,
+      method,
+      data,
+      extraParams,
+      headers,
+    });
+  } catch {
+    clearStorage();
+    throw new Error("SESSION_EXPIRED");
+  }
+};
+
+// ─────────────────────────────────────────────
+// Async thunks
+// ─────────────────────────────────────────────
 export const createCustomer = createAsyncThunk(
-  "customers/createCustomer",
+  "customer/createCustomer",
   async (customerData, { rejectWithValue }) => {
     try {
+      if (!validateCustomerData(customerData)) {
+        return rejectWithValue({
+          message: "Invalid customer data provided.",
+          responseCode: "0",
+        });
+      }
 
-      const response = await axiosInstance.post(
-        "/",
-        customerData,
-        {
-          params: { endpoint: "/Users/Customer-Post" },
-        }
-      );
-      
-
-      return response.data;
-    } catch (error) {
-   
-      return rejectWithValue(
-        error.response?.data || "An unknown error occurred."
-      );
-    }
-  }
-);
-
-// Fetch all customers
-export const fetchCustomers = createAsyncThunk(
-  "customers/fetchCustomers",
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await axiosInstance.get("/", {
-        params: { endpoint: "/Users/Customer-Get" },
-      });
-      return response.data;
-    } catch (error) {
-      return rejectWithValue(
-        error.response?.data || "An unknown error occurred."
-      );
-    }
-  }
-);
-
-// Get customer by contact number
-export const getCustomerById = createAsyncThunk(
-  "customers/getCustomerById",
-  async (contactNumber, { rejectWithValue }) => {
-    try {
-
-      
-      const response = await axiosInstance.get("/", {
-        params: {
-          endpoint: "/Users/GetCustomerById",
-          contactNumber,
-        },
+      const res = await callBackend({
+        endpoint: "/Users/Customer-Post",
+        method: "POST",
+        data: customerData,
+        headers: { "Content-Type": "application/json" },
       });
 
-      const data = Array.isArray(response.data)
-        ? response.data[0]
-        : response.data;
+      const data = safeParseJSON(res.data);
 
-   
-
-      if (!data || !data.contactNumber) {
-        return rejectWithValue("No customer found with that contact number.");
+      if (res.status < 200 || res.status >= 300) {
+        return rejectWithValue({
+          message: data?.ResponseMessage || "Registration failed.",
+          responseCode: data?.ResponseCode || String(res.status),
+        });
       }
 
       return data;
     } catch (error) {
-
-      return rejectWithValue(
-        error.response?.data ||
-          "An unknown error occurred while fetching the customer."
-      );
+      return rejectWithValue({
+        message: error.message || "Registration failed.",
+        responseCode: "0",
+      });
     }
   }
 );
 
-// Customer login
 export const loginCustomer = createAsyncThunk(
-  "customers/loginCustomer",
+  "customer/loginCustomer",
   async ({ contactNumber, password }, { dispatch, rejectWithValue }) => {
     try {
+      if (
+        !contactNumber ||
+        !password ||
+        typeof contactNumber !== "string" ||
+        typeof password !== "string" ||
+        contactNumber.trim() === "" ||
+        password.trim() === ""
+      ) {
+        return rejectWithValue({
+          message: "Contact number and password are required.",
+          responseCode: "0",
+          isAccountNotFound: false,
+        });
+      }
 
-      
-      const loginResponse = await axiosInstance.post(
-        "/",
-        {
+      const res = await callBackend({
+        endpoint: "/Users/CustomerLogin",
+        method: "POST",
+        data: { contactNumber, password, FullName: "N/A" },
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const data = safeParseJSON(res.data);
+
+      if (res.status < 200 || res.status >= 300) {
+        return rejectWithValue({
+          message: data?.response?.responseMessage || "Login failed.",
+          responseCode: data?.response?.responseCode || String(res.status),
+          isAccountNotFound: false,
+        });
+      }
+
+      const responseCode = data?.response?.responseCode;
+      const responseMessage = data?.response?.responseMessage;
+      const loginStatus = data?.status;
+
+      if (responseCode !== "1") {
+        const msg = responseMessage || "Access Denied";
+        const code = responseCode ?? "0";
+
+        const isAccountNotFound =
+          code === "0" ||
+          msg.toLowerCase().includes("access denied") ||
+          msg.toLowerCase().includes("not found") ||
+          msg.toLowerCase().includes("invalid");
+
+        return rejectWithValue({
+          message: msg,
+          responseCode: code,
+          isAccountNotFound,
+        });
+      }
+
+      if (!data.accessToken || !data.refreshToken) {
+        return rejectWithValue({
+          message: "Login succeeded but token is missing.",
+          responseCode: "0",
+          isAccountNotFound: false,
+        });
+      }
+
+      if (loginStatus === false) {
+        return {
           contactNumber,
-          password,
-          FullName: "N/A",
-        },
-        { params: { endpoint: "/Users/CustomerLogin" } }
-      );
-
-      let loginData = loginResponse.data;
-
-      // Backend returns JSON string, not object – parse it
-      if (typeof loginData === "string") {
-        try {
-          loginData = JSON.parse(loginData);
-        } catch (e) {
-  
-          return rejectWithValue("Invalid response from server.");
-        }
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+          requiresPasswordChange: true,
+          loginStatus: false,
+          loginTime: Date.now(),
+        };
       }
 
+      const tempCustomer = {
+        contactNumber,
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        loginStatus: true,
+        isAuthenticated: true,
+        loginTime: Date.now(),
+      };
 
-      // Now loginData should be: { ResponseCode: "1", ResponseMessage: "successfully Login" }
-      if (loginData?.ResponseCode !== "1") {
-        return rejectWithValue(
-          loginData?.ResponseMessage || "Login failed. Invalid credentials."
-        );
+      saveToStorage(tempCustomer);
+
+      try {
+        const profile = await dispatch(
+          getCustomerById({
+            contactNumber,
+            accessToken: data.accessToken,
+          })
+        ).unwrap();
+
+        const mergedCustomer = {
+          ...profile,
+          contactNumber,
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+          loginStatus: true,
+          isAuthenticated: true,
+          loginTime: Date.now(),
+        };
+
+        saveToStorage(mergedCustomer);
+        return mergedCustomer;
+      } catch {
+        saveToStorage(tempCustomer);
+        return tempCustomer;
+      }
+    } catch (error) {
+      return rejectWithValue({
+        message: error.message || "Login failed.",
+        responseCode: "0",
+        isAccountNotFound: false,
+      });
+    }
+  }
+);
+
+export const fetchCustomers = createAsyncThunk(
+  "customer/fetchCustomers",
+  async (_, { rejectWithValue, dispatch }) => {
+    try {
+      const res = await requestWithAutoRefresh({
+        endpoint: "/Users/Customer-Get",
+        method: "GET",
+        dispatch,
+      });
+
+      const data = safeParseJSON(res.data);
+
+      if (res.status < 200 || res.status >= 300) {
+        return rejectWithValue({
+          message: data?.ResponseMessage || "Failed to fetch customers.",
+          responseCode: data?.ResponseCode || String(res.status),
+        });
       }
 
-      // Load full customer record using the contact number
-      const customer = await dispatch(getCustomerById(contactNumber)).unwrap();
+      return Array.isArray(data) ? data : [data].filter(Boolean);
+    } catch (error) {
+      if (error.message === "SESSION_EXPIRED") {
+        return rejectWithValue({
+          message: "Session expired. Please login again.",
+          responseCode: "401",
+        });
+      }
 
+      return rejectWithValue({
+        message: error.message || "Failed to fetch customers.",
+        responseCode: "0",
+      });
+    }
+  }
+);
 
-      // Persist to localStorage (your monkey-patch will encrypt)
-      saveCustomerToStorage(customer);
+export const getCustomerById = createAsyncThunk(
+  "customer/getCustomerById",
+  async ({ contactNumber, accessToken = null }, { rejectWithValue, dispatch }) => {
+    try {
+      if (
+        !contactNumber ||
+        typeof contactNumber !== "string" ||
+        contactNumber.trim() === ""
+      ) {
+        return rejectWithValue({
+          message: "Valid contact number is required.",
+          responseCode: "0",
+        });
+      }
+
+      const res = await requestWithAutoRefresh({
+        endpoint: "/Users/GetCustomerById",
+        method: "GET",
+        extraParams: { contactNumber },
+        providedToken: accessToken,
+        dispatch,
+      });
+
+      const data = safeParseJSON(res.data);
+
+      if (res.status < 200 || res.status >= 300) {
+        return rejectWithValue({
+          message: data?.ResponseMessage || "Failed to fetch customer.",
+          responseCode: data?.ResponseCode || String(res.status),
+        });
+      }
+
+      const customer = Array.isArray(data) ? data[0] : data;
+
+      if (!customer || !validateCustomerData(customer)) {
+        return rejectWithValue({
+          message: "Customer not found or invalid customer data.",
+          responseCode: "0",
+        });
+      }
 
       return customer;
     } catch (error) {
- 
-      return rejectWithValue(
-        error.response?.data ||
-          error.message ||
-          "An unknown error occurred during login."
-      );
+      if (error.message === "SESSION_EXPIRED") {
+        return rejectWithValue({
+          message: "Session expired. Please login again.",
+          responseCode: "401",
+        });
+      }
+
+      return rejectWithValue({
+        message: error.message || "Failed to fetch customer.",
+        responseCode: "0",
+      });
     }
   }
 );
 
-// Update account status (e.g., deactivate)
-export const updateAccountStatus = createAsyncThunk(
-  "customers/updateAccountStatus",
-  async (arg, { getState, rejectWithValue }) => {
+export const updateCustomerPassword = createAsyncThunk(
+  "customer/updateCustomerPassword",
+  async ({ contactNumber, oldPassword, newPassword }, { rejectWithValue, dispatch }) => {
     try {
-      // 1) Try account number from arg
-      let accountNumber = arg?.accountNumber;
-
-      // 2) Else from Redux state
-      if (!accountNumber) {
-        const state = getState();
-        const current = state.customer?.currentCustomer;
-        if (current?.customerAccountNumber) {
-          accountNumber = current.customerAccountNumber;
-        }
+      if (
+        !contactNumber ||
+        !oldPassword ||
+        !newPassword ||
+        typeof contactNumber !== "string" ||
+        typeof oldPassword !== "string" ||
+        typeof newPassword !== "string"
+      ) {
+        return rejectWithValue({
+          message: "All password fields are required.",
+          responseCode: "0",
+        });
       }
 
-      // 3) Else from localStorage
-      if (!accountNumber) {
-        const stored = loadCustomerFromStorage();
-        if (stored?.customerAccountNumber) {
-          accountNumber = stored.customerAccountNumber;
-        }
+      const res = await requestWithAutoRefresh({
+        endpoint: "/Users/UpdateCustomerPassword",
+        method: "POST",
+        data: { contactNumber, oldPassword, newPassword },
+        dispatch,
+      });
+
+      const data = safeParseJSON(res.data);
+
+      if (
+        res.status < 200 ||
+        res.status >= 300 ||
+        data?.ResponseCode !== "1"
+      ) {
+        return rejectWithValue({
+          message: data?.ResponseMessage || "Password update failed.",
+          responseCode: data?.ResponseCode || String(res.status),
+        });
       }
 
-      if (!accountNumber) {
-        return rejectWithValue("No customer account number found.");
+      return data;
+    } catch (error) {
+      if (error.message === "SESSION_EXPIRED") {
+        return rejectWithValue({
+          message: "Session expired. Please login again.",
+          responseCode: "401",
+        });
       }
 
-      const response = await axiosInstance.post(
-        "/",
-        {
-          accountNumber,
+      return rejectWithValue({
+        message: error.message || "Password update failed.",
+        responseCode: "0",
+      });
+    }
+  }
+);
+
+export const updateAccountStatus = createAsyncThunk(
+  "customer/updateAccountStatus",
+  async (_, { getState, rejectWithValue, dispatch }) => {
+    try {
+      const customer = getState().customer.currentCustomer;
+
+      if (!customer?.customerAccountNumber) {
+        return rejectWithValue({
+          message: "No customer account found.",
+          responseCode: "0",
+        });
+      }
+
+      const res = await requestWithAutoRefresh({
+        endpoint: "/Users/Customer-Status",
+        method: "POST",
+        data: {
+          accountNumber: customer.customerAccountNumber,
           accountStatus: "0",
         },
-        { params: { endpoint: "/Users/Customer-Status" } }
-      );
+        dispatch,
+      });
 
-      // Clear local storage customer
-      saveCustomerToStorage(null);
+      const data = safeParseJSON(res.data);
 
-      return response.data;
+      if (res.status < 200 || res.status >= 300) {
+        return rejectWithValue({
+          message: data?.ResponseMessage || "Status update failed.",
+          responseCode: data?.ResponseCode || String(res.status),
+        });
+      }
+
+      clearStorage();
+      return data;
     } catch (error) {
+      if (error.message === "SESSION_EXPIRED") {
+        return rejectWithValue({
+          message: "Session expired. Please login again.",
+          responseCode: "401",
+        });
+      }
 
-      return rejectWithValue(
-        error.response?.data?.message ||
-          error.response?.data ||
-          "Failed to delete account."
-      );
+      return rejectWithValue({
+        message: error.message || "Status update failed.",
+        responseCode: "0",
+      });
     }
   }
 );
 
-// -------------------------
-// Initial State
-// -------------------------
-const hydratedCustomer = loadCustomerFromStorage();
+export const forgotPassword = createAsyncThunk(
+  "customer/forgotPassword",
+  async ({ contactNumber, email }, { rejectWithValue }) => {
+    try {
+      if (!contactNumber || !email) {
+        return rejectWithValue({
+          message: "Contact number and email are required.",
+          responseCode: "0",
+        });
+      }
+
+      const res = await callBackend({
+        endpoint: "/Users/ForgotPassword",
+        method: "POST",
+        data: { contactNumber, email },
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const data = safeParseJSON(res.data);
+
+      if (
+        res.status < 200 ||
+        res.status >= 300 ||
+        data?.ResponseCode !== "1"
+      ) {
+        return rejectWithValue({
+          message: data?.ResponseMessage || "Password reset request failed.",
+          responseCode: data?.ResponseCode || String(res.status),
+        });
+      }
+
+      return data;
+    } catch (error) {
+      return rejectWithValue({
+        message: error.message || "Password reset request failed.",
+        responseCode: "0",
+      });
+    }
+  }
+);
+
+export const resetPassword = createAsyncThunk(
+  "customer/resetPassword",
+  async ({ contactNumber, token, newPassword }, { rejectWithValue }) => {
+    try {
+      if (!contactNumber || !token || !newPassword) {
+        return rejectWithValue({
+          message: "All reset password fields are required.",
+          responseCode: "0",
+        });
+      }
+
+      const res = await callBackend({
+        endpoint: "/Users/ResetPassword",
+        method: "POST",
+        data: { contactNumber, token, newPassword },
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const data = safeParseJSON(res.data);
+
+      if (
+        res.status < 200 ||
+        res.status >= 300 ||
+        data?.ResponseCode !== "1"
+      ) {
+        return rejectWithValue({
+          message: data?.ResponseMessage || "Password reset failed.",
+          responseCode: data?.ResponseCode || String(res.status),
+        });
+      }
+
+      return data;
+    } catch (error) {
+      return rejectWithValue({
+        message: error.message || "Password reset failed.",
+        responseCode: "0",
+      });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────
+// Initial state
+// ─────────────────────────────────────────────
+const hydrated = loadFromStorage();
 
 const initialState = {
-  currentCustomer: hydratedCustomer,
-  currentCustomerDetails: hydratedCustomer,
+  currentCustomer: hydrated,
+  currentCustomerDetails: hydrated,
   customerList: [],
   loading: false,
   error: null,
-  status: "idle",
-  selectedCustomer: null,
+  isAuthenticated: !!(
+    hydrated?.accessToken &&
+    typeof hydrated.accessToken === "string" &&
+    hydrated.accessToken.trim() !== ""
+  ),
 };
 
-// -------------------------
-// Slice Definition
-// -------------------------
+// ─────────────────────────────────────────────
+// Slice
+// ─────────────────────────────────────────────
 const customerSlice = createSlice({
   name: "customer",
   initialState,
   reducers: {
     logoutCustomer: (state) => {
-
       state.currentCustomer = null;
       state.currentCustomerDetails = null;
-      saveCustomerToStorage(null);
-    },
-
-    clearCustomers: (state) => {
       state.customerList = [];
-    },
-
-    setCustomer: (state, action) => {
-      state.selectedCustomer = action.payload;
-    },
-
-    clearSelectedCustomer: (state) => {
-      state.selectedCustomer = null;
+      state.error = null;
+      state.isAuthenticated = false;
+      clearStorage();
     },
 
     setCurrentCustomer: (state, action) => {
+      const customer = action.payload;
 
-      state.currentCustomer = action.payload;
-      state.currentCustomerDetails = action.payload;
-      saveCustomerToStorage(action.payload);
+      if (customer && validateCustomerData(customer)) {
+        state.currentCustomer = customer;
+        state.currentCustomerDetails = customer;
+        state.isAuthenticated = !!(
+          customer.accessToken &&
+          typeof customer.accessToken === "string" &&
+          customer.accessToken.trim() !== ""
+        );
+        saveToStorage(customer);
+      } else {
+        state.currentCustomer = null;
+        state.currentCustomerDetails = null;
+        state.isAuthenticated = false;
+        clearStorage();
+      }
+    },
+
+    clearError: (state) => {
+      state.error = null;
+    },
+
+    updateToken: (state, action) => {
+      if (
+        state.currentCustomer &&
+        action.payload?.accessToken &&
+        action.payload?.refreshToken
+      ) {
+        const updatedCustomer = {
+          ...state.currentCustomer,
+          accessToken: action.payload.accessToken,
+          refreshToken: action.payload.refreshToken,
+          lastTokenRefresh: Date.now(),
+        };
+
+        state.currentCustomer = updatedCustomer;
+        state.currentCustomerDetails = updatedCustomer;
+        state.isAuthenticated = true;
+        saveToStorage(updatedCustomer);
+      }
+    },
+
+    syncWithStorage: (state) => {
+      const stored = loadFromStorage();
+
+      if (stored && validateCustomerData(stored)) {
+        state.currentCustomer = stored;
+        state.currentCustomerDetails = stored;
+        state.isAuthenticated = !!(
+          stored.accessToken &&
+          typeof stored.accessToken === "string" &&
+          stored.accessToken.trim() !== ""
+        );
+      } else {
+        state.currentCustomer = null;
+        state.currentCustomerDetails = null;
+        state.isAuthenticated = false;
+      }
     },
   },
 
   extraReducers: (builder) => {
     builder
-      // CREATE
+      // createCustomer
       .addCase(createCustomer.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(createCustomer.fulfilled, (state, action) => {
+      .addCase(createCustomer.fulfilled, (state) => {
         state.loading = false;
-
-        
-        const { ResponseCode } = action.payload || {};
-
-        if (ResponseCode === "1" || ResponseCode === 1) {
-          // Combine original form data and response
-          const customer = { ...action.meta.arg, ...action.payload };
-
-          
-          state.currentCustomer = customer;
-          state.currentCustomerDetails = customer;
-          saveCustomerToStorage(customer);
-        } else {
-          state.error =
-            action.payload?.ResponseMessage ||
-            "Account creation failed. Invalid server response.";
-
-        }
+        state.error = null;
+        // Intentionally do not store or authenticate here.
+        // Signup/guest creation must redirect to login first.
       })
       .addCase(createCustomer.rejected, (state, action) => {
         state.loading = false;
-        state.error =
-          action.payload ||
-          action.error?.message ||
-          "An unknown error occurred.";
-
+        state.error = action.payload?.message || "Registration failed.";
       })
 
-      // FETCH
-      .addCase(fetchCustomers.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchCustomers.fulfilled, (state, action) => {
-        state.loading = false;
-        state.customerList = action.payload;
-      })
-      .addCase(fetchCustomers.rejected, (state, action) => {
-        state.loading = false;
-        state.error =
-          action.payload ||
-          action.error?.message ||
-          "An unknown error occurred.";
-      })
-
-      // GET CUSTOMER BY ID
-      .addCase(getCustomerById.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(getCustomerById.fulfilled, (state, action) => {
-        state.loading = false;
-        state.currentCustomerDetails = action.payload;
-
-      })
-      .addCase(getCustomerById.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-
-      })
-
-      // LOGIN
+      // loginCustomer
       .addCase(loginCustomer.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(loginCustomer.fulfilled, (state, action) => {
         state.loading = false;
+        state.error = null;
 
-        
-        state.currentCustomer = action.payload;
-        state.currentCustomerDetails = action.payload;
-        saveCustomerToStorage(action.payload);
+        if (action.payload?.requiresPasswordChange) {
+          state.currentCustomer = null;
+          state.currentCustomerDetails = null;
+          state.isAuthenticated = false;
+          return;
+        }
+
+        if (validateCustomerData(action.payload)) {
+          state.currentCustomer = action.payload;
+          state.currentCustomerDetails = action.payload;
+          state.isAuthenticated = !!action.payload?.accessToken;
+        }
       })
       .addCase(loginCustomer.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || "Login failed.";
-        
+        state.error = action.payload?.message || "Login failed.";
+        state.currentCustomer = null;
+        state.currentCustomerDetails = null;
+        state.isAuthenticated = false;
+        clearStorage();
       })
 
-      // UPDATE STATUS
+      // fetchCustomers
+      .addCase(fetchCustomers.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchCustomers.fulfilled, (state, action) => {
+        state.loading = false;
+        state.customerList = Array.isArray(action.payload) ? action.payload : [];
+      })
+      .addCase(fetchCustomers.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Failed to fetch customers.";
+
+        if (action.payload?.responseCode === "401") {
+          state.currentCustomer = null;
+          state.currentCustomerDetails = null;
+          state.isAuthenticated = false;
+          clearStorage();
+        }
+      })
+
+      // getCustomerById
+      .addCase(getCustomerById.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getCustomerById.fulfilled, (state, action) => {
+        state.loading = false;
+        if (validateCustomerData(action.payload)) {
+          state.currentCustomerDetails = action.payload;
+        }
+      })
+      .addCase(getCustomerById.rejected, (state, action) => {
+        state.loading = false;
+        state.error =
+          action.payload?.message || "Failed to fetch customer details.";
+
+        if (action.payload?.responseCode === "401") {
+          state.currentCustomer = null;
+          state.currentCustomerDetails = null;
+          state.isAuthenticated = false;
+          clearStorage();
+        }
+      })
+
+      // updateCustomerPassword
+      .addCase(updateCustomerPassword.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateCustomerPassword.fulfilled, (state) => {
+        state.loading = false;
+
+        if (state.currentCustomer) {
+          const updatedCustomer = {
+            ...state.currentCustomer,
+            lastPasswordChange: Date.now(),
+          };
+          state.currentCustomer = updatedCustomer;
+          state.currentCustomerDetails = updatedCustomer;
+          saveToStorage(updatedCustomer);
+        }
+      })
+      .addCase(updateCustomerPassword.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Password update failed.";
+
+        if (action.payload?.responseCode === "401") {
+          state.currentCustomer = null;
+          state.currentCustomerDetails = null;
+          state.isAuthenticated = false;
+          clearStorage();
+        }
+      })
+
+      // updateAccountStatus
       .addCase(updateAccountStatus.pending, (state) => {
-        state.status = "loading";
+        state.loading = true;
         state.error = null;
       })
       .addCase(updateAccountStatus.fulfilled, (state) => {
-        state.status = "succeeded";
+        state.loading = false;
         state.currentCustomer = null;
         state.currentCustomerDetails = null;
+        state.isAuthenticated = false;
       })
       .addCase(updateAccountStatus.rejected, (state, action) => {
-        state.status = "failed";
-        state.error = action.payload || "Failed to update account status.";
+        state.loading = false;
+        state.error = action.payload?.message || "Status update failed.";
+      })
+
+      // forgotPassword
+      .addCase(forgotPassword.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(forgotPassword.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(forgotPassword.rejected, (state, action) => {
+        state.loading = false;
+        state.error =
+          action.payload?.message || "Password reset request failed.";
+      })
+
+      // resetPassword
+      .addCase(resetPassword.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(resetPassword.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(resetPassword.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Password reset failed.";
       });
   },
 });
 
 export const {
   logoutCustomer,
-  clearCustomers,
-  setCustomer,
-  clearSelectedCustomer,
   setCurrentCustomer,
+  clearError,
+  updateToken,
+  syncWithStorage,
 } = customerSlice.actions;
+
+export {
+  silentTokenRefresh,
+  loadFromStorage,
+  saveToStorage,
+  clearStorage,
+  validateCustomerData,
+};
 
 export default customerSlice.reducer;

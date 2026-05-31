@@ -209,7 +209,7 @@ const Laptops = () => {
   const getValidImageUrl = (imagePath) => {
     if (!imagePath) return "https://via.placeholder.com/150";
     return imagePath.includes("\\")
-      ? `https://ct002.frankotrading.com:444/Media/Products_Images/${imagePath.split("\\").pop()}`
+      ? `https://testing.frankotrading.com/Media/Products_Images/${imagePath.split("\\").pop()}`
       : imagePath;
   };
 
@@ -848,13 +848,13 @@ const Laptops = () => {
           <meta name="keywords" content="computers, laptops, desktops, accessories, buy online" />
           <meta property="og:title" content="Laptops - Buy Laptops, Desktops, and Accessories" />
           <meta property="og:description" content="Shop laptops, desktops, and computer accessories at Franko Trading. Choose top brands like HP, Lenovo, Acer, and Dell — with free shipping and warranty support." />
-          <meta property="og:image" content={filteredProducts.length > 0 ? `https://ct002.frankotrading.com:444/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+          <meta property="og:image" content={filteredProducts.length > 0 ? `https://testing.frankotrading.com/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
           <meta property="og:url" content="https://www.frankotrading.com/computers" />
           <meta property="og:type" content="website" />
           <meta name="twitter:card" content="summary_large_image" />
           <meta name="twitter:title" content="Computers - Buy Laptops, Desktops, and Accessories" />
           <meta name="twitter:description" content="Shop laptops, desktops, and computer accessories at Franko Trading. Choose top brands like HP, Lenovo, Acer, and Dell — with free shipping and warranty support." />
-          <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://ct002.frankotrading.com:444/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+          <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://testing.frankotrading.com/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
           <link rel="canonical" href="https://www.frankotrading.com/computers" />
           <script type="application/ld+json">
             {JSON.stringify({
@@ -868,7 +868,7 @@ const Laptops = () => {
                 "@type": "Product",
                 "position": index + 1,
                 "name": item.productName,
-                "image": `https://ct002.frankotrading.com:444/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+                "image": `https://testing.frankotrading.com/Media/Products_Images/${item.productImage.split("\\").pop()}`,
                 "description": item.description,
                 "brand": {
                   "@type": "Brand",

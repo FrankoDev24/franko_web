@@ -2159,7 +2159,7 @@ const Checkout = () => {
   const renderImage = (imagePath) => {
     if (!imagePath)
       return <div className="co-item-img-placeholder">No Image</div>;
-    const imageUrl = `https://ct002.frankotrading.com:444/Media/Products_Images/${imagePath
+    const imageUrl = `https://testing.frankotrading.com/Media/Products_Images/${imagePath
       .split("\\")
       .pop()}`;
     return (

@@ -292,7 +292,7 @@ const Cart = () => {
         </div>
       );
     }
-    const backendBaseURL = 'https://ct002.frankotrading.com:444';
+    const backendBaseURL = 'https://testing.frankotrading.com';
     const imageUrl = `${backendBaseURL}/Media/Products_Images/${imagePath.split('\\').pop()}`;
     return (
       <img

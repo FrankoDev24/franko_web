@@ -15,7 +15,7 @@ const Wishlist = () => {
 
   const getImageUrl = (path) =>
     path?.includes("\\")
-      ? `https://ct002.frankotrading.com:444/Media/Products_Images/${path.split("\\").pop()}`
+      ? `https://testing.frankotrading.com/Media/Products_Images/${path.split("\\").pop()}`
       : path || "https://via.placeholder.com/400x400?text=No+Image";
 
   const handleCardClick = (productID) => {

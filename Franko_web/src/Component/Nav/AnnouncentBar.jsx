@@ -740,7 +740,7 @@ const AnnouncementBar = () => {
                 }}
               >
                 <PhoneIcon size={11} />
-                <span className="ab-phone-text ab-text-3d-btn-light">030 222 5651 or 024 642 2338 </span>
+                <span className="ab-phone-text ab-text-3d-btn-light">030 222 5651</span>
               </a>
 
               <a

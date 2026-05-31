@@ -8,7 +8,7 @@ import "@splidejs/react-splide/css";
 import { getBannerPageAdvertisment } from "../Redux/Slice/advertismentSlice";
 import ban from "../assets/banner.jpg";
 
-const backendBaseURL = "https://ct002.frankotrading.com:444";
+const backendBaseURL = "https://testing.frankotrading.com";
 
 export default function Carousel() {
   const dispatch = useDispatch();

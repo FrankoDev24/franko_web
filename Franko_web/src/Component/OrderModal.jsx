@@ -546,7 +546,7 @@ const OrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
     }
   };
 
-  const backendBaseURL = 'https://ct002.frankotrading.com:444';
+  const backendBaseURL = 'https://testing.frankotrading.com';
   const totalAmount = salesOrder.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const totalItems = salesOrder.reduce((acc, item) => acc + item.quantity, 0);
 

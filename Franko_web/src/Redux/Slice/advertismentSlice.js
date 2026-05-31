@@ -22,7 +22,7 @@ const toErrorPayload = (error, fallback) => {
 
 // Post a new advertisement (goes through Lambda)
 export const postAdvertisment = createAsyncThunk(
-  'advertisment/postAdvertisment',
+  'advertisement/postAdvertisment',
   async (formData, { rejectWithValue }) => {
     try {
       const res = await axiosInstance.post(
@@ -30,7 +30,7 @@ export const postAdvertisment = createAsyncThunk(
         formData,
         {
           params: {
-            endpoint: '/Advertisment/PostAdvertisment', // backend endpoint
+            endpoint: '/Advertisement/PostAdvertisment', // backend endpoint
           },
           headers: { 'Content-Type': 'multipart/form-data' },
         }
@@ -44,7 +44,7 @@ export const postAdvertisment = createAsyncThunk(
 
 // Get advertisements by AdsName (excluding index 0)
 export const getAdvertisment = createAsyncThunk(
-  'advertisment/get',
+  'advertisement/get',
   async (AdsName, { rejectWithValue }) => {
     try {
       if (!AdsName) throw new Error('AdsName is required');
@@ -67,12 +67,12 @@ export const getAdvertisment = createAsyncThunk(
 
 // Get Home Page advertisements
 export const getHomePageAdvertisment = createAsyncThunk(
-  'advertisment/getHomePage',
+  'advertisement/getHomePage',
   async (_, { rejectWithValue }) => {
     try {
       const res = await axiosInstance.get('/', {
         params: {
-          endpoint: '/Advertisment/GetAdvertisment',
+          endpoint: '/Advertisement/GetAdvertisment',
           AdsName: 'Home Page',
         },
       });
@@ -88,12 +88,12 @@ export const getHomePageAdvertisment = createAsyncThunk(
 
 // Get Banner Page advertisements
 export const getBannerPageAdvertisment = createAsyncThunk(
-  'advertisment/getBannerPage',
+  'advertisement/getBannerPage',
   async (_, { rejectWithValue }) => {
     try {
       const res = await axiosInstance.get('/', {
         params: {
-          endpoint: '/Advertisment/GetAdvertisment',
+          endpoint: '/Advertisement/GetAdvertisment',
           AdsName: 'Banner',
         },
       });

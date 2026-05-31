@@ -211,7 +211,7 @@ const Deals = () => {
   const getValidImageUrl = (imagePath) => {
     if (!imagePath) return "https://via.placeholder.com/150";
     return imagePath.includes("\\")
-      ? `https://ct002.frankotrading.com:444/Media/Products_Images/${imagePath.split("\\").pop()}`
+      ? `https://testing.frankotrading.com/Media/Products_Images/${imagePath.split("\\").pop()}`
       : imagePath;
   };
 

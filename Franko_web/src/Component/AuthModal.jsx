@@ -1,9 +1,12 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
 import {
   createCustomer,
   loginCustomer,
+  logoutCustomer,
   setCurrentCustomer,
+  updateCustomerPassword,
+  getCustomerById,
 } from "../Redux/Slice/customerSlice";
 import { v4 as uuidv4 } from "uuid";
 import logo from "../assets/frankoIcon.png";
@@ -17,237 +20,105 @@ import {
   EyeIcon,
   EyeSlashIcon,
   ArrowRightIcon,
-  UserGroupIcon,
   ArrowPathIcon,
-  CheckCircleIcon,
-  ExclamationCircleIcon,
   ShieldCheckIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import { User, UserPlus, UserCheck } from "lucide-react";
 
-/* ===========================
-   Password Strength Utility
-=========================== */
-const getPasswordStrength = (password) => {
-  const checks = {
-    minLength: password.length >= 8,
-    hasUppercase: /[A-Z]/.test(password),
-    hasLowercase: /[a-z]/.test(password),
-    hasNumber: /[0-9]/.test(password),
-    hasSpecial: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(password),
-  };
+// ─── Password rules ──────────────────────────
+const PASSWORD_RULES = [
+  { id: "length", label: "8+ characters", test: (p) => p.length >= 8 },
+  { id: "upper", label: "Uppercase letter", test: (p) => /[A-Z]/.test(p) },
+  { id: "lower", label: "Lowercase letter", test: (p) => /[a-z]/.test(p) },
+  { id: "number", label: "Number", test: (p) => /\d/.test(p) },
+  { id: "symbol", label: "Special character", test: (p) => /[^A-Za-z0-9]/.test(p) },
+];
 
-  const passedCount = Object.values(checks).filter(Boolean).length;
-
-  let level = "weak";
-  let color = "#ef4444";
-  let label = "Weak";
-  let percent = 20;
-
-  if (passedCount >= 5) {
-    level = "strong";
-    color = "#16a34a";
-    label = "Strong";
-    percent = 100;
-  } else if (passedCount >= 4) {
-    level = "good";
-    color = "#22c55e";
-    label = "Good";
-    percent = 80;
-  } else if (passedCount >= 3) {
-    level = "fair";
-    color = "#f59e0b";
-    label = "Fair";
-    percent = 60;
-  } else if (passedCount >= 2) {
-    level = "weak";
-    color = "#f97316";
-    label = "Weak";
-    percent = 40;
-  }
-
-  return { checks, passedCount, level, color, label, percent };
+const getStrength = (password) => {
+  const passed = PASSWORD_RULES.filter((r) => r.test(password)).length;
+  if (passed <= 1) return { score: passed, label: "Very weak", color: "#ef4444" };
+  if (passed === 2) return { score: passed, label: "Weak", color: "#f97316" };
+  if (passed === 3) return { score: passed, label: "Fair", color: "#eab308" };
+  if (passed === 4) return { score: passed, label: "Strong", color: "#22c55e" };
+  return { score: passed, label: "Very strong", color: "#15803d" };
 };
 
-/* ===========================
-   Notification Component
-=========================== */
-const Notification = ({ message, type, isVisible, onClose }) => {
-  const timeoutRef = useRef(null);
+const isStrongPassword = (p) => PASSWORD_RULES.every((r) => r.test(p));
 
-  useEffect(
-    () => () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    },
-    []
-  );
+// ─── Toast ───────────────────────────────────
+const Notification = ({ message, type, isVisible, onClose }) => {
+  const timerRef = useRef(null);
 
   useEffect(() => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    if (isVisible && message) {
-      timeoutRef.current = setTimeout(onClose, 4000);
-    }
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (isVisible && message) timerRef.current = setTimeout(onClose, 4500);
+    return () => clearTimeout(timerRef.current);
   }, [isVisible, message, onClose]);
 
   if (!isVisible || !message) return null;
 
   return (
-    <div className="auth-notif-wrap">
-      <div
-        className={`auth-notif ${
-          type === "success" ? "auth-notif-ok" : "auth-notif-err"
-        }`}
-      >
-        <div className="auth-notif-icon">
+    <div className="am-toast-wrap">
+      <div className={`am-toast ${type === "success" ? "am-toast--ok" : "am-toast--err"}`}>
+        <div className="am-toast__icon">
           {type === "success" ? (
-            <CheckCircleIcon style={{ width: 20, height: 20 }} />
+            <CheckCircleIcon className="am-toast__svg" />
           ) : (
-            <ExclamationCircleIcon style={{ width: 20, height: 20 }} />
+            <ExclamationTriangleIcon className="am-toast__svg" />
           )}
         </div>
-        <span className="auth-notif-msg">{message}</span>
-        <button onClick={onClose} className="auth-notif-close">
-          ×
+        <span className="am-toast__msg">{message}</span>
+        <button onClick={onClose} className="am-toast__close" aria-label="Close">
+          <XMarkIcon />
         </button>
       </div>
     </div>
   );
 };
 
-/* ===========================
-   Password Strength Meter
-=========================== */
-const PasswordStrengthMeter = ({ password }) => {
-  const strength = useMemo(() => getPasswordStrength(password), [password]);
-
-  if (!password) return null;
-
-  const requirements = [
-    { key: "minLength", label: "At least 8 characters" },
-    { key: "hasUppercase", label: "One uppercase letter (A-Z)" },
-    { key: "hasLowercase", label: "One lowercase letter (a-z)" },
-    { key: "hasNumber", label: "One number (0-9)" },
-    { key: "hasSpecial", label: "One special character (!@#$...)" },
-  ];
-
-  return (
-    <div className="auth-pw-strength">
-      <div className="auth-pw-bar-wrap">
-        <div className="auth-pw-bar-track">
-          <div
-            className="auth-pw-bar-fill"
-            style={{
-              width: `${strength.percent}%`,
-              background: strength.color,
-            }}
-          />
-        </div>
-        <span
-          className="auth-pw-bar-label"
-          style={{ color: strength.color }}
-        >
-          {strength.label}
-        </span>
-      </div>
-      <div className="auth-pw-reqs">
-        {requirements.map((req) => (
-          <div
-            key={req.key}
-            className={`auth-pw-req ${
-              strength.checks[req.key]
-                ? "auth-pw-req-pass"
-                : "auth-pw-req-fail"
-            }`}
-          >
-            {strength.checks[req.key] ? (
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 12 12"
-                fill="none"
-              >
-                <path
-                  d="M10 3L4.5 8.5L2 6"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            ) : (
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 12 12"
-                fill="none"
-              >
-                <circle
-                  cx="6"
-                  cy="6"
-                  r="2"
-                  fill="currentColor"
-                  opacity="0.4"
-                />
-              </svg>
-            )}
-            <span>{req.label}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-/* ===========================
-   Custom Input Component
-=========================== */
-const AuthInput = ({
+// ─── Field ───────────────────────────────────
+const Field = ({
   icon: Icon,
+  label,
   type = "text",
   placeholder,
   name,
   value,
   onChange,
   isPassword,
-  error,
+  onKeyDown,
 }) => {
-  const [showPw, setShowPw] = useState(false);
-  const inputType = isPassword ? (showPw ? "text" : "password") : type;
+  const [show, setShow] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const hasValue = value && value.length > 0;
 
   return (
-    <div className={`auth-field-wrap ${error ? "auth-field-error" : ""}`}>
-      <div className="auth-field">
-        <div className="auth-field-icon">
-          <Icon style={{ width: 16, height: 16 }} />
-        </div>
+    <div className={`am-field ${focused ? "am-field--focused" : ""} ${hasValue ? "am-field--filled" : ""}`}>
+      <label className="am-field__label">{label || placeholder}</label>
+      <div className="am-field__inner">
+        <span className="am-field__icon"><Icon /></span>
         <input
-          type={inputType}
+          type={isPassword ? (show ? "text" : "password") : type}
           name={name}
           placeholder={placeholder}
           value={value}
           onChange={onChange}
-          className="auth-field-input"
-          autoComplete={
-            isPassword
-              ? "current-password"
-              : name === "email"
-              ? "email"
-              : "off"
-          }
+          onKeyDown={onKeyDown}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          className="am-field__input"
+          autoComplete={isPassword ? "current-password" : "off"}
         />
         {isPassword && (
           <button
             type="button"
-            onClick={() => setShowPw((p) => !p)}
-            className="auth-field-eye"
+            onClick={() => setShow((s) => !s)}
+            className="am-field__toggle"
             tabIndex={-1}
-            aria-label={showPw ? "Hide password" : "Show password"}
           >
-            {showPw ? (
-              <EyeSlashIcon style={{ width: 16, height: 16 }} />
-            ) : (
-              <EyeIcon style={{ width: 16, height: 16 }} />
-            )}
+            {show ? <EyeSlashIcon /> : <EyeIcon />}
           </button>
         )}
       </div>
@@ -255,14 +126,338 @@ const AuthInput = ({
   );
 };
 
-/* ===========================
-   AuthModal
-=========================== */
-const AuthModal = ({ open, onClose, onSuccess }) => {
+// ─── Strength Meter ──────────────────────────
+const StrengthMeter = ({ password }) => {
+  if (!password) return null;
+  const { score, label, color } = getStrength(password);
+
+  return (
+    <div className="am-strength">
+      <div className="am-strength__header">
+        <div className="am-strength__bars">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="am-strength__bar"
+              style={{ background: i < score ? color : "#e5e7eb" }}
+            />
+          ))}
+        </div>
+        <span className="am-strength__label" style={{ color }}>{label}</span>
+      </div>
+
+      <div className="am-strength__rules">
+        {PASSWORD_RULES.map((rule) => {
+          const ok = rule.test(password);
+          return (
+            <span key={rule.id} className={`am-strength__rule ${ok ? "am-strength__rule--ok" : ""}`}>
+              <span
+                className="am-strength__check"
+                style={{
+                  borderColor: ok ? color : "#d1d5db",
+                  background: ok ? color : "transparent",
+                }}
+              >
+                {ok && (
+                  <svg viewBox="0 0 12 12" fill="none">
+                    <path
+                      d="M2.5 6L5 8.5L9.5 3.5"
+                      stroke="#fff"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
+              </span>
+              {rule.label}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ─── Success Redirect Banner ─────────────────
+const SuccessRedirectBanner = ({ title, message, isVisible }) => {
+  if (!isVisible) return null;
+  return (
+    <div className="am-banner am-banner--success">
+      <CheckCircleIcon className="am-banner__icon" />
+      <div className="am-banner__text">
+        <p className="am-banner__title">{title}</p>
+        <p className="am-banner__sub">{message}</p>
+      </div>
+      <ArrowPathIcon className="am-spin am-banner__spin" />
+    </div>
+  );
+};
+
+// ─── Force Change Password Modal ─────────────
+const ForceChangePasswordModal = ({ customer, onSuccess }) => {
+  const dispatch = useDispatch();
+  const [form, setForm] = useState({
+    oldPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+
+  const handle = (e) => {
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const submit = async () => {
+    setError("");
+
+    if (!form.oldPassword) return setError("Please enter your current password.");
+    if (!isStrongPassword(form.newPassword)) {
+      return setError("New password does not meet strength requirements.");
+    }
+    if (form.newPassword !== form.confirmPassword) {
+      return setError("Passwords do not match.");
+    }
+    if (form.oldPassword === form.newPassword) {
+      return setError("New password must differ from current password.");
+    }
+
+    setLoading(true);
+
+    try {
+      await dispatch(
+        updateCustomerPassword({
+          contactNumber: customer.contactNumber,
+          oldPassword: form.oldPassword,
+          newPassword: form.newPassword,
+        })
+      ).unwrap();
+
+      const updatedProfile = await dispatch(
+        getCustomerById({
+          contactNumber: customer.contactNumber,
+          accessToken: customer.accessToken,
+        })
+      ).unwrap();
+
+      const completeCustomer = {
+        ...updatedProfile,
+        accessToken: customer.accessToken,
+        refreshToken: customer.refreshToken,
+        contactNumber: customer.contactNumber,
+        loginStatus: true,
+        isAuthenticated: true,
+      };
+
+      dispatch(setCurrentCustomer(completeCustomer));
+
+      setDone(true);
+      setTimeout(onSuccess, 1500);
+    } catch (err) {
+      setError(
+        typeof err === "object"
+          ? err?.message || "Password update failed."
+          : err || "Password update failed."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="am-force-overlay">
+      <div className="am-force-backdrop" />
+      <div className="am-force-card">
+        <div className="am-force-strip" />
+        <div className="am-force-header">
+          <div className="am-force-shield">
+            <ShieldCheckIcon />
+          </div>
+          <h3 className="am-force-title">Password Reset Required</h3>
+          <p className="am-force-desc">
+            Your account requires a password update before you can continue.
+          </p>
+        </div>
+
+        {done ? (
+          <div className="am-force-done">
+            <CheckCircleIcon className="am-force-done__icon" />
+            <p>Password updated successfully!</p>
+          </div>
+        ) : (
+          <div className="am-force-body">
+            {error && <div className="am-force-error">{error}</div>}
+
+            <Field
+              icon={LockClosedIcon}
+              label="Current Password"
+              placeholder="Enter current password"
+              name="oldPassword"
+              value={form.oldPassword}
+              onChange={handle}
+              isPassword
+            />
+
+            <Field
+              icon={LockClosedIcon}
+              label="New Password"
+              placeholder="Enter new password"
+              name="newPassword"
+              value={form.newPassword}
+              onChange={handle}
+              isPassword
+            />
+
+            <StrengthMeter password={form.newPassword} />
+
+            <Field
+              icon={LockClosedIcon}
+              label="Confirm Password"
+              placeholder="Confirm new password"
+              name="confirmPassword"
+              value={form.confirmPassword}
+              onChange={handle}
+              isPassword
+            />
+
+            <button className="am-btn am-btn--primary" onClick={submit} disabled={loading}>
+              {loading ? (
+                <>
+                  <ArrowPathIcon className="am-spin" /> Updating…
+                </>
+              ) : (
+                <>
+                  Update Password <ArrowRightIcon />
+                </>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ─── Change Password Panel ───────────────────
+const ChangePasswordPanel = ({ customer, showNotification, onClose }) => {
+  const dispatch = useDispatch();
+  const [form, setForm] = useState({
+    oldPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [loading, setLoading] = useState(false);
+
+  const handle = (e) => {
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const submit = async () => {
+    if (!form.oldPassword) return showNotification("Enter your current password.", "error");
+    if (!isStrongPassword(form.newPassword)) return showNotification("New password doesn't meet requirements.", "error");
+    if (form.newPassword !== form.confirmPassword) return showNotification("Passwords do not match.", "error");
+    if (form.oldPassword === form.newPassword) return showNotification("New password must differ from current.", "error");
+
+    setLoading(true);
+
+    try {
+      await dispatch(
+        updateCustomerPassword({
+          contactNumber: customer?.contactNumber,
+          oldPassword: form.oldPassword,
+          newPassword: form.newPassword,
+        })
+      ).unwrap();
+
+      showNotification("Password changed successfully!", "success");
+      setForm({ oldPassword: "", newPassword: "", confirmPassword: "" });
+      setTimeout(onClose, 1200);
+    } catch (err) {
+      showNotification(
+        typeof err === "object"
+          ? err?.message || "Failed to change password."
+          : err || "Failed to change password.",
+        "error"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="am-cp">
+      <div className="am-cp__header">
+        <div className="am-cp__icon-wrap">
+          <ShieldCheckIcon />
+        </div>
+        <div>
+          <p className="am-cp__title">Change Password</p>
+          <p className="am-cp__sub">Update your account password</p>
+        </div>
+      </div>
+
+      <div className="am-form-fields">
+        <Field
+          icon={LockClosedIcon}
+          label="Current Password"
+          placeholder="Current password"
+          name="oldPassword"
+          value={form.oldPassword}
+          onChange={handle}
+          isPassword
+        />
+        <Field
+          icon={LockClosedIcon}
+          label="New Password"
+          placeholder="New password"
+          name="newPassword"
+          value={form.newPassword}
+          onChange={handle}
+          isPassword
+        />
+        <StrengthMeter password={form.newPassword} />
+        <Field
+          icon={LockClosedIcon}
+          label="Confirm Password"
+          placeholder="Confirm new password"
+          name="confirmPassword"
+          value={form.confirmPassword}
+          onChange={handle}
+          isPassword
+        />
+        <button className="am-btn am-btn--primary" onClick={submit} disabled={loading}>
+          {loading ? (
+            <>
+              <ArrowPathIcon className="am-spin" /> Updating…
+            </>
+          ) : (
+            <>
+              Update Password <ArrowRightIcon />
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ─── Main AuthModal ──────────────────────────
+const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
   const dispatch = useDispatch();
 
-  const [authMode, setAuthMode] = useState("signup");
+  const [authMode, setAuthMode] = useState("login");
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [forcePasswordChange, setForcePasswordChange] = useState(false);
+  const [pendingCustomer, setPendingCustomer] = useState(null);
+  const [redirecting, setRedirecting] = useState(false);
+  const [successRedirect, setSuccessRedirect] = useState({
+    show: false,
+    title: "",
+    message: "",
+  });
   const [notification, setNotification] = useState({
     message: "",
     type: "success",
@@ -290,1469 +485,716 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
     contactNumber: "",
   });
 
-  const generateCustomerAccountNumber = () => uuidv4();
+  const hideNotif = useCallback(() => {
+    setNotification((prev) => ({ ...prev, isVisible: false }));
+  }, []);
 
-  const hideNotification = useCallback(
-    () => setNotification((prev) => ({ ...prev, isVisible: false })),
-    []
-  );
-
-  const showNotification = useCallback((message, type = "success") => {
-    setNotification({ message: "", type: "success", isVisible: false });
+  const showNotif = useCallback((message, type = "success") => {
+    setNotification({ message: "", type, isVisible: false });
     requestAnimationFrame(() => {
       setNotification({ message, type, isVisible: true });
     });
   }, []);
 
+  const normalizePhone = (value = "") => value.replace(/\D/g, "");
+
   useEffect(() => {
     if (open && authMode === "signup") {
       setSignupData((prev) => ({
         ...prev,
-        customerAccountNumber: generateCustomerAccountNumber(),
+        customerAccountNumber: uuidv4(),
       }));
     }
   }, [open, authMode]);
 
-  const handleEscapeKey = useCallback(
-    (e) => {
+  useEffect(() => {
+    const handler = (e) => {
       if (e.key === "Escape" && open) onClose();
-    },
-    [open, onClose]
-  );
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [open, onClose]);
 
   useEffect(() => {
-    document.addEventListener("keydown", handleEscapeKey);
-    return () => document.removeEventListener("keydown", handleEscapeKey);
-  }, [handleEscapeKey]);
-
-  useEffect(() => {
-    if (open) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
+    document.body.style.overflow = open ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
   }, [open]);
 
-  const handleSignupChange = (e) => {
-    const { name, value } = e.target;
-    setSignupData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleLoginChange = (e) => {
-    const { name, value } = e.target;
-    setLoginData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleGuestChange = (e) => {
-    const { name, value } = e.target;
-    setGuestData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const normalizePhone = (value = "") => value.replace(/\D/g, "");
-
-  const validateSignupForm = () => {
-    const { firstName, lastName, contactNumber, password } = signupData;
-    const normalizedContact = normalizePhone(contactNumber);
-
-    if (!firstName.trim()) {
-      showNotification("First name is required", "error");
-      return false;
-    }
-    if (!lastName.trim()) {
-      showNotification("Last name is required", "error");
-      return false;
-    }
-    if (!normalizedContact) {
-      showNotification("Contact number is required", "error");
-      return false;
-    }
-    if (normalizedContact.length !== 10) {
-      showNotification("Contact number must be exactly 10 digits", "error");
-      return false;
-    }
-    if (!password.trim()) {
-      showNotification("Password is required", "error");
-      return false;
-    }
-
-    // Strong password validation
-    const strength = getPasswordStrength(password);
-    if (!strength.checks.minLength) {
-      showNotification("Password must be at least 8 characters long", "error");
-      return false;
-    }
-    if (!strength.checks.hasUppercase) {
-      showNotification(
-        "Password must contain at least one uppercase letter",
-        "error"
-      );
-      return false;
-    }
-    if (!strength.checks.hasLowercase) {
-      showNotification(
-        "Password must contain at least one lowercase letter",
-        "error"
-      );
-      return false;
-    }
-    if (!strength.checks.hasNumber) {
-      showNotification(
-        "Password must contain at least one number",
-        "error"
-      );
-      return false;
-    }
-    if (!strength.checks.hasSpecial) {
-      showNotification(
-        "Password must contain at least one special character (!@#$...)",
-        "error"
-      );
-      return false;
-    }
-    return true;
-  };
-
-  const validateLoginForm = () => {
-    const { contactNumber, password } = loginData;
-    const normalizedContact = normalizePhone(contactNumber);
-
-    if (!normalizedContact) {
-      showNotification("Contact number is required", "error");
-      return false;
-    }
-    if (normalizedContact.length !== 10) {
-      showNotification("Contact number must be exactly 10 digits", "error");
-      return false;
-    }
-    if (!password.trim()) {
-      showNotification("Password is required", "error");
-      return false;
-    }
-    return true;
-  };
-
-  const validateGuestForm = () => {
-    const { contactNumber } = guestData;
-    const normalizedContact = normalizePhone(contactNumber);
-
-    if (!normalizedContact) {
-      showNotification("Contact number is required", "error");
-      return false;
-    }
-    if (normalizedContact.length !== 10) {
-      showNotification("Contact number must be exactly 10 digits", "error");
-      return false;
-    }
-    return true;
-  };
-
-  /* ===== SIGNUP ===== */
-  const handleSignup = async () => {
-    if (!validateSignupForm()) return;
-    setLoading(true);
-
-    try {
-      let result = await dispatch(createCustomer(signupData)).unwrap();
-
-      if (typeof result === "string") {
-        try {
-          result = JSON.parse(result);
-        } catch {
-          /* leave as is */
-        }
-      }
-
-      if (result && typeof result === "object" && "ResponseCode" in result) {
-        if (result.ResponseCode === "2") {
-          const message =
-            result.ResponseMessage || "Account already exists";
-          showNotification(
-            `${message}. Please login with your existing account.`,
-            "error"
-          );
-          setTimeout(() => {
-            setAuthMode("login");
-            setLoginData((prev) => ({
-              ...prev,
-              contactNumber: signupData.contactNumber,
-            }));
-          }, 2500);
-          return;
-        }
-        if (
-          result.ResponseCode &&
-          result.ResponseCode !== "1" &&
-          result.ResponseCode !== "0"
-        ) {
-          showNotification(
-            result.ResponseMessage || "Registration failed",
-            "error"
-          );
-          return;
-        }
-      }
-
-      const customer =
-        result &&
-        typeof result === "object" &&
-        result.customerAccountNumber
-          ? result
-          : { ...signupData, ...(result || {}) };
-
-      dispatch(setCurrentCustomer(customer));
-
-      try {
-        if (typeof window.fbq === "function") {
-          window.fbq("track", "CompleteRegistration", {
-            content_name: "Customer Registration",
-            status: "success",
-            currency: "GHS",
-            email: signupData.email,
-            customer_type: "registered",
-            contact_number: signupData.contactNumber,
-          });
-        }
-        if (typeof window.gtag === "function") {
-          window.gtag("event", "sign_up", {
-            method: "email",
-            customer_type: "registered",
-            contact_number: signupData.contactNumber,
-          });
-        }
-      } catch {
-        /* silent */
-      }
-
-      showNotification("Registration successful!", "success");
-      setTimeout(() => {
-        if (onSuccess && typeof onSuccess === "function") onSuccess();
-        else onClose();
-      }, 1500);
-    } catch (error) {
-      let errorMessage = "Registration failed. Please try again.";
-      if (error?.message) errorMessage = error.message;
-      else if (error?.response?.data?.message)
-        errorMessage = error.response.data.message;
-      else if (error?.response?.data?.error)
-        errorMessage = error.response.data.error;
-      showNotification(errorMessage, "error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /* ===== LOGIN ===== */
-  const handleLogin = async () => {
-    if (!validateLoginForm()) return;
-    setLoading(true);
-
-    try {
-      const customer = await dispatch(loginCustomer(loginData)).unwrap();
-
-      if (!customer || !customer.contactNumber) {
-        showNotification(
-          "No customer found with the provided contact number.",
-          "error"
-        );
-        return;
-      }
-
-      dispatch(setCurrentCustomer(customer));
-
-      showNotification("Login successful!", "success");
-      setTimeout(() => {
-        if (onSuccess && typeof onSuccess === "function") onSuccess();
-        else onClose();
-      }, 1500);
-    } catch (error) {
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Login failed. Please check your credentials.";
-      showNotification(message, "error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /* ===== GUEST ===== */
-  const handleGuestContinue = async () => {
-    if (!validateGuestForm()) return;
-    setLoading(true);
-
-    const guestCustomerData = {
-      customerAccountNumber: generateCustomerAccountNumber(),
-      firstName: "Guest",
-      lastName: guestData.contactNumber.slice(-4),
-      contactNumber: guestData.contactNumber,
-      address: "Guest Address",
-      password: guestData.contactNumber,
-      accountType: "customer",
-      email: `guest${guestData.contactNumber}@franko.com`,
-      accountStatus: "1",
-      isGuest: true,
-      createdAt: new Date().toISOString(),
-      guestCreatedAt: new Date().toISOString(),
-    };
-
-    let dbResult;
-
-    try {
-      dbResult = await dispatch(
-        createCustomer(guestCustomerData)
-      ).unwrap();
-    } catch (error) {
-      setLoading(false);
-      let errorMessage =
-        "Failed to create guest account. Please try again.";
-      if (error?.message) errorMessage = error.message;
-      else if (error?.response?.data?.message)
-        errorMessage = error.response.data.message;
-      else if (error?.response?.data?.error)
-        errorMessage = error.response.data.error;
-      showNotification(errorMessage, "error");
-      return;
-    }
-
-    if (typeof dbResult === "string") {
-      try {
-        dbResult = JSON.parse(dbResult);
-      } catch {
-        /* leave as is */
-      }
-    }
-
-    if (
-      dbResult &&
-      typeof dbResult === "object" &&
-      "ResponseCode" in dbResult
-    ) {
-      if (dbResult.ResponseCode === "2") {
-        setLoading(false);
-        const message =
-          dbResult.ResponseMessage || "Account already exists";
-        showNotification(
-          `${message}. Please login with your existing account.`,
-          "error"
-        );
-        setTimeout(() => {
-          setAuthMode("login");
-          setLoginData((prev) => ({
-            ...prev,
-            contactNumber: guestData.contactNumber,
-          }));
-        }, 2500);
-        return;
-      }
-      if (
-        dbResult.ResponseCode &&
-        dbResult.ResponseCode !== "1" &&
-        dbResult.ResponseCode !== "0"
-      ) {
-        setLoading(false);
-        showNotification(
-          dbResult.ResponseMessage || "Failed to create guest account",
-          "error"
-        );
-        return;
-      }
-    }
-
-    const guestCustomer =
-      dbResult &&
-      typeof dbResult === "object" &&
-      dbResult.customerAccountNumber
-        ? dbResult
-        : { ...guestCustomerData, ...(dbResult || {}) };
-
-    dispatch(setCurrentCustomer(guestCustomer));
-
-    try {
-      if (typeof window.fbq === "function") {
-        window.fbq("track", "CompleteRegistration", {
-          content_name: "Guest Registration",
-          status: "success",
-          currency: "GHS",
-          email: guestCustomer.email,
-          customer_type: "guest",
-          contact_number: guestCustomer.contactNumber,
-        });
-      }
-      if (typeof window.gtag === "function") {
-        window.gtag("event", "sign_up", {
-          method: "guest",
-          customer_type: "guest",
-          contact_number: guestCustomer.contactNumber,
-        });
-      }
-    } catch {
-      /* silent */
-    }
-
-    setLoading(false);
-    showNotification("Guest account created!", "success");
-    setTimeout(() => {
-      if (onSuccess && typeof onSuccess === "function") onSuccess();
-      else onClose();
-    }, 1500);
-  };
-
-  /* ===== Mode Change Reset ===== */
-  useEffect(() => {
-    hideNotification();
-  }, [authMode, hideNotification]);
-
   useEffect(() => {
     if (!open) {
-      hideNotification();
-      setAuthMode("signup");
-    }
-  }, [open, hideNotification]);
+      hideNotif();
+      setAuthMode("login");
+      setShowChangePassword(false);
+      setLoading(false);
+      setForcePasswordChange(false);
+      setPendingCustomer(null);
+      setRedirecting(false);
+      setSuccessRedirect({ show: false, title: "", message: "" });
 
-  const handleMainAction = () => {
-    if (authMode === "login") return handleLogin();
-    if (authMode === "signup") return handleSignup();
-    if (authMode === "guest") return handleGuestContinue();
+      setSignupData({
+        customerAccountNumber: "",
+        firstName: "",
+        lastName: "",
+        contactNumber: "",
+        address: "",
+        password: "",
+        accountType: "customer",
+        email: "",
+        accountStatus: "1",
+      });
+
+      setLoginData({
+        contactNumber: "",
+        password: "",
+      });
+
+      setGuestData({
+        contactNumber: "",
+      });
+    }
+  }, [open, hideNotif]);
+
+  useEffect(() => {
+    hideNotif();
+    setShowChangePassword(false);
+    setRedirecting(false);
+    setSuccessRedirect({ show: false, title: "", message: "" });
+  }, [authMode, hideNotif]);
+
+  const validateSignup = () => {
+    const { firstName, lastName, contactNumber, password } = signupData;
+    const phone = normalizePhone(contactNumber);
+
+    if (!firstName.trim()) {
+      showNotif("First name is required.", "error");
+      return false;
+    }
+
+    if (!lastName.trim()) {
+      showNotif("Last name is required.", "error");
+      return false;
+    }
+
+    if (!phone) {
+      showNotif("Contact number is required.", "error");
+      return false;
+    }
+
+    if (phone.length !== 10) {
+      showNotif("Contact number must be 10 digits.", "error");
+      return false;
+    }
+
+    if (!isStrongPassword(password)) {
+      showNotif("Password doesn't meet requirements.", "error");
+      return false;
+    }
+
+    return true;
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !loading) handleMainAction();
+  const validateLogin = () => {
+    const phone = normalizePhone(loginData.contactNumber);
+
+    if (!phone) {
+      showNotif("Contact number is required.", "error");
+      return false;
+    }
+
+    if (phone.length !== 10) {
+      showNotif("Contact number must be 10 digits.", "error");
+      return false;
+    }
+
+    if (!loginData.password) {
+      showNotif("Password is required.", "error");
+      return false;
+    }
+
+    return true;
+  };
+
+  const validateGuest = () => {
+    const phone = normalizePhone(guestData.contactNumber);
+
+    if (!phone) {
+      showNotif("Contact number is required.", "error");
+      return false;
+    }
+
+    if (phone.length !== 10) {
+      showNotif("Contact number must be 10 digits.", "error");
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSignup = async () => {
+    if (!validateSignup()) return;
+
+    setLoading(true);
+
+    try {
+      dispatch(logoutCustomer());
+
+      const payload = {
+        ...signupData,
+        contactNumber: normalizePhone(signupData.contactNumber),
+      };
+
+      const result = await dispatch(createCustomer(payload)).unwrap();
+
+      if (result?.ResponseCode === "2") {
+        showNotif((result.ResponseMessage || "Account already exists.") + " Please login.", "error");
+
+        setTimeout(() => {
+          setLoginData((prev) => ({
+            ...prev,
+            contactNumber: payload.contactNumber,
+          }));
+          setAuthMode("login");
+        }, 1800);
+
+        return;
+      }
+
+      if (result?.ResponseCode && result.ResponseCode !== "1") {
+        showNotif(result.ResponseMessage || "Registration failed.", "error");
+        return;
+      }
+
+      setSuccessRedirect({
+        show: true,
+        title: "Account created!",
+        message: "Redirecting to sign in…",
+      });
+
+      setLoginData({
+        contactNumber: payload.contactNumber,
+        password: payload.password,
+      });
+
+      setTimeout(() => {
+        setSuccessRedirect({ show: false, title: "", message: "" });
+        setAuthMode("login");
+        showNotif("Registration complete. Please sign in.", "success");
+      }, 2200);
+    } catch (err) {
+      showNotif(
+        typeof err === "object"
+          ? err?.message || "Registration failed."
+          : err || "Registration failed.",
+        "error"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGuest = async () => {
+    if (!validateGuest()) return;
+
+    setLoading(true);
+    const phone = normalizePhone(guestData.contactNumber);
+
+    try {
+      dispatch(logoutCustomer());
+
+      const guestPayload = {
+        customerAccountNumber: uuidv4(),
+        firstName: "Guest",
+        lastName: phone.slice(-4),
+        contactNumber: phone,
+        address: "Guest Address",
+        password: phone,
+        accountType: "customer",
+        email: `guest${phone}@franko.com`,
+        accountStatus: "1",
+        isGuest: true,
+        createdAt: new Date().toISOString(),
+      };
+
+      const result = await dispatch(createCustomer(guestPayload)).unwrap();
+
+      if (result?.ResponseCode === "2") {
+        showNotif((result.ResponseMessage || "Number already registered.") + " Please login.", "error");
+
+        setTimeout(() => {
+          setLoginData({
+            contactNumber: phone,
+            password: phone,
+          });
+          setAuthMode("login");
+        }, 1800);
+
+        return;
+      }
+
+      if (result?.ResponseCode && result.ResponseCode !== "1") {
+        showNotif(result.ResponseMessage || "Failed to create guest account.", "error");
+        return;
+      }
+
+      setSuccessRedirect({
+        show: true,
+        title: "Guest account ready!",
+        message: "Redirecting to sign in…",
+      });
+
+      setLoginData({
+        contactNumber: phone,
+        password: phone,
+      });
+
+      setGuestData({ contactNumber: "" });
+
+      setTimeout(() => {
+        setSuccessRedirect({ show: false, title: "", message: "" });
+        setAuthMode("login");
+        showNotif("Guest account created. Please sign in.", "success");
+      }, 2200);
+    } catch (err) {
+      showNotif(
+        typeof err === "object"
+          ? err?.message || "Failed to create guest account."
+          : err || "Failed to create guest account.",
+        "error"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogin = async () => {
+    if (!validateLogin()) return;
+
+    setLoading(true);
+
+    try {
+      const result = await dispatch(
+        loginCustomer({
+          contactNumber: normalizePhone(loginData.contactNumber),
+          password: loginData.password,
+        })
+      ).unwrap();
+
+      if (result?.requiresPasswordChange || result?.loginStatus === false) {
+        setPendingCustomer(result);
+        setForcePasswordChange(true);
+        return;
+      }
+
+      if (!result?.accessToken || !result?.contactNumber) {
+        showNotif("Login succeeded but customer session is incomplete.", "error");
+        return;
+      }
+
+      dispatch(setCurrentCustomer(result));
+
+      showNotif("Welcome back!", "success");
+
+      setTimeout(() => {
+        if (onSuccess) {
+          onSuccess(result);
+        } else {
+          onClose();
+        }
+      }, 1000);
+    } catch (err) {
+      const message =
+        typeof err === "object"
+          ? err?.message || "Login failed."
+          : err || "Login failed.";
+
+      const isAccountNotFound =
+        typeof err === "object" && err?.isAccountNotFound === true;
+
+      if (isAccountNotFound) {
+        setRedirecting(true);
+
+        showNotif("No account found. Redirecting to register…", "error");
+
+        setSignupData((prev) => ({
+          ...prev,
+          contactNumber: loginData.contactNumber,
+          customerAccountNumber: uuidv4(),
+        }));
+
+        setTimeout(() => {
+          setRedirecting(false);
+          setAuthMode("signup");
+        }, 1800);
+
+        return;
+      }
+
+      showNotif(message, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleKey = (e) => {
+    if (e.key !== "Enter" || loading) return;
+    if (authMode === "login") handleLogin();
+    if (authMode === "signup") handleSignup();
+    if (authMode === "guest") handleGuest();
   };
 
   if (!open) return null;
 
   const tabs = [
-    { key: "login", label: "Sign In", icon: User },
-    { key: "signup", label: "Register", icon: UserPlus },
-    { key: "guest", label: "Guest", icon: UserCheck },
+    { key: "login", label: "Sign In", Icon: User },
+    { key: "signup", label: "Register", Icon: UserPlus },
+    { key: "guest", label: "Guest", Icon: UserCheck },
   ];
+
+  const headings = {
+    login: { title: "Welcome back", sub: "Sign in to continue shopping" },
+    signup: { title: "Create account", sub: "Join Franko Trading today" },
+    guest: { title: "Quick checkout", sub: "Continue as a guest" },
+  };
 
   return (
     <>
-      <style>{`
-        /* ===========================
-           Base & Overlay
-        =========================== */
-        .auth-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 9998;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 16px;
-          animation: auth-fade-in 0.25s ease;
-        }
-
-        @keyframes auth-fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-
-        .auth-backdrop {
-          position: absolute;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.5);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-        }
-
-        /* ===========================
-           Modal Container
-        =========================== */
-        .auth-modal {
-          position: relative;
-          background: #fff;
-          border-radius: 16px;
-          width: 100%;
-          max-width: 480px;
-          box-shadow: 0 25px 60px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.04);
-          animation: auth-modal-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-          overflow: hidden;
-          font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-          -webkit-font-smoothing: antialiased;
-          max-height: 92vh;
-          display: flex;
-          flex-direction: column;
-        }
-
-        @keyframes auth-modal-in {
-          from { opacity: 0; transform: translateY(20px) scale(0.96); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        .auth-modal-scroll {
-          overflow-y: auto;
-          flex: 1;
-          -webkit-overflow-scrolling: touch;
-        }
-
-        .auth-modal-scroll::-webkit-scrollbar { width: 4px; }
-        .auth-modal-scroll::-webkit-scrollbar-track { background: transparent; }
-        .auth-modal-scroll::-webkit-scrollbar-thumb { background: #e0e0e0; border-radius: 4px; }
-        .auth-modal-scroll::-webkit-scrollbar-thumb:hover { background: #ccc; }
-
-        /* ===========================
-           Close Button
-        =========================== */
-        .auth-close {
-          position: absolute;
-          top: 14px;
-          right: 14px;
-          width: 34px;
-          height: 34px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid #e8e8e8;
-          border-radius: 10px;
-          background: rgba(255,255,255,0.9);
-          cursor: pointer;
-          transition: all 0.2s;
-          z-index: 3;
-          backdrop-filter: blur(4px);
-        }
-
-        .auth-close:hover { background: #f0f0f0; border-color: #d0d0d0; transform: scale(1.05); }
-        .auth-close:active { transform: scale(0.95); }
-
-        /* ===========================
-           Header
-        =========================== */
-        .auth-header {
-          padding: 32px 32px 0;
-          text-align: center;
-        }
-
-        .auth-logo-wrap {
-          width: 56px;
-          height: 56px;
-          border-radius: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin: 0 auto 14px;
-          background: linear-gradient(145deg, #f0fdf4, #dcfce7);
-          border: 1px solid #bbf7d0;
-          box-shadow: 0 2px 8px rgba(34, 197, 94, 0.1);
-        }
-
-        .auth-logo {
-          height: 32px;
-          width: auto;
-        }
-
-        .auth-title {
-          font-size: 22px;
-          font-weight: 800;
-          color: #111;
-          margin: 0 0 4px;
-          letter-spacing: -0.03em;
-          line-height: 1.2;
-        }
-
-        .auth-subtitle {
-          font-size: 14px;
-          color: #777;
-          font-weight: 400;
-          margin: 0;
-          line-height: 1.4;
-        }
-
-        /* ===========================
-           Tabs
-        =========================== */
-        .auth-tabs {
-          display: flex;
-          margin: 24px 32px 0;
-          background: #f5f5f5;
-          border-radius: 10px;
-          padding: 4px;
-          gap: 3px;
-        }
-
-        .auth-tab {
-          flex: 1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          padding: 10px 8px;
-          font-size: 13px;
-          font-weight: 600;
-          color: #999;
-          border: none;
-          background: none;
-          cursor: pointer;
-          border-radius: 8px;
-          transition: all 0.25s ease;
-          font-family: inherit;
-          white-space: nowrap;
-          position: relative;
-        }
-
-        .auth-tab:hover:not(.auth-tab-on) {
-          color: #666;
-          background: rgba(255, 255, 255, 0.6);
-        }
-
-        .auth-tab-on {
-          background: #fff;
-          color: #14532d;
-          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.03);
-        }
-
-        /* ===========================
-           Body
-        =========================== */
-        .auth-body {
-          padding: 24px 32px 20px;
-        }
-
-        .auth-fields {
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-        }
-
-        .auth-field-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
-        }
-
-        /* ===========================
-           Field / Input
-        =========================== */
-        .auth-field-wrap { width: 100%; }
-
-        .auth-field-wrap.auth-field-error .auth-field {
-          border-color: #ef4444;
-          box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
-        }
-
-        .auth-field {
-          display: flex;
-          align-items: center;
-          border: 1.5px solid #e2e2e2;
-          border-radius: 10px;
-          background: #fafafa;
-          height: 46px;
-          overflow: hidden;
-          transition: all 0.2s ease;
-        }
-
-        .auth-field:focus-within {
-          border-color: #22c55e;
-          box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.08);
-          background: #fff;
-        }
-
-        .auth-field-icon {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 44px;
-          height: 100%;
-          color: #bbb;
-          flex-shrink: 0;
-          transition: color 0.2s;
-        }
-
-        .auth-field:focus-within .auth-field-icon {
-          color: #22c55e;
-        }
-
-        .auth-field-input {
-          flex: 1;
-          border: none;
-          outline: none;
-          font-size: 14px;
-          font-weight: 450;
-          color: #111;
-          background: transparent;
-          height: 100%;
-          padding-right: 12px;
-          font-family: inherit;
-          min-width: 0;
-        }
-
-        .auth-field-input::placeholder {
-          color: #b0b0b0;
-          font-weight: 400;
-        }
-
-        .auth-field-eye {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 42px;
-          height: 100%;
-          border: none;
-          background: none;
-          color: #bbb;
-          cursor: pointer;
-          flex-shrink: 0;
-          transition: color 0.15s;
-        }
-
-        .auth-field-eye:hover { color: #666; }
-
-        /* ===========================
-           Password Strength Meter
-        =========================== */
-        .auth-pw-strength {
-          margin-top: -4px;
-          animation: auth-pw-slide-in 0.3s ease;
-        }
-
-        @keyframes auth-pw-slide-in {
-          from { opacity: 0; transform: translateY(-6px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        .auth-pw-bar-wrap {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 8px;
-        }
-
-        .auth-pw-bar-track {
-          flex: 1;
-          height: 4px;
-          background: #eee;
-          border-radius: 4px;
-          overflow: hidden;
-        }
-
-        .auth-pw-bar-fill {
-          height: 100%;
-          border-radius: 4px;
-          transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .auth-pw-bar-label {
-          font-size: 11px;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          flex-shrink: 0;
-          min-width: 42px;
-          text-align: right;
-        }
-
-        .auth-pw-reqs {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 3px 12px;
-          padding: 8px 10px;
-          background: #f8f8f8;
-          border-radius: 8px;
-          border: 1px solid #f0f0f0;
-        }
-
-        .auth-pw-req {
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          font-size: 11px;
-          font-weight: 500;
-          transition: all 0.2s;
-          line-height: 1.3;
-          padding: 2px 0;
-        }
-
-        .auth-pw-req-pass {
-          color: #16a34a;
-        }
-
-        .auth-pw-req-fail {
-          color: #aaa;
-        }
-
-        /* ===========================
-           Buttons
-        =========================== */
-        .auth-btn {
-          width: 100%;
-          height: 48px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          margin-top: 4px;
-          border: none;
-          border-radius: 10px;
-          font-size: 14.5px;
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-          font-family: inherit;
-          letter-spacing: -0.01em;
-          position: relative;
-          overflow: hidden;
-        }
-
-        .auth-btn-primary {
-          background: linear-gradient(145deg, #166534 0%, #14532d 100%);
-          color: #fff;
-          box-shadow: 0 2px 10px rgba(20, 83, 45, 0.3), inset 0 1px 0 rgba(255,255,255,0.1);
-        }
-
-        .auth-btn-primary:hover:not(:disabled) {
-          box-shadow: 0 6px 20px rgba(20, 83, 45, 0.4), inset 0 1px 0 rgba(255,255,255,0.1);
-          transform: translateY(-1px);
-        }
-
-        .auth-btn-primary:active:not(:disabled) {
-          transform: translateY(0) scale(0.99);
-          box-shadow: 0 1px 4px rgba(20, 83, 45, 0.2);
-        }
-
-        .auth-btn-primary:disabled {
-          opacity: 0.65;
-          cursor: not-allowed;
-          transform: none;
-        }
-
-        /* ===========================
-           Divider
-        =========================== */
-        .auth-divider {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          margin: 18px 0;
-        }
-
-        .auth-divider-line {
-          flex: 1;
-          height: 1px;
-          background: #eee;
-        }
-
-        .auth-divider-text {
-          font-size: 11px;
-          font-weight: 600;
-          color: #bbb;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-
-        /* ===========================
-           Footer
-        =========================== */
-        .auth-footer {
-          padding: 0 32px 28px;
-          text-align: center;
-        }
-
-        .auth-switch {
-          font-size: 13.5px;
-          color: #888;
-          font-weight: 400;
-        }
-
-        .auth-switch-link {
-          color: #14532d;
-          font-weight: 700;
-          cursor: pointer;
-          border: none;
-          background: none;
-          padding: 0;
-          font-size: 13.5px;
-          font-family: inherit;
-          text-decoration: none;
-          transition: all 0.15s;
-          border-bottom: 1.5px solid transparent;
-        }
-
-        .auth-switch-link:hover {
-          color: #166534;
-          border-bottom-color: #16a34a;
-        }
-
-        /* ===========================
-           Guest Section
-        =========================== */
-        .auth-guest-info {
-          text-align: center;
-          margin-bottom: 16px;
-        }
-
-        .auth-guest-icon-wrap {
-          width: 56px;
-          height: 56px;
-          border-radius: 50%;
-          background: linear-gradient(145deg, #dcfce7 0%, #f0fdf4 100%);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin: 0 auto 14px;
-          border: 2px solid #bbf7d0;
-          box-shadow: 0 4px 12px rgba(34, 197, 94, 0.12);
-        }
-
-        .auth-guest-desc {
-          font-size: 13px;
-          color: #777;
-          font-weight: 400;
-          margin: 0;
-          line-height: 1.6;
-          max-width: 280px;
-          margin: 0 auto;
-        }
-
-        /* ===========================
-           Spinner
-        =========================== */
-        .auth-spinner {
-          width: 18px;
-          height: 18px;
-          animation: auth-spin 0.7s linear infinite;
-        }
-
-        @keyframes auth-spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-
-        /* ===========================
-           Secure Badge
-        =========================== */
-        .auth-secure {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          margin-top: 18px;
-          font-size: 11.5px;
-          color: #bbb;
-          font-weight: 500;
-        }
-
-        .auth-secure svg {
-          color: #22c55e;
-        }
-
-        /* ===========================
-           Notification
-        =========================== */
-        .auth-notif-wrap {
-          position: fixed;
-          top: 20px;
-          right: 20px;
-          z-index: 99999;
-          animation: auth-notif-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        @keyframes auth-notif-in {
-          from { opacity: 0; transform: translateX(30px) scale(0.95); }
-          to { opacity: 1; transform: translateX(0) scale(1); }
-        }
-
-        .auth-notif {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 14px 18px;
-          border-radius: 12px;
-          min-width: 320px;
-          max-width: 440px;
-          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
-          font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-
-        .auth-notif-ok {
-          background: linear-gradient(145deg, #14532d 0%, #166534 100%);
-          color: #fff;
-        }
-
-        .auth-notif-err {
-          background: linear-gradient(145deg, #dc2626 0%, #b91c1c 100%);
-          color: #fff;
-        }
-
-        .auth-notif-icon {
-          flex-shrink: 0;
-          opacity: 0.95;
-          display: flex;
-        }
-
-        .auth-notif-msg {
-          flex: 1;
-          font-size: 13.5px;
-          font-weight: 500;
-          line-height: 1.4;
-        }
-
-        .auth-notif-close {
-          flex-shrink: 0;
-          border: none;
-          background: rgba(255, 255, 255, 0.2);
-          color: #fff;
-          width: 24px;
-          height: 24px;
-          border-radius: 6px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          font-size: 15px;
-          font-weight: 700;
-          transition: background 0.15s;
-          line-height: 1;
-        }
-
-        .auth-notif-close:hover { background: rgba(255, 255, 255, 0.35); }
-
-        /* ===========================
-           Form Section Labels
-        =========================== */
-        .auth-section-label {
-          font-size: 11.5px;
-          font-weight: 600;
-          color: #999;
-          text-transform: uppercase;
-          letter-spacing: 0.6px;
-          margin-bottom: -4px;
-          padding-left: 2px;
-        }
-
-        /* ===========================
-           MOBILE RESPONSIVE
-        =========================== */
-        @media (max-width: 480px) {
-          .auth-overlay {
-            align-items: flex-end;
-            padding: 0;
-          }
-
-          .auth-modal {
-            max-width: 100%;
-            border-radius: 20px 20px 0 0;
-            max-height: 96vh;
-            animation: auth-modal-in-mobile 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-          }
-
-          @keyframes auth-modal-in-mobile {
-            from { opacity: 0; transform: translateY(100%); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-
-          .auth-header {
-            padding: 24px 20px 0;
-          }
-
-          .auth-logo-wrap {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
-            margin-bottom: 12px;
-          }
-
-          .auth-logo {
-            height: 28px;
-          }
-
-          .auth-title {
-            font-size: 20px;
-          }
-
-          .auth-subtitle {
-            font-size: 13px;
-          }
-
-          .auth-tabs {
-            margin: 18px 20px 0;
-            border-radius: 10px;
-            padding: 4px;
-          }
-
-          .auth-tab {
-            padding: 10px 6px;
-            font-size: 12px;
-            gap: 4px;
-          }
-
-          .auth-body {
-            padding: 20px;
-          }
-
-          .auth-fields {
-            gap: 12px;
-          }
-
-          .auth-field-row {
-            grid-template-columns: 1fr;
-            gap: 12px;
-          }
-
-          .auth-field {
-            height: 48px;
-            border-radius: 12px;
-          }
-
-          .auth-field-input {
-            font-size: 15px;
-          }
-
-          .auth-btn {
-            height: 50px;
-            border-radius: 12px;
-            font-size: 15px;
-          }
-
-          .auth-footer {
-            padding: 0 20px 24px;
-          }
-
-          .auth-pw-reqs {
-            grid-template-columns: 1fr;
-            gap: 4px;
-            padding: 10px 12px;
-          }
-
-          .auth-pw-req {
-            font-size: 12px;
-          }
-
-          .auth-notif-wrap {
-            top: auto;
-            bottom: 16px;
-            left: 16px;
-            right: 16px;
-          }
-
-          .auth-notif {
-            min-width: 0;
-            max-width: 100%;
-            width: 100%;
-            border-radius: 14px;
-          }
-
-          .auth-close {
-            top: 12px;
-            right: 12px;
-            width: 36px;
-            height: 36px;
-            border-radius: 12px;
-          }
-
-          .auth-guest-icon-wrap {
-            width: 52px;
-            height: 52px;
-          }
-
-          .auth-switch {
-            font-size: 14px;
-          }
-
-          .auth-switch-link {
-            font-size: 14px;
-          }
-
-          .auth-section-label {
-            font-size: 12px;
-          }
-        }
-
-        /* Handle safe area on modern phones */
-        @supports (padding-bottom: env(safe-area-inset-bottom)) {
-          @media (max-width: 480px) {
-            .auth-footer {
-              padding-bottom: calc(24px + env(safe-area-inset-bottom));
-            }
-          }
-        }
-      `}</style>
-
-      <Notification
-        message={notification.message}
-        type={notification.type}
-        isVisible={notification.isVisible}
-        onClose={hideNotification}
-      />
-
-      <div className="auth-overlay" onClick={onClose}>
-        <div className="auth-backdrop" />
-
+      <style>{STYLES}</style>
+      <Notification {...notification} onClose={hideNotif} />
+
+      {forcePasswordChange && pendingCustomer && (
+        <ForceChangePasswordModal
+          customer={pendingCustomer}
+          onSuccess={() => {
+            setForcePasswordChange(false);
+            setPendingCustomer(null);
+            showNotif("Password updated! You're now logged in.", "success");
+
+            setTimeout(() => {
+              if (onSuccess) onSuccess();
+              else onClose();
+            }, 1200);
+          }}
+        />
+      )}
+
+      <div className="am-overlay" onClick={onClose}>
+        <div className="am-backdrop" />
         <div
-          className="auth-modal"
+          className="am-modal"
           onClick={(e) => e.stopPropagation()}
-          onKeyDown={handleKeyDown}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Authentication"
+          onKeyDown={handleKey}
         >
-          {/* Close Button */}
-          <button
-            className="auth-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <XMarkIcon style={{ width: 16, height: 16, color: "#888" }} />
+          <div className="am-drag-handle"><span /></div>
+
+          <button className="am-close" onClick={onClose} aria-label="Close">
+            <XMarkIcon />
           </button>
 
-          <div className="auth-modal-scroll">
-            {/* Header */}
-            <div className="auth-header">
-              <div className="auth-logo-wrap">
-                <img
-                  src={logo}
-                  alt="Franko Trading"
-                  className="auth-logo"
+          <header className="am-header">
+            <img src={logo} alt="Franko" className="am-logo" />
+            <h2 className="am-heading">{headings[authMode].title}</h2>
+            <p className="am-subheading">{headings[authMode].sub}</p>
+          </header>
+
+          <nav className="am-tabs" role="tablist">
+            {tabs.map(({ key, label, Icon }) => (
+              <button
+                key={key}
+                role="tab"
+                aria-selected={authMode === key}
+                onClick={() => setAuthMode(key)}
+                className={`am-tab ${authMode === key ? "am-tab--active" : ""}`}
+              >
+                <Icon className="am-tab__icon" />
+                <span className="am-tab__label">{label}</span>
+              </button>
+            ))}
+          </nav>
+
+          <div className="am-content">
+            {showChangePassword ? (
+              <div className="am-content__inner">
+                <button className="am-back" onClick={() => setShowChangePassword(false)}>
+                  ← Back to Sign In
+                </button>
+
+                <ChangePasswordPanel
+                  customer={currentCustomer}
+                  showNotification={showNotif}
+                  onClose={() => {
+                    setShowChangePassword(false);
+                    onClose();
+                  }}
                 />
               </div>
-              <h2 className="auth-title">
-                {authMode === "login" && "Welcome back"}
-                {authMode === "signup" && "Create account"}
-                {authMode === "guest" && "Quick checkout"}
-              </h2>
-              <p className="auth-subtitle">
-                {authMode === "login" &&
-                  "Sign in to your Franko account"}
-                {authMode === "signup" &&
-                  "Join Franko Trading"}
-                {authMode === "guest" &&
-                  "Continue without creating an account"}
-              </p>
-            </div>
+            ) : (
+              <div className="am-content__inner">
+                <SuccessRedirectBanner
+                  title={successRedirect.title}
+                  message={successRedirect.message}
+                  isVisible={successRedirect.show}
+                />
 
-            {/* Tabs */}
-            <div className="auth-tabs">
-              {tabs.map((tab) => {
-                const TabIcon = tab.icon;
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => setAuthMode(tab.key)}
-                    className={`auth-tab ${
-                      authMode === tab.key ? "auth-tab-on" : ""
-                    }`}
-                  >
-                    <TabIcon style={{ width: 14, height: 14 }} />
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Body */}
-            <div className="auth-body">
-              {/* ===== LOGIN ===== */}
-              {authMode === "login" && (
-                <div className="auth-fields">
-                  <AuthInput
-                    icon={PhoneIcon}
-                    placeholder="Contact Number"
-                    name="contactNumber"
-                    value={loginData.contactNumber}
-                    onChange={handleLoginChange}
-                  />
-                  <AuthInput
-                    icon={LockClosedIcon}
-                    placeholder="Password"
-                    name="password"
-                    value={loginData.password}
-                    onChange={handleLoginChange}
-                    isPassword
-                  />
-                  <button
-                    disabled={loading}
-                    onClick={handleLogin}
-                    className="auth-btn auth-btn-primary"
-                  >
-                    {loading ? (
-                      <>
-                        <ArrowPathIcon className="auth-spinner" />
-                        Signing in...
-                      </>
-                    ) : (
-                      <>
-                        Sign In
-                        <ArrowRightIcon
-                          style={{ width: 16, height: 16 }}
-                        />
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
-
-              {/* ===== SIGNUP ===== */}
-              {authMode === "signup" && (
-                <div className="auth-fields">
-                  <span className="auth-section-label">
-                    Personal Information
-                  </span>
-                  <div className="auth-field-row">
-                    <AuthInput
-                      icon={UserIcon}
-                      placeholder="First Name"
-                      name="firstName"
-                      value={signupData.firstName}
-                      onChange={handleSignupChange}
-                    />
-                    <AuthInput
-                      icon={UserIcon}
-                      placeholder="Last Name"
-                      name="lastName"
-                      value={signupData.lastName}
-                      onChange={handleSignupChange}
-                    />
+                {redirecting && (
+                  <div className="am-banner am-banner--warning">
+                    <ExclamationTriangleIcon className="am-banner__icon" />
+                    <div className="am-banner__text">
+                      <p className="am-banner__title">Account not found</p>
+                      <p className="am-banner__sub">Redirecting to register…</p>
+                    </div>
+                    <ArrowPathIcon className="am-spin am-banner__spin" />
                   </div>
+                )}
 
-                  <span className="auth-section-label">
-                    Contact Details
-                  </span>
-                  <AuthInput
-                    icon={PhoneIcon}
-                    placeholder="Contact Number"
-                    name="contactNumber"
-                    value={signupData.contactNumber}
-                    onChange={handleSignupChange}
-                  />
-                  <AuthInput
-                    icon={EnvelopeIcon}
-                    type="email"
-                    placeholder="Email (optional)"
-                    name="email"
-                    value={signupData.email}
-                    onChange={handleSignupChange}
-                  />
-                  <AuthInput
-                    icon={HomeIcon}
-                    placeholder="Delivery Address"
-                    name="address"
-                    value={signupData.address}
-                    onChange={handleSignupChange}
-                  />
+                {authMode === "login" && (
+                  <div className="am-form-fields">
+                    <Field
+                      icon={PhoneIcon}
+                      label="Phone Number"
+                      placeholder="Enter 10-digit number"
+                      name="contactNumber"
+                      value={loginData.contactNumber}
+                      onChange={(e) =>
+                        setLoginData((prev) => ({
+                          ...prev,
+                          [e.target.name]: e.target.value,
+                        }))
+                      }
+                    />
 
-                  <span className="auth-section-label">Security</span>
-                  <AuthInput
-                    icon={LockClosedIcon}
-                    placeholder="Create a strong password"
-                    name="password"
-                    value={signupData.password}
-                    onChange={handleSignupChange}
-                    isPassword
-                  />
-                  <PasswordStrengthMeter
-                    password={signupData.password}
-                  />
+                    <Field
+                      icon={LockClosedIcon}
+                      label="Password"
+                      placeholder="Enter your password"
+                      name="password"
+                      value={loginData.password}
+                      onChange={(e) =>
+                        setLoginData((prev) => ({
+                          ...prev,
+                          [e.target.name]: e.target.value,
+                        }))
+                      }
+                      isPassword
+                    />
 
-                  <button
-                    disabled={loading}
-                    onClick={handleSignup}
-                    className="auth-btn auth-btn-primary"
-                  >
-                    {loading ? (
+                    <button
+                      className="am-btn am-btn--primary"
+                      onClick={handleLogin}
+                      disabled={loading || redirecting}
+                    >
+                      {loading ? (
+                        <>
+                          <ArrowPathIcon className="am-spin" /> Signing in…
+                        </>
+                      ) : (
+                        <>
+                          Sign In <ArrowRightIcon />
+                        </>
+                      )}
+                    </button>
+
+                    <div className="am-footer-links">
+                      <span>Don't have an account?</span>
+                      <button className="am-link" onClick={() => setAuthMode("signup")}>
+                        Register
+                      </button>
+                      <span className="am-dot">·</span>
+                      <button className="am-link" onClick={() => setAuthMode("guest")}>
+                        Guest
+                      </button>
+                    </div>
+
+                    {currentCustomer && (
                       <>
-                        <ArrowPathIcon className="auth-spinner" />
-                        Creating account...
-                      </>
-                    ) : (
-                      <>
-                        Create Account
-                        <ArrowRightIcon
-                          style={{ width: 16, height: 16 }}
-                        />
+                        <div className="am-divider">
+                          <span />
+                          <span className="am-divider__text">Settings</span>
+                          <span />
+                        </div>
+
+                        <button className="am-link-btn" onClick={() => setShowChangePassword(true)}>
+                          <ShieldCheckIcon /> Change Password
+                        </button>
                       </>
                     )}
-                  </button>
-                </div>
-              )}
-
-              {/* ===== GUEST ===== */}
-              {authMode === "guest" && (
-                <div className="auth-fields">
-                  <div className="auth-guest-info">
-                    
-                    <p className="auth-guest-desc">
-                      Enter your phone number to continue. 
-                    </p>
                   </div>
-                  <AuthInput
-                    icon={PhoneIcon}
-                    placeholder="Enter your contact number"
-                    name="contactNumber"
-                    value={guestData.contactNumber}
-                    onChange={handleGuestChange}
-                  />
-                  <button
-                    disabled={loading}
-                    onClick={handleGuestContinue}
-                    className="auth-btn auth-btn-primary"
-                  >
-                    {loading ? (
-                      <>
-                        <ArrowPathIcon className="auth-spinner" />
-                        Setting up...
-                      </>
-                    ) : (
-                      <>
-                        Continue as Guest
-                        <ArrowRightIcon
-                          style={{ width: 16, height: 16 }}
-                        />
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
+                )}
 
-             
-            </div>
+                {authMode === "signup" && (
+                  <div className="am-form-fields">
+                    <div className="am-field-row">
+                      <Field
+                        icon={UserIcon}
+                        label="First Name"
+                        placeholder="First name"
+                        name="firstName"
+                        value={signupData.firstName}
+                        onChange={(e) =>
+                          setSignupData((prev) => ({
+                            ...prev,
+                            [e.target.name]: e.target.value,
+                          }))
+                        }
+                      />
 
-            {/* Footer */}
-            <div className="auth-footer">
-              {authMode === "login" && (
-                <div className="auth-switch">
-                  Don&apos;t have an account?{" "}
-                  <button
-                    onClick={() => setAuthMode("signup")}
-                    className="auth-switch-link"
-                  >
-                    Register here
-                  </button>
-                </div>
-              )}
-              {authMode === "signup" && (
-                <div className="auth-switch">
-                  Already have an account?{" "}
-                  <button
-                    onClick={() => setAuthMode("login")}
-                    className="auth-switch-link"
-                  >
-                    Sign in
-                  </button>
-                </div>
-              )}
-              {authMode === "guest" && (
-                <div className="auth-switch">
-                  Want full access?{" "}
-                  <button
-                    onClick={() => setAuthMode("signup")}
-                    className="auth-switch-link"
-                    style={{ marginRight: 4 }}
-                  >
-                    Register
-                  </button>
-                  or{" "}
-                  <button
-                    onClick={() => setAuthMode("login")}
-                    className="auth-switch-link"
-                  >
-                    Sign in
-                  </button>
-                </div>
-              )}
-            </div>
+                      <Field
+                        icon={UserIcon}
+                        label="Last Name"
+                        placeholder="Last name"
+                        name="lastName"
+                        value={signupData.lastName}
+                        onChange={(e) =>
+                          setSignupData((prev) => ({
+                            ...prev,
+                            [e.target.name]: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <Field
+                      icon={PhoneIcon}
+                      label="Phone Number"
+                      placeholder="10-digit number"
+                      name="contactNumber"
+                      value={signupData.contactNumber}
+                      onChange={(e) =>
+                        setSignupData((prev) => ({
+                          ...prev,
+                          [e.target.name]: e.target.value,
+                        }))
+                      }
+                    />
+
+                    <Field
+                      icon={EnvelopeIcon}
+                      type="email"
+                      label="Email (optional)"
+                      placeholder="your@email.com"
+                      name="email"
+                      value={signupData.email}
+                      onChange={(e) =>
+                        setSignupData((prev) => ({
+                          ...prev,
+                          [e.target.name]: e.target.value,
+                        }))
+                      }
+                    />
+
+                    <Field
+                      icon={HomeIcon}
+                      label="Address"
+                      placeholder="Your address"
+                      name="address"
+                      value={signupData.address}
+                      onChange={(e) =>
+                        setSignupData((prev) => ({
+                          ...prev,
+                          [e.target.name]: e.target.value,
+                        }))
+                      }
+                    />
+
+                    <Field
+                      icon={LockClosedIcon}
+                      label="Password"
+                      placeholder="Create a strong password"
+                      name="password"
+                      value={signupData.password}
+                      onChange={(e) =>
+                        setSignupData((prev) => ({
+                          ...prev,
+                          [e.target.name]: e.target.value,
+                        }))
+                      }
+                      isPassword
+                    />
+
+                    <StrengthMeter password={signupData.password} />
+
+                    <button
+                      className="am-btn am-btn--primary"
+                      onClick={handleSignup}
+                      disabled={loading || successRedirect.show}
+                    >
+                      {loading ? (
+                        <>
+                          <ArrowPathIcon className="am-spin" /> Creating…
+                        </>
+                      ) : (
+                        <>
+                          Create Account <ArrowRightIcon />
+                        </>
+                      )}
+                    </button>
+
+                    <div className="am-footer-links">
+                      <span>Already have an account?</span>
+                      <button className="am-link" onClick={() => setAuthMode("login")}>
+                        Sign in
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {authMode === "guest" && (
+                  <div className="am-form-fields">
+                    <div className="am-guest-info">
+                      <UserCheck className="am-guest-info__icon" />
+                      <div>
+                        <p className="am-guest-info__title">Quick Guest Access</p>
+                        <p className="am-guest-info__desc">
+                          Enter your phone number to create a temporary account.
+                          You will be redirected to sign in with your contact numer
+                        </p>
+                      </div>
+                    </div>
+
+                    <Field
+                      icon={PhoneIcon}
+                      label="Phone Number"
+                      placeholder="Enter 10-digit number"
+                      name="contactNumber"
+                      value={guestData.contactNumber}
+                      onChange={(e) =>
+                        setGuestData((prev) => ({
+                          ...prev,
+                          [e.target.name]: e.target.value,
+                        }))
+                      }
+                    />
+
+                    <button
+                      className="am-btn am-btn--primary"
+                      onClick={handleGuest}
+                      disabled={loading || successRedirect.show}
+                    >
+                      {loading ? (
+                        <>
+                          <ArrowPathIcon className="am-spin" /> Setting up…
+                        </>
+                      ) : (
+                        <>
+                          Create Guest Account <ArrowRightIcon />
+                        </>
+                      )}
+                    </button>
+
+                    <div className="am-footer-links">
+                      <button className="am-link" onClick={() => setAuthMode("signup")}>
+                        Register instead
+                      </button>
+                      <span className="am-dot">·</span>
+                      <button className="am-link" onClick={() => setAuthMode("login")}>
+                        Sign in
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1761,3 +1203,758 @@ const AuthModal = ({ open, onClose, onSuccess }) => {
 };
 
 export default AuthModal;
+
+// ─────────────────────────────────────────────
+// Styles
+// ─────────────────────────────────────────────
+const STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  :root {
+    --am-primary: #14532d;
+    --am-primary-hover: #166534;
+    --am-accent: #22c55e;
+    --am-accent-light: #dcfce7;
+    --am-danger: #dc2626;
+    --am-warning: #f59e0b;
+    --am-text: #111827;
+    --am-text-secondary: #6b7280;
+    --am-text-tertiary: #9ca3af;
+    --am-bg: #ffffff;
+    --am-bg-secondary: #f9fafb;
+    --am-border: #e5e7eb;
+    --am-border-focus: #22c55e;
+    --am-radius: 12px;
+    --am-radius-sm: 8px;
+    --am-shadow-sm: 0 1px 2px rgba(0,0,0,.05);
+    --am-shadow: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -2px rgba(0,0,0,.1);
+    --am-shadow-lg: 0 20px 60px -12px rgba(0,0,0,.25);
+    --am-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --am-transition: 200ms cubic-bezier(.4,0,.2,1);
+  }
+
+  .am-overlay {
+    position: fixed; inset: 0; z-index: 9998;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    animation: amFadeIn .2s ease;
+  }
+
+  .am-backdrop {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  @keyframes amFadeIn { from { opacity: 0 } to { opacity: 1 } }
+
+  .am-modal {
+    position: relative; z-index: 1;
+    background: var(--am-bg);
+    border-radius: var(--am-radius);
+    width: 100%; max-width: 510px;
+    box-shadow: var(--am-shadow-lg), 0 0 0 1px rgba(0,0,0,.05);
+    font-family: var(--am-font);
+    -webkit-font-smoothing: antialiased;
+    max-height: 92vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    animation: amSlideUp .3s cubic-bezier(.16,1,.3,1);
+  }
+
+  .am-modal::-webkit-scrollbar { width: 3px; }
+  .am-modal::-webkit-scrollbar-track { background: transparent; }
+  .am-modal::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+
+  @keyframes amSlideUp {
+    from { opacity: 0; transform: translateY(16px) scale(.98) }
+    to { opacity: 1; transform: translateY(0) scale(1) }
+  }
+
+  .am-drag-handle {
+    display: none;
+    justify-content: center;
+    padding: 10px 0 2px;
+  }
+
+  .am-drag-handle span {
+    width: 36px; height: 4px;
+    background: #d1d5db; border-radius: 99px;
+  }
+
+  .am-close {
+    position: absolute; top: 16px; right: 16px; z-index: 10;
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--am-border);
+    border-radius: var(--am-radius-sm);
+    background: var(--am-bg);
+    cursor: pointer;
+    transition: all var(--am-transition);
+    color: var(--am-text-secondary);
+  }
+
+  .am-close svg { width: 16px; height: 16px; }
+  .am-close:hover { background: var(--am-bg-secondary); color: var(--am-text); }
+  .am-close:active { transform: scale(.95); }
+
+  .am-header {
+    padding: 28px 28px 0;
+    text-align: center;
+  }
+
+  .am-logo {
+    height: 36px; width: auto;
+    margin-bottom: 16px;
+    object-fit: contain;
+  }
+
+  .am-heading {
+    font-size: 22px; font-weight: 800;
+    color: var(--am-text);
+    margin: 0 0 4px;
+    letter-spacing: -.04em;
+    line-height: 1.2;
+  }
+
+  .am-subheading {
+    font-size: 14px; font-weight: 400;
+    color: var(--am-text-secondary);
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  .am-tabs {
+    display: flex;
+    margin: 20px 28px 0;
+    background: var(--am-bg-secondary);
+    border-radius: 10px;
+    padding: 4px;
+    gap: 2px;
+  }
+
+  .am-tab {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px 8px;
+    font-size: 13px; font-weight: 600;
+    color: var(--am-text-tertiary);
+    border: none; background: transparent;
+    cursor: pointer; border-radius: 7px;
+    transition: all var(--am-transition);
+    font-family: var(--am-font);
+    white-space: nowrap;
+    position: relative;
+  }
+
+  .am-tab__icon { width: 15px; height: 15px; flex-shrink: 0; }
+  .am-tab__label { font-size: 12.5px; }
+
+  .am-tab:hover:not(.am-tab--active) {
+    color: var(--am-text-secondary);
+    background: rgba(255,255,255,.5);
+  }
+
+  .am-tab--active {
+    background: var(--am-bg);
+    color: var(--am-primary);
+    box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+  }
+
+  .am-content {
+    padding: 20px 28px 28px;
+  }
+
+  .am-content__inner {
+    display: flex; flex-direction: column; gap: 0;
+    animation: amContentIn .25s ease;
+  }
+
+  @keyframes amContentIn {
+    from { opacity: 0; transform: translateY(6px) }
+    to { opacity: 1; transform: translateY(0) }
+  }
+
+  .am-form-fields {
+    display: flex; flex-direction: column; gap: 14px;
+  }
+
+  .am-field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .am-field {
+    display: flex; flex-direction: column; gap: 5px;
+  }
+
+  .am-field__label {
+    font-size: 12.5px; font-weight: 600;
+    color: var(--am-text-secondary);
+    letter-spacing: -.01em;
+    font-family: var(--am-font);
+    padding-left: 2px;
+  }
+
+  .am-field--focused .am-field__label { color: var(--am-primary); }
+
+  .am-field__inner {
+    display: flex; align-items: center;
+    border: 1.5px solid var(--am-border);
+    border-radius: var(--am-radius-sm);
+    height: 48px;
+    overflow: hidden;
+    transition: all var(--am-transition);
+    background: var(--am-bg);
+  }
+
+  .am-field--focused .am-field__inner {
+    border-color: var(--am-border-focus);
+    box-shadow: 0 0 0 3px rgba(34,197,94,.1);
+  }
+
+  .am-field__icon {
+    width: 44px; min-width: 44px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--am-text-tertiary);
+    transition: color var(--am-transition);
+  }
+
+  .am-field__icon svg { width: 17px; height: 17px; }
+
+  .am-field--focused .am-field__icon { color: var(--am-accent); }
+
+  .am-field__input {
+    flex: 1; border: none; outline: none;
+    background: transparent;
+    font-size: 14px; font-weight: 450;
+    color: var(--am-text);
+    height: 100%;
+    padding-right: 12px;
+    font-family: var(--am-font);
+    min-width: 0;
+  }
+
+  .am-field__input::placeholder {
+    color: var(--am-text-tertiary);
+    font-weight: 400;
+  }
+
+  .am-field__toggle {
+    width: 42px; min-width: 42px; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    border: none; background: none;
+    cursor: pointer;
+    color: var(--am-text-tertiary);
+    transition: color var(--am-transition);
+  }
+
+  .am-field__toggle svg { width: 17px; height: 17px; }
+  .am-field__toggle:hover { color: var(--am-text); }
+
+  .am-strength {
+    padding: 2px 0 4px;
+  }
+
+  .am-strength__header {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .am-strength__bars {
+    display: flex; gap: 3px; flex: 1;
+  }
+
+  .am-strength__bar {
+    flex: 1; height: 4px;
+    border-radius: 99px;
+    transition: background .3s ease;
+  }
+
+  .am-strength__label {
+    font-size: 11px; font-weight: 700;
+    font-family: var(--am-font);
+    white-space: nowrap;
+  }
+
+  .am-strength__rules {
+    display: flex; flex-wrap: wrap; gap: 6px 12px;
+  }
+
+  .am-strength__rule {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 450;
+    color: var(--am-text-tertiary);
+    font-family: var(--am-font);
+    transition: color .2s;
+  }
+
+  .am-strength__rule--ok { color: var(--am-text); }
+
+  .am-strength__check {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 1.5px solid #d1d5db;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: all .2s;
+  }
+
+  .am-strength__check svg { width: 9px; height: 9px; }
+
+  .am-btn {
+    width: 100%; height: 48px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    border: none; border-radius: var(--am-radius-sm);
+    font-size: 14px; font-weight: 700;
+    cursor: pointer;
+    transition: all var(--am-transition);
+    font-family: var(--am-font);
+    letter-spacing: -.01em;
+    margin-top: 2px;
+  }
+
+  .am-btn svg { width: 17px; height: 17px; }
+
+  .am-btn--primary {
+    background: linear-gradient(135deg, var(--am-primary) 0%, #166534 100%);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(20,83,45,.3), inset 0 1px 0 rgba(255,255,255,.1);
+  }
+
+  .am-btn--primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #166534 0%, #14532d 100%);
+    box-shadow: 0 4px 14px rgba(20,83,45,.4);
+    transform: translateY(-1px);
+  }
+
+  .am-btn--primary:active:not(:disabled) {
+    transform: translateY(0) scale(.995);
+    box-shadow: 0 1px 4px rgba(20,83,45,.25);
+  }
+
+  .am-btn--primary:disabled {
+    opacity: .6; cursor: not-allowed; transform: none;
+  }
+
+  .am-footer-links {
+    display: flex; align-items: center; justify-content: center;
+    gap: 6px; flex-wrap: wrap;
+    font-size: 13px; color: var(--am-text-secondary);
+    font-family: var(--am-font);
+    padding-top: 2px;
+  }
+
+  .am-dot { color: var(--am-text-tertiary); }
+
+  .am-link {
+    color: var(--am-primary); font-weight: 600;
+    border: none; background: none;
+    cursor: pointer; font-size: 13px;
+    font-family: var(--am-font);
+    padding: 0;
+    transition: all var(--am-transition);
+    text-decoration: none;
+  }
+
+  .am-link:hover {
+    color: var(--am-primary-hover);
+    text-decoration: underline;
+  }
+
+  .am-link-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    color: var(--am-text-secondary);
+    font-size: 13px; font-weight: 500;
+    border: 1.5px dashed var(--am-border);
+    background: transparent;
+    cursor: pointer;
+    font-family: var(--am-font);
+    padding: 10px;
+    border-radius: var(--am-radius-sm);
+    transition: all var(--am-transition);
+    width: 100%;
+  }
+
+  .am-link-btn svg { width: 15px; height: 15px; }
+
+  .am-link-btn:hover {
+    color: var(--am-primary);
+    border-color: var(--am-accent);
+    background: rgba(34,197,94,.04);
+  }
+
+  .am-divider {
+    display: flex; align-items: center; gap: 12px;
+    margin: 4px 0;
+  }
+
+  .am-divider > span:first-child,
+  .am-divider > span:last-child {
+    flex: 1; height: 1px;
+    background: var(--am-border);
+  }
+
+  .am-divider__text {
+    font-size: 10.5px; font-weight: 600;
+    color: var(--am-text-tertiary);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    font-family: var(--am-font);
+    white-space: nowrap;
+  }
+
+  .am-back {
+    display: inline-flex; align-items: center; gap: 4px;
+    color: var(--am-text-secondary);
+    font-size: 13px; font-weight: 500;
+    border: none; background: none;
+    cursor: pointer; font-family: var(--am-font);
+    padding: 0; margin-bottom: 16px;
+    transition: color var(--am-transition);
+  }
+
+  .am-back:hover { color: var(--am-primary); }
+
+  .am-cp { display: flex; flex-direction: column; gap: 16px; }
+
+  .am-cp__header {
+    display: flex; align-items: center; gap: 14px;
+    background: var(--am-accent-light);
+    border: 1px solid #bbf7d0;
+    border-radius: var(--am-radius-sm);
+    padding: 14px 16px;
+  }
+
+  .am-cp__icon-wrap {
+    width: 40px; height: 40px; min-width: 40px;
+    border-radius: var(--am-radius-sm);
+    background: #fff; border: 1px solid #bbf7d0;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .am-cp__icon-wrap svg { width: 20px; height: 20px; color: var(--am-primary); }
+  .am-cp__title { font-size: 14px; font-weight: 700; color: var(--am-primary); margin: 0 0 2px; font-family: var(--am-font); }
+  .am-cp__sub { font-size: 12.5px; color: #166534; margin: 0; font-family: var(--am-font); }
+
+  .am-banner {
+    display: flex; align-items: center; gap: 12px;
+    border-radius: var(--am-radius-sm);
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    animation: amContentIn .3s ease;
+  }
+
+  .am-banner__icon { width: 22px; height: 22px; flex-shrink: 0; }
+  .am-banner__text { flex: 1; min-width: 0; }
+  .am-banner__title { font-size: 13px; font-weight: 700; margin: 0 0 2px; font-family: var(--am-font); }
+  .am-banner__sub { font-size: 12px; margin: 0; font-family: var(--am-font); }
+  .am-banner__spin { width: 18px; height: 18px; flex-shrink: 0; }
+
+  .am-banner--success {
+    background: var(--am-accent-light);
+    border: 1px solid #bbf7d0;
+  }
+
+  .am-banner--success .am-banner__icon { color: var(--am-primary); }
+  .am-banner--success .am-banner__title { color: var(--am-primary); }
+  .am-banner--success .am-banner__sub { color: #166534; }
+  .am-banner--success .am-banner__spin { color: var(--am-primary); }
+
+  .am-banner--warning {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+  }
+
+  .am-banner--warning .am-banner__icon { color: #d97706; }
+  .am-banner--warning .am-banner__title { color: #92400e; }
+  .am-banner--warning .am-banner__sub { color: #b45309; }
+  .am-banner--warning .am-banner__spin { color: #d97706; }
+
+  .am-guest-info {
+    display: flex; align-items: flex-start; gap: 12px;
+    background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+    border: 1px solid #bbf7d0;
+    border-radius: var(--am-radius-sm);
+    padding: 16px;
+  }
+
+  .am-guest-info__icon {
+    width: 22px; height: 22px; min-width: 22px;
+    color: var(--am-primary);
+    margin-top: 1px;
+  }
+
+  .am-guest-info__title {
+    font-size: 13px; font-weight: 700;
+    color: var(--am-primary);
+    margin: 0 0 4px;
+    font-family: var(--am-font);
+  }
+
+  .am-guest-info__desc {
+    font-size: 12.5px; color: #166534;
+    margin: 0; line-height: 1.5;
+    font-family: var(--am-font);
+  }
+
+  .am-spin {
+    width: 18px; height: 18px;
+    animation: amSpin .7s linear infinite;
+  }
+
+  @keyframes amSpin { to { transform: rotate(360deg) } }
+
+  .am-toast-wrap {
+    position: fixed; top: 20px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 99999;
+    width: calc(100% - 32px);
+    max-width: 420px;
+    animation: amToastIn .35s cubic-bezier(.16,1,.3,1);
+    pointer-events: none;
+  }
+
+  @keyframes amToastIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(-14px) scale(.96) }
+    to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1) }
+  }
+
+  .am-toast {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px;
+    border-radius: var(--am-radius);
+    box-shadow: 0 12px 40px rgba(0,0,0,.18);
+    font-family: var(--am-font);
+    pointer-events: all;
+  }
+
+  .am-toast--ok { background: linear-gradient(135deg, #14532d, #166534); color: #fff; }
+  .am-toast--err { background: linear-gradient(135deg, #dc2626, #b91c1c); color: #fff; }
+  .am-toast__icon { flex-shrink: 0; }
+  .am-toast__svg { width: 20px; height: 20px; color: rgba(255,255,255,.9); }
+  .am-toast__msg { flex: 1; font-size: 13px; font-weight: 500; line-height: 1.4; }
+
+  .am-toast__close {
+    flex-shrink: 0; width: 24px; height: 24px;
+    border-radius: 6px;
+    border: none; background: rgba(255,255,255,.15);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: background .15s;
+  }
+
+  .am-toast__close svg { width: 14px; height: 14px; }
+  .am-toast__close:hover { background: rgba(255,255,255,.3); }
+
+  .am-force-overlay {
+    position: fixed; inset: 0; z-index: 99997;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    animation: amFadeIn .2s ease;
+  }
+
+  .am-force-backdrop {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,.6);
+    backdrop-filter: blur(10px);
+  }
+
+  .am-force-card {
+    position: relative; z-index: 1;
+    background: #fff;
+    border-radius: var(--am-radius);
+    width: 100%; max-width: 420px;
+    box-shadow: 0 40px 100px rgba(0,0,0,.3);
+    font-family: var(--am-font);
+    overflow: hidden;
+    animation: amSlideUp .3s cubic-bezier(.16,1,.3,1);
+    max-height: 92vh; overflow-y: auto;
+  }
+
+  .am-force-strip {
+    height: 4px;
+    background: linear-gradient(90deg, var(--am-primary), var(--am-accent), var(--am-primary));
+    background-size: 200%;
+    animation: amStrip 2.5s ease infinite alternate;
+  }
+
+  @keyframes amStrip {
+    from { background-position: 0% }
+    to { background-position: 100% }
+  }
+
+  .am-force-header { padding: 28px 28px 20px; text-align: center; }
+
+  .am-force-shield {
+    width: 56px; height: 56px; border-radius: 14px;
+    background: linear-gradient(135deg, var(--am-accent-light), #f0fdf4);
+    border: 2px solid #bbf7d0;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+  }
+
+  .am-force-shield svg { width: 28px; height: 28px; color: var(--am-primary); }
+  .am-force-title { font-size: 20px; font-weight: 800; color: var(--am-text); margin: 0 0 6px; letter-spacing: -.03em; }
+  .am-force-desc { font-size: 13.5px; color: var(--am-text-secondary); margin: 0; line-height: 1.5; }
+
+  .am-force-body { padding: 0 28px 28px; display: flex; flex-direction: column; gap: 14px; }
+
+  .am-force-error {
+    background: #fef2f2; border: 1px solid #fecaca;
+    border-radius: var(--am-radius-sm);
+    padding: 12px 16px;
+    font-size: 13px; color: var(--am-danger);
+    line-height: 1.4; font-family: var(--am-font);
+  }
+
+  .am-force-done {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 36px 28px; gap: 14px; text-align: center;
+  }
+
+  .am-force-done__icon { width: 56px; height: 56px; color: var(--am-accent); }
+  .am-force-done p { font-size: 16px; font-weight: 700; color: var(--am-text); margin: 0; font-family: var(--am-font); }
+
+  @media (max-width: 640px) {
+    .am-overlay { align-items: flex-end; padding: 0; }
+
+    .am-modal {
+      border-radius: 20px 20px 0 0;
+      max-width: 100%;
+      max-height: 96vh;
+      animation: amMobileSlideUp .35s cubic-bezier(.16,1,.3,1);
+    }
+
+    @keyframes amMobileSlideUp {
+      from { opacity: 0; transform: translateY(100%) }
+      to { opacity: 1; transform: translateY(0) }
+    }
+
+    .am-drag-handle { display: flex; }
+
+    .am-close {
+      top: 12px; right: 12px;
+      width: 36px; height: 36px;
+      border-radius: 50%;
+    }
+
+    .am-header { padding: 8px 20px 0; }
+    .am-logo { height: 32px; margin-bottom: 12px; }
+    .am-heading { font-size: 20px; }
+    .am-subheading { font-size: 13px; }
+
+    .am-tabs {
+      margin: 16px 20px 0;
+      border-radius: var(--am-radius-sm);
+      padding: 3px;
+    }
+
+    .am-tab {
+      padding: 10px 6px;
+      gap: 4px;
+    }
+
+    .am-tab__icon { width: 14px; height: 14px; }
+    .am-tab__label { font-size: 12px; }
+
+    .am-content { padding: 16px 20px 32px; }
+    .am-form-fields { gap: 12px; }
+
+    .am-field-row {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    .am-field__label { font-size: 12px; }
+    .am-field__inner { height: 50px; }
+    .am-field__icon { width: 46px; min-width: 46px; }
+    .am-field__icon svg { width: 18px; height: 18px; }
+    .am-field__input { font-size: 15px; }
+    .am-field__toggle { width: 46px; min-width: 46px; }
+    .am-field__toggle svg { width: 18px; height: 18px; }
+
+    .am-btn { height: 52px; font-size: 15px; border-radius: var(--am-radius); }
+    .am-btn svg { width: 18px; height: 18px; }
+
+    .am-footer-links { font-size: 13.5px; padding-top: 4px; }
+    .am-link { font-size: 13.5px; }
+    .am-link-btn { padding: 12px; font-size: 13.5px; }
+
+    .am-strength__rules { gap: 4px 10px; }
+    .am-strength__rule { font-size: 10.5px; }
+
+    .am-guest-info { padding: 14px; }
+    .am-guest-info__title { font-size: 13.5px; }
+    .am-guest-info__desc { font-size: 12.5px; }
+
+    .am-banner { padding: 12px 14px; }
+
+    .am-toast-wrap {
+      top: auto; bottom: 20px;
+      width: calc(100% - 24px);
+    }
+
+    @keyframes amToastIn {
+      from { opacity: 0; transform: translateX(-50%) translateY(14px) scale(.96) }
+      to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1) }
+    }
+
+    .am-force-overlay {
+      align-items: flex-end;
+      padding: 0;
+    }
+
+    .am-force-card {
+      border-radius: 20px 20px 0 0;
+      max-width: 100%;
+      max-height: 96vh;
+    }
+
+    .am-force-header { padding: 24px 20px 16px; }
+    .am-force-title { font-size: 18px; }
+    .am-force-desc { font-size: 13px; }
+    .am-force-body { padding: 0 20px 32px; gap: 12px; }
+  }
+
+  @media (max-width: 380px) {
+    .am-header { padding: 6px 16px 0; }
+    .am-heading { font-size: 18px; }
+    .am-subheading { font-size: 12.5px; }
+
+    .am-tabs { margin: 14px 16px 0; }
+    .am-tab { padding: 9px 4px; }
+    .am-tab__label { font-size: 11px; }
+
+    .am-content { padding: 14px 16px 28px; }
+    .am-form-fields { gap: 10px; }
+    .am-field__inner { height: 48px; }
+    .am-field__input { font-size: 14px; }
+    .am-btn { height: 48px; font-size: 14px; }
+  }
+
+  @media (max-height: 600px) and (max-width: 640px) {
+    .am-modal { max-height: 100vh; }
+    .am-header { padding: 6px 20px 0; }
+    .am-logo { height: 28px; margin-bottom: 8px; }
+    .am-heading { font-size: 17px; }
+    .am-subheading { font-size: 12px; }
+    .am-tabs { margin: 10px 20px 0; }
+    .am-tab { padding: 8px 6px; }
+    .am-content { padding: 12px 20px 24px; }
+    .am-form-fields { gap: 8px; }
+    .am-field__label { display: none; }
+    .am-field__inner { height: 44px; }
+    .am-btn { height: 44px; }
+  }
+
+  @media (min-width: 641px) {
+    .am-modal { border-radius: 16px; }
+    .am-field__inner:hover:not(:focus-within) {
+      border-color: #d1d5db;
+    }
+  }
+`;

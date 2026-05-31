@@ -29,7 +29,7 @@ import {
   logoutCustomer,
 } from "../Redux/Slice/customerSlice";
 
-const backendBaseURL = "https://fte002n1.salesmate.app";
+const backendBaseURL = "https://testing.frankotrading.com";
 
 // ==================== CONFIRM DIALOG ====================
 const ConfirmDialog = ({
