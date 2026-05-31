@@ -793,7 +793,7 @@ const Television = () => {
           <link rel="canonical" href="https://www.frankotrading.com/television" />
           <meta property="og:title" content="Buy the Latest Televisions Online | 4K, Smart TVs & Best Deals" />
           <meta property="og:description" content="Explore our latest televisions with high resolution and best prices. Available from top brands." />
-          <meta property="og:image" content={filteredProducts.length > 0 ? `https://testing.frankotrading.com:/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+          <meta property="og:image" content={filteredProducts.length > 0 ? `https://testing.frankotrading.com/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
           <meta property="og:url" content="https://www.frankotrading.com/television" />
           <meta property="og:type" content="website" />
           <meta name="twitter:card" content="summary_large_image" />
