@@ -6,9 +6,9 @@ import {
   Home,
   ClipboardList,
   HelpCircle,
-  ShoppingBag,
   Clock,
 } from "lucide-react";
+import { trackCompleteRegistration } from "../utils/metaPixel";
 
 const OrderReceived = () => {
   const navigate = useNavigate();
@@ -31,6 +31,28 @@ const OrderReceived = () => {
       pageType: "OrderConfirmation",
       timestamp: new Date().toISOString(),
     });
+
+    // ✅✅✅ FIRE META PIXEL CompleteRegistration WITH VALUE (deduplicated)
+    try {
+      const checkoutDetails = JSON.parse(
+        localStorage.getItem("checkoutDetails") || "{}"
+      );
+      const orderId =
+        checkoutDetails.orderCode ||
+        new URLSearchParams(window.location.search).get("orderId") ||
+        `unknown_${Date.now()}`;
+
+      trackCompleteRegistration({
+        value: checkoutDetails.totalAmount,
+        currency: "USD", // ← Change to your currency
+        orderId,
+        contentName: "Franko Trading Course",
+        contentCategory: "Education",
+        numItems: 1,
+      });
+    } catch (err) {
+      console.warn("Could not read checkout details for pixel tracking", err);
+    }
 
     const countdownInterval = setInterval(() => {
       setCountdown((prev) => {
@@ -84,34 +106,20 @@ const OrderReceived = () => {
         }
 
         .ov-root {
-          min-height: 100vh;
-          background: #fff;
-          display: flex;
-          flex-direction: column;
+          min-height: 100vh; background: #fff;
+          display: flex; flex-direction: column;
         }
 
         .ov-container {
-          max-width: 520px;
-          margin: 0 auto;
-          padding: 32px 16px;
-          width: 100%;
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
+          max-width: 520px; margin: 0 auto;
+          padding: 32px 16px; width: 100%;
+          flex: 1; display: flex; flex-direction: column; justify-content: center;
         }
-        @media (min-width: 768px) {
-          .ov-container { padding: 48px 24px; }
-        }
-
-        /* ==================== HEADER ==================== */
+        @media (min-width: 768px) { .ov-container { padding: 48px 24px; } }
 
         .ov-page-header {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          margin-bottom: 32px;
-          padding-bottom: 16px;
+          display: flex; align-items: center; gap: 16px;
+          margin-bottom: 32px; padding-bottom: 16px;
           border-bottom: 1px solid var(--ov-border);
         }
 
@@ -135,34 +143,18 @@ const OrderReceived = () => {
         }
         @media (min-width: 768px) { .ov-page-header-line { display: block; } }
 
-        /* ==================== CARD ==================== */
-
         .ov-card {
-          background: #fff;
-          border: 1px solid var(--ov-border);
-          border-radius: var(--ov-radius);
-          overflow: hidden;
-          opacity: 0;
-          transform: translateY(12px);
+          background: #fff; border: 1px solid var(--ov-border);
+          border-radius: var(--ov-radius); overflow: hidden;
+          opacity: 0; transform: translateY(12px);
           transition: all 0.5s ease;
         }
-        .ov-card-visible {
-          opacity: 1;
-          transform: translateY(0);
-        }
+        .ov-card-visible { opacity: 1; transform: translateY(0); }
 
-        /* ==================== BANNER ==================== */
-
-        .ov-banner {
-          background: var(--ov-green);
-          padding: 32px 24px;
-          text-align: center;
-        }
+        .ov-banner { background: var(--ov-green); padding: 32px 24px; text-align: center; }
 
         .ov-banner-icon-wrap {
-          width: 72px; height: 72px;
-          margin: 0 auto 16px;
-          position: relative;
+          width: 72px; height: 72px; margin: 0 auto 16px; position: relative;
         }
 
         .ov-banner-icon-glow {
@@ -172,41 +164,28 @@ const OrderReceived = () => {
         }
 
         .ov-banner-icon-inner {
-          position: relative;
-          width: 72px; height: 72px;
-          background: #fff;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          position: relative; width: 72px; height: 72px;
+          background: #fff; border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
           box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
         }
 
         .ov-banner-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
+          display: inline-flex; align-items: center; gap: 6px;
           background: rgba(255, 255, 255, 0.15);
-          backdrop-filter: blur(8px);
-          border-radius: 100px;
-          padding: 4px 14px;
-          margin-bottom: 12px;
-          font-size: 11px;
-          font-weight: 700;
+          backdrop-filter: blur(8px); border-radius: 100px;
+          padding: 4px 14px; margin-bottom: 12px;
+          font-size: 11px; font-weight: 700;
           color: rgba(255, 255, 255, 0.9);
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
+          text-transform: uppercase; letter-spacing: 0.08em;
         }
 
         .ov-banner-badge-dot {
-          width: 6px; height: 6px;
-          border-radius: 50%;
+          width: 6px; height: 6px; border-radius: 50%;
           background: var(--ov-green-accent);
           animation: ov-pulse 2s ease-in-out infinite;
         }
-        @keyframes ov-pulse {
-          0%, 100% { opacity: 0.4; } 50% { opacity: 1; }
-        }
+        @keyframes ov-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
 
         .ov-banner-title {
           font-size: 26px; font-weight: 900; color: #fff;
@@ -217,145 +196,79 @@ const OrderReceived = () => {
         .ov-banner-desc {
           font-size: 14px; font-weight: 500;
           color: rgba(255, 255, 255, 0.75);
-          margin: 0; max-width: 340px;
-          line-height: 1.5;
-          display: inline-block;
+          margin: 0; max-width: 340px; line-height: 1.5; display: inline-block;
         }
-
-        /* ==================== BODY ==================== */
 
         .ov-body { padding: 24px; }
 
-        /* ==================== MESSAGE BOX ==================== */
-
         .ov-message-box {
           background: var(--ov-green-lighter);
-          border: 1px solid #bbf7d0;
-          border-radius: var(--ov-radius);
-          padding: 16px;
-          margin-bottom: 24px;
-          text-align: center;
+          border: 1px solid #bbf7d0; border-radius: var(--ov-radius);
+          padding: 16px; margin-bottom: 24px; text-align: center;
         }
 
         .ov-message-text {
-          font-size: 14px; font-weight: 600;
-          color: var(--ov-green-mid);
+          font-size: 14px; font-weight: 600; color: var(--ov-green-mid);
           line-height: 1.6; margin: 0;
         }
 
-        /* ==================== ACTIONS ==================== */
-
         .ov-actions {
-          display: flex; flex-direction: column; gap: 10px;
-          margin-bottom: 20px;
+          display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;
         }
-        @media (min-width: 640px) {
-          .ov-actions { flex-direction: row; }
-        }
+        @media (min-width: 640px) { .ov-actions { flex-direction: row; } }
 
         .ov-btn {
-          flex: 1; padding: 14px 20px;
-          border: none; border-radius: var(--ov-radius);
-          font-size: 14px; font-weight: 700;
-          cursor: pointer; transition: all 0.15s;
-          font-family: var(--ov-font);
-          display: flex; align-items: center;
-          justify-content: center; gap: 8px;
+          flex: 1; padding: 14px 20px; border: none;
+          border-radius: var(--ov-radius); font-size: 14px; font-weight: 700;
+          cursor: pointer; transition: all 0.15s; font-family: var(--ov-font);
+          display: flex; align-items: center; justify-content: center; gap: 8px;
         }
         .ov-btn:active { transform: scale(0.98); }
 
-        .ov-btn-primary {
-          background: var(--ov-green);
-          color: #fff;
-        }
+        .ov-btn-primary { background: var(--ov-green); color: #fff; }
         .ov-btn-primary:hover {
           background: var(--ov-green-mid);
           box-shadow: 0 4px 16px rgba(20, 83, 45, 0.2);
           transform: translateY(-1px);
         }
 
-        .ov-btn-secondary {
-          background: #fff;
-          color: var(--ov-mid);
-          border: 1px solid var(--ov-border);
-        }
+        .ov-btn-secondary { background: #fff; color: var(--ov-mid); border: 1px solid var(--ov-border); }
         .ov-btn-secondary:hover {
-          border-color: var(--ov-green-accent);
-          color: var(--ov-green);
-          background: var(--ov-green-lighter);
-          transform: translateY(-1px);
+          border-color: var(--ov-green-accent); color: var(--ov-green);
+          background: var(--ov-green-lighter); transform: translateY(-1px);
         }
-
-        /* ==================== REDIRECT BAR ==================== */
 
         .ov-redirect-bar {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          padding: 10px 16px;
-          background: var(--ov-bg);
-          border: 1px solid var(--ov-border);
-          border-radius: var(--ov-radius);
-          margin-bottom: 20px;
+          display: flex; align-items: center; justify-content: center;
+          gap: 8px; padding: 10px 16px;
+          background: var(--ov-bg); border: 1px solid var(--ov-border);
+          border-radius: var(--ov-radius); margin-bottom: 20px;
         }
 
         .ov-redirect-text {
-          font-size: 12px; font-weight: 600;
-          color: var(--ov-light);
+          font-size: 12px; font-weight: 600; color: var(--ov-light);
         }
 
         .ov-redirect-countdown {
-          font-size: 13px; font-weight: 900;
-          color: var(--ov-green-600);
+          font-size: 13px; font-weight: 900; color: var(--ov-green-600);
           font-variant-numeric: tabular-nums;
           min-width: 20px; text-align: center;
         }
 
-        .ov-redirect-progress {
-          width: 100%; height: 3px;
-          background: var(--ov-border);
-          border-radius: 2px;
-          overflow: hidden;
-          margin-top: 6px;
-        }
-
-        .ov-redirect-fill {
-          height: 100%;
-          background: var(--ov-green-600);
-          border-radius: 2px;
-          transition: width 1s linear;
-        }
-
-        /* ==================== DIVIDER ==================== */
-
-        .ov-divider {
-          height: 1px;
-          background: var(--ov-border);
-          margin-bottom: 20px;
-        }
-
-        /* ==================== SUPPORT ==================== */
+        .ov-divider { height: 1px; background: var(--ov-border); margin-bottom: 20px; }
 
         .ov-support { text-align: center; }
 
         .ov-support-link {
-          display: inline-flex;
-          align-items: center; gap: 6px;
-          font-size: 13px; font-weight: 600;
-          color: var(--ov-light);
-          text-decoration: none;
-          cursor: pointer;
-          border: none; background: none;
-          padding: 0; font-family: var(--ov-font);
+          display: inline-flex; align-items: center; gap: 6px;
+          font-size: 13px; font-weight: 600; color: var(--ov-light);
+          text-decoration: none; cursor: pointer; border: none;
+          background: none; padding: 0; font-family: var(--ov-font);
           transition: color 0.15s;
         }
         .ov-support-link:hover { color: var(--ov-green-600); }
 
-        .ov-support-text {
-          text-decoration: underline;
-          text-underline-offset: 2px;
-        }
+        .ov-support-text { text-decoration: underline; text-underline-offset: 2px; }
       `}</style>
 
       <Confetti
@@ -363,20 +276,12 @@ const OrderReceived = () => {
         height={dimensions.height}
         recycle={false}
         numberOfPieces={600}
-        colors={[
-          "#14532d",
-          "#16a34a",
-          "#22c55e",
-          "#dcfce7",
-          "#fcd34d",
-          "#fca5a5",
-        ]}
+        colors={["#14532d", "#16a34a", "#22c55e", "#dcfce7", "#fcd34d", "#fca5a5"]}
         style={{ position: "fixed", top: 0, left: 0, zIndex: 100, pointerEvents: "none" }}
       />
 
       <div className="ov-root">
         <div className="ov-container">
-          {/* Page Header */}
           <div className="ov-page-header">
             <div className="ov-page-header-accent" />
             <div>
@@ -386,16 +291,12 @@ const OrderReceived = () => {
             <div className="ov-page-header-line" />
           </div>
 
-          {/* Main Card */}
           <div className={`ov-card ${isVisible ? "ov-card-visible" : ""}`}>
-            {/* Banner */}
             <div className="ov-banner">
               <div className="ov-banner-icon-wrap">
                 <div className="ov-banner-icon-glow" />
                 <div className="ov-banner-icon-inner">
-                  <CheckCircle
-                    style={{ width: 36, height: 36, color: "#16a34a" }}
-                  />
+                  <CheckCircle style={{ width: 36, height: 36, color: "#16a34a" }} />
                 </div>
               </div>
 
@@ -411,9 +312,7 @@ const OrderReceived = () => {
               </p>
             </div>
 
-            {/* Body */}
             <div className="ov-body">
-              {/* Message */}
               <div className="ov-message-box">
                 <p className="ov-message-text">
                   Our fulfillment team will contact you soon to confirm your
@@ -421,53 +320,29 @@ const OrderReceived = () => {
                 </p>
               </div>
 
-              {/* Redirect Countdown */}
               <div className="ov-redirect-bar">
-                <Clock
-                  style={{
-                    width: 14,
-                    height: 14,
-                    color: "var(--ov-light)",
-                    flexShrink: 0,
-                  }}
-                />
-                <span className="ov-redirect-text">
-                  Redirecting to home in
-                </span>
+                <Clock style={{ width: 14, height: 14, color: "var(--ov-light)", flexShrink: 0 }} />
+                <span className="ov-redirect-text">Redirecting to home in</span>
                 <span className="ov-redirect-countdown">{countdown}s</span>
               </div>
 
-              {/* Actions */}
               <div className="ov-actions">
-                <button
-                  onClick={() => navigate("/order-history")}
-                  className="ov-btn ov-btn-primary"
-                >
+                <button onClick={() => navigate("/order-history")} className="ov-btn ov-btn-primary">
                   <ClipboardList style={{ width: 18, height: 18 }} />
                   View My Orders
                 </button>
-                <button
-                  onClick={() => navigate("/")}
-                  className="ov-btn ov-btn-secondary"
-                >
+                <button onClick={() => navigate("/")} className="ov-btn ov-btn-secondary">
                   <Home style={{ width: 18, height: 18 }} />
                   Continue Shopping
                 </button>
               </div>
 
-              {/* Divider */}
               <div className="ov-divider" />
 
-              {/* Support */}
               <div className="ov-support">
-                <button
-                  onClick={() => navigate("/contact")}
-                  className="ov-support-link"
-                >
+                <button onClick={() => navigate("/contact")} className="ov-support-link">
                   <HelpCircle style={{ width: 15, height: 15 }} />
-                  <span className="ov-support-text">
-                    Need help? Contact Support
-                  </span>
+                  <span className="ov-support-text">Need help? Contact Support</span>
                 </button>
               </div>
             </div>

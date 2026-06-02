@@ -239,7 +239,7 @@ export const getCartById = createAsyncThunk(
           }
         });
 
-        response.data.forEach((item, i) => {
+        response.data.forEach((item) => {
           const pid = item.productId || item.ProductId;
        
         });
@@ -248,9 +248,7 @@ export const getCartById = createAsyncThunk(
         return response.data.map((item) => {
           const pid = item.productId || item.ProductId;
 
-          // If Redux already has a correct unit price for this product, use it.
-          // This prevents the API's potentially inflated price from overwriting
-          // the real unit price we captured when the item was first added.
+          
           const knownUnit = knownPriceMap[pid] || null;
 
           return normalizeItem(item, knownUnit);

@@ -2,9 +2,6 @@ import { useState, useEffect } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logoutCustomer } from "./Redux/Slice/customerSlice";
-
-
-
 import CryptoJS from "crypto-js";
 
 /* ==================== COMPONENTS ==================== */
@@ -39,25 +36,18 @@ import Products from "./Pages/Products";
 import Terms from "./Pages/Terms";
 import OrderHistory from "./Pages/OrderHistory";
 import Wishlist from "./Pages/Wishlist";
-import OrderSuccessPage from "./Pages/OrderSucess";
+import OrderSuccess from "./Pages/OrderSucess";
 
 /* ==================== AGENT PAGES ==================== */
 import AgentPage from "./Pages/Agents/AgentPage/AgentPage";
 import AgentDashboard from "./Pages/Agents/AgentPage/AgentDashboard";
 import AgentOrders from "./Pages/Agents/AgentPage/AgentOrders";
 
-/* ==================== AUTH PAGES ==================== */
-
-
 /* ═══════════════════════════════════════════════════════════════
    ENCRYPTED LOCALSTORAGE IMPLEMENTATION
 ═══════════════════════════════════════════════════════════════ */
-
 const SECRET_KEY = import.meta.env.VITE_SECRET_KEY || "your-secret-key";
 
-/**
- * Encrypt data using AES encryption
- */
 const encrypt = (data) => {
   try {
     const str = typeof data === "string" ? data : JSON.stringify(data);
@@ -68,9 +58,6 @@ const encrypt = (data) => {
   }
 };
 
-/**
- * Decrypt AES encrypted data
- */
 const decrypt = (cipherText) => {
   try {
     if (!cipherText || typeof cipherText !== "string") return cipherText;
@@ -85,9 +72,6 @@ const decrypt = (cipherText) => {
   }
 };
 
-/**
- * Monkey patch localStorage for automatic encryption/decryption
- */
 (function enforceEncryptedLocalStorage() {
   const originalSet = Storage.prototype.setItem;
   const originalGet = Storage.prototype.getItem;
@@ -95,14 +79,14 @@ const decrypt = (cipherText) => {
 
   Storage.prototype.setItem = function (key, value) {
     try {
-      if (typeof value === "string" && value.startsWith("U2FsdGVkX1")) {
+      // Do not encrypt the activity timestamp for pure speed/performance
+      if (key === "lastActivityTimestamp" || (typeof value === "string" && value.startsWith("U2FsdGVkX1"))) {
         originalSet.call(this, key, value);
       } else {
         const encrypted = encrypt(value);
         originalSet.call(this, key, encrypted);
       }
     } catch (err) {
-      console.error("setItem error:", err);
       originalSet.call(this, key, value);
     }
   };
@@ -111,18 +95,11 @@ const decrypt = (cipherText) => {
     try {
       const encrypted = originalGet.call(this, key);
       if (!encrypted) return null;
+      if (key === "lastActivityTimestamp") return encrypted;
 
       const decrypted = decrypt(encrypted);
-
-      try {
-        return JSON.parse(decrypted);
-      } catch {
-        return decrypted;
-      }
-    } catch (err) {
-      console.error("getItem error:", err);
-      return null;
-    }
+      try { return JSON.parse(decrypted); } catch { return decrypted; }
+    } catch (err) { return null; }
   };
 
   Storage.prototype.removeItem = function (key) {
@@ -133,205 +110,145 @@ const decrypt = (cipherText) => {
 /* ═══════════════════════════════════════════════════════════════
    SAFE STORAGE HELPERS
 ═══════════════════════════════════════════════════════════════ */
-
-/**
- * Safely get data from localStorage
- */
 const safeGetFromStorage = (key) => {
   try {
     const data = localStorage.getItem(key);
-
     if (!data) return null;
-
-    if (typeof data === "object" && data !== null) {
-      return data;
-    }
-
+    if (typeof data === "object" && data !== null) return data;
     if (typeof data === "string" && data === "[object Object]") {
       localStorage.removeItem(key);
       return null;
     }
-
     if (typeof data === "string") {
-      try {
-        return JSON.parse(data);
-      } catch {
-        return null;
-      }
+      try { return JSON.parse(data); } catch { return null; }
     }
-
     return data;
   } catch (e) {
-    console.error(`Error getting ${key} from storage:`, e);
     return null;
   }
 };
 
-/**
- * Safely set data to localStorage
- */
 const safeSetToStorage = (key, value) => {
   try {
-    if (!value) {
-      localStorage.removeItem(key);
-    } else {
-      localStorage.setItem(key, value);
-    }
-  } catch (e) {
-    console.error(`Error setting ${key} to storage:`, e);
-  }
+    if (!value) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch (e) { console.error(`Error setting ${key} to storage:`, e); }
 };
 
-/**
- * Clean up corrupted localStorage entries
- */
 const cleanupCorruptedEntries = () => {
   try {
-    const keysToCheck = ["customer", "user", "loginTime", "lastActivity"];
-    keysToCheck.forEach((key) => {
+    ["customer", "user", "loginTime", "lastActivity"].forEach((key) => {
       const data = safeGetFromStorage(key);
       if (typeof data === "string" && data === "[object Object]") {
-        console.warn(`Removing corrupted entry: ${key}`);
         localStorage.removeItem(key);
       }
     });
-  } catch (e) {
-    console.error("Error cleaning up corrupted entries:", e);
-  }
+  } catch (e) { console.error("Error cleaning up entries:", e); }
 };
 
-// Initialize cleanup on app load
 cleanupCorruptedEntries();
 
-/* ═══════════════════════════════════════════════════════════════
-   UTILITY FUNCTIONS
-═══════════════════════════════════════════════════════════════ */
-
-/**
- * Get current user role from storage
- * Returns: "customer", "agent", or null
- */
 const getUserRole = () => {
   try {
     const customer = safeGetFromStorage("customer");
     const user = safeGetFromStorage("user");
-
     if (!customer && !user) return null;
-
-    // For agent users (stored in user slice with position)
     if (user?.position === "agent") return "agent";
-    
-    // For customer accounts
-    return customer?.accountType || null; // "customer" or "agent"
-  } catch (err) {
-    console.error("Error getting user role:", err);
-    return null;
-  }
+    return customer?.accountType || null; 
+  } catch (err) { return null; }
 };
 
 /* ═══════════════════════════════════════════════════════════════
    AUTHENTICATION CHECKER COMPONENT
 ═══════════════════════════════════════════════════════════════ */
-
 const AuthenticationChecker = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const customer = useSelector((state) => state.customer.currentCustomer);
 
-
   useEffect(() => {
     const checkAuthState = () => {
       try {
-        // Check customer authentication
         if (customer && (!customer.accessToken || customer.accessToken === "")) {
-          console.warn("Customer token invalid, logging out");
           dispatch(logoutCustomer());
           safeSetToStorage("customer", null);
           navigate("/", { replace: true });
           return;
         }
-
-   
-
-        // Sync localStorage with Redux state
         const storedCustomer = safeGetFromStorage("customer");
- 
         if (customer && !storedCustomer) {
           safeSetToStorage("customer", customer);
         }
-
-      
       } catch (error) {
-        console.error("Auth check error:", error);
         cleanupCorruptedEntries();
       }
     };
-
-    // Initial check
     checkAuthState();
-
-    // Periodic check every 30 seconds
     const interval = setInterval(checkAuthState, 30000);
-
     return () => clearInterval(interval);
-  }, [customer,  dispatch, navigate]);
+  }, [customer, dispatch, navigate]);
 
   return null;
 };
 
 /* ═══════════════════════════════════════════════════════════════
-   PROTECTED ROUTE COMPONENT (Agent Only)
+   PROTECTED ROUTE COMPONENT
 ═══════════════════════════════════════════════════════════════ */
-
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const userRole = getUserRole();
-
-  // Check if user's role is in the allowed roles
   if (!userRole || !allowedRoles.includes(userRole)) {
-    console.warn(`Access denied for role: ${userRole}`);
     return <Navigate to="/" replace />;
   }
-
   return children;
 };
 
 /* ═══════════════════════════════════════════════════════════════
-   STORAGE MANAGER COMPONENT
+   STORAGE & ACTIVITY MANAGER COMPONENT
 ═══════════════════════════════════════════════════════════════ */
-
 const StorageManager = () => {
   useEffect(() => {
-    // Initial cleanup
     cleanupCorruptedEntries();
 
-    // Periodic cleanup every 10 minutes
+    // Tracker for User Activity 
+    const updateActivity = () => {
+      localStorage.setItem("lastActivityTimestamp", Date.now().toString());
+    };
+    updateActivity(); // Initialize on load
+
+    let throttleTimer;
+    const handleActivity = () => {
+      if (throttleTimer) return;
+      throttleTimer = setTimeout(() => {
+        updateActivity();
+        throttleTimer = null;
+      }, 3000); // Record activity at most once every 3 seconds
+    };
+
+    const activeEvents = ['mousemove', 'keydown', 'scroll', 'click', 'touchstart'];
+    activeEvents.forEach(evt => window.addEventListener(evt, handleActivity, { passive: true }));
+
     const cleanupInterval = setInterval(() => {
       cleanupCorruptedEntries();
     }, 10 * 60 * 1000);
 
-    // Cleanup on page unload
     const handleBeforeUnload = () => {
       try {
         const customer = safeGetFromStorage("customer");
         const user = safeGetFromStorage("user");
-
-        if (customer && (!customer.accessToken || customer.accessToken === "")) {
-          safeSetToStorage("customer", null);
-        }
-
+        if (customer && (!customer.accessToken || customer.accessToken === "")) safeSetToStorage("customer", null);
         if (user && (!user.accessToken || user.accessToken === "")) {
           safeSetToStorage("user", null);
           safeSetToStorage("loginTime", null);
           safeSetToStorage("lastActivity", null);
         }
-      } catch (e) {
-        console.error("Cleanup error on unload:", e);
-      }
+      } catch (e) { console.error("Cleanup error:", e); }
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
+      activeEvents.forEach(evt => window.removeEventListener(evt, handleActivity));
+      if (throttleTimer) clearTimeout(throttleTimer);
       clearInterval(cleanupInterval);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
@@ -343,24 +260,12 @@ const StorageManager = () => {
 /* ═══════════════════════════════════════════════════════════════
    MAIN APP COMPONENT
 ═══════════════════════════════════════════════════════════════ */
-
 function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-
-  /* ──────────────────────────────────────────
-     Network Status Monitoring
-  ────────────────────────────────────────── */
   useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
-      console.log("📡 Back online");
-    };
-
-    const handleOffline = () => {
-      setIsOnline(false);
-      console.log("📡 Went offline");
-    };
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
@@ -371,23 +276,10 @@ function App() {
     };
   }, []);
 
-  /* ──────────────────────────────────────────
-     Initialize Token Monitor (for agents)
-  ────────────────────────────────────────── */
-
-
-    // Initialize token monitor
-
-  /* ──────────────────────────────────────────
-     Show No Internet Page if Offline
-  ────────────────────────────────────────── */
   if (!isOnline) {
     return <NoInternetPage />;
   }
 
-  /* ──────────────────────────────────────────
-     Render Application
-  ────────────────────────────────────────── */
   return (
     <>
       <StorageManager />
@@ -396,7 +288,6 @@ function App() {
       <ScrollToTop />
 
       <Routes>
-        {/* ==================== CUSTOMER ROUTES (PUBLIC) ==================== */}
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
@@ -419,45 +310,15 @@ function App() {
         <Route path="/products" element={<Products />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/order-received" element={<OrderReceived />} />
-        <Route path="/order-success/:orderId" element={<OrderSuccessPage />} />
+        <Route path="/order-success/:orderId" element={<OrderSuccess />} />
         <Route path="/account" element={<Account />} />
         <Route path="/shops" element={<Locations />} />
         <Route path="/order-cancelled" element={<Cancellation />} />
 
-       
- 
+        <Route path="/agent/*" element={<ProtectedRoute allowedRoles={["agent"]}><AgentPage /></ProtectedRoute>} />
+        <Route path="/agent/dashboard" element={<ProtectedRoute allowedRoles={["agent"]}><AgentPage><AgentDashboard /></AgentPage></ProtectedRoute>} />
+        <Route path="/agent/orders" element={<ProtectedRoute allowedRoles={["agent"]}><AgentPage><AgentOrders /></AgentPage></ProtectedRoute>} />
 
-        {/* ==================== AGENT ROUTES (PROTECTED) ==================== */}
-        <Route
-          path="/agent/*"
-          element={
-            <ProtectedRoute allowedRoles={["agent"]}>
-              <AgentPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/agent/dashboard"
-          element={
-            <ProtectedRoute allowedRoles={["agent"]}>
-              <AgentPage>
-                <AgentDashboard />
-              </AgentPage>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/agent/orders"
-          element={
-            <ProtectedRoute allowedRoles={["agent"]}>
-              <AgentPage>
-                <AgentOrders />
-              </AgentPage>
-            </ProtectedRoute>
-          }
-        />
-
-        {/* ==================== DEFAULT REDIRECT ==================== */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </>

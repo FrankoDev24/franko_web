@@ -1,516 +1,1441 @@
-
 import React, { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchOrdersByThirdParty } from "../../../Redux/Slice/orderSlice";
-import {
-  DatePicker,
-  Table,
-  Spin,
-  Tag,
-  Checkbox,
-  Button,
-  message,
-  Card,
-  Statistic,
-  Row,
-  Col,
-  Space,
-  Input,
-  Select,
-  Badge,
-  Tooltip,
-  Typography,
-  Divider,
-  Alert,
-} from "antd";
-import {
-  EyeOutlined,
-  DownloadOutlined,
-  SearchOutlined,
-  FilterOutlined,
-  CalendarOutlined,
-  ShoppingCartOutlined,
-  FileExcelOutlined,
-  ReloadOutlined,
-} from "@ant-design/icons";
-import * as XLSX from "xlsx";
+import { fetchOrdersByCustomer } from "../../../Redux/Slice/orderSlice";
+import { DatePicker, Table, Spin, Tooltip, Button, Input, Select, Drawer } from "antd";
 import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
 import OrderModal from "../../../Component/OrderModal";
+import AuthModal from "../../../Component/AuthModal";
 
-const { RangePicker } = DatePicker;
-const { Option } = Select;
-const { Title, Text } = Typography;
+dayjs.extend(relativeTime);
 
+/* ═══════════════════════════════════════════════
+   PAYMENT MODE CONFIG
+   ═══════════════════════════════════════════════ */
+const getPaymentConfig = (mode) => {
+  const map = {
+    "Cash on Delivery": {
+      bg: "#f0fdf4",
+      color: "#166534",
+      border: "#bbf7d0",
+      dot: "#22c55e",
+      label: "Cash on Delivery",
+    },
+    "Paid Already": {
+      bg: "#eff6ff",
+      color: "#1e40af",
+      border: "#bfdbfe",
+      dot: "#3b82f6",
+      label: "Paid Already",
+    },
+    "Pick up": {
+      bg: "#faf5ff",
+      color: "#6b21a8",
+      border: "#e9d5ff",
+      dot: "#a855f7",
+      label: "Pick up",
+    },
+    "Bank Transfer": {
+      bg: "#fff7ed",
+      color: "#9a3412",
+      border: "#fed7aa",
+      dot: "#f97316",
+      label: "Bank Transfer",
+    },
+  };
+  return map[mode] || {
+    bg: "#f9fafb",
+    color: "#374151",
+    border: "#e5e7eb",
+    dot: "#9ca3af",
+    label: mode || "N/A",
+  };
+};
+
+/* ═══════════════════════════════════════════════
+   STATUS CONFIG
+   ═══════════════════════════════════════════════ */
+const getStatusConfig = (status) => {
+  const map = {
+    Pending:            { bg: "#fffbeb", color: "#92400e", border: "#fde68a", dot: "#f59e0b" },
+    Processing:         { bg: "#eff6ff", color: "#1e40af", border: "#bfdbfe", dot: "#3b82f6" },
+    "Order Placement":  { bg: "#eff6ff", color: "#1e40af", border: "#bfdbfe", dot: "#3b82f6" },
+    "Wrong Number":     { bg: "#faf5ff", color: "#6b21a8", border: "#e9d5ff", dot: "#a855f7" },
+    Delivery:           { bg: "#f0fdf4", color: "#166534", border: "#bbf7d0", dot: "#22c55e" },
+    Completed:          { bg: "#f0fdf4", color: "#166534", border: "#bbf7d0", dot: "#22c55e" },
+    Testing:            { bg: "#fefce8", color: "#854d0e", border: "#fef08a", dot: "#eab308" },
+    Cancelled:          { bg: "#fef2f2", color: "#991b1b", border: "#fecaca", dot: "#ef4444" },
+    Unreachable:        { bg: "#f9fafb", color: "#374151", border: "#e5e7eb", dot: "#9ca3af" },
+    "Not Answered":     { bg: "#fff7ed", color: "#9a3412", border: "#fed7aa", dot: "#f97316" },
+    "Multiple order":   { bg: "#eef2ff", color: "#3730a3", border: "#c7d2fe", dot: "#6366f1" },
+  };
+  return map[status] || { bg: "#f9fafb", color: "#374151", border: "#e5e7eb", dot: "#9ca3af" };
+};
+
+const STATUS_OPTIONS = [
+  "all", "Pending", "Processing", "Order Placement", "Wrong Number",
+  "Delivery", "Completed", "Testing", "Cancelled", "Unreachable",
+  "Not Answered", "Multiple order",
+];
+
+/* ═══════════════════════════════════════════════
+   MAIN COMPONENT
+   ═══════════════════════════════════════════════ */
 const AgentOrders = () => {
   const dispatch = useDispatch();
-  const ordersData = useSelector((state) => state.orders ?? {});
-  const orders = ordersData.orders ?? [];
-  const loading = ordersData.loading ?? false;
-  const error = ordersData.error ?? null;
+  const ordersData = useSelector(
+    (state) => state.orders || { orders: [], loading: false, error: null }
+  );
+  const orders = ordersData.orders || [];
+  const loading = ordersData.loading || false;
+  const error = ordersData.error || null;
 
-  const [dateRange, setDateRange] = useState([
-    dayjs("2000-01-01"),
-    dayjs().add(1, "day"),
-  ]);
-  const [searchText, setSearchText] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [paymentFilter, setPaymentFilter] = useState("all");
-  const [isModalVisible, setIsModalVisible] = useState(false);
+  const defaultFromDate = dayjs("2000-01-01");
+  const defaultToDate = dayjs().add(1, "day");
+
+  const [dateRange, setDateRange] = useState([defaultFromDate, defaultToDate]);
+  const [isOrderModalVisible, setIsOrderModalVisible] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
-  const [viewedOrders, setViewedOrders] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
+  const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(false);
 
-  const customerObject = (localStorage.getItem("customer"));
-  const ThirdPartyAccountNumber = customerObject?.customerAccountNumber;
+  const customerObject = localStorage.getItem("customer") || "null";
+  const customerId = customerObject?.customerAccountNumber;
+  const hasValidCustomer = customerObject && customerId;
 
   useEffect(() => {
-    if (ThirdPartyAccountNumber) {
-      const [from, to] = dateRange.map((date) =>
-        date.format("MM/DD/YYYY")
-      );
-      dispatch(
-        fetchOrdersByThirdParty({ from, to, ThirdPartyAccountNumber })
-      );
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  useEffect(() => {
+    if (hasValidCustomer) {
+      const [from, to] = dateRange.map((d) => d.format("MM/DD/YYYY"));
+      dispatch(fetchOrdersByCustomer({ from, to, customerId }));
     }
-  }, [dateRange]);
+  }, [dateRange, customerId, dispatch, hasValidCustomer]);
 
   const handleDateChange = (dates) => {
-    if (dates) {
-      setDateRange(dates);
-      setCurrentPage(1);
-    }
+    if (dates) setDateRange(dates);
   };
 
   const handleViewOrder = (orderId) => {
     setSelectedOrderId(orderId);
-    setIsModalVisible(true);
-    if (!viewedOrders.includes(orderId)) {
-      setViewedOrders((prev) => [...prev, orderId]);
-    }
+    setIsOrderModalVisible(true);
   };
+
+  const handleOrderModalClose = () => {
+    setIsOrderModalVisible(false);
+    setSelectedOrderId(null);
+  };
+
+  const handleAuthModalClose = () => setIsAuthModalVisible(false);
+  const handleSignInClick = () => setIsAuthModalVisible(true);
 
   const handleRefresh = () => {
-    if (ThirdPartyAccountNumber) {
-      const [from, to] = dateRange.map((date) =>
-        date.format("MM/DD/YYYY")
-      );
-      dispatch(
-        fetchOrdersByThirdParty({ from, to, ThirdPartyAccountNumber })
-      );
-      message.success("Orders refreshed successfully!");
+    if (hasValidCustomer) {
+      const [from, to] = dateRange.map((d) => d.format("MM/DD/YYYY"));
+      dispatch(fetchOrdersByCustomer({ from, to, customerId }));
     }
   };
 
-  const getOrderStatusColor = (status) => {
-    switch (status) {
-      case "Pending":
-        return "orange";
-      case "Processing":
-        return "blue";
-      case "Confirmed":
-      case "Delivery":
-        return "green";
-      case "Completed":
-        return "lime";
-      case "Cancelled":
-      case "Out of Stock":
-      case "Unreachable":
-        return "red";
-      case "Multiple Orders":
-        return "geekblue";
-      case "Wrong Number":
-        return "purple";
-      case "Not Answered":
-        return "cyan";
-      case "Order Placement":
-        return "gold";
-      default:
-        return "default";
-    }
-  };
-
+  /* ─── Transform & Filter Orders ─── */
   const transformedOrders = useMemo(() => {
-    return orders
-      .map((order, index) => ({
-        key: index,
-        orderId: order?.orderCode || "N/A",
-        rawDate: order?.orderDate,
-        orderDate: order?.orderDate
-          ? dayjs(order.orderDate).format("MM/DD/YYYY hh:mm A")
-          : "N/A",
-        paymentMode: order?.paymentMode || "N/A",
-        orderCycle: order?.orderCycle || "N/A",
-      }))
+    return (orders || [])
+      .map((order, index) => {
+        const orderDay = dayjs(order?.orderDate);
+        return {
+          key: index,
+          orderId: order?.orderCode || "N/A",
+          orderDateTime: orderDay.isValid() ? orderDay.format("MMM D, YYYY h:mm A") : "N/A",
+          orderDateShort: orderDay.isValid() ? orderDay.format("MM/DD/YYYY") : "N/A",
+          timeAgo: orderDay.isValid() ? orderDay.fromNow() : "",
+          customerName: order?.fullName || "N/A",
+          contactNumber: order?.contactNumber || "N/A",
+          orderCycle: order?.orderCycle || "N/A",
+          paymentMode: order?.paymentMode || "N/A",
+          quantity: order?.quantity ?? 0,
+          price: order?.price ?? 0,
+          total: order?.total ?? 0,
+          _timestamp: orderDay.isValid() ? orderDay.valueOf() : 0,
+        };
+      })
       .filter((order) => {
-        const date = dayjs(order.rawDate);
-        const matchesDate =
-          date.isAfter(dateRange[0].startOf("day")) &&
-          date.isBefore(dateRange[1].endOf("day"));
         const matchesSearch =
-          searchText === "" ||
-          order.orderId.toLowerCase().includes(searchText.toLowerCase());
+          order.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesStatus =
           statusFilter === "all" || order.orderCycle === statusFilter;
-        const matchesPayment =
-          paymentFilter === "all" || order.paymentMode === paymentFilter;
-        
-        return matchesDate && matchesSearch && matchesStatus && matchesPayment;
+        return matchesSearch && matchesStatus;
       })
-      .sort((a, b) => dayjs(b.rawDate).diff(dayjs(a.rawDate)));
-  }, [orders, dateRange, searchText, statusFilter, paymentFilter]);
+      .sort((a, b) => b._timestamp - a._timestamp);
+  }, [orders, searchTerm, statusFilter]);
 
-  const exportToExcel = () => {
-    const dataToExport = transformedOrders.map((order) => ({
-      "Order ID": order.orderId,
-      "Order Date": order.orderDate,
-      "Payment Mode": order.paymentMode,
-      "Status": order.orderCycle,
-    }));
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
-    XLSX.writeFile(workbook, "AgentOrders.xlsx");
-    message.success("Orders exported to Excel successfully!");
+  /* ─── Stats ─── */
+  const stats = useMemo(() => {
+    const total = orders.length;
+    const completed = orders.filter((o) =>
+      ["Delivery", "Completed"].includes(o.orderCycle)
+    ).length;
+    const inProgress = orders.filter((o) =>
+      ["Processing", "Pending", "Testing", "Wrong Number", "Order Placement"].includes(o.orderCycle)
+    ).length;
+    const cancelled = orders.filter((o) => o.orderCycle === "Cancelled").length;
+    return { total, completed, inProgress, cancelled };
+  }, [orders]);
+
+  /* ─── PDF Export ─── */
+  const handleExportPDF = () => {
+    if (transformedOrders.length === 0) return;
+    const printWindow = window.open("", "_blank");
+    const htmlContent = `<!DOCTYPE html><html><head><title>Order History</title>
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        *{box-sizing:border-box}
+        body{font-family:'Inter',sans-serif;margin:32px;color:#1a1a1a;background:#fff}
+        .header{text-align:center;margin-bottom:32px;padding-bottom:20px;border-bottom:3px solid #14532d}
+        .header h1{font-size:26px;font-weight:800;margin:0 0 6px;color:#14532d}
+        .header p{font-size:13px;color:#666;margin:0}
+        .meta{display:flex;justify-content:space-between;margin-bottom:24px;font-size:13px;color:#555;border-bottom:1px solid #e5e5e5;padding-bottom:12px}
+        table{width:100%;border-collapse:collapse;margin-top:16px}
+        th{background:#14532d;color:#fff;text-align:left;padding:12px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+        td{padding:12px 16px;border-bottom:1px solid #f0f0f0;font-size:13px}
+        tr:nth-child(even){background:#fafafa}
+        .footer{text-align:center;margin-top:40px;font-size:11px;color:#999;border-top:1px solid #e5e5e5;padding-top:16px}
+      </style></head><body>
+      <div class="header"><h1>Order History Report</h1><p>Customer: ${
+        customerObject?.fullName || "N/A"
+      }</p></div>
+      <div class="meta">
+        <span><strong>Period:</strong> ${dateRange[0].format("MMM D, YYYY")} – ${dateRange[1].format("MMM D, YYYY")}</span>
+        <span><strong>Total Orders:</strong> ${transformedOrders.length}</span>
+      </div>
+      <table>
+        <thead><tr><th>Order ID</th><th>Date & Time</th><th>Payment</th><th>Status</th></tr></thead>
+        <tbody>${transformedOrders
+          .map(
+            (o) =>
+              `<tr><td>#${o.orderId}</td><td>${o.orderDateTime}</td><td>${o.paymentMode}</td><td>${o.orderCycle}</td></tr>`
+          )
+          .join("")}</tbody>
+      </table>
+      <div class="footer"><p>Generated on ${dayjs().format("MMMM D, YYYY [at] h:mm A")}</p></div>
+      </body></html>`;
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.print();
+    };
   };
 
-  const statusSummary = useMemo(() => {
-    const summary = {};
-    transformedOrders.forEach(({ orderCycle }) => {
-      summary[orderCycle] = (summary[orderCycle] || 0) + 1;
-    });
-    return summary;
-  }, [transformedOrders]);
-
-  const uniqueStatuses = [...new Set(orders.map(order => order.orderCycle))].filter(Boolean);
-  const uniquePaymentModes = [...new Set(orders.map(order => order.paymentMode))].filter(Boolean);
-
+  /* ─── Table Columns (no customer, with date+time, no icons) ─── */
   const columns = [
     {
-      title: (
-        <Tooltip title="Viewed Orders">
-          <Badge count={viewedOrders.length} size="small">
-            ✔
-          </Badge>
-        </Tooltip>
-      ),
-      dataIndex: "orderId",
-      key: "checkbox",
-      render: (id) => (
-        <Checkbox 
-          checked={viewedOrders.includes(id)} 
-          disabled 
-          style={{ color: viewedOrders.includes(id) ? '#52c41a' : '#d9d9d9' }}
-        />
-      ),
-      width: 60,
-      align: 'center',
-    },
-    {
-      title: "Order ID",
+      title: "Order",
       dataIndex: "orderId",
       key: "orderId",
+      width: 160,
       render: (text) => (
-        <Text copyable={{ text }} strong >
-          {text}
-        </Text>
+        <span className="oh-mono-id">#{text}</span>
       ),
     },
     {
-      title: (
-        <Space>
-          <CalendarOutlined />
-          Order Date
-        </Space>
-      ),
-      dataIndex: "orderDate",
-      key: "orderDate",
-      sorter: (a, b) =>
-        dayjs(a.rawDate).unix() - dayjs(b.rawDate).unix(),
+      title: "Date & Time",
+      dataIndex: "orderDateTime",
+      key: "orderDateTime",
       render: (text) => (
-        <Text style={{ fontSize: '12px' }}>
-          {text}
-        </Text>
+        <div className="oh-date-cell">
+          <span className="oh-date-main">{text}</span>
+        
+        </div>
       ),
+      sorter: (a, b) => a._timestamp - b._timestamp,
+      defaultSortOrder: "descend",
     },
     {
-      title: "Payment Mode",
+      title: "Payment",
       dataIndex: "paymentMode",
       key: "paymentMode",
-      render: (text) => (
-        <Tag color="blue" style={{ borderRadius: '12px' }}>
-          {text}
-        </Tag>
-      ),
+      width: 180,
+      render: (mode) => {
+        const cfg = getPaymentConfig(mode);
+        return (
+          <span
+            className="oh-badge-pill"
+            style={{
+              background: cfg.bg,
+              color: cfg.color,
+              borderColor: cfg.border,
+            }}
+          >
+            <span
+              className="oh-badge-dot"
+              style={{ background: cfg.dot }}
+            />
+            {cfg.label}
+          </span>
+        );
+      },
+      filters: [
+        { text: "Cash on Delivery", value: "Cash on Delivery" },
+        { text: "Paid Already", value: "Paid Already" },
+        { text: "Pick up", value: "Pick up" },
+        { text: "Bank Transfer", value: "Bank Transfer" },
+      ],
+      onFilter: (value, record) => record.paymentMode === value,
     },
     {
-      title: "Order Status",
+      title: "Status",
       dataIndex: "orderCycle",
       key: "orderCycle",
-      render: (status) => (
-        <Tag 
-          color={getOrderStatusColor(status)} 
-          style={{ 
-            borderRadius: '12px',
-            fontWeight: 'bold',
-            textTransform: 'uppercase',
-            fontSize: '10px'
-          }}
-        >
-          {status}
-        </Tag>
-      ),
+      width: 170,
+      render: (status) => {
+        const cfg = getStatusConfig(status);
+        return (
+          <span
+            className="oh-badge-pill"
+            style={{
+              background: cfg.bg,
+              color: cfg.color,
+              borderColor: cfg.border,
+            }}
+          >
+            <span
+              className="oh-badge-dot"
+              style={{ background: cfg.dot }}
+            />
+            {status}
+          </span>
+        );
+      },
+      filters: STATUS_OPTIONS.filter((s) => s !== "all").map((s) => ({
+        text: s,
+        value: s,
+      })),
+      onFilter: (value, record) => record.orderCycle === value,
     },
     {
-      title: "Action",
+      title: "",
       key: "action",
+      width: 56,
       render: (_, record) => (
-        <Tooltip title="View Order Details">
-          <Button
-            type="text"
-            icon={<EyeOutlined />}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleViewOrder(record.orderId);
-            }}
-            style={{ 
-              color: '#52c41a',
-              fontSize: '16px',
-              border: 'none',
-              borderRadius: '50%',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-            className="hover:bg-green-50"
-          />
+        <Tooltip title="View Details">
+          <button
+            className="oh-view-icon-btn"
+            onClick={() => handleViewOrder(record.orderId)}
+          >
+            <span className="oh-eye-char">&#9673;</span>
+          </button>
         </Tooltip>
       ),
-      width: 80,
-      align: 'center',
     },
   ];
 
-  return (
-    <div className="min-h-screen p-2">
-      <div className=" mx-auto">
-        {/* Header Section */}
-        <Card className="mb-6 shadow-sm border-0">
-          <div className="flex justify-between items-center">
-            <div>
-              <Title level={2} className="mb-1" style={{ color: '#e74c3c' }}>
-                <ShoppingCartOutlined className="mr-2" />
-                Order History
-              </Title>
-              <Text type="secondary" className="text-base">
-                Track and manage all your placed orders
-              </Text>
-            </div>
-            <Space>
-              <Button
-                icon={<ReloadOutlined />}
-                onClick={handleRefresh}
-                loading={loading}
-                className="border-green-200 text-green-600 hover:border-green-400"
-              >
-                Refresh
-              </Button>
-              <Button
-                icon={<FileExcelOutlined />}
-                type="primary"
-                onClick={exportToExcel}
-                className="bg-green-600 hover:bg-green-700 border-green-600"
-                disabled={transformedOrders.length === 0}
-              >
-                Export Excel
-              </Button>
-            </Space>
-          </div>
-        </Card>
+  /* ═══════════════════════════════════════════════
+     SUB-COMPONENTS
+     ═══════════════════════════════════════════════ */
 
-        {/* Statistics Cards */}
-        <Row gutter={[16, 16]} className="mb-6">
-          <Col xs={24} sm={12} md={6} lg={4}>
-            <Card className="text-center shadow-sm">
-              <Statistic
-                title="Total Orders"
-                value={transformedOrders.length}
-                valueStyle={{ color: '#3f8600', fontWeight: 'bold' }}
-                prefix={<ShoppingCartOutlined />}
-              />
-            </Card>
-          </Col>
-          {Object.entries(statusSummary).slice(0, 5).map(([status, count]) => (
-            <Col xs={24} sm={12} md={6} lg={4} key={status}>
-              <Card className="text-center shadow-sm">
-                <Statistic
-                  title={status}
-                  value={count}
-                  valueStyle={{ 
-                    color: `var(--ant-${getOrderStatusColor(status)})`,
-                    fontWeight: 'bold'
-                  }}
-                />
-              </Card>
-            </Col>
-          ))}
-        </Row>
-
-        {/* Filters Section */}
-        <Card className="mb-6 shadow-sm border-0">
-          <div className="flex flex-wrap gap-4 items-end">
-            <div className="flex-1 min-w-[200px]">
-              <Text strong className="block mb-2">
-                <CalendarOutlined className="mr-1" />
-                Date Range
-              </Text>
-              <RangePicker
-                value={dateRange}
-                onChange={handleDateChange}
-                format="MM/DD/YYYY"
-                className="w-full"
-                size="large"
-              />
-            </div>
-            <div className="flex-1 min-w-[200px]">
-              <Text strong className="block mb-2">
-                <SearchOutlined className="mr-1" />
-                Search Order ID
-              </Text>
-              <Input
-                placeholder="Search by Order ID..."
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                prefix={<SearchOutlined />}
-                allowClear
-                size="large"
-              />
-            </div>
-            <div className="flex-1 min-w-[150px]">
-              <Text strong className="block mb-2">
-                <FilterOutlined className="mr-1" />
-                Status Filter
-              </Text>
-              <Select
-                value={statusFilter}
-                onChange={setStatusFilter}
-                className="w-full"
-                size="large"
-              >
-                <Option value="all">All Status</Option>
-                {uniqueStatuses.map(status => (
-                  <Option key={status} value={status}>{status}</Option>
-                ))}
-              </Select>
-            </div>
-            <div className="flex-1 min-w-[150px]">
-              <Text strong className="block mb-2">Payment Mode</Text>
-              <Select
-                value={paymentFilter}
-                onChange={setPaymentFilter}
-                className="w-full"
-                size="large"
-              >
-                <Option value="all">All Modes</Option>
-                {uniquePaymentModes.map(mode => (
-                  <Option key={mode} value={mode}>{mode}</Option>
-                ))}
-              </Select>
-            </div>
-          </div>
-        </Card>
-
-        {/* Orders Table */}
-        <Card className="shadow-sm border-0">
-          {error && (
-            <Alert
-              message="Error Loading Orders"
-              description={error}
-              type="error"
-              className="mb-4"
-              showIcon
-            />
-          )}
-          
-          {loading ? (
-            <div className="flex justify-center items-center py-20">
-              <Spin size="large" />
-              <Text className="ml-3">Loading orders...</Text>
-            </div>
-          ) : transformedOrders.length > 0 ? (
-            <Table
-              dataSource={transformedOrders}
-              columns={columns}
-              rowKey="key"
-              pagination={{
-                pageSize: 10,
-                current: currentPage,
-                onChange: (page) => setCurrentPage(page),
-                showSizeChanger: true,
-                showQuickJumper: true,
-                showTotal: (total, range) =>
-                  `${range[0]}-${range[1]} of ${total} orders`,
-                className: "mt-4"
-              }}
-              className="custom-table"
-              size="middle"
-              scroll={{ x: 800 }}
-              rowClassName={(record) => 
-                viewedOrders.includes(record.orderId) ? 'viewed-row' : ''
-              }
-            />
-          ) : (
-            <div className="text-center py-20">
-              <ShoppingCartOutlined 
-                style={{ fontSize: '48px', color: '#d9d9d9' }} 
-                className="mb-4"
-              />
-              <Title level={4} type="secondary">
-                No orders found
-              </Title>
-              <Text type="secondary">
-                Try adjusting your filters or date range
-              </Text>
-            </div>
-          )}
-        </Card>
-
-        {/* Modal */}
-        {isModalVisible && (
-          <OrderModal
-            orderId={selectedOrderId}
-            isModalVisible={isModalVisible}
-            onClose={() => setIsModalVisible(false)}
-          />
-        )}
+  const StatCard = ({ value, label, emoji, color }) => (
+    <div className="oh-stat-card" style={{ "--stat-color": color }}>
+      <div className="oh-stat-content">
+        <div className="oh-stat-value">{value}</div>
+        <div className="oh-stat-label">{label}</div>
       </div>
-
-      <style jsx>{`
-        .custom-table .ant-table-thead > tr > th {
-          background-color: #f8f9fa;
-          border-bottom: 2px solid #e9ecef;
-          font-weight: 600;
-        }
-        .custom-table .ant-table-tbody > tr.viewed-row {
-          background-color: #f6ffed;
-        }
-        .custom-table .ant-table-tbody > tr:hover {
-          background-color: #e6f7ff;
-        }
-        .ant-card {
-          border-radius: 8px;
-        }
-        .ant-statistic-content {
-          font-size: 24px;
-        }
-        .ant-statistic-title {
-          font-size: 12px;
-          font-weight: 500;
-        }
-      `}</style>
+      <div className="oh-stat-emoji">{emoji}</div>
     </div>
   );
+
+  const MobileOrderCard = ({ order }) => {
+    const sCfg = getStatusConfig(order.orderCycle);
+    const pCfg = getPaymentConfig(order.paymentMode);
+
+    return (
+      <div
+        className="oh-mobile-card"
+        onClick={() => handleViewOrder(order.orderId)}
+      >
+        <div className="oh-mc-row-top">
+          <span className="oh-mc-id">#{order.orderId}</span>
+          <span
+            className="oh-badge-pill"
+            style={{
+              background: sCfg.bg,
+              color: sCfg.color,
+              borderColor: sCfg.border,
+              fontSize: 10,
+              padding: "2px 8px",
+            }}
+          >
+            <span
+              className="oh-badge-dot"
+              style={{ background: sCfg.dot, width: 6, height: 6 }}
+            />
+            {order.orderCycle}
+          </span>
+        </div>
+
+        <div className="oh-mc-row-mid">
+          <div className="oh-mc-field">
+            <span className="oh-mc-field-label">Date</span>
+            <span className="oh-mc-field-value">
+              {order.orderDateTime}
+              {order.timeAgo && (
+                <span className="oh-mc-ago"> &middot; {order.timeAgo}</span>
+              )}
+            </span>
+          </div>
+          <div className="oh-mc-field">
+            <span className="oh-mc-field-label">Payment</span>
+            <span className="oh-mc-field-value" style={{ color: pCfg.color, fontWeight: 600 }}>
+              {pCfg.label}
+            </span>
+          </div>
+        </div>
+
+        <div className="oh-mc-row-bottom">
+          <span className="oh-mc-view-link">View Details &rarr;</span>
+        </div>
+      </div>
+    );
+  };
+
+  const FiltersDrawerContent = () => (
+    <Drawer
+      title={
+        <span style={{ fontWeight: 800 }}>Filters &amp; Actions</span>
+      }
+      placement="bottom"
+      height="auto"
+      open={filtersDrawerOpen}
+      onClose={() => setFiltersDrawerOpen(false)}
+      styles={{ body: { padding: "0 16px 24px" } }}
+    >
+      <div className="oh-drawer-body">
+        <div className="oh-drawer-field">
+          <label className="oh-drawer-label">Date Range</label>
+          <DatePicker.RangePicker
+            value={dateRange}
+            onChange={handleDateChange}
+            format="MMM D, YYYY"
+            size="large"
+            style={{ width: "100%" }}
+          />
+        </div>
+        <div className="oh-drawer-field">
+          <label className="oh-drawer-label">Search</label>
+          <Input
+            placeholder="Order ID or customer name..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            size="large"
+            allowClear
+          />
+        </div>
+        <div className="oh-drawer-field">
+          <label className="oh-drawer-label">Status</label>
+          <Select
+            value={statusFilter}
+            onChange={setStatusFilter}
+            size="large"
+            style={{ width: "100%" }}
+          >
+            {STATUS_OPTIONS.map((s) => (
+              <Select.Option key={s} value={s}>
+                {s === "all" ? "All Statuses" : s}
+              </Select.Option>
+            ))}
+          </Select>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button
+            size="large"
+            disabled={transformedOrders.length === 0}
+            onClick={() => {
+              handleExportPDF();
+              setFiltersDrawerOpen(false);
+            }}
+            style={{ flex: 1 }}
+          >
+            Export PDF
+          </Button>
+          <Button
+            size="large"
+            onClick={() => {
+              handleRefresh();
+              setFiltersDrawerOpen(false);
+            }}
+            style={{ flex: 1 }}
+          >
+            Refresh
+          </Button>
+        </div>
+      </div>
+    </Drawer>
+  );
+
+  const NoCustomerState = () => (
+    <div className="oh-empty-state">
+      <div className="oh-empty-circle">
+        <span className="oh-empty-emoji">&#128100;</span>
+      </div>
+      <div className="oh-empty-title">Sign In Required</div>
+      <div className="oh-empty-desc">
+        Please log in to view your order history and track your purchases.
+      </div>
+      <button className="oh-btn-primary" onClick={handleSignInClick}>
+        Sign In
+      </button>
+    </div>
+  );
+
+  const EmptyState = () => (
+    <div className="oh-empty-state">
+      <div className="oh-empty-circle">
+        <span className="oh-empty-emoji">&#128230;</span>
+      </div>
+      <div className="oh-empty-title">
+        {searchTerm || statusFilter !== "all"
+          ? "No Matching Orders"
+          : "No Orders Yet"}
+      </div>
+      <div className="oh-empty-desc">
+        {searchTerm || statusFilter !== "all"
+          ? "Try adjusting your search or filter criteria to find what you're looking for."
+          : "You haven't placed any orders yet. Start shopping to see your orders here!"}
+      </div>
+      {(searchTerm || statusFilter !== "all") && (
+        <button
+          className="oh-btn-secondary"
+          onClick={() => {
+            setSearchTerm("");
+            setStatusFilter("all");
+          }}
+        >
+          Clear Filters
+        </button>
+      )}
+      {!searchTerm && statusFilter === "all" && (
+        <button
+          className="oh-btn-primary"
+          onClick={() => (window.location.href = "/home")}
+        >
+          Start Shopping
+        </button>
+      )}
+    </div>
+  );
+
+  const LoadingState = () => (
+    <div className="oh-empty-state">
+      <Spin size="large" />
+      <div className="oh-empty-title" style={{ marginTop: 20 }}>
+        Loading Orders
+      </div>
+      <div className="oh-empty-desc">
+        Please wait while we fetch your orders...
+      </div>
+    </div>
+  );
+
+  const ErrorState = () => (
+    <div className="oh-empty-state">
+      <div
+        className="oh-empty-circle"
+        style={{ background: "#fef2f2", borderColor: "#fecaca" }}
+      >
+        <span className="oh-empty-emoji">&#9888;</span>
+      </div>
+      <div className="oh-empty-title">Unable to Load Orders</div>
+      <div className="oh-empty-desc">{error}</div>
+      <button className="oh-btn-primary" onClick={handleRefresh}>
+        Try Again
+      </button>
+    </div>
+  );
+
+  /* ═══════════════════════════════════════════════
+     RENDER — NOT SIGNED IN
+     ═══════════════════════════════════════════════ */
+  if (!hasValidCustomer) {
+    return (
+      <>
+        <style>{styles}</style>
+        <div className="oh-root">
+          <div className="oh-container">
+            <div className="oh-page-header">
+              <div className="oh-header-bar" />
+              <div>
+                <h1 className="oh-page-title">Order History</h1>
+                <p className="oh-page-subtitle">
+                  Track and manage your orders
+                </p>
+              </div>
+            </div>
+            <div className="oh-main-card">
+              <NoCustomerState />
+            </div>
+          </div>
+          <AuthModal
+            open={isAuthModalVisible}
+            onClose={handleAuthModalClose}
+          />
+        </div>
+      </>
+    );
+  }
+
+  /* ═══════════════════════════════════════════════
+     RENDER — SIGNED IN
+     ═══════════════════════════════════════════════ */
+  return (
+    <>
+      <style>{styles}</style>
+      <div className="oh-root">
+        <div className="oh-container">
+          {/* ── Page Header ── */}
+          <div className="oh-page-header">
+            <div className="oh-header-bar" />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h1 className="oh-page-title">Order History</h1>
+              <p className="oh-page-subtitle">
+                {loading
+                  ? "Loading..."
+                  : `${transformedOrders.length} order${
+                      transformedOrders.length !== 1 ? "s" : ""
+                    } found`}
+              </p>
+            </div>
+
+            <button
+              className="oh-refresh-btn"
+              onClick={handleRefresh}
+              title="Refresh"
+            >
+              &#8635;
+            </button>
+
+            <button
+              className="oh-mobile-filter-btn"
+              onClick={() => setFiltersDrawerOpen(true)}
+            >
+              &#9776; Filters
+            </button>
+          </div>
+
+          {/* ── Stats ── */}
+          {!loading && !error && orders.length > 0 && (
+            <div className="oh-stats-grid">
+              <StatCard
+                value={stats.total}
+                label="Total"
+                emoji="&#128230;"
+                color="#2563eb"
+              />
+              <StatCard
+                value={stats.completed}
+                label="Completed"
+                emoji="&#10003;"
+                color="#16a34a"
+              />
+              <StatCard
+                value={stats.inProgress}
+                label="In Progress"
+                emoji="&#9203;"
+                color="#ea580c"
+              />
+              <StatCard
+                value={stats.cancelled}
+                label="Cancelled"
+                emoji="&#10005;"
+                color="#dc2626"
+              />
+            </div>
+          )}
+
+          {/* ── Desktop Filters ── */}
+          {orders?.length > 0 && (
+            <div className="oh-filters-bar">
+              <div className="oh-filter-group">
+                <label className="oh-filter-label">Date Range</label>
+                <DatePicker.RangePicker
+                  value={dateRange}
+                  onChange={handleDateChange}
+                  format="MMM D, YYYY"
+                  style={{ width: "100%" }}
+                />
+              </div>
+              <div className="oh-filter-group">
+                <label className="oh-filter-label">Search</label>
+                <Input
+                  placeholder="Order ID or customer..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  allowClear
+                />
+              </div>
+              <div className="oh-filter-group">
+                <label className="oh-filter-label">Status</label>
+                <Select
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  style={{ width: "100%" }}
+                >
+                  {STATUS_OPTIONS.map((s) => (
+                    <Select.Option key={s} value={s}>
+                      {s === "all" ? "All Statuses" : s}
+                    </Select.Option>
+                  ))}
+                </Select>
+              </div>
+              <div className="oh-filter-group">
+                <label className="oh-filter-label">Export</label>
+                <Button
+                  disabled={transformedOrders.length === 0}
+                  onClick={handleExportPDF}
+                  block
+                >
+                  Export PDF
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Active Filters ── */}
+          {(searchTerm || statusFilter !== "all") && (
+            <div className="oh-active-filters">
+              <span className="oh-active-label">Filters:</span>
+              {searchTerm && (
+                <span className="oh-chip">
+                  Search: &ldquo;{searchTerm}&rdquo;
+                  <button onClick={() => setSearchTerm("")}>&times;</button>
+                </span>
+              )}
+              {statusFilter !== "all" && (
+                <span className="oh-chip">
+                  {statusFilter}
+                  <button onClick={() => setStatusFilter("all")}>
+                    &times;
+                  </button>
+                </span>
+              )}
+              <button
+                className="oh-clear-all"
+                onClick={() => {
+                  setSearchTerm("");
+                  setStatusFilter("all");
+                }}
+              >
+                Clear all
+              </button>
+            </div>
+          )}
+
+          {/* ── Content ── */}
+          <div className="oh-main-card">
+            {loading ? (
+              <LoadingState />
+            ) : error ? (
+              <ErrorState />
+            ) : transformedOrders.length > 0 ? (
+              <>
+                {/* Desktop Table */}
+                <div className="oh-desktop-table">
+                  <Table
+                    dataSource={transformedOrders}
+                    columns={columns}
+                    rowKey="key"
+                    pagination={{
+                      pageSize: 10,
+                      showSizeChanger: true,
+                      showTotal: (total, range) =>
+                        `${range[0]}\u2013${range[1]} of ${total}`,
+                    }}
+                    size="middle"
+                    scroll={{ x: 720 }}
+                  />
+                </div>
+
+                {/* Mobile Cards */}
+                <div className="oh-mobile-list">
+                  <div className="oh-mobile-count">
+                    Showing {transformedOrders.length} order
+                    {transformedOrders.length !== 1 ? "s" : ""}
+                  </div>
+                  {transformedOrders.map((order) => (
+                    <MobileOrderCard key={order.key} order={order} />
+                  ))}
+                </div>
+              </>
+            ) : (
+              <EmptyState />
+            )}
+          </div>
+        </div>
+
+        <OrderModal
+          orderId={selectedOrderId}
+          isModalVisible={isOrderModalVisible}
+          onClose={handleOrderModalClose}
+        />
+        <AuthModal
+          open={isAuthModalVisible}
+          onClose={handleAuthModalClose}
+        />
+        <FiltersDrawerContent />
+      </div>
+    </>
+  );
 };
+
+/* ═══════════════════════════════════════════════
+   STYLES
+   ═══════════════════════════════════════════════ */
+const styles = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  :root {
+    --oh-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --oh-green: #14532d;
+    --oh-green-mid: #166534;
+    --oh-green-accent: #22c55e;
+    --oh-green-lighter: #f0fdf4;
+    --oh-dark: #111;
+    --oh-mid: #555;
+    --oh-light: #999;
+    --oh-border: #e5e7eb;
+    --oh-bg: #f8f9fa;
+    --oh-surface: #fff;
+    --oh-radius: 10px;
+    --oh-radius-lg: 14px;
+    --oh-shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+    --oh-shadow-sm: 0 1px 4px rgba(0,0,0,0.06);
+    --oh-shadow-md: 0 4px 20px rgba(0,0,0,0.07);
+    --oh-transition: 0.2s ease;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  .oh-root, .oh-root * {
+    font-family: var(--oh-font) !important;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .oh-root {
+    min-height: 100vh;
+    background: var(--oh-bg);
+  }
+
+  .oh-container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 20px 16px 40px;
+  }
+  @media (min-width: 768px) {
+    .oh-container { padding: 36px 48px 60px; }
+  }
+
+  /* ── Page Header ── */
+
+  .oh-page-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 28px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--oh-border);
+    flex-wrap: wrap;
+  }
+
+  .oh-header-bar {
+    width: 4px;
+    height: 34px;
+    border-radius: 4px;
+    background: linear-gradient(180deg, var(--oh-green) 0%, var(--oh-green-accent) 100%);
+    flex-shrink: 0;
+  }
+
+  .oh-page-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--oh-dark);
+    letter-spacing: -0.035em;
+    margin: 0;
+    line-height: 1.15;
+  }
+  @media (min-width: 768px) {
+    .oh-page-title { font-size: 30px; }
+  }
+
+  .oh-page-subtitle {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--oh-light);
+    margin: 4px 0 0;
+  }
+
+  .oh-refresh-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: var(--oh-surface);
+    border: 1px solid var(--oh-border);
+    border-radius: var(--oh-radius);
+    color: var(--oh-mid);
+    cursor: pointer;
+    transition: all var(--oh-transition);
+    font-size: 20px;
+    margin-left: auto;
+  }
+  .oh-refresh-btn:hover {
+    background: var(--oh-green-lighter);
+    border-color: var(--oh-green-accent);
+    color: var(--oh-green);
+  }
+  @media (min-width: 768px) { .oh-refresh-btn { display: flex; } }
+
+  .oh-mobile-filter-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    background: var(--oh-green);
+    color: #fff;
+    border: none;
+    border-radius: var(--oh-radius);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-left: auto;
+    transition: all var(--oh-transition);
+    box-shadow: var(--oh-shadow-xs);
+  }
+  .oh-mobile-filter-btn:hover { background: var(--oh-green-mid); }
+  .oh-mobile-filter-btn:active { transform: scale(0.97); }
+  @media (min-width: 768px) { .oh-mobile-filter-btn { display: none; } }
+
+  /* ── Stats ── */
+
+  .oh-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  @media (min-width: 768px) {
+    .oh-stats-grid {
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+  }
+
+  .oh-stat-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px;
+    background: var(--oh-surface);
+    border: 1px solid var(--oh-border);
+    border-radius: var(--oh-radius-lg);
+    border-left: 3px solid var(--stat-color);
+    transition: all var(--oh-transition);
+    box-shadow: var(--oh-shadow-xs);
+  }
+  .oh-stat-card:hover {
+    box-shadow: var(--oh-shadow-md);
+    transform: translateY(-2px);
+  }
+
+  .oh-stat-content { display: flex; flex-direction: column; }
+
+  .oh-stat-value {
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--stat-color);
+    letter-spacing: -0.04em;
+    line-height: 1;
+  }
+  @media (min-width: 768px) { .oh-stat-value { font-size: 36px; } }
+
+  .oh-stat-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--oh-light);
+    margin-top: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .oh-stat-emoji {
+    font-size: 28px;
+    opacity: 0.25;
+    line-height: 1;
+  }
+
+  /* ── Filters Bar ── */
+
+  .oh-filters-bar {
+    display: none;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    padding: 20px 22px;
+    background: var(--oh-surface);
+    border: 1px solid var(--oh-border);
+    border-radius: var(--oh-radius-lg);
+    margin-bottom: 16px;
+    box-shadow: var(--oh-shadow-xs);
+  }
+  @media (min-width: 768px) { .oh-filters-bar { display: grid; } }
+
+  .oh-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .oh-filter-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--oh-light);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* ── Active Filters ── */
+
+  .oh-active-filters {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 18px;
+    background: var(--oh-green-lighter);
+    border: 1px solid #bbf7d0;
+    border-radius: var(--oh-radius);
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    font-size: 13px;
+  }
+
+  .oh-active-label {
+    font-weight: 700;
+    color: var(--oh-green);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .oh-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    background: #fff;
+    border: 1px solid #bbf7d0;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--oh-mid);
+  }
+  .oh-chip button {
+    background: none;
+    border: none;
+    color: var(--oh-light);
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    padding: 0;
+    margin-left: 2px;
+  }
+  .oh-chip button:hover { color: #dc2626; }
+
+  .oh-clear-all {
+    background: none;
+    border: none;
+    color: var(--oh-green);
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+    margin-left: auto;
+    font-family: var(--oh-font);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /* ── Main Card ── */
+
+  .oh-main-card {
+    background: var(--oh-surface);
+    border: 1px solid var(--oh-border);
+    border-radius: var(--oh-radius-lg);
+    overflow: hidden;
+    box-shadow: var(--oh-shadow-sm);
+  }
+
+  /* ── Desktop Table ── */
+
+  .oh-desktop-table { display: none; }
+  @media (min-width: 768px) { .oh-desktop-table { display: block; } }
+
+  .oh-desktop-table .ant-table {
+    border-radius: 0 !important;
+  }
+  .oh-desktop-table .ant-table-thead > tr > th {
+    background: #f4f5f7 !important;
+    border-bottom: 2px solid var(--oh-border) !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.1em !important;
+    color: #9ca3af !important;
+    padding: 14px 20px !important;
+    font-family: var(--oh-font) !important;
+  }
+  .oh-desktop-table .ant-table-tbody > tr > td {
+    padding: 16px 20px !important;
+    border-bottom: 1px solid #f3f4f6 !important;
+    font-size: 13px !important;
+    font-family: var(--oh-font) !important;
+    vertical-align: middle !important;
+  }
+  .oh-desktop-table .ant-table-tbody > tr:last-child > td {
+    border-bottom: none !important;
+  }
+  .oh-desktop-table .ant-table-tbody > tr:hover > td {
+    background: #fafbfc !important;
+  }
+  .oh-desktop-table .ant-pagination {
+    padding: 18px 22px !important;
+    font-family: var(--oh-font) !important;
+  }
+  .oh-desktop-table .ant-pagination-item-active {
+    background: var(--oh-green) !important;
+    border-color: var(--oh-green) !important;
+  }
+  .oh-desktop-table .ant-pagination-item-active a {
+    color: #fff !important;
+  }
+
+  /* Table cell helpers */
+
+  .oh-mono-id {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--oh-dark);
+    background: #f4f5f7;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+    display: inline-block;
+  }
+
+  .oh-date-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .oh-date-main {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--oh-mid);
+    line-height: 1.3;
+  }
+  .oh-date-ago {
+    font-size: 11px;
+    color: var(--oh-light);
+    font-weight: 400;
+  }
+
+  .oh-badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 100px;
+    border: 1px solid;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    letter-spacing: 0.01em;
+  }
+
+  .oh-badge-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: inline-block;
+  }
+
+  .oh-view-icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    color: #888;
+    cursor: pointer;
+    transition: all var(--oh-transition);
+    font-size: 18px;
+    line-height: 1;
+  }
+  .oh-view-icon-btn:hover {
+    background: var(--oh-green-lighter);
+    border-color: var(--oh-green-accent);
+    color: var(--oh-green);
+  }
+
+  .oh-eye-char {
+    font-size: 16px;
+    display: block;
+    line-height: 1;
+  }
+
+  /* ── Mobile List ── */
+
+  .oh-mobile-list { display: block; padding: 14px; }
+  @media (min-width: 768px) { .oh-mobile-list { display: none; } }
+
+  .oh-mobile-count {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--oh-light);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 4px 4px 14px;
+  }
+
+  .oh-mobile-card {
+    border: 1px solid var(--oh-border);
+    border-radius: var(--oh-radius-lg);
+    padding: 16px 18px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all var(--oh-transition);
+    background: var(--oh-surface);
+    box-shadow: var(--oh-shadow-xs);
+  }
+  .oh-mobile-card:hover {
+    border-color: #d1d5db;
+    box-shadow: var(--oh-shadow-md);
+    transform: translateY(-2px);
+  }
+  .oh-mobile-card:active { transform: translateY(0); }
+
+  .oh-mc-row-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .oh-mc-id {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--oh-dark);
+    letter-spacing: -0.01em;
+  }
+
+  .oh-mc-row-mid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 0;
+    border-top: 1px solid #f3f4f6;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  .oh-mc-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .oh-mc-field-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--oh-light);
+  }
+  .oh-mc-field-value {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--oh-mid);
+    line-height: 1.4;
+  }
+
+  .oh-mc-ago {
+    color: #ccc;
+    font-size: 11px;
+    font-weight: 400;
+  }
+
+  .oh-mc-row-bottom {
+    margin-top: 12px;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .oh-mc-view-link {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--oh-green);
+    letter-spacing: 0.01em;
+  }
+
+  /* ── Empty / Loading / Error ── */
+
+  .oh-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 64px 24px;
+  }
+
+  .oh-empty-circle {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    background: var(--oh-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 22px;
+    border: 1px solid var(--oh-border);
+  }
+
+  .oh-empty-emoji {
+    font-size: 36px;
+    line-height: 1;
+    opacity: 0.5;
+  }
+
+  .oh-empty-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--oh-dark);
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+  }
+
+  .oh-empty-desc {
+    font-size: 14px;
+    color: var(--oh-light);
+    max-width: 360px;
+    line-height: 1.7;
+    margin-bottom: 28px;
+  }
+
+  .oh-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 36px;
+    border-radius: var(--oh-radius);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--oh-transition);
+    font-family: var(--oh-font);
+    border: none;
+    background: var(--oh-green);
+    color: #fff;
+    box-shadow: var(--oh-shadow-sm);
+  }
+  .oh-btn-primary:hover {
+    background: var(--oh-green-mid);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(20, 83, 45, 0.2);
+  }
+
+  .oh-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 36px;
+    border-radius: var(--oh-radius);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--oh-transition);
+    font-family: var(--oh-font);
+    border: 1px solid var(--oh-border);
+    background: var(--oh-surface);
+    color: var(--oh-mid);
+  }
+  .oh-btn-secondary:hover {
+    background: var(--oh-bg);
+    border-color: #ccc;
+    color: var(--oh-dark);
+  }
+
+  /* ── Drawer ── */
+
+  .oh-drawer-body {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .oh-drawer-field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .oh-drawer-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--oh-light);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* ── Ant Overrides ── */
+
+  .ant-picker,
+  .ant-input,
+  .ant-select-selector,
+  .ant-btn {
+    border-radius: var(--oh-radius) !important;
+    font-family: var(--oh-font) !important;
+  }
+  .ant-input:focus,
+  .ant-input-focused,
+  .ant-picker-focused,
+  .ant-select-focused .ant-select-selector {
+    border-color: var(--oh-green) !important;
+    box-shadow: 0 0 0 3px rgba(20, 83, 45, 0.08) !important;
+  }
+  .ant-btn-primary {
+    background: var(--oh-green) !important;
+    border-color: var(--oh-green) !important;
+  }
+  .ant-btn-primary:hover {
+    background: var(--oh-green-mid) !important;
+    border-color: var(--oh-green-mid) !important;
+  }
+  .ant-drawer-header {
+    border-bottom: 1px solid var(--oh-border) !important;
+  }
+  .ant-drawer-title {
+    font-family: var(--oh-font) !important;
+    font-weight: 800 !important;
+  }
+  .ant-table-filter-dropdown {
+    border-radius: var(--oh-radius) !important;
+    font-family: var(--oh-font) !important;
+  }
+`;
 
 export default AgentOrders;
