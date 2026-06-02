@@ -1,8 +1,12 @@
+// src/Redux/Slice/customerSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "./AxiosInstance";
 
 const CUSTOMER_KEY = "customer";
 
+/* ─────────────────────────────────────────────
+   Safe Storage Helpers
+───────────────────────────────────────────── */
 const safeParseJSON = (raw) => {
   if (!raw) return null;
   if (typeof raw === "object") return raw;
@@ -19,7 +23,7 @@ const safeGetFromStorage = (key) => {
       return null;
     }
     return safeParseJSON(data);
-  } catch (error) { return null; }
+  } catch { return null; }
 };
 
 const safeSetToStorage = (key, value) => {
@@ -29,24 +33,26 @@ const safeSetToStorage = (key, value) => {
       return;
     }
     localStorage.setItem(key, value);
-  } catch (error) {}
+  } catch {}
 };
 
 const clearStorage = () => {
-  try {
-    localStorage.removeItem(CUSTOMER_KEY);
-  } catch (error) {}
+  try { localStorage.removeItem(CUSTOMER_KEY); } catch {}
 };
 
-// --- GLOBAL 401 REDIRECT HANDLER ---
+/* ─────────────────────────────────────────────
+   Global 401 / Inactivity Redirect Handler
+───────────────────────────────────────────── */
 const forceLogoutAndRedirect = (dispatch) => {
   clearStorage();
   if (dispatch) {
     try {
       dispatch({ type: "customer/logoutCustomer" });
-    } catch (e) 
+    } catch (e) {
+      // Ignore dispatch errors during forced logout
+    }
   }
-  // Hard redirect back to home on a bad UX / failed refresh
+  // Hard redirect back to home to prevent bad UX
   if (window.location.pathname !== "/") {
     window.location.href = "/";
   }
@@ -64,7 +70,6 @@ const validateCustomerData = (customerData) => {
 const loadFromStorage = () => {
   const stored = safeGetFromStorage(CUSTOMER_KEY);
   if (!stored || typeof stored !== "object") return null;
-
   const hasIdentity = stored.contactNumber || stored.customerAccountNumber || stored.accessToken;
   return hasIdentity ? stored : null;
 };
@@ -74,6 +79,9 @@ const saveToStorage = (customer) => {
   safeSetToStorage(CUSTOMER_KEY, { ...customer, lastUpdated: Date.now() });
 };
 
+/* ─────────────────────────────────────────────
+   Backend & Auth Helpers
+───────────────────────────────────────────── */
 const callBackend = async ({ endpoint, method = "GET", data, extraParams = {}, headers = {} }) => {
   const config = { method, url: "/", params: { endpoint, ...extraParams }, headers };
   if (data) config.data = data;
@@ -124,19 +132,20 @@ const silentTokenRefresh = async (dispatch) => {
     const updatedCustomer = { ...stored, ...updatedTokens, lastTokenRefresh: Date.now() };
 
     saveToStorage(updatedCustomer);
-    
-    // Explicit dispatch update
     if (dispatch) dispatch({ type: "customer/updateToken", payload: updatedTokens });
 
     refreshPromise = null;
     return updatedTokens.accessToken;
   } catch (error) {
     refreshPromise = null;
-    forceLogoutAndRedirect(dispatch); // Force redirect entirely if refresh fails
+    forceLogoutAndRedirect(dispatch);
     return null;
   }
 };
 
+/* ─────────────────────────────────────────────
+   Request Wrapper with Activity Check & Auto-Refresh
+───────────────────────────────────────────── */
 const requestWithAutoRefresh = async ({ endpoint, method = "GET", data, extraParams = {}, providedToken = null, dispatch = null }) => {
   let headers = buildAuthHeaders(providedToken);
   let res;
@@ -150,18 +159,18 @@ const requestWithAutoRefresh = async ({ endpoint, method = "GET", data, extraPar
 
   if (res.status !== 401) return res;
 
-  // 1. Evaluate User Activity before attempting a token refresh
+  // 1️⃣ Check User Activity
   const lastActivity = parseInt(localStorage.getItem("lastActivityTimestamp") || "0", 10);
-  const INACTIVITY_LIMIT = 15 * 60 * 1000; // 15 mins. (Change limit as necessary)
+  const INACTIVITY_LIMIT = 15 * 60 * 1000; // 15 mins
   const isUserActive = (Date.now() - lastActivity) < INACTIVITY_LIMIT;
 
-  // If user is inactive, log out immediately and redirect to home
+  // If inactive → immediate logout & redirect (Bad UX prevention)
   if (!isUserActive) {
     forceLogoutAndRedirect(dispatch);
     throw new Error("SESSION_EXPIRED");
   }
 
-  // 2. Refresh logic if active
+  // 2️⃣ Active user → attempt token refresh
   if (dispatch) {
     const newAccessToken = await silentTokenRefresh(dispatch);
     if (newAccessToken) {
@@ -172,15 +181,13 @@ const requestWithAutoRefresh = async ({ endpoint, method = "GET", data, extraPar
         throw new Error("SESSION_EXPIRED");
       }
       return retryRes;
-    } else {
-       throw new Error("SESSION_EXPIRED"); // Fallback, forceLogoutAndRedirect is already called inside silentTokenRefresh
     }
+    throw new Error("SESSION_EXPIRED");
   }
 
-  // Fallback if no dispatch is supplied 
+  // Fallback for non-Redux calls
   const stored = loadFromStorage();
   const refreshToken = stored?.refreshToken;
-
   if (!refreshToken) {
     forceLogoutAndRedirect();
     throw new Error("SESSION_EXPIRED");
@@ -205,104 +212,102 @@ const requestWithAutoRefresh = async ({ endpoint, method = "GET", data, extraPar
   }
 };
 
-// ─────────────────────────────────────────────
-// Async thunks
-// ─────────────────────────────────────────────
+/* ─────────────────────────────────────────────
+   Async Thunks
+───────────────────────────────────────────── */
 export const createCustomer = createAsyncThunk("customer/createCustomer", async (customerData, { rejectWithValue }) => {
-    // (unchanged logic) ... 
-    try {
-      if (!validateCustomerData(customerData)) return rejectWithValue({ message: "Invalid customer data provided.", responseCode: "0" });
-      const res = await callBackend({ endpoint: "/Users/Customer-Post", method: "POST", data: customerData, headers: { "Content-Type": "application/json" } });
-      const data = safeParseJSON(res.data);
-      if (res.status < 200 || res.status >= 300) return rejectWithValue({ message: data?.ResponseMessage || "Registration failed.", responseCode: data?.ResponseCode || String(res.status) });
-      return data;
-    } catch (error) { return rejectWithValue({ message: error.message || "Registration failed.", responseCode: "0" }); }
+  try {
+    if (!validateCustomerData(customerData)) return rejectWithValue({ message: "Invalid customer data provided.", responseCode: "0" });
+    const res = await callBackend({ endpoint: "/Users/Customer-Post", method: "POST", data: customerData, headers: { "Content-Type": "application/json" } });
+    const data = safeParseJSON(res.data);
+    if (res.status < 200 || res.status >= 300) return rejectWithValue({ message: data?.ResponseMessage || "Registration failed.", responseCode: data?.ResponseCode || String(res.status) });
+    return data;
+  } catch (error) { return rejectWithValue({ message: error.message || "Registration failed.", responseCode: "0" }); }
 });
 
 export const loginCustomer = createAsyncThunk("customer/loginCustomer", async ({ contactNumber, password }, { dispatch, rejectWithValue }) => {
-    // (unchanged logic) ...
-    try {
-      if (!contactNumber || !password) return rejectWithValue({ message: "Contact number and password are required.", responseCode: "0", isAccountNotFound: false });
-      const res = await callBackend({ endpoint: "/Users/CustomerLogin", method: "POST", data: { contactNumber, password, FullName: "N/A" }, headers: { "Content-Type": "application/json" } });
-      const data = safeParseJSON(res.data);
-      if (res.status < 200 || res.status >= 300) return rejectWithValue({ message: data?.response?.responseMessage || "Login failed.", responseCode: data?.response?.responseCode || String(res.status), isAccountNotFound: false });
-      if (data?.response?.responseCode !== "1") return rejectWithValue({ message: data?.response?.responseMessage || "Access Denied", responseCode: data?.response?.responseCode || "0", isAccountNotFound: false });
-      
-      const tempCustomer = { contactNumber, accessToken: data.accessToken, refreshToken: data.refreshToken, loginStatus: true, isAuthenticated: true, loginTime: Date.now() };
-      saveToStorage(tempCustomer);
+  try {
+    if (!contactNumber || !password) return rejectWithValue({ message: "Contact number and password are required.", responseCode: "0", isAccountNotFound: false });
+    const res = await callBackend({ endpoint: "/Users/CustomerLogin", method: "POST", data: { contactNumber, password, FullName: "N/A" }, headers: { "Content-Type": "application/json" } });
+    const data = safeParseJSON(res.data);
+    if (res.status < 200 || res.status >= 300) return rejectWithValue({ message: data?.response?.responseMessage || "Login failed.", responseCode: data?.response?.responseCode || String(res.status), isAccountNotFound: false });
+    if (data?.response?.responseCode !== "1") return rejectWithValue({ message: data?.response?.responseMessage || "Access Denied", responseCode: data?.response?.responseCode || "0", isAccountNotFound: false });
+    
+    const tempCustomer = { contactNumber, accessToken: data.accessToken, refreshToken: data.refreshToken, loginStatus: true, isAuthenticated: true, loginTime: Date.now() };
+    saveToStorage(tempCustomer);
 
-      try {
-        const profile = await dispatch(getCustomerById({ contactNumber, accessToken: data.accessToken })).unwrap();
-        const mergedCustomer = { ...profile, ...tempCustomer };
-        saveToStorage(mergedCustomer);
-        return mergedCustomer;
-      } catch {
-        saveToStorage(tempCustomer);
-        return tempCustomer;
-      }
-    } catch (error) { return rejectWithValue({ message: error.message || "Login failed.", responseCode: "0", isAccountNotFound: false }); }
+    try {
+      const profile = await dispatch(getCustomerById({ contactNumber, accessToken: data.accessToken })).unwrap();
+      const mergedCustomer = { ...profile, ...tempCustomer };
+      saveToStorage(mergedCustomer);
+      return mergedCustomer;
+    } catch {
+      saveToStorage(tempCustomer);
+      return tempCustomer;
+    }
+  } catch (error) { return rejectWithValue({ message: error.message || "Login failed.", responseCode: "0", isAccountNotFound: false }); }
 });
 
 export const fetchCustomers = createAsyncThunk("customer/fetchCustomers", async (_, { rejectWithValue, dispatch }) => {
-    try {
-      const res = await requestWithAutoRefresh({ endpoint: "/Users/Customer-Get", method: "GET", dispatch });
-      const data = safeParseJSON(res.data);
-      if (res.status < 200 || res.status >= 300) return rejectWithValue({ message: data?.ResponseMessage || "Failed to fetch customers.", responseCode: data?.ResponseCode || String(res.status) });
-      return Array.isArray(data) ? data : [data].filter(Boolean);
-    } catch (error) { return rejectWithValue({ message: error.message || "Failed to fetch customers.", responseCode: error.message === "SESSION_EXPIRED" ? "401" : "0" }); }
+  try {
+    const res = await requestWithAutoRefresh({ endpoint: "/Users/Customer-Get", method: "GET", dispatch });
+    const data = safeParseJSON(res.data);
+    if (res.status < 200 || res.status >= 300) return rejectWithValue({ message: data?.ResponseMessage || "Failed to fetch customers.", responseCode: data?.ResponseCode || String(res.status) });
+    return Array.isArray(data) ? data : [data].filter(Boolean);
+  } catch (error) { return rejectWithValue({ message: error.message || "Failed to fetch customers.", responseCode: error.message === "SESSION_EXPIRED" ? "401" : "0" }); }
 });
 
 export const getCustomerById = createAsyncThunk("customer/getCustomerById", async ({ contactNumber, accessToken = null }, { rejectWithValue, dispatch }) => {
-    try {
-      const res = await requestWithAutoRefresh({ endpoint: "/Users/GetCustomerById", method: "GET", extraParams: { contactNumber }, providedToken: accessToken, dispatch });
-      const data = safeParseJSON(res.data);
-      if (res.status < 200 || res.status >= 300) return rejectWithValue({ message: data?.ResponseMessage || "Failed to fetch customer.", responseCode: data?.ResponseCode || String(res.status) });
-      const customer = Array.isArray(data) ? data[0] : data;
-      return customer;
-    } catch (error) { return rejectWithValue({ message: error.message || "Failed to fetch customer.", responseCode: error.message === "SESSION_EXPIRED" ? "401" : "0" }); }
+  try {
+    const res = await requestWithAutoRefresh({ endpoint: "/Users/GetCustomerById", method: "GET", extraParams: { contactNumber }, providedToken: accessToken, dispatch });
+    const data = safeParseJSON(res.data);
+    if (res.status < 200 || res.status >= 300) return rejectWithValue({ message: data?.ResponseMessage || "Failed to fetch customer.", responseCode: data?.ResponseCode || String(res.status) });
+    const customer = Array.isArray(data) ? data[0] : data;
+    return customer;
+  } catch (error) { return rejectWithValue({ message: error.message || "Failed to fetch customer.", responseCode: error.message === "SESSION_EXPIRED" ? "401" : "0" }); }
 });
 
 export const updateCustomerPassword = createAsyncThunk("customer/updateCustomerPassword", async ({ contactNumber, oldPassword, newPassword }, { rejectWithValue, dispatch }) => {
-    try {
-      const res = await requestWithAutoRefresh({ endpoint: "/Users/UpdateCustomerPassword", method: "POST", data: { contactNumber, oldPassword, newPassword }, dispatch });
-      const data = safeParseJSON(res.data);
-      if (res.status < 200 || res.status >= 300 || data?.ResponseCode !== "1") return rejectWithValue({ message: data?.ResponseMessage || "Password update failed.", responseCode: data?.ResponseCode || String(res.status) });
-      return data;
-    } catch (error) { return rejectWithValue({ message: error.message || "Password update failed.", responseCode: error.message === "SESSION_EXPIRED" ? "401" : "0" }); }
+  try {
+    const res = await requestWithAutoRefresh({ endpoint: "/Users/UpdateCustomerPassword", method: "POST", data: { contactNumber, oldPassword, newPassword }, dispatch });
+    const data = safeParseJSON(res.data);
+    if (res.status < 200 || res.status >= 300 || data?.ResponseCode !== "1") return rejectWithValue({ message: data?.ResponseMessage || "Password update failed.", responseCode: data?.ResponseCode || String(res.status) });
+    return data;
+  } catch (error) { return rejectWithValue({ message: error.message || "Password update failed.", responseCode: error.message === "SESSION_EXPIRED" ? "401" : "0" }); }
 });
 
 export const updateAccountStatus = createAsyncThunk("customer/updateAccountStatus", async (_, { getState, rejectWithValue, dispatch }) => {
-    try {
-      const customer = getState().customer.currentCustomer;
-      const res = await requestWithAutoRefresh({ endpoint: "/Users/Customer-Status", method: "POST", data: { accountNumber: customer.customerAccountNumber, accountStatus: "0" }, dispatch });
-      const data = safeParseJSON(res.data);
-      if (res.status < 200 || res.status >= 300) return rejectWithValue({ message: data?.ResponseMessage || "Status update failed.", responseCode: data?.ResponseCode || String(res.status) });
-      clearStorage();
-      return data;
-    } catch (error) { return rejectWithValue({ message: error.message || "Status update failed.", responseCode: error.message === "SESSION_EXPIRED" ? "401" : "0" }); }
+  try {
+    const customer = getState().customer.currentCustomer;
+    const res = await requestWithAutoRefresh({ endpoint: "/Users/Customer-Status", method: "POST", data: { accountNumber: customer.customerAccountNumber, accountStatus: "0" }, dispatch });
+    const data = safeParseJSON(res.data);
+    if (res.status < 200 || res.status >= 300) return rejectWithValue({ message: data?.ResponseMessage || "Status update failed.", responseCode: data?.ResponseCode || String(res.status) });
+    clearStorage();
+    return data;
+  } catch (error) { return rejectWithValue({ message: error.message || "Status update failed.", responseCode: error.message === "SESSION_EXPIRED" ? "401" : "0" }); }
 });
 
 export const forgotPassword = createAsyncThunk("customer/forgotPassword", async ({ contactNumber, email }, { rejectWithValue }) => {
-    try {
-      const res = await callBackend({ endpoint: "/Users/ForgotPassword", method: "POST", data: { contactNumber, email }, headers: { "Content-Type": "application/json" } });
-      const data = safeParseJSON(res.data);
-      if (res.status < 200 || res.status >= 300 || data?.ResponseCode !== "1") return rejectWithValue({ message: data?.ResponseMessage || "Password reset request failed.", responseCode: data?.ResponseCode || String(res.status) });
-      return data;
-    } catch (error) { return rejectWithValue({ message: error.message || "Password reset request failed.", responseCode: "0" }); }
+  try {
+    const res = await callBackend({ endpoint: "/Users/ForgotPassword", method: "POST", data: { contactNumber, email }, headers: { "Content-Type": "application/json" } });
+    const data = safeParseJSON(res.data);
+    if (res.status < 200 || res.status >= 300 || data?.ResponseCode !== "1") return rejectWithValue({ message: data?.ResponseMessage || "Password reset request failed.", responseCode: data?.ResponseCode || String(res.status) });
+    return data;
+  } catch (error) { return rejectWithValue({ message: error.message || "Password reset request failed.", responseCode: "0" }); }
 });
 
 export const resetPassword = createAsyncThunk("customer/resetPassword", async ({ contactNumber, token, newPassword }, { rejectWithValue }) => {
-    try {
-      const res = await callBackend({ endpoint: "/Users/ResetPassword", method: "POST", data: { contactNumber, token, newPassword }, headers: { "Content-Type": "application/json" } });
-      const data = safeParseJSON(res.data);
-      if (res.status < 200 || res.status >= 300 || data?.ResponseCode !== "1") return rejectWithValue({ message: data?.ResponseMessage || "Password reset failed.", responseCode: data?.ResponseCode || String(res.status) });
-      return data;
-    } catch (error) { return rejectWithValue({ message: error.message || "Password reset failed.", responseCode: "0" }); }
+  try {
+    const res = await callBackend({ endpoint: "/Users/ResetPassword", method: "POST", data: { contactNumber, token, newPassword }, headers: { "Content-Type": "application/json" } });
+    const data = safeParseJSON(res.data);
+    if (res.status < 200 || res.status >= 300 || data?.ResponseCode !== "1") return rejectWithValue({ message: data?.ResponseMessage || "Password reset failed.", responseCode: data?.ResponseCode || String(res.status) });
+    return data;
+  } catch (error) { return rejectWithValue({ message: error.message || "Password reset failed.", responseCode: "0" }); }
 });
 
-// ─────────────────────────────────────────────
-// Slice & Reducers (Unchanged core, error catching updated implicitly)
-// ─────────────────────────────────────────────
+/* ─────────────────────────────────────────────
+   Slice & Reducers
+───────────────────────────────────────────── */
 const hydrated = loadFromStorage();
 const initialState = {
   currentCustomer: hydrated,
@@ -370,29 +375,16 @@ const customerSlice = createSlice({
   extraReducers: (builder) => {
     builder
       // createCustomer
-      .addCase(createCustomer.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(createCustomer.fulfilled, (state) => {
-        state.loading = false;
-        state.error = null;
-        // Intentionally do not store or authenticate here.
-        // Signup/guest creation must redirect to login first.
-      })
-      .addCase(createCustomer.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.message || "Registration failed.";
-      })
+      .addCase(createCustomer.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(createCustomer.fulfilled, (state) => { state.loading = false; state.error = null; })
+      .addCase(createCustomer.rejected, (state, action) => { state.loading = false; state.error = action.payload?.message || "Registration failed."; })
 
-     .addCase(loginCustomer.fulfilled, (state, action) => {
-        state.loading = false;
-        state.error = null;
+      // loginCustomer
+      .addCase(loginCustomer.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(loginCustomer.fulfilled, (state, action) => {
+        state.loading = false; state.error = null;
         if (action.payload?.requiresPasswordChange) {
-          state.currentCustomer = null;
-          state.currentCustomerDetails = null;
-          state.isAuthenticated = false;
-          return;
+          state.currentCustomer = null; state.currentCustomerDetails = null; state.isAuthenticated = false; return;
         }
         if (validateCustomerData(action.payload)) {
           state.currentCustomer = action.payload;
@@ -401,127 +393,63 @@ const customerSlice = createSlice({
         }
       })
       .addCase(loginCustomer.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.message || "Login failed.";
-        state.currentCustomer = null;
-        state.currentCustomerDetails = null;
-        state.isAuthenticated = false;
-        clearStorage();
+        state.loading = false; state.error = action.payload?.message || "Login failed.";
+        state.currentCustomer = null; state.currentCustomerDetails = null; state.isAuthenticated = false; clearStorage();
       })
+
+      // fetchCustomers
+      .addCase(fetchCustomers.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(fetchCustomers.fulfilled, (state, action) => { state.loading = false; state.customerList = Array.isArray(action.payload) ? action.payload : []; })
       .addCase(fetchCustomers.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.message || "Failed to fetch customers.";
+        state.loading = false; state.error = action.payload?.message || "Failed to fetch customers.";
         if (action.payload?.responseCode === "401") {
-          state.currentCustomer = null;
-          state.currentCustomerDetails = null;
-          state.isAuthenticated = false;
-          clearStorage();
+          state.currentCustomer = null; state.currentCustomerDetails = null; state.isAuthenticated = false; clearStorage();
         }
       })
-      .addCase(getCustomerById.fulfilled, (state, action) => {
-        state.loading = false;
-        if (validateCustomerData(action.payload)) state.currentCustomerDetails = action.payload;
-      })
+
+      // getCustomerById
+      .addCase(getCustomerById.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(getCustomerById.fulfilled, (state, action) => { state.loading = false; if (validateCustomerData(action.payload)) state.currentCustomerDetails = action.payload; })
       .addCase(getCustomerById.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.message || "Failed to fetch customer details.";
+        state.loading = false; state.error = action.payload?.message || "Failed to fetch customer details.";
         if (action.payload?.responseCode === "401") {
-          state.currentCustomer = null;
-          state.currentCustomerDetails = null;
-          state.isAuthenticated = false;
-          clearStorage();
+          state.currentCustomer = null; state.currentCustomerDetails = null; state.isAuthenticated = false; clearStorage();
         }
-    
       })
+
       // updateCustomerPassword
-      .addCase(updateCustomerPassword.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
+      .addCase(updateCustomerPassword.pending, (state) => { state.loading = true; state.error = null; })
       .addCase(updateCustomerPassword.fulfilled, (state) => {
         state.loading = false;
-
         if (state.currentCustomer) {
-          const updatedCustomer = {
-            ...state.currentCustomer,
-            lastPasswordChange: Date.now(),
-          };
-          state.currentCustomer = updatedCustomer;
-          state.currentCustomerDetails = updatedCustomer;
-          saveToStorage(updatedCustomer);
+          const updated = { ...state.currentCustomer, lastPasswordChange: Date.now() };
+          state.currentCustomer = updated; state.currentCustomerDetails = updated; saveToStorage(updated);
         }
       })
       .addCase(updateCustomerPassword.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.message || "Password update failed.";
-
+        state.loading = false; state.error = action.payload?.message || "Password update failed.";
         if (action.payload?.responseCode === "401") {
-          state.currentCustomer = null;
-          state.currentCustomerDetails = null;
-          state.isAuthenticated = false;
-          clearStorage();
+          state.currentCustomer = null; state.currentCustomerDetails = null; state.isAuthenticated = false; clearStorage();
         }
       })
 
       // updateAccountStatus
-      .addCase(updateAccountStatus.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(updateAccountStatus.fulfilled, (state) => {
-        state.loading = false;
-        state.currentCustomer = null;
-        state.currentCustomerDetails = null;
-        state.isAuthenticated = false;
-      })
-      .addCase(updateAccountStatus.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.message || "Status update failed.";
-      })
+      .addCase(updateAccountStatus.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(updateAccountStatus.fulfilled, (state) => { state.loading = false; state.currentCustomer = null; state.currentCustomerDetails = null; state.isAuthenticated = false; })
+      .addCase(updateAccountStatus.rejected, (state, action) => { state.loading = false; state.error = action.payload?.message || "Status update failed."; })
 
       // forgotPassword
-      .addCase(forgotPassword.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(forgotPassword.fulfilled, (state) => {
-        state.loading = false;
-      })
-      .addCase(forgotPassword.rejected, (state, action) => {
-        state.loading = false;
-        state.error =
-          action.payload?.message || "Password reset request failed.";
-      })
+      .addCase(forgotPassword.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(forgotPassword.fulfilled, (state) => { state.loading = false; })
+      .addCase(forgotPassword.rejected, (state, action) => { state.loading = false; state.error = action.payload?.message || "Password reset request failed."; })
 
       // resetPassword
-      .addCase(resetPassword.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(resetPassword.fulfilled, (state) => {
-        state.loading = false;
-      })
-      .addCase(resetPassword.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.message || "Password reset failed.";
-      });
+      .addCase(resetPassword.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(resetPassword.fulfilled, (state) => { state.loading = false; })
+      .addCase(resetPassword.rejected, (state, action) => { state.loading = false; state.error = action.payload?.message || "Password reset failed."; });
   },
 });
 
-export const {
-  logoutCustomer,
-  setCurrentCustomer,
-  clearError,
-  updateToken,
-  syncWithStorage,
-} = customerSlice.actions;
-
-export {
-  silentTokenRefresh,
-  loadFromStorage,
-  saveToStorage,
-  clearStorage,
-  validateCustomerData,
-};
-
+export const { logoutCustomer, setCurrentCustomer, clearError, updateToken, syncWithStorage } = customerSlice.actions;
+export { silentTokenRefresh, loadFromStorage, saveToStorage, clearStorage, validateCustomerData };
 export default customerSlice.reducer;
