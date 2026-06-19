@@ -18,6 +18,7 @@ import wishlistReducer from "./Slice/wishlistSlice";
 import branchProductReducer from "./Slice/branchProductSlice";
 import branchOrderReducer from "./Slice/branchOrderSlice";
 import paymentReducer from "./Slice/paymentSlice";
+import ctp001Reducer from "./Slice/ctp001Slice";
 
 
 
@@ -29,6 +30,7 @@ const rootReducer = combineReducers({
   products: productReducer, // Product codes handled separately via productCodesStorage
   showrooms: showroomReducer,
   orders: orderReducer,
+  ctp001: ctp001Reducer,
 
   customer: customerReducer,
   cart: cartReducer,

@@ -4,6 +4,7 @@ import { useLocation, Navigate } from 'react-router-dom';
 import AgentDashboard from './AgentDashboard';
 import AgentOrders from './AgentOrders';
 import AgentHome from '../AgentHome';
+import CTP001ProductsPage from './CTP001ProductsPage';
 
 const AgentPage = () => {
   const location = useLocation();
@@ -20,6 +21,8 @@ const AgentPage = () => {
         return <Navigate to="/agent/dashboard" />;
       default:
         return <Navigate to="/agent/dashboard" />;
+      case '/agent/order-placement':
+        return <CTP001ProductsPage />;
     }
   };
 

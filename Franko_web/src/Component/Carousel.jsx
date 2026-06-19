@@ -151,18 +151,7 @@ export default function Carousel() {
           onMounted={() => startAutoplay()}
           onMove={() => startAutoplay()}
         >
-          {/* First slide */}
-          <SplideSlide className="banner-slide">
-            <div className="w-full h-full relative">
-              <img
-                src={ban}
-                alt="Franko Trading"
-                className="banner-media shadow-lg"
-              />
-            </div>
-          </SplideSlide>
-
-          {/* Ads */}
+          {/* ✅ Only render fetched ads. Hardcoded image removed from slides. */}
           {filteredAds.map((ad, index) => {
             const file = String(ad?.fileName || "").split("\\").pop();
             const imageUrl = `${backendBaseURL}/Media/Ads/${file}`;
@@ -205,19 +194,25 @@ export default function Carousel() {
   return (
     <div className="mx-auto p-1 md:p-2 carousel-container">
       <div className="flex flex-col md:flex-row relative bg-gray-30">
+        {/* Desktop */}
         <div className="hidden md:block w-full">
           {loading ? (
             <img src={ban} alt="Franko Trading" className="w-full h-full object-cover rounded-lg" />
-          ) : (
+          ) : filteredAds.length > 0 ? (
             renderSplide(false)
+          ) : (
+            <img src={ban} alt="Franko Trading" className="w-full h-full object-cover rounded-lg" />
           )}
         </div>
 
+        {/* Mobile */}
         <div className="md:hidden w-full relative">
           {loading ? (
             <img src={ban} alt="Franko Trading" className="w-full h-full object-cover rounded-lg" />
-          ) : (
+          ) : filteredAds.length > 0 ? (
             renderSplide(true)
+          ) : (
+            <img src={ban} alt="Franko Trading" className="w-full h-full object-cover rounded-lg" />
           )}
         </div>
       </div>

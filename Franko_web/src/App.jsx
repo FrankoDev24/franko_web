@@ -42,6 +42,7 @@ import OrderSuccess from "./Pages/OrderSucess";
 import AgentPage from "./Pages/Agents/AgentPage/AgentPage";
 import AgentDashboard from "./Pages/Agents/AgentPage/AgentDashboard";
 import AgentOrders from "./Pages/Agents/AgentPage/AgentOrders";
+import CTP001ProductsPage from "./Pages/Agents/AgentPage/CTP001ProductsPage";
 
 /* ═══════════════════════════════════════════════════════════════
    ENCRYPTED LOCALSTORAGE IMPLEMENTATION
@@ -318,7 +319,7 @@ function App() {
         <Route path="/agent/*" element={<ProtectedRoute allowedRoles={["agent"]}><AgentPage /></ProtectedRoute>} />
         <Route path="/agent/dashboard" element={<ProtectedRoute allowedRoles={["agent"]}><AgentPage><AgentDashboard /></AgentPage></ProtectedRoute>} />
         <Route path="/agent/orders" element={<ProtectedRoute allowedRoles={["agent"]}><AgentPage><AgentOrders /></AgentPage></ProtectedRoute>} />
-
+        <Route path="/agent/order-placement" element={<ProtectedRoute allowedRoles={["agent"]}><AgentPage><CTP001ProductsPage /></AgentPage></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </>

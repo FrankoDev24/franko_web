@@ -1683,7 +1683,7 @@ const Checkout = () => {
           }
         } catch {
           message.warning(
-            "Could not verify payment automatically. Use 'I've Approved' to check manually."
+            "Could not verify payment automatically. Use 'I've Approved' to check."
           );
         }
       }, AUTO_CHECK_DELAY_MS);
