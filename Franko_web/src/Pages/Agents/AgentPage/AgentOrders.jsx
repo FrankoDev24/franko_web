@@ -1,21 +1,33 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchOrdersByCustomer } from "../../../Redux/Slice/orderSlice";
-import { DatePicker, Table, Spin, Tooltip, Button, Input, Select, Drawer } from "antd";
+import {
+  DatePicker,
+  Table,
+  Spin,
+  Tooltip,
+  Button,
+  Input,
+  Select,
+  Drawer,
+} from "antd";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import calendar from "dayjs/plugin/calendar";
+import isBetween from "dayjs/plugin/isBetween";
 import OrderModal from "../../../Component/OrderModal";
 import AuthModal from "../../../Component/AuthModal";
 
 dayjs.extend(relativeTime);
 dayjs.extend(calendar);
+dayjs.extend(isBetween);
 
 /* ═══════════════════════════════════════════════
-   DATE HELPERS — friendly, human-readable dates
+   DATE HELPERS
    ═══════════════════════════════════════════════ */
 const friendlyDate = (d) => {
-  if (!d || !d.isValid()) return { primary: "N/A", secondary: "", time: "" };
+  if (!d || !d.isValid())
+    return { primary: "N/A", secondary: "", time: "" };
 
   const now = dayjs();
   const diffDays = now.startOf("day").diff(d.startOf("day"), "day");
@@ -35,7 +47,6 @@ const friendlyDate = (d) => {
   };
 };
 
-// Friendly header label for grouping mobile orders by day
 const friendlyDayHeader = (d) => {
   if (!d || !d.isValid()) return "Unknown Date";
   const now = dayjs();
@@ -51,12 +62,44 @@ const friendlyDayHeader = (d) => {
    ═══════════════════════════════════════════════ */
 const getPaymentConfig = (mode) => {
   const map = {
-    "Cash on Delivery": { bg: "#f0fdf4", color: "#166534", border: "#bbf7d0", dot: "#22c55e", label: "Cash on Delivery" },
-    "Paid Already":     { bg: "#eff6ff", color: "#1e40af", border: "#bfdbfe", dot: "#3b82f6", label: "Paid Already" },
-    "Pick up":          { bg: "#faf5ff", color: "#6b21a8", border: "#e9d5ff", dot: "#a855f7", label: "Pick up" },
-    "Bank Transfer":    { bg: "#fff7ed", color: "#9a3412", border: "#fed7aa", dot: "#f97316", label: "Bank Transfer" },
+    "Cash on Delivery": {
+      bg: "#f0fdf4",
+      color: "#166534",
+      border: "#bbf7d0",
+      dot: "#22c55e",
+      label: "Cash on Delivery",
+    },
+    "Paid Already": {
+      bg: "#eff6ff",
+      color: "#1e40af",
+      border: "#bfdbfe",
+      dot: "#3b82f6",
+      label: "Paid Already",
+    },
+    "Pick up": {
+      bg: "#faf5ff",
+      color: "#6b21a8",
+      border: "#e9d5ff",
+      dot: "#a855f7",
+      label: "Pick up",
+    },
+    "Bank Transfer": {
+      bg: "#fff7ed",
+      color: "#9a3412",
+      border: "#fed7aa",
+      dot: "#f97316",
+      label: "Bank Transfer",
+    },
   };
-  return map[mode] || { bg: "#f9fafb", color: "#374151", border: "#e5e7eb", dot: "#9ca3af", label: mode || "N/A" };
+  return (
+    map[mode] || {
+      bg: "#f9fafb",
+      color: "#374151",
+      border: "#e5e7eb",
+      dot: "#9ca3af",
+      label: mode || "N/A",
+    }
+  );
 };
 
 /* ═══════════════════════════════════════════════
@@ -64,55 +107,195 @@ const getPaymentConfig = (mode) => {
    ═══════════════════════════════════════════════ */
 const getStatusConfig = (status) => {
   const map = {
-    Pending:           { bg: "#fffbeb", color: "#92400e", border: "#fde68a", dot: "#f59e0b" },
-    Processing:        { bg: "#eff6ff", color: "#1e40af", border: "#bfdbfe", dot: "#3b82f6" },
-    "Order Placement": { bg: "#eff6ff", color: "#1e40af", border: "#bfdbfe", dot: "#3b82f6" },
-    "Wrong Number":    { bg: "#faf5ff", color: "#6b21a8", border: "#e9d5ff", dot: "#a855f7" },
-    Delivery:          { bg: "#f0fdf4", color: "#166534", border: "#bbf7d0", dot: "#22c55e" },
-    Completed:         { bg: "#f0fdf4", color: "#166534", border: "#bbf7d0", dot: "#22c55e" },
-    Testing:           { bg: "#fefce8", color: "#854d0e", border: "#fef08a", dot: "#eab308" },
-    Cancelled:         { bg: "#fef2f2", color: "#991b1b", border: "#fecaca", dot: "#ef4444" },
-    Unreachable:       { bg: "#f9fafb", color: "#374151", border: "#e5e7eb", dot: "#9ca3af" },
-    "Not Answered":    { bg: "#fff7ed", color: "#9a3412", border: "#fed7aa", dot: "#f97316" },
-    "Multiple order":  { bg: "#eef2ff", color: "#3730a3", border: "#c7d2fe", dot: "#6366f1" },
+    Pending: {
+      bg: "#fffbeb",
+      color: "#92400e",
+      border: "#fde68a",
+      dot: "#f59e0b",
+    },
+    Processing: {
+      bg: "#eff6ff",
+      color: "#1e40af",
+      border: "#bfdbfe",
+      dot: "#3b82f6",
+    },
+    "Order Placement": {
+      bg: "#eff6ff",
+      color: "#1e40af",
+      border: "#bfdbfe",
+      dot: "#3b82f6",
+    },
+    "Wrong Number": {
+      bg: "#faf5ff",
+      color: "#6b21a8",
+      border: "#e9d5ff",
+      dot: "#a855f7",
+    },
+    Delivery: {
+      bg: "#f0fdf4",
+      color: "#166534",
+      border: "#bbf7d0",
+      dot: "#22c55e",
+    },
+    Completed: {
+      bg: "#f0fdf4",
+      color: "#166534",
+      border: "#bbf7d0",
+      dot: "#22c55e",
+    },
+    Testing: {
+      bg: "#fefce8",
+      color: "#854d0e",
+      border: "#fef08a",
+      dot: "#eab308",
+    },
+    Cancelled: {
+      bg: "#fef2f2",
+      color: "#991b1b",
+      border: "#fecaca",
+      dot: "#ef4444",
+    },
+    Unreachable: {
+      bg: "#f9fafb",
+      color: "#374151",
+      border: "#e5e7eb",
+      dot: "#9ca3af",
+    },
+    "Not Answered": {
+      bg: "#fff7ed",
+      color: "#9a3412",
+      border: "#fed7aa",
+      dot: "#f97316",
+    },
+    "Multiple order": {
+      bg: "#eef2ff",
+      color: "#3730a3",
+      border: "#c7d2fe",
+      dot: "#6366f1",
+    },
   };
-  return map[status] || { bg: "#f9fafb", color: "#374151", border: "#e5e7eb", dot: "#9ca3af" };
+  return (
+    map[status] || {
+      bg: "#f9fafb",
+      color: "#374151",
+      border: "#e5e7eb",
+      dot: "#9ca3af",
+    }
+  );
 };
 
 const STATUS_OPTIONS = [
-  "all", "Pending", "Processing", "Order Placement", "Wrong Number",
-  "Delivery", "Completed", "Testing", "Cancelled", "Unreachable",
-  "Not Answered", "Multiple order",
+  "all",
+  "Pending",
+  "Processing",
+  "Order Placement",
+  "Wrong Number",
+  "Delivery",
+  "Completed",
+  "Testing",
+  "Cancelled",
+  "Unreachable",
+  "Not Answered",
+  "Multiple order",
 ];
 
 /* ═══════════════════════════════════════════════
-   QUICK PERIODS
+   QUICK PERIODS — ✅ FIXED: "Today" = today → tomorrow
    ═══════════════════════════════════════════════ */
 const ALL_TIME_START = dayjs("2000-01-01");
 
 const QUICK_PERIODS = [
-  { key: "today",        label: "Today",        icon: "☀️", getRange: () => [dayjs().startOf("day"), dayjs().endOf("day")] },
-  { key: "this_week",    label: "This Week",    icon: "📆", getRange: () => [dayjs().startOf("week"), dayjs().endOf("day")] },
-  { key: "this_month",   label: "This Month",   icon: "🗓️", getRange: () => [dayjs().startOf("month"), dayjs().endOf("day")] },
-  { key: "last_month",   label: "Last Month",   icon: "↩️", getRange: () => [dayjs().subtract(1, "month").startOf("month"), dayjs().subtract(1, "month").endOf("month")] },
-  { key: "last_3_months",label: "Last 3 Months",icon: "📊", getRange: () => [dayjs().subtract(2, "month").startOf("month"), dayjs().endOf("day")] },
-  { key: "this_year",    label: "This Year",    icon: "🎯", getRange: () => [dayjs().startOf("year"), dayjs().endOf("day")] },
-  { key: "all_time",     label: "All Time",     icon: "♾️", slow: true, getRange: () => [ALL_TIME_START.clone(), dayjs().add(1, "day")] },
+  {
+    key: "today",
+    label: "Today",
+    icon: "☀️",
+    // ✅ FIX: Today fetches from start of today to end of tomorrow (next day)
+    // This ensures the API returns ALL orders placed today
+    getRange: () => [
+      dayjs().startOf("day"),
+      dayjs().add(1, "day").endOf("day"),
+    ],
+  },
+  {
+    key: "yesterday",
+    label: "Yesterday",
+    icon: "🌙",
+    getRange: () => [
+      dayjs().subtract(1, "day").startOf("day"),
+      dayjs().endOf("day"),
+    ],
+  },
+  {
+    key: "this_week",
+    label: "This Week",
+    icon: "📆",
+    getRange: () => [
+      dayjs().startOf("week"),
+      dayjs().add(1, "day").endOf("day"),
+    ],
+  },
+  {
+    key: "this_month",
+    label: "This Month",
+    icon: "🗓️",
+    getRange: () => [
+      dayjs().startOf("month"),
+      dayjs().add(1, "day").endOf("day"),
+    ],
+  },
+  {
+    key: "last_month",
+    label: "Last Month",
+    icon: "↩️",
+    getRange: () => [
+      dayjs().subtract(1, "month").startOf("month"),
+      dayjs().subtract(1, "month").endOf("month").add(1, "day"),
+    ],
+  },
+  {
+    key: "last_3_months",
+    label: "Last 3 Months",
+    icon: "📊",
+    getRange: () => [
+      dayjs().subtract(2, "month").startOf("month"),
+      dayjs().add(1, "day").endOf("day"),
+    ],
+  },
+  {
+    key: "this_year",
+    label: "This Year",
+    icon: "🎯",
+    getRange: () => [
+      dayjs().startOf("year"),
+      dayjs().add(1, "day").endOf("day"),
+    ],
+  },
+  {
+    key: "all_time",
+    label: "All Time",
+    icon: "♾️",
+    slow: true,
+    getRange: () => [
+      ALL_TIME_START.clone(),
+      dayjs().add(1, "day").endOf("day"),
+    ],
+  },
 ];
 
 const detectPeriodKey = (range) => {
   if (!range || !range[0] || !range[1]) return "custom";
   for (const p of QUICK_PERIODS) {
     const [s, e] = p.getRange();
-    if (range[0].isSame(s, "day") && range[1].isSame(e, "day")) return p.key;
+    if (range[0].isSame(s, "minute") && range[1].isSame(e, "minute"))
+      return p.key;
   }
   return "custom";
 };
 
 // Presets for the native AntD RangePicker dropdown
-const DATE_PICKER_PRESETS = QUICK_PERIODS
-  .filter((p) => p.key !== "all_time")
-  .map((p) => ({ label: p.label, value: p.getRange() }));
+const DATE_PICKER_PRESETS = QUICK_PERIODS.filter(
+  (p) => p.key !== "all_time"
+).map((p) => ({ label: p.label, value: p.getRange() }));
 
 /* ═══════════════════════════════════════════════
    MAIN COMPONENT
@@ -120,17 +303,18 @@ const DATE_PICKER_PRESETS = QUICK_PERIODS
 const AgentOrders = () => {
   const dispatch = useDispatch();
   const ordersData = useSelector(
-    (state) => state.orders || { orders: [], loading: false, error: null }
+    (state) =>
+      state.orders || { orders: [], loading: false, error: null }
   );
   const orders = ordersData.orders || [];
   const loading = ordersData.loading || false;
   const error = ordersData.error || null;
 
-  // 🚀 Default = THIS MONTH
+  // ✅ Default = TODAY (today → tomorrow)
   const [dateRange, setDateRange] = useState(() =>
-    QUICK_PERIODS.find((p) => p.key === "this_month").getRange()
+    QUICK_PERIODS.find((p) => p.key === "today").getRange()
   );
-  const [activePeriod, setActivePeriod] = useState("this_month");
+  const [activePeriod, setActivePeriod] = useState("today");
 
   const [isOrderModalVisible, setIsOrderModalVisible] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
@@ -139,18 +323,37 @@ const AgentOrders = () => {
   const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
   const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(false);
 
-  const customerObject = localStorage.getItem("customer") || "null";
+  // ✅ FIX: Parse customer from localStorage properly
+  const customerObject = useMemo(() => {
+    try {
+      const stored = localStorage.getItem("customer");
+      if (!stored || stored === "null") return null;
+      return typeof stored === "string" ? JSON.parse(stored) : stored;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const customerId = customerObject?.customerAccountNumber;
-  const hasValidCustomer = customerObject && customerId;
+  const hasValidCustomer = !!(customerObject && customerId);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
+  // ✅ FIX: fetchOrders formats dates for the API correctly
   const fetchOrders = useCallback(
     (range) => {
       if (!hasValidCustomer || !range || !range[0] || !range[1]) return;
-      const [from, to] = range.map((d) => d.format("MM/DD/YYYY"));
+
+      // ✅ Format: from = start date, to = end date (includes tomorrow for "today")
+      const from = range[0].format("MM/DD/YYYY");
+      const to = range[1].format("MM/DD/YYYY");
+
+      console.log("═══ Fetching Orders ═══");
+      console.log(`From: ${from} | To: ${to}`);
+      console.log(`Customer ID: ${customerId}`);
+
       dispatch(fetchOrdersByCustomer({ from, to, customerId }));
     },
     [dispatch, customerId, hasValidCustomer]
@@ -162,8 +365,13 @@ const AgentOrders = () => {
 
   const handleDateChange = (dates) => {
     if (dates && dates[0] && dates[1]) {
-      setDateRange(dates);
-      setActivePeriod(detectPeriodKey(dates));
+      // ✅ When user picks custom range, extend 'to' by 1 day to include the end date fully
+      const adjustedRange = [
+        dates[0].startOf("day"),
+        dates[1].add(1, "day").endOf("day"),
+      ];
+      setDateRange(adjustedRange);
+      setActivePeriod(detectPeriodKey(adjustedRange));
     }
   };
 
@@ -201,7 +409,9 @@ const AgentOrders = () => {
           dateSecondary: fd.secondary,
           dateTime: fd.time,
           isRecent: fd.isRecent,
-          dayKey: orderDay.isValid() ? orderDay.format("YYYY-MM-DD") : "unknown",
+          dayKey: orderDay.isValid()
+            ? orderDay.format("YYYY-MM-DD")
+            : "unknown",
           dayHeader: friendlyDayHeader(orderDay),
           customerName: order?.fullName || "N/A",
           contactNumber: order?.contactNumber || "N/A",
@@ -216,15 +426,21 @@ const AgentOrders = () => {
       })
       .filter((order) => {
         const matchesSearch =
-          order.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus = statusFilter === "all" || order.orderCycle === statusFilter;
+          order.orderId
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          order.customerName
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase());
+        const matchesStatus =
+          statusFilter === "all" ||
+          order.orderCycle === statusFilter;
         return matchesSearch && matchesStatus;
       })
       .sort((a, b) => b._timestamp - a._timestamp);
   }, [orders, searchTerm, statusFilter]);
 
-  /* ─── Group mobile orders by day (friendly headers) ─── */
+  /* ─── Group mobile orders by day ─── */
   const groupedOrders = useMemo(() => {
     const groups = [];
     const map = {};
@@ -241,20 +457,42 @@ const AgentOrders = () => {
   /* ─── Stats ─── */
   const stats = useMemo(() => {
     const total = orders.length;
-    const completed = orders.filter((o) => ["Delivery", "Completed"].includes(o.orderCycle)).length;
-    const inProgress = orders.filter((o) =>
-      ["Processing", "Pending", "Testing", "Wrong Number", "Order Placement"].includes(o.orderCycle)
+    const completed = orders.filter((o) =>
+      ["Delivery", "Completed"].includes(o.orderCycle)
     ).length;
-    const cancelled = orders.filter((o) => o.orderCycle === "Cancelled").length;
+    const inProgress = orders.filter((o) =>
+      [
+        "Processing",
+        "Pending",
+        "Testing",
+        "Wrong Number",
+        "Order Placement",
+      ].includes(o.orderCycle)
+    ).length;
+    const cancelled = orders.filter(
+      (o) => o.orderCycle === "Cancelled"
+    ).length;
     return { total, completed, inProgress, cancelled };
   }, [orders]);
 
-  /* ─── Range label ─── */
+  /* ─── Range label (user-friendly display) ─── */
   const rangeLabel = useMemo(() => {
-    const period = QUICK_PERIODS.find((p) => p.key === activePeriod);
+    const period = QUICK_PERIODS.find(
+      (p) => p.key === activePeriod
+    );
     if (period) return period.label;
-    return `${dateRange[0].format("MMM D")} – ${dateRange[1].format("MMM D, YYYY")}`;
+    // For custom ranges, show the actual selected dates (subtract the +1 day we added)
+    const displayFrom = dateRange[0].format("MMM D");
+    const displayTo = dateRange[1]
+      .subtract(1, "day")
+      .format("MMM D, YYYY");
+    return `${displayFrom} – ${displayTo}`;
   }, [activePeriod, dateRange]);
+
+  // ✅ Display dates for the DatePicker (subtract the +1 day adjustment for display)
+  const displayDateRange = useMemo(() => {
+    return [dateRange[0], dateRange[1].subtract(1, "day")];
+  }, [dateRange]);
 
   /* ─── PDF Export ─── */
   const handleExportPDF = () => {
@@ -275,18 +513,27 @@ const AgentOrders = () => {
         tr:nth-child(even){background:#fafafa}
         .footer{text-align:center;margin-top:40px;font-size:11px;color:#999;border-top:1px solid #e5e5e5;padding-top:16px}
       </style></head><body>
-      <div class="header"><h1>Order History Report</h1><p>Customer: ${customerObject?.fullName || "N/A"}</p></div>
+      <div class="header"><h1>Order History Report</h1><p>Customer: ${
+        customerObject?.fullName || "N/A"
+      }</p></div>
       <div class="meta">
-        <span><strong>Period:</strong> ${dateRange[0].format("MMM D, YYYY")} – ${dateRange[1].format("MMM D, YYYY")}</span>
+        <span><strong>Period:</strong> ${dateRange[0].format(
+          "MMM D, YYYY"
+        )} – ${dateRange[1].subtract(1, "day").format("MMM D, YYYY")}</span>
         <span><strong>Total Orders:</strong> ${transformedOrders.length}</span>
       </div>
       <table>
         <thead><tr><th>Order ID</th><th>Date</th><th>Payment</th><th>Status</th></tr></thead>
         <tbody>${transformedOrders
-          .map((o) => `<tr><td>#${o.orderId}</td><td>${o.dateSecondary} ${o.dateTime}</td><td>${o.paymentMode}</td><td>${o.orderCycle}</td></tr>`)
+          .map(
+            (o) =>
+              `<tr><td>#${o.orderId}</td><td>${o.dateSecondary} ${o.dateTime}</td><td>${o.paymentMode}</td><td>${o.orderCycle}</td></tr>`
+          )
           .join("")}</tbody>
       </table>
-      <div class="footer"><p>Generated on ${dayjs().format("MMMM D, YYYY [at] h:mm A")}</p></div>
+      <div class="footer"><p>Generated on ${dayjs().format(
+        "MMMM D, YYYY [at] h:mm A"
+      )}</p></div>
       </body></html>`;
     printWindow.document.write(htmlContent);
     printWindow.document.close();
@@ -310,7 +557,11 @@ const AgentOrders = () => {
       render: (text, record) => (
         <div className="oh-date-cell">
           <div className="oh-date-primary-row">
-            <span className={`oh-date-primary ${record.isRecent ? "is-recent" : ""}`}>
+            <span
+              className={`oh-date-primary ${
+                record.isRecent ? "is-recent" : ""
+              }`}
+            >
               {text}
             </span>
             {record.isRecent && <span className="oh-date-new-dot" />}
@@ -331,8 +582,18 @@ const AgentOrders = () => {
       render: (mode) => {
         const cfg = getPaymentConfig(mode);
         return (
-          <span className="oh-badge-pill" style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.border }}>
-            <span className="oh-badge-dot" style={{ background: cfg.dot }} />
+          <span
+            className="oh-badge-pill"
+            style={{
+              background: cfg.bg,
+              color: cfg.color,
+              borderColor: cfg.border,
+            }}
+          >
+            <span
+              className="oh-badge-dot"
+              style={{ background: cfg.dot }}
+            />
             {cfg.label}
           </span>
         );
@@ -346,8 +607,18 @@ const AgentOrders = () => {
       render: (status) => {
         const cfg = getStatusConfig(status);
         return (
-          <span className="oh-badge-pill" style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.border }}>
-            <span className="oh-badge-dot" style={{ background: cfg.dot }} />
+          <span
+            className="oh-badge-pill"
+            style={{
+              background: cfg.bg,
+              color: cfg.color,
+              borderColor: cfg.border,
+            }}
+          >
+            <span
+              className="oh-badge-dot"
+              style={{ background: cfg.dot }}
+            />
             {status}
           </span>
         );
@@ -359,7 +630,10 @@ const AgentOrders = () => {
       width: 56,
       render: (_, record) => (
         <Tooltip title="View Details">
-          <button className="oh-view-icon-btn" onClick={() => handleViewOrder(record.orderId)}>
+          <button
+            className="oh-view-icon-btn"
+            onClick={() => handleViewOrder(record.orderId)}
+          >
             <span className="oh-eye-char">&#9673;</span>
           </button>
         </Tooltip>
@@ -381,20 +655,29 @@ const AgentOrders = () => {
     </div>
   );
 
-  // ── IMPROVED: Quick Period Bar with icons ──
   const QuickPeriodBar = () => (
     <div className="oh-quick-bar">
       <div className="oh-quick-scroll">
         {QUICK_PERIODS.map((p) => (
           <button
             key={p.key}
-            className={`oh-quick-chip ${activePeriod === p.key ? "is-active" : ""} ${p.slow ? "is-all" : ""}`}
+            className={`oh-quick-chip ${
+              activePeriod === p.key ? "is-active" : ""
+            } ${p.slow ? "is-all" : ""}`}
             onClick={() => handleQuickPeriod(p.key)}
-            title={p.slow ? "Fetches every order (may take longer)" : ""}
+            title={
+              p.slow
+                ? "Fetches every order (may take longer)"
+                : p.key === "today"
+                ? "Shows orders from today through tomorrow"
+                : ""
+            }
           >
             <span className="oh-quick-icon">{p.icon}</span>
             {p.label}
-            {p.slow && <span className="oh-quick-hint">slow</span>}
+            {p.slow && (
+              <span className="oh-quick-hint">slow</span>
+            )}
           </button>
         ))}
         {activePeriod === "custom" && (
@@ -407,20 +690,35 @@ const AgentOrders = () => {
     </div>
   );
 
-  // ── IMPROVED: Mobile card with friendlier date display ──
   const MobileOrderCard = ({ order }) => {
     const sCfg = getStatusConfig(order.orderCycle);
     const pCfg = getPaymentConfig(order.paymentMode);
 
     return (
-      <div className="oh-mobile-card" onClick={() => handleViewOrder(order.orderId)}>
+      <div
+        className="oh-mobile-card"
+        onClick={() => handleViewOrder(order.orderId)}
+      >
         <div className="oh-mc-row-top">
           <span className="oh-mc-id">#{order.orderId}</span>
           <span
             className="oh-badge-pill"
-            style={{ background: sCfg.bg, color: sCfg.color, borderColor: sCfg.border, fontSize: 10, padding: "2px 8px" }}
+            style={{
+              background: sCfg.bg,
+              color: sCfg.color,
+              borderColor: sCfg.border,
+              fontSize: 10,
+              padding: "2px 8px",
+            }}
           >
-            <span className="oh-badge-dot" style={{ background: sCfg.dot, width: 6, height: 6 }} />
+            <span
+              className="oh-badge-dot"
+              style={{
+                background: sCfg.dot,
+                width: 6,
+                height: 6,
+              }}
+            />
             {order.orderCycle}
           </span>
         </div>
@@ -432,23 +730,31 @@ const AgentOrders = () => {
           </div>
           <div className="oh-mc-field">
             <span className="oh-mc-field-label">Payment</span>
-            <span className="oh-mc-field-value" style={{ color: pCfg.color, fontWeight: 600 }}>
+            <span
+              className="oh-mc-field-value"
+              style={{ color: pCfg.color, fontWeight: 600 }}
+            >
               {pCfg.label}
             </span>
           </div>
         </div>
 
         <div className="oh-mc-row-bottom">
-          <span className="oh-mc-view-link">View Details &rarr;</span>
+          <span className="oh-mc-view-link">
+            View Details &rarr;
+          </span>
         </div>
       </div>
     );
   };
 
-  // ── IMPROVED: Drawer with friendly date presets ──
   const FiltersDrawerContent = () => (
     <Drawer
-      title={<span style={{ fontWeight: 800 }}>Filters &amp; Actions</span>}
+      title={
+        <span style={{ fontWeight: 800 }}>
+          Filters &amp; Actions
+        </span>
+      }
       placement="bottom"
       height="auto"
       open={filtersDrawerOpen}
@@ -457,12 +763,19 @@ const AgentOrders = () => {
     >
       <div className="oh-drawer-body">
         <div className="oh-drawer-field">
-          <label className="oh-drawer-label">⚡ Quick Period</label>
-          <div className="oh-quick-scroll" style={{ overflowX: "auto", paddingBottom: 4 }}>
+          <label className="oh-drawer-label">
+            ⚡ Quick Period
+          </label>
+          <div
+            className="oh-quick-scroll"
+            style={{ overflowX: "auto", paddingBottom: 4 }}
+          >
             {QUICK_PERIODS.map((p) => (
               <button
                 key={p.key}
-                className={`oh-quick-chip ${activePeriod === p.key ? "is-active" : ""} ${p.slow ? "is-all" : ""}`}
+                className={`oh-quick-chip ${
+                  activePeriod === p.key ? "is-active" : ""
+                } ${p.slow ? "is-all" : ""}`}
                 onClick={() => handleQuickPeriod(p.key)}
               >
                 <span className="oh-quick-icon">{p.icon}</span>
@@ -472,9 +785,11 @@ const AgentOrders = () => {
           </div>
         </div>
         <div className="oh-drawer-field">
-          <label className="oh-drawer-label">📅 Custom Date Range</label>
+          <label className="oh-drawer-label">
+            📅 Custom Date Range
+          </label>
           <DatePicker.RangePicker
-            value={dateRange}
+            value={displayDateRange}
             onChange={handleDateChange}
             format="MMM D, YYYY"
             size="large"
@@ -494,7 +809,12 @@ const AgentOrders = () => {
         </div>
         <div className="oh-drawer-field">
           <label className="oh-drawer-label">🏷️ Status</label>
-          <Select value={statusFilter} onChange={setStatusFilter} size="large" style={{ width: "100%" }}>
+          <Select
+            value={statusFilter}
+            onChange={setStatusFilter}
+            size="large"
+            style={{ width: "100%" }}
+          >
             {STATUS_OPTIONS.map((s) => (
               <Select.Option key={s} value={s}>
                 {s === "all" ? "All Statuses" : s}
@@ -506,14 +826,20 @@ const AgentOrders = () => {
           <Button
             size="large"
             disabled={transformedOrders.length === 0}
-            onClick={() => { handleExportPDF(); setFiltersDrawerOpen(false); }}
+            onClick={() => {
+              handleExportPDF();
+              setFiltersDrawerOpen(false);
+            }}
             style={{ flex: 1 }}
           >
             Export PDF
           </Button>
           <Button
             size="large"
-            onClick={() => { handleRefresh(); setFiltersDrawerOpen(false); }}
+            onClick={() => {
+              handleRefresh();
+              setFiltersDrawerOpen(false);
+            }}
             style={{ flex: 1 }}
           >
             Refresh
@@ -525,18 +851,29 @@ const AgentOrders = () => {
 
   const NoCustomerState = () => (
     <div className="oh-empty-state">
-      <div className="oh-empty-circle"><span className="oh-empty-emoji">&#128100;</span></div>
+      <div className="oh-empty-circle">
+        <span className="oh-empty-emoji">&#128100;</span>
+      </div>
       <div className="oh-empty-title">Sign In Required</div>
-      <div className="oh-empty-desc">Please log in to view your order history and track your purchases.</div>
-      <button className="oh-btn-primary" onClick={handleSignInClick}>Sign In</button>
+      <div className="oh-empty-desc">
+        Please log in to view your order history and track your
+        purchases.
+      </div>
+      <button className="oh-btn-primary" onClick={handleSignInClick}>
+        Sign In
+      </button>
     </div>
   );
 
   const EmptyState = () => (
     <div className="oh-empty-state">
-      <div className="oh-empty-circle"><span className="oh-empty-emoji">&#128230;</span></div>
+      <div className="oh-empty-circle">
+        <span className="oh-empty-emoji">&#128230;</span>
+      </div>
       <div className="oh-empty-title">
-        {searchTerm || statusFilter !== "all" ? "No Matching Orders" : "No Orders in This Period"}
+        {searchTerm || statusFilter !== "all"
+          ? "No Matching Orders"
+          : "No Orders in This Period"}
       </div>
       <div className="oh-empty-desc">
         {searchTerm || statusFilter !== "all"
@@ -544,34 +881,58 @@ const AgentOrders = () => {
           : `No orders found for ${rangeLabel.toLowerCase()}. Try a wider date range.`}
       </div>
       {(searchTerm || statusFilter !== "all") && (
-        <button className="oh-btn-secondary" onClick={() => { setSearchTerm(""); setStatusFilter("all"); }}>
+        <button
+          className="oh-btn-secondary"
+          onClick={() => {
+            setSearchTerm("");
+            setStatusFilter("all");
+          }}
+        >
           Clear Filters
         </button>
       )}
-      {!searchTerm && statusFilter === "all" && activePeriod !== "all_time" && (
-        <button className="oh-btn-primary" onClick={() => handleQuickPeriod("all_time")}>
-          Show All Time
-        </button>
-      )}
+      {!searchTerm &&
+        statusFilter === "all" &&
+        activePeriod !== "all_time" && (
+          <button
+            className="oh-btn-primary"
+            onClick={() => handleQuickPeriod("all_time")}
+          >
+            Show All Time
+          </button>
+        )}
     </div>
   );
 
   const LoadingState = () => (
     <div className="oh-empty-state">
       <Spin size="large" />
-      <div className="oh-empty-title" style={{ marginTop: 20 }}>Loading Orders</div>
-      <div className="oh-empty-desc">Fetching orders for {rangeLabel.toLowerCase()}...</div>
+      <div className="oh-empty-title" style={{ marginTop: 20 }}>
+        Loading Orders
+      </div>
+      <div className="oh-empty-desc">
+        Fetching orders for {rangeLabel.toLowerCase()}...
+      </div>
     </div>
   );
 
   const ErrorState = () => (
     <div className="oh-empty-state">
-      <div className="oh-empty-circle" style={{ background: "#fef2f2", borderColor: "#fecaca" }}>
+      <div
+        className="oh-empty-circle"
+        style={{ background: "#fef2f2", borderColor: "#fecaca" }}
+      >
         <span className="oh-empty-emoji">&#9888;</span>
       </div>
       <div className="oh-empty-title">Unable to Load Orders</div>
-      <div className="oh-empty-desc">{typeof error === "string" ? error : "An unexpected error occurred."}</div>
-      <button className="oh-btn-primary" onClick={handleRefresh}>Try Again</button>
+      <div className="oh-empty-desc">
+        {typeof error === "string"
+          ? error
+          : "An unexpected error occurred."}
+      </div>
+      <button className="oh-btn-primary" onClick={handleRefresh}>
+        Try Again
+      </button>
     </div>
   );
 
@@ -588,12 +949,19 @@ const AgentOrders = () => {
               <div className="oh-header-bar" />
               <div>
                 <h1 className="oh-page-title">Order History</h1>
-                <p className="oh-page-subtitle">Track and manage your orders</p>
+                <p className="oh-page-subtitle">
+                  Track and manage your orders
+                </p>
               </div>
             </div>
-            <div className="oh-main-card"><NoCustomerState /></div>
+            <div className="oh-main-card">
+              <NoCustomerState />
+            </div>
           </div>
-          <AuthModal open={isAuthModalVisible} onClose={handleAuthModalClose} />
+          <AuthModal
+            open={isAuthModalVisible}
+            onClose={handleAuthModalClose}
+          />
         </div>
       </>
     );
@@ -615,13 +983,24 @@ const AgentOrders = () => {
               <p className="oh-page-subtitle">
                 {loading
                   ? `Loading ${rangeLabel.toLowerCase()}...`
-                  : `${transformedOrders.length} order${transformedOrders.length !== 1 ? "s" : ""} · ${rangeLabel}`}
+                  : `${transformedOrders.length} order${
+                      transformedOrders.length !== 1 ? "s" : ""
+                    } · ${rangeLabel}`}
               </p>
             </div>
 
-            <button className="oh-refresh-btn" onClick={handleRefresh} title="Refresh">&#8635;</button>
+            <button
+              className="oh-refresh-btn"
+              onClick={handleRefresh}
+              title="Refresh"
+            >
+              &#8635;
+            </button>
 
-            <button className="oh-mobile-filter-btn" onClick={() => setFiltersDrawerOpen(true)}>
+            <button
+              className="oh-mobile-filter-btn"
+              onClick={() => setFiltersDrawerOpen(true)}
+            >
               &#9776; Filters
             </button>
           </div>
@@ -632,19 +1011,41 @@ const AgentOrders = () => {
           {/* ── Stats ── */}
           {!loading && !error && orders.length > 0 && (
             <div className="oh-stats-grid">
-              <StatCard value={stats.total}      label="Total"       emoji="&#128230;" color="#2563eb" />
-              <StatCard value={stats.completed}  label="Completed"   emoji="&#10003;"  color="#16a34a" />
-              <StatCard value={stats.inProgress} label="In Progress" emoji="&#9203;"   color="#ea580c" />
-              <StatCard value={stats.cancelled}  label="Cancelled"   emoji="&#10005;"  color="#dc2626" />
+              <StatCard
+                value={stats.total}
+                label="Total"
+                emoji="&#128230;"
+                color="#2563eb"
+              />
+              <StatCard
+                value={stats.completed}
+                label="Completed"
+                emoji="&#10003;"
+                color="#16a34a"
+              />
+              <StatCard
+                value={stats.inProgress}
+                label="In Progress"
+                emoji="&#9203;"
+                color="#ea580c"
+              />
+              <StatCard
+                value={stats.cancelled}
+                label="Cancelled"
+                emoji="&#10005;"
+                color="#dc2626"
+              />
             </div>
           )}
 
           {/* ── Desktop Filters ── */}
           <div className="oh-filters-bar">
             <div className="oh-filter-group">
-              <label className="oh-filter-label">📅 Custom Date Range</label>
+              <label className="oh-filter-label">
+                📅 Custom Date Range
+              </label>
               <DatePicker.RangePicker
-                value={dateRange}
+                value={displayDateRange}
                 onChange={handleDateChange}
                 format="MMM D, YYYY"
                 presets={DATE_PICKER_PRESETS}
@@ -663,7 +1064,11 @@ const AgentOrders = () => {
             </div>
             <div className="oh-filter-group">
               <label className="oh-filter-label">🏷️ Status</label>
-              <Select value={statusFilter} onChange={setStatusFilter} style={{ width: "100%" }}>
+              <Select
+                value={statusFilter}
+                onChange={setStatusFilter}
+                style={{ width: "100%" }}
+              >
                 {STATUS_OPTIONS.map((s) => (
                   <Select.Option key={s} value={s}>
                     {s === "all" ? "All Statuses" : s}
@@ -673,7 +1078,11 @@ const AgentOrders = () => {
             </div>
             <div className="oh-filter-group">
               <label className="oh-filter-label">📄 Export</label>
-              <Button disabled={transformedOrders.length === 0} onClick={handleExportPDF} block>
+              <Button
+                disabled={transformedOrders.length === 0}
+                onClick={handleExportPDF}
+                block
+              >
                 Export PDF
               </Button>
             </div>
@@ -686,16 +1095,26 @@ const AgentOrders = () => {
               {searchTerm && (
                 <span className="oh-chip">
                   Search: &ldquo;{searchTerm}&rdquo;
-                  <button onClick={() => setSearchTerm("")}>&times;</button>
+                  <button onClick={() => setSearchTerm("")}>
+                    &times;
+                  </button>
                 </span>
               )}
               {statusFilter !== "all" && (
                 <span className="oh-chip">
                   {statusFilter}
-                  <button onClick={() => setStatusFilter("all")}>&times;</button>
+                  <button onClick={() => setStatusFilter("all")}>
+                    &times;
+                  </button>
                 </span>
               )}
-              <button className="oh-clear-all" onClick={() => { setSearchTerm(""); setStatusFilter("all"); }}>
+              <button
+                className="oh-clear-all"
+                onClick={() => {
+                  setSearchTerm("");
+                  setStatusFilter("all");
+                }}
+              >
                 Clear all
               </button>
             </div>
@@ -717,26 +1136,34 @@ const AgentOrders = () => {
                     pagination={{
                       pageSize: 10,
                       showSizeChanger: true,
-                      showTotal: (total, range) => `${range[0]}\u2013${range[1]} of ${total}`,
+                      showTotal: (total, range) =>
+                        `${range[0]}\u2013${range[1]} of ${total}`,
                     }}
                     size="middle"
                     scroll={{ x: 720 }}
                   />
                 </div>
 
-                {/* ── IMPROVED: Mobile list grouped by friendly day headers ── */}
                 <div className="oh-mobile-list">
                   <div className="oh-mobile-count">
-                    Showing {transformedOrders.length} order{transformedOrders.length !== 1 ? "s" : ""}
+                    Showing {transformedOrders.length} order
+                    {transformedOrders.length !== 1 ? "s" : ""}
                   </div>
                   {groupedOrders.map((group) => (
                     <div key={group.header} className="oh-day-group">
                       <div className="oh-day-header">
-                        <span className="oh-day-header-text">{group.header}</span>
-                        <span className="oh-day-header-count">{group.items.length}</span>
+                        <span className="oh-day-header-text">
+                          {group.header}
+                        </span>
+                        <span className="oh-day-header-count">
+                          {group.items.length}
+                        </span>
                       </div>
                       {group.items.map((order) => (
-                        <MobileOrderCard key={order.key} order={order} />
+                        <MobileOrderCard
+                          key={order.key}
+                          order={order}
+                        />
                       ))}
                     </div>
                   ))}
@@ -748,8 +1175,15 @@ const AgentOrders = () => {
           </div>
         </div>
 
-        <OrderModal orderId={selectedOrderId} isModalVisible={isOrderModalVisible} onClose={handleOrderModalClose} />
-        <AuthModal open={isAuthModalVisible} onClose={handleAuthModalClose} />
+        <OrderModal
+          orderId={selectedOrderId}
+          isModalVisible={isOrderModalVisible}
+          onClose={handleOrderModalClose}
+        />
+        <AuthModal
+          open={isAuthModalVisible}
+          onClose={handleAuthModalClose}
+        />
         <FiltersDrawerContent />
       </div>
     </>
@@ -789,7 +1223,6 @@ const styles = `
   .oh-container { max-width: 1100px; margin: 0 auto; padding: 20px 16px 40px; }
   @media (min-width: 768px) { .oh-container { padding: 36px 48px 60px; } }
 
-  /* ── Page Header ── */
   .oh-page-header {
     display: flex; align-items: center; gap: 14px;
     margin-bottom: 20px; padding-bottom: 18px;
@@ -826,7 +1259,6 @@ const styles = `
   .oh-mobile-filter-btn:active { transform: scale(0.97); }
   @media (min-width: 768px) { .oh-mobile-filter-btn { display: none; } }
 
-  /* ── Quick Period Bar ── */
   .oh-quick-bar {
     margin-bottom: 18px;
     padding: 10px 12px;
@@ -889,7 +1321,6 @@ const styles = `
     color: #b91c1c;
   }
 
-  /* ── Stats ── */
   .oh-stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
   @media (min-width: 768px) { .oh-stats-grid { grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; } }
 
@@ -907,7 +1338,6 @@ const styles = `
   .oh-stat-label { font-size: 11px; font-weight: 700; color: var(--oh-light); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.08em; }
   .oh-stat-emoji { font-size: 28px; opacity: 0.25; line-height: 1; }
 
-  /* ── Filters Bar ── */
   .oh-filters-bar {
     display: none;
     grid-template-columns: repeat(4, 1fr); gap: 14px;
@@ -919,7 +1349,6 @@ const styles = `
   .oh-filter-group { display: flex; flex-direction: column; gap: 7px; }
   .oh-filter-label { font-size: 10px; font-weight: 700; color: var(--oh-light); text-transform: uppercase; letter-spacing: 0.08em; }
 
-  /* ── Active Filters ── */
   .oh-active-filters {
     display: flex; align-items: center; gap: 8px;
     padding: 11px 18px; background: var(--oh-green-lighter);
@@ -937,10 +1366,8 @@ const styles = `
   .oh-chip button:hover { color: #dc2626; }
   .oh-clear-all { background: none; border: none; color: var(--oh-green); font-weight: 600; font-size: 12px; cursor: pointer; margin-left: auto; font-family: var(--oh-font); text-decoration: underline; text-underline-offset: 2px; }
 
-  /* ── Main Card ── */
   .oh-main-card { background: var(--oh-surface); border: 1px solid var(--oh-border); border-radius: var(--oh-radius-lg); overflow: hidden; box-shadow: var(--oh-shadow-sm); }
 
-  /* ── Desktop Table ── */
   .oh-desktop-table { display: none; }
   @media (min-width: 768px) { .oh-desktop-table { display: block; } }
   .oh-desktop-table .ant-table { border-radius: 0 !important; }
@@ -967,12 +1394,9 @@ const styles = `
     border: 1px solid #e5e7eb; display: inline-block;
   }
 
-  /* ── IMPROVED Date Cell ── */
   .oh-date-cell { display: flex; flex-direction: column; gap: 3px; }
   .oh-date-primary-row { display: flex; align-items: center; gap: 6px; }
-  .oh-date-primary {
-    font-size: 14px; font-weight: 700; color: var(--oh-dark); line-height: 1.2;
-  }
+  .oh-date-primary { font-size: 14px; font-weight: 700; color: var(--oh-dark); line-height: 1.2; }
   .oh-date-primary.is-recent { color: var(--oh-green); }
   .oh-date-new-dot {
     width: 6px; height: 6px; border-radius: 50%;
@@ -980,10 +1404,7 @@ const styles = `
     box-shadow: 0 0 0 3px rgba(34,197,94,0.18);
     animation: oh-pulse 2s infinite;
   }
-  @keyframes oh-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
+  @keyframes oh-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
   .oh-date-secondary { font-size: 11.5px; color: var(--oh-light); font-weight: 500; }
 
   .oh-badge-pill {
@@ -1003,22 +1424,17 @@ const styles = `
   .oh-view-icon-btn:hover { background: var(--oh-green-lighter); border-color: var(--oh-green-accent); color: var(--oh-green); }
   .oh-eye-char { font-size: 16px; display: block; line-height: 1; }
 
-  /* ── Mobile List ── */
   .oh-mobile-list { display: block; padding: 14px; }
   @media (min-width: 768px) { .oh-mobile-list { display: none; } }
   .oh-mobile-count { font-size: 11px; font-weight: 700; color: var(--oh-light); text-transform: uppercase; letter-spacing: 0.08em; padding: 4px 4px 14px; }
 
-  /* ── IMPROVED: Day Group Headers ── */
   .oh-day-group { margin-bottom: 18px; }
   .oh-day-header {
     display: flex; align-items: center; gap: 10px;
     padding: 6px 4px 12px;
     position: sticky; top: 0; z-index: 2;
   }
-  .oh-day-header-text {
-    font-size: 13px; font-weight: 800; color: var(--oh-dark);
-    letter-spacing: -0.01em;
-  }
+  .oh-day-header-text { font-size: 13px; font-weight: 800; color: var(--oh-dark); letter-spacing: -0.01em; }
   .oh-day-header-count {
     display: inline-flex; align-items: center; justify-content: center;
     min-width: 20px; height: 20px; padding: 0 6px;
@@ -1049,7 +1465,6 @@ const styles = `
   .oh-mc-row-bottom { margin-top: 12px; display: flex; justify-content: flex-end; }
   .oh-mc-view-link { font-size: 12px; font-weight: 700; color: var(--oh-green); letter-spacing: 0.01em; }
 
-  /* ── Empty / Loading / Error ── */
   .oh-empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 64px 24px; }
   .oh-empty-circle { width: 88px; height: 88px; border-radius: 50%; background: var(--oh-bg); display: flex; align-items: center; justify-content: center; margin-bottom: 22px; border: 1px solid var(--oh-border); }
   .oh-empty-emoji { font-size: 36px; line-height: 1; opacity: 0.5; }
@@ -1074,12 +1489,10 @@ const styles = `
   }
   .oh-btn-secondary:hover { background: var(--oh-bg); border-color: #ccc; color: var(--oh-dark); }
 
-  /* ── Drawer ── */
   .oh-drawer-body { display: flex; flex-direction: column; gap: 18px; }
   .oh-drawer-field { display: flex; flex-direction: column; gap: 7px; }
   .oh-drawer-label { font-size: 10px; font-weight: 700; color: var(--oh-light); text-transform: uppercase; letter-spacing: 0.08em; }
 
-  /* ── Ant Overrides ── */
   .ant-picker, .ant-input, .ant-select-selector, .ant-btn { border-radius: var(--oh-radius) !important; font-family: var(--oh-font) !important; }
   .ant-input:focus, .ant-input-focused, .ant-picker-focused, .ant-select-focused .ant-select-selector { border-color: var(--oh-green) !important; box-shadow: 0 0 0 3px rgba(20, 83, 45, 0.08) !important; }
   .ant-btn-primary { background: var(--oh-green) !important; border-color: var(--oh-green) !important; }

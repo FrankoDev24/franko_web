@@ -1,6 +1,7 @@
 // productSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "./AxiosInstance";
+import { productCodesStorage } from "../../utils/productCodesStorage";
 
 /* ---------------------------
   Helpers
@@ -62,6 +63,35 @@ const withAutoProductCode = (productData, branchProducts) => {
   return fd;
 };
 
+// Merge saved codes with products
+const mergeCodesWithProducts = (products) => {
+  if (!Array.isArray(products)) return [];
+  
+  // Load from our storage
+  const savedCodes = productCodesStorage.load();
+  const codesCount = Object.keys(savedCodes).length;
+  
+  if (codesCount > 0) {
+
+  }
+
+  return products.map((product) => {
+    const productId = product?.productID || product?.Productid;
+    if (!productId) return product;
+
+    const savedCode = savedCodes[String(productId)];
+    if (savedCode) {
+      return {
+        ...product,
+        ProductId2: savedCode,
+        productId2: savedCode,
+        productCode: savedCode,
+      };
+    }
+    return product;
+  });
+};
+
 /* ===========================
    ASYNC THUNKS
 =========================== */
@@ -89,11 +119,16 @@ export const addProduct = createAsyncThunk(
       });
 
       const newProduct = response.data;
+      
+      // Save to storage immediately
+      const productId = newProduct?.productID || newProduct?.Productid;
+      if (productId && productId2ToStore) {
+        productCodesStorage.addCode(productId, productId2ToStore);
+      }
 
       return { product: newProduct, productId2: productId2ToStore };
     } catch (error) {
-      console.error("Add product error:", error);
-      return rejectWithValue(error.response?.data?.message || error.message || "Failed to add product");
+      return rejectWithValue(error.response?.data ?? error.message ?? "Failed to add product");
     }
   }
 );
@@ -112,6 +147,11 @@ export const updateProduct = createAsyncThunk(
         headers: { accept: "text/plain", "Content-Type": "application/json" },
       });
 
+      // Save to storage immediately
+      if (Productid && productId2ToStore) {
+        productCodesStorage.addCode(Productid, productId2ToStore);
+      }
+
       return {
         response: data,
         productId: Productid,
@@ -119,8 +159,7 @@ export const updateProduct = createAsyncThunk(
         updatedData: normalizedRest,
       };
     } catch (error) {
-      console.error("Update product error:", error);
-      return rejectWithValue(error.response?.data?.message || error.message || "Failed to update product");
+      return rejectWithValue(error.response?.data || "Failed to update product");
     }
   }
 );
@@ -139,8 +178,7 @@ export const updateProductImage = createAsyncThunk(
 
       return response.data;
     } catch (error) {
-      console.error("Update image error:", error);
-      return rejectWithValue(error.response?.data?.message || error.message || "Failed to update product image");
+      return rejectWithValue(error.response?.data || "Failed to update product image");
     }
   }
 );
@@ -153,24 +191,14 @@ export const fetchAllProducts = createAsyncThunk(
         params: { endpoint: "/Product/Product-Get" },
       });
 
-      // Handle different response formats
-      let products = Array.isArray(data) ? data : (data?.data || data?.products || []);
-      
-      if (!Array.isArray(products)) {
-        console.warn("fetchAllProducts: Data is not an array", data);
-        return [];
-      }
+      if (!Array.isArray(data)) return [];
 
-      const sorted = products.sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated));
+      const sorted = data.sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated));
       
-      return sorted;
+      // Merge with saved codes from storage
+      return mergeCodesWithProducts(sorted);
     } catch (error) {
-      console.error("Fetch all products error:", error);
-      const errorMsg = error.response?.data?.message || 
-                       error.response?.data?.error ||
-                       error.message || 
-                       "Failed to fetch all products";
-      return rejectWithValue(errorMsg);
+      return rejectWithValue(error.response?.data || "Failed to fetch all products");
     }
   }
 );
@@ -183,26 +211,15 @@ export const fetchProducts = createAsyncThunk(
         params: { endpoint: "/Product/Product-Get" },
       });
 
-      // Handle different response formats
-      let products = Array.isArray(data) ? data : (data?.data || data?.products || []);
-      
-      if (!Array.isArray(products)) {
-        console.warn("fetchProducts: Data is not an array", data);
-        return [];
-      }
+      if (!Array.isArray(data)) return [];
 
-      const filtered = products
-        .filter((product) => product.status == 1 || product.Status == 1)
+      const filtered = data
+        .filter((product) => product.status == 1)
         .sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated));
 
-      return filtered;
+      return mergeCodesWithProducts(filtered);
     } catch (error) {
-      console.error("Fetch products error:", error);
-      const errorMsg = error.response?.data?.message || 
-                       error.response?.data?.error ||
-                       error.message || 
-                       "Failed to fetch products";
-      return rejectWithValue(errorMsg);
+      return rejectWithValue(error.response?.data || "Failed to fetch products");
     }
   }
 );
@@ -215,26 +232,16 @@ export const fetchProduct = createAsyncThunk(
         params: { endpoint: "/Product/Product-Get" },
       });
 
-      let products = Array.isArray(data) ? data : (data?.data || data?.products || []);
-      
-      if (!Array.isArray(products)) {
-        console.warn("fetchProduct: Data is not an array", data);
-        return [];
-      }
+      if (!Array.isArray(data)) return [];
 
-      const filtered = products
-        .filter((product) => product.status == 1 || product.Status == 1)
+      const filtered = data
+        .filter((product) => product.status == 1)
         .sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated))
         .slice(0, 10);
 
-      return filtered;
+      return mergeCodesWithProducts(filtered);
     } catch (error) {
-      console.error("Fetch product error:", error);
-      const errorMsg = error.response?.data?.message || 
-                       error.response?.data?.error ||
-                       error.message || 
-                       "Failed to fetch product";
-      return rejectWithValue(errorMsg);
+      return rejectWithValue(error.response?.data || "Failed to fetch product");
     }
   }
 );
@@ -251,21 +258,12 @@ export const fetchPaginatedProducts = createAsyncThunk(
         },
       });
 
-      let products = Array.isArray(data) ? data : (data?.data || data?.products || []);
-      
-      if (!Array.isArray(products)) {
-        return [];
-      }
+      if (!Array.isArray(data)) return [];
 
-      const sorted = products.sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated));
-      return sorted;
+      const sorted = data.sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated));
+      return mergeCodesWithProducts(sorted);
     } catch (error) {
-      console.error("Fetch paginated products error:", error);
-      const errorMsg = error.response?.data?.message || 
-                       error.response?.data?.error ||
-                       error.message || 
-                       "Failed to fetch products";
-      return rejectWithValue(errorMsg);
+      return rejectWithValue(error.response?.data || "Failed to fetch products");
     }
   }
 );
@@ -278,20 +276,11 @@ export const fetchProductsByCategory = createAsyncThunk(
         params: { endpoint: `/Product/Product-Get-by-Category/${categoryId}` },
       });
 
-      let products = Array.isArray(data) ? data : (data?.data || data?.products || []);
-      
-      if (!Array.isArray(products)) {
-        return { categoryId, products: [] };
-      }
+      if (!Array.isArray(data)) return { categoryId, products: [] };
 
-      return { categoryId, products };
+      return { categoryId, products: mergeCodesWithProducts(data) };
     } catch (error) {
-      console.error("Fetch products by category error:", error);
-      const errorMsg = error.response?.data?.message || 
-                       error.response?.data?.error ||
-                       error.message || 
-                       "Failed to fetch products by category";
-      return rejectWithValue(errorMsg);
+      return rejectWithValue(error.response?.data || "Failed to fetch products by category");
     }
   }
 );
@@ -304,21 +293,12 @@ export const fetchProductsByBrand = createAsyncThunk(
         params: { endpoint: `/Product/Product-Get-by-Brand/${brandId}` },
       });
 
-      let products = Array.isArray(data) ? data : (data?.data || data?.products || []);
-      
-      if (!Array.isArray(products)) {
-        return [];
-      }
+      if (!Array.isArray(data)) return [];
 
-      const sorted = products.sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated));
-      return sorted;
+      const sorted = data.sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated));
+      return mergeCodesWithProducts(sorted);
     } catch (error) {
-      console.error("Fetch products by brand error:", error);
-      const errorMsg = error.response?.data?.message || 
-                       error.response?.data?.error ||
-                       error.message || 
-                       "Failed to fetch products by brand";
-      return rejectWithValue(errorMsg);
+      return rejectWithValue(error.response?.data || "Failed to fetch products by brand");
     }
   }
 );
@@ -331,21 +311,12 @@ export const fetchProductsByShowroom = createAsyncThunk(
         params: { endpoint: `/Product/Product-Get-by-ShowRoom/${showRoomID}` },
       });
 
-      let products = Array.isArray(data) ? data : (data?.data || data?.products || []);
-      
-      if (!Array.isArray(products)) {
-        return { showRoomID, products: [] };
-      }
+      if (!Array.isArray(data)) return { showRoomID, products: [] };
 
-      const sorted = products.sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated));
-      return { showRoomID, products: sorted };
+      const sorted = data.sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated));
+      return { showRoomID, products: mergeCodesWithProducts(sorted) };
     } catch (error) {
-      console.error("Fetch products by showroom error:", error);
-      const errorMsg = error.response?.data?.message || 
-                       error.response?.data?.error ||
-                       error.message || 
-                       "Failed to fetch products by showroom";
-      return rejectWithValue(errorMsg);
+      return rejectWithValue(error.response?.data || "Failed to fetch products by showroom");
     }
   }
 );
@@ -358,20 +329,10 @@ export const fetchProductById = createAsyncThunk(
         params: { endpoint: `/Product/Product-Get-by-Product_ID/${productId}` },
       });
 
-      let product = Array.isArray(data) ? data[0] : (data?.data || data);
-      
-      if (!product) {
-        return rejectWithValue("Product not found");
-      }
-
-      return product;
+      const merged = mergeCodesWithProducts([data]);
+      return merged[0] || data;
     } catch (error) {
-      console.error("Fetch product by ID error:", error);
-      const errorMsg = error.response?.data?.message || 
-                       error.response?.data?.error ||
-                       error.message || 
-                       "Failed to fetch product by ID";
-      return rejectWithValue(errorMsg);
+      return rejectWithValue(error.response?.data || "Failed to fetch product by ID");
     }
   }
 );
@@ -384,20 +345,10 @@ export const fetchActiveProducts = createAsyncThunk(
         params: { endpoint: "/Product/Product-Get-Active" },
       });
 
-      let products = Array.isArray(data) ? data : (data?.data || data?.products || []);
-      
-      if (!Array.isArray(products)) {
-        return [];
-      }
-
-      return products;
+      if (!Array.isArray(data)) return [];
+      return mergeCodesWithProducts(data);
     } catch (error) {
-      console.error("Fetch active products error:", error);
-      const errorMsg = error.response?.data?.message || 
-                       error.response?.data?.error ||
-                       error.message || 
-                       "Failed to fetch active products";
-      return rejectWithValue(errorMsg);
+      return rejectWithValue(error.response?.data || "Failed to fetch active products");
     }
   }
 );
@@ -410,20 +361,10 @@ export const fetchInactiveProducts = createAsyncThunk(
         params: { endpoint: "/Product/Product-Get-0" },
       });
 
-      let products = Array.isArray(data) ? data : (data?.data || data?.products || []);
-      
-      if (!Array.isArray(products)) {
-        return [];
-      }
-
-      return products;
+      if (!Array.isArray(data)) return [];
+      return mergeCodesWithProducts(data);
     } catch (error) {
-      console.error("Fetch inactive products error:", error);
-      const errorMsg = error.response?.data?.message || 
-                       error.response?.data?.error ||
-                       error.message || 
-                       "Failed to fetch inactive products";
-      return rejectWithValue(errorMsg);
+      return rejectWithValue(error.response?.data || "Failed to fetch inactive products");
     }
   }
 );
@@ -440,21 +381,14 @@ export const fetchProductByShowroomAndRecord = createAsyncThunk(
         },
       });
 
-      let products = Array.isArray(data) ? data : (data?.data || data?.products || []);
-      
-      if (!Array.isArray(products)) {
-        return { showRoomCode, products: [] };
-      }
+      if (!Array.isArray(data)) return { showRoomCode, products: [] };
 
-      const sorted = products.sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated));
-      return { showRoomCode, products: sorted };
+      const sorted = data.sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated));
+      return { showRoomCode, products: mergeCodesWithProducts(sorted) };
     } catch (error) {
-      console.error("Fetch product by showroom and record error:", error);
-      const errorMsg = error.response?.data?.message || 
-                       error.response?.data?.error ||
-                       error.message || 
-                       "Failed to fetch product by showroom and record number";
-      return rejectWithValue(errorMsg);
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch product by showroom and record number"
+      );
     }
   }
 );
@@ -495,6 +429,30 @@ const productSlice = createSlice({
     clearCurrentProduct: (state) => {
       state.currentProduct = null;
     },
+    // Manual update of product code in state
+    updateProductCode: (state, action) => {
+      const { productId, code } = action.payload;
+      if (!productId || !code) return;
+      
+      // Save to storage
+      productCodesStorage.addCode(productId, code);
+      
+      // Update in state
+      const index = state.products.findIndex(
+        (p) => p.productID === productId || p.Productid === productId
+      );
+      if (index !== -1) {
+        state.products[index] = {
+          ...state.products[index],
+          ProductId2: code,
+          productId2: code,
+          productCode: code,
+        };
+      }
+    },
+    clearAllProductCodes: (state) => {
+      productCodesStorage.clear();
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -515,6 +473,7 @@ const productSlice = createSlice({
         };
 
         state.products.unshift(enrichedProduct);
+     
       })
       .addCase(addProduct.rejected, (state, action) => {
         state.loading = false;
@@ -543,6 +502,7 @@ const productSlice = createSlice({
             productCode: productId2,
           };
         }
+
       })
       .addCase(updateProduct.rejected, (state, action) => {
         state.loading = false;
@@ -578,12 +538,13 @@ const productSlice = createSlice({
       })
       .addCase(fetchAllProducts.fulfilled, (state, action) => {
         state.loading = false;
-        state.products = action.payload || [];
+        state.products = action.payload;
+        
+        const savedCodes = productCodesStorage.load();
       })
       .addCase(fetchAllProducts.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || action.error.message;
-        state.products = [];
       })
 
       // Fetch Products
@@ -593,12 +554,11 @@ const productSlice = createSlice({
       })
       .addCase(fetchProducts.fulfilled, (state, action) => {
         state.loading = false;
-        state.products = action.payload || [];
+        state.products = action.payload;
       })
       .addCase(fetchProducts.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || action.error.message;
-        state.products = [];
       })
 
       // Fetch Product (top 10)
@@ -608,12 +568,11 @@ const productSlice = createSlice({
       })
       .addCase(fetchProduct.fulfilled, (state, action) => {
         state.loading = false;
-        state.products = action.payload || [];
+        state.products = action.payload;
       })
       .addCase(fetchProduct.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || action.error.message;
-        state.products = [];
       })
 
       // Fetch Products by Brand
@@ -623,7 +582,7 @@ const productSlice = createSlice({
       })
       .addCase(fetchProductsByBrand.fulfilled, (state, action) => {
         state.loading = false;
-        state.brandProducts = action.payload || [];
+        state.brandProducts = action.payload;
       })
       .addCase(fetchProductsByBrand.rejected, (state, action) => {
         state.loading = false;
@@ -637,7 +596,7 @@ const productSlice = createSlice({
       })
       .addCase(fetchProductsByCategory.fulfilled, (state, action) => {
         state.loading = false;
-        state.productsByCategory[action.payload.categoryId] = action.payload.products || [];
+        state.productsByCategory[action.payload.categoryId] = action.payload.products;
       })
       .addCase(fetchProductsByCategory.rejected, (state, action) => {
         state.loading = false;
@@ -652,7 +611,7 @@ const productSlice = createSlice({
       .addCase(fetchProductsByShowroom.fulfilled, (state, action) => {
         state.loading = false;
         const { showRoomID, products } = action.payload;
-        state.productsByShowroom[showRoomID] = products || [];
+        state.productsByShowroom[showRoomID] = products;
       })
       .addCase(fetchProductsByShowroom.rejected, (state, action) => {
         state.loading = false;
@@ -680,7 +639,7 @@ const productSlice = createSlice({
       })
       .addCase(fetchPaginatedProducts.fulfilled, (state, action) => {
         state.loading = false;
-        state.products = action.payload || [];
+        state.products = action.payload;
       })
       .addCase(fetchPaginatedProducts.rejected, (state, action) => {
         state.loading = false;
@@ -694,7 +653,7 @@ const productSlice = createSlice({
       })
       .addCase(fetchActiveProducts.fulfilled, (state, action) => {
         state.loading = false;
-        state.activeProducts = action.payload || [];
+        state.activeProducts = action.payload;
       })
       .addCase(fetchActiveProducts.rejected, (state, action) => {
         state.loading = false;
@@ -708,7 +667,7 @@ const productSlice = createSlice({
       })
       .addCase(fetchInactiveProducts.fulfilled, (state, action) => {
         state.loading = false;
-        state.inactiveProducts = action.payload || [];
+        state.inactiveProducts = action.payload;
       })
       .addCase(fetchInactiveProducts.rejected, (state, action) => {
         state.loading = false;
@@ -723,7 +682,7 @@ const productSlice = createSlice({
       .addCase(fetchProductByShowroomAndRecord.fulfilled, (state, action) => {
         state.loading = false;
         const { showRoomCode, products } = action.payload;
-        state.productsByShowroom[showRoomCode] = products || [];
+        state.productsByShowroom[showRoomCode] = products;
       })
       .addCase(fetchProductByShowroomAndRecord.rejected, (state, action) => {
         state.loading = false;
@@ -737,6 +696,11 @@ export const {
   setPage,
   clearCurrentProduct,
   resetProducts,
+  updateProductCode,
+  clearAllProductCodes,
 } = productSlice.actions;
 
 export default productSlice.reducer;
+
+// Export storage for direct access if needed
+export { productCodesStorage };
