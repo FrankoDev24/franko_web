@@ -1812,22 +1812,7 @@ const ProductDescription = () => {
               )}
             </div>
 
-            <div className="flex items-center flex-wrap justify-between gap-2">
-              <div className="flex items-center flex-wrap gap-2">
-                {product.tag && (
-                  <span className="pd-badge pd-badge-tag">{product.tag}</span>
-                )}
-                {product.productColor && (
-                  <span className="pd-badge pd-badge-color">Color: {product.productColor}</span>
-                )}
-              </div>
-              <button
-                className="pd-share-btn"
-                onClick={() => handleShare("general")}
-              >
-                <ShareIcon className="w-5 h-5" style={{ color: 'var(--pd-green)' }} />
-              </button>
-            </div>
+       
 
             <div className={`pd-stock ${outOfStock ? 'pd-stock-out' : 'pd-stock-in'}`}>
               {outOfStock ? (
