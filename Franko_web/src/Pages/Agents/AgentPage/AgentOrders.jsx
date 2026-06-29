@@ -15,8 +15,9 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import calendar from "dayjs/plugin/calendar";
 import isBetween from "dayjs/plugin/isBetween";
-import OrderModal from "../../../Component/OrderModal";
+
 import AuthModal from "../../../Component/AuthModal";
+import AgentOrderModal from "./AgentOrderModal";
 
 dayjs.extend(relativeTime);
 dayjs.extend(calendar);
@@ -1175,7 +1176,7 @@ const AgentOrders = () => {
           </div>
         </div>
 
-        <OrderModal
+        <AgentOrderModal
           orderId={selectedOrderId}
           isModalVisible={isOrderModalVisible}
           onClose={handleOrderModalClose}

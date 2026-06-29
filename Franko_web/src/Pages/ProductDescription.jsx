@@ -15,7 +15,6 @@ import {
   ShieldCheckIcon,
   PhoneIcon,
   CreditCardIcon,
-  ShareIcon,
   TrashIcon,
   MinusIcon,
   PlusIcon,
