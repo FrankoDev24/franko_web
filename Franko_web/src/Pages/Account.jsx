@@ -298,16 +298,22 @@ const Account = () => {
 
             {/* Stats */}
             <div className="ac-stats-row">
-              <div className="ac-stat" onClick={handleOrderHistoryClick} style={{ cursor: "pointer" }}>
-                <div className="ac-stat-icon ac-stat-icon-green">
-                  <ShoppingBagIcon style={{ width: 18, height: 18 }} />
-                </div>
-                <div className="ac-stat-info">
-                  <span className="ac-stat-label">Orders</span>
-                  <span className="ac-stat-value">View History</span>
-                </div>
-                <ChevronRightIcon style={{ width: 14, height: 14, color: "#ccc" }} />
-              </div>
+            {!isUserAgent && (
+  <div
+    className="ac-stat"
+    onClick={handleOrderHistoryClick}
+    style={{ cursor: "pointer" }}
+  >
+    <div className="ac-stat-icon ac-stat-icon-green">
+      <ShoppingBagIcon style={{ width: 18, height: 18 }} />
+    </div>
+    <div className="ac-stat-info">
+      <span className="ac-stat-label">Orders</span>
+      <span className="ac-stat-value">View History</span>
+    </div>
+    <ChevronRightIcon style={{ width: 14, height: 14, color: "#ccc" }} />
+  </div>
+)}
               <div className="ac-stat" onClick={() => setActiveTab("wishlist")} style={{ cursor: "pointer" }}>
                 <div className="ac-stat-icon ac-stat-icon-red">
                   <HeartIcon style={{ width: 18, height: 18 }} />
@@ -437,16 +443,22 @@ const Account = () => {
               </div>
 
               <div className="ac-actions-list">
-                <button className="ac-action-item" onClick={handleOrderHistoryClick}>
-                  <div className="ac-action-icon ac-action-icon-green">
-                    <ShoppingBagIcon style={{ width: 18, height: 18 }} />
-                  </div>
-                  <div className="ac-action-text">
-                    <span className="ac-action-label">{isUserAgent ? "Agent Dashboard" : "Order History"}</span>
-                    <span className="ac-action-desc">View and track your orders</span>
-                  </div>
-                  <ChevronRightIcon style={{ width: 16, height: 16, color: "#ccc" }} />
-                </button>
+               {!isUserAgent && (
+  <button className="ac-action-item" onClick={handleOrderHistoryClick}>
+    <div className="ac-action-icon ac-action-icon-green">
+      <ShoppingBagIcon style={{ width: 18, height: 18 }} />
+    </div>
+
+    <div className="ac-action-text">
+      <span className="ac-action-label">Order History</span>
+      <span className="ac-action-desc">View and track your orders</span>
+    </div>
+
+    <ChevronRightIcon
+      style={{ width: 16, height: 16, color: "#ccc" }}
+    />
+  </button>
+)}
 
                 <button className="ac-action-item" onClick={() => setShowLogoutModal(true)}>
                   <div className="ac-action-icon ac-action-icon-amber">

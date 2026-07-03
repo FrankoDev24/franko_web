@@ -1656,7 +1656,7 @@ const ProductDescription = () => {
 
       <div className="pd-root max-w-7xl mx-auto px-4 py-2">
    <Helmet>
-        <title>{`${product?.productName || "Product"} - Best Price`}</title>
+        <title>{`${product?.productName || "Product"} - Best Price in Ghanna`}</title>
         <meta name="description" content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}. High-quality and best prices available.`} />
         <meta property="og:title" content={product?.productName || "Product"} />
         <meta property="og:description" content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}.`} />

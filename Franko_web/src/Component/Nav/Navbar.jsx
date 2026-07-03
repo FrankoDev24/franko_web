@@ -120,10 +120,9 @@ const Nav = () => {
 
   const handleWishlistClick = () => navigate("/wishlist");
 
-  const handleMyOrdersClick = () => {
-    if (currentCustomer?.accountType === "agent") navigate("/agent/dashboard");
-    else navigate("/order-history");
-  };
+const handleMyOrdersClick = () => {
+  navigate("/order-history");
+};
 
   const closeDrawerAndNavigateToOrders = () => {
     setOpenDrawer(false);
@@ -1469,21 +1468,14 @@ useEffect(() => {
                   >
                     About
                   </button>
-                  {currentCustomer && (
-                    <button
-                      onClick={handleMyOrdersClick}
-                      className={`nl ${
-                        (currentCustomer.accountType === "agent" &&
-                          isActive("/agent/dashboard")) ||
-                        (currentCustomer.accountType !== "agent" &&
-                          isActive("/order-history"))
-                          ? "nl-active"
-                          : ""
-                      }`}
-                    >
-                      {currentCustomer.accountType === "agent" ? "Dashboard" : "Orders"}
-                    </button>
-                  )}
+                {currentCustomer && (
+  <button
+    onClick={handleMyOrdersClick}
+    className={`nl ${isActive("/order-history") ? "nl-active" : ""}`}
+  >
+    Orders
+  </button>
+)}
                   <button
                     onClick={() => navigate("/shops")}
                     className={`nl ${isActive("/shops") ? "nl-active" : ""}`}
@@ -1876,44 +1868,47 @@ useEffect(() => {
 
                 <div className="d-label">Navigate</div>
 
-                {[
-                  { label: "Home", icon: HomeIcon, path: "/" },
-                  { label: "About Us", icon: DevicePhoneMobileIcon, path: "/about" },
-                  ...(currentCustomer
-                    ? [
-                        {
-                          label: currentCustomer.accountType === "agent" ? "Dashboard" : "My Orders",
-                          icon: TruckIcon,
-                          path: currentCustomer.accountType === "agent" ? "/agent/dashboard" : "/order-history",
-                          customAction: closeDrawerAndNavigateToOrders,
-                        },
-                      ]
-                    : []),
-                  { label: "Shops", icon: Store, path: "/shops" },
-                  { label: "Contact", icon: PhoneArrowDownLeftIcon, path: "/contact" },
-                ].map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <div
-                      key={item.label}
-                      onClick={() => {
-                        if (item.customAction) item.customAction();
-                        else closeDrawerAndNavigate(item.path);
-                      }}
-                      className={`d-item ${isActive(item.path) ? "d-item-on" : ""}`}
-                    >
-                      <Icon
-                        style={{
-                          width: 17,
-                          height: 17,
-                          color: isActive(item.path) ? "var(--nav-green)" : "#bbb",
-                          flexShrink: 0,
-                        }}
-                      />
-                      <span>{item.label}</span>
-                    </div>
-                  );
-                })}
+              {[
+  { label: "Home", icon: HomeIcon, path: "/" },
+  { label: "About Us", icon: DevicePhoneMobileIcon, path: "/about" },
+
+  ...(currentCustomer
+    ? [
+        {
+          label: "My Orders",
+          icon: TruckIcon,
+          path: "/order-history",
+          customAction: closeDrawerAndNavigateToOrders,
+        },
+      ]
+    : []),
+
+  { label: "Shops", icon: Store, path: "/shops" },
+  { label: "Contact", icon: PhoneArrowDownLeftIcon, path: "/contact" },
+].map((item) => {
+  const Icon = item.icon;
+
+  return (
+    <div
+      key={item.label}
+      onClick={() => {
+        if (item.customAction) item.customAction();
+        else closeDrawerAndNavigate(item.path);
+      }}
+      className={`d-item ${isActive(item.path) ? "d-item-on" : ""}`}
+    >
+      <Icon
+        style={{
+          width: 17,
+          height: 17,
+          color: isActive(item.path) ? "var(--nav-green)" : "#bbb",
+          flexShrink: 0,
+        }}
+      />
+      <span>{item.label}</span>
+    </div>
+  );
+})}
 
                 <div className="d-sep" />
 
