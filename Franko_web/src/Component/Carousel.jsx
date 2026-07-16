@@ -161,9 +161,7 @@ export default function Carousel() {
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               />
-              <div className="absolute top-3 left-3 bg-black/60 text-white px-3 py-1 rounded text-xs md:text-sm font-bold z-10">
-                Invitation to Galaxy Unpacked 2026
-              </div>
+             
             </div>
           </SplideSlide>
 

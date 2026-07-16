@@ -303,7 +303,7 @@ const AnnouncementBar = () => {
                   <div className="fs-alarm-wrap">
                     <div className="fs-alarm-bg">
                       <div className="fs-alarm-face">
-                        <img src="/speed.PNG" alt="Franko Speed shopping" className="fs-logo-img" />
+                        <img src="/speed.jpg" alt="Franko Speed shopping" className="fs-logo-img" />
                       </div>
                     </div>
                   </div>

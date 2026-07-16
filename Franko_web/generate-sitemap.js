@@ -182,6 +182,13 @@ const pages = [
     priority: 0.9,
     loc: "https://www.frankotrading.com/brand/aa5e3a3-679c-4c79-a43b-3698ec47609f",
   },
+   {
+    url: "/brand/4030f44e-19ea-4f87-a075-f1d71f75c8cc",
+    changefreq: "hourly",
+    priority: 0.9,
+    loc: "https://www.frankotrading.com/brand/4030f44e-19ea-4f87-a075-f1d71f75c8cc",
+  },
+ 
   {
     url: "/brand/967637d5-feee-4c8c-8b28-709297dde50c",
     changefreq: "hourly",
