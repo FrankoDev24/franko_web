@@ -151,7 +151,23 @@ export default function Carousel() {
           onMounted={() => startAutoplay()}
           onMove={() => startAutoplay()}
         >
-          {/* ✅ Only render fetched ads. Hardcoded image removed from slides. */}
+          {/* New YouTube Slide Added as First Slide */}
+          <SplideSlide className="banner-slide">
+            <div className="w-full h-full relative">
+              <iframe
+                className="w-full h-full"
+                src="https://www.youtube.com/embed/WqGRV-fXaUs?autoplay=0&mute=1&controls=1"
+                title="Galaxy Unpacked 2026"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+              <div className="absolute top-3 left-3 bg-black/60 text-white px-3 py-1 rounded text-xs md:text-sm font-bold z-10">
+                Invitation to Galaxy Unpacked 2026
+              </div>
+            </div>
+          </SplideSlide>
+
+          {/* Existing Fetched Ads */}
           {filteredAds.map((ad, index) => {
             const file = String(ad?.fileName || "").split("\\").pop();
             const imageUrl = `${backendBaseURL}/Media/Ads/${file}`;
@@ -198,10 +214,8 @@ export default function Carousel() {
         <div className="hidden md:block w-full">
           {loading ? (
             <img src={ban} alt="Franko Trading" className="w-full h-full object-cover rounded-lg" />
-          ) : filteredAds.length > 0 ? (
-            renderSplide(false)
           ) : (
-            <img src={ban} alt="Franko Trading" className="w-full h-full object-cover rounded-lg" />
+            renderSplide(false)
           )}
         </div>
 
@@ -209,10 +223,8 @@ export default function Carousel() {
         <div className="md:hidden w-full relative">
           {loading ? (
             <img src={ban} alt="Franko Trading" className="w-full h-full object-cover rounded-lg" />
-          ) : filteredAds.length > 0 ? (
-            renderSplide(true)
           ) : (
-            <img src={ban} alt="Franko Trading" className="w-full h-full object-cover rounded-lg" />
+            renderSplide(true)
           )}
         </div>
       </div>

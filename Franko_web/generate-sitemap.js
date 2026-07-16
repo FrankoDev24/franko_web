@@ -89,12 +89,14 @@ const pages = [
     priority: 0.9,
     loc: "https://www.frankotrading.com/computers",
   },
-  {
-    url: "/combo",
+  
+   {
+    url: "/speed-shopping",
     changefreq: "daily",
     priority: 0.9,
-    loc: "https://www.frankotrading.com/combo",
+    loc: "https://www.frankotrading.com/speed-shopping",
   },
+ 
   {
     url: "/brand/49ec5fab-6e57-485e-ba75-24ec026f3c19",
     changefreq: "hourly",
@@ -700,6 +702,25 @@ const productIds = [
   "b827b3e2-0344-4222-9c35-cc66ea588709",
   "5c53d7c3-aeb5-48bb-bbd8-a4eb6d713dad",
   "b9586729-4b42-44a2-b6e9-db5a70138886",
+  " 5c53d7c3-aeb5-48bb-bbd8-a4eb6d713dad",
+  "b827b3e2-0344-4222-9c35-cc66ea588709",
+  "16e81c35-139f-428a-a3f1-c2b20dc03a4d",
+  "733c5ae6-99ab-4be1-9af4-563824c976e7",
+  "93788114-ad1d-4a1f-bbfe-a23e63230bbe",
+  "1d212654-0c42-4631-83a3-67cad902f1d8",
+  "03178480-1a34-4cbb-a43b-01a88cf02f7a",
+"c4e8425b-e587-4b1c-b052-da76b6973949",
+"d5d085f9-0ff2-4d35-8fd4-2c53d9f1759e",
+"047a02f6-28cf-465d-8cf9-0a0b06a3497e",
+"9c1c3824-a4aa-4cb7-91d9-383941eadbf0",
+"df455021-9638-4217-a3c4-616e34f383f9",
+"5c302757-ab8e-4dfb-9179-6f24e03b00b4",
+"3ef33112-2d7d-4b24-8408-f07fa8f945c5",
+
+
+"5e370375-2fa2-49d6-9fe5-d731332325e9",
+
+"5a60871c-b5f8-4387-855d-c85c89b60c00",
   "6d22d8ad-be17-42a2-a8b7-b0058cb1e768",
   "409da03b-8757-4252-94ee-e7a0922919ae",
   "25253a7d-b3ac-414f-a578-bd452e01bedc",
@@ -1292,6 +1313,7 @@ const productIds = [
   "3c7e2bc7-dc69-4b60-bfff-d38458ec3d1f",
   "9d78f828-6aae-4e5c-bbd1-25387dc5b212",
   "8c117feb-bf29-4159-afc8-e39ce253d789",
+
 ];
 
 productIds.forEach((id) => {
