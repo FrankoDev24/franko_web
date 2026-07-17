@@ -309,7 +309,7 @@ const AnnouncementBar = () => {
                   </div>
                   <div className="fs-title">
                     <div className="fs-brand">FRANKO <span>SPEED SHOPPING</span></div>
-                    <div className="fs-chip fs-chip-yellow">ONLY 3HRS TO SHOP</div>
+                    <div className="fs-chip fs-chip-yellow">ONLY 6HRS TO SHOP</div>
                   </div>
                 </div>
 
