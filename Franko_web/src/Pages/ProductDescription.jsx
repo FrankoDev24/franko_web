@@ -170,7 +170,7 @@ const ProductDescription = () => {
         setCartSyncError(null);
       }
     } catch {
-      setCartSyncError("Failed to sync cart. Changes saved locally.");
+      setCartSyncError("Refresh the page");
     }
   };
 
