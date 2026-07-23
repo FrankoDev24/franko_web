@@ -151,21 +151,7 @@ export default function Carousel() {
           onMounted={() => startAutoplay()}
           onMove={() => startAutoplay()}
         >
-          {/* New YouTube Slide Added as First Slide */}
-          <SplideSlide className="banner-slide">
-            <div className="w-full h-full relative">
-              <iframe
-                className="w-full h-full"
-                src="https://www.youtube.com/embed/WqGRV-fXaUs?autoplay=0&mute=1&controls=1"
-                title="Galaxy Unpacked 2026"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-             
-            </div>
-          </SplideSlide>
-
-          {/* Existing Fetched Ads */}
+          {/* Fetched Ads Only */}
           {filteredAds.map((ad, index) => {
             const file = String(ad?.fileName || "").split("\\").pop();
             const imageUrl = `${backendBaseURL}/Media/Ads/${file}`;

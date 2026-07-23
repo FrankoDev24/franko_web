@@ -3,10 +3,18 @@ import React, { useState, useEffect, useCallback } from "react";
 const EVENT_START = new Date("2026-08-07T09:00:00Z").getTime();
 const EVENT_END = EVENT_START + 3 * 60 * 60 * 1000;
 
+const teaserMessages = [
+  { main: "MARK YOUR", highlight: "CALENDAR" },
+  { main: "FRANKO", highlight: "SPEED SHOPPING" },
+  { main: "SIX HOURS", highlight: "ONLY" },
+  { main: "YOU CAN'T", highlight: "MISS THIS" },
+  { main: "ONLINE PURCHASE", highlight: "ONLY" },
+];
+
 const promoMessages = [
-  { text: "Free Delivery Within Accra & Kumasi",  },
-  { text: "On All Products Purchased Online",  },
-  { text: "Save More With Free Delivery Today", },
+  { text: "Free Delivery Within Accra & Kumasi" },
+  { text: "On All Products Purchased Online" },
+  { text: "Save More With Free Delivery Today" },
 ];
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -28,6 +36,8 @@ const AnnouncementBar = () => {
   const [phase, setPhase] = useState("upcoming");
   const [msgIdx, setMsgIdx] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
+  const [teaserIdx, setTeaserIdx] = useState(0);
+  const [teaserFading, setTeaserFading] = useState(false);
 
   useEffect(() => {
     const tick = () => {
@@ -60,7 +70,24 @@ const AnnouncementBar = () => {
     return () => clearInterval(id);
   }, [nextMsg]);
 
-  const liveProgress = phase === "live" ? ((Date.now() - EVENT_START) / (EVENT_END - EVENT_START)) * 100 : 0;
+  // Teaser: transitions the FRANKO SPEED SHOPPING bold text
+  const nextTeaser = useCallback(() => {
+    setTeaserFading(true);
+    setTimeout(() => {
+      setTeaserIdx((p) => (p + 1) % teaserMessages.length);
+      setTeaserFading(false);
+    }, 350);
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(nextTeaser, 3500);
+    return () => clearInterval(id);
+  }, [nextTeaser]);
+
+  const liveProgress =
+    phase === "live"
+      ? ((Date.now() - EVENT_START) / (EVENT_END - EVENT_START)) * 100
+      : 0;
 
   return (
     <>
@@ -78,11 +105,10 @@ const AnnouncementBar = () => {
         .fs-shine::before { content:''; position:absolute; top:0; left:-40%; width:30%; height:100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent); animation: fs-shineMove 6s ease-in-out infinite; }
         @keyframes fs-shineMove { 0%{left:-40%} 60%{left:130%} 100%{left:130%} }
 
-        /* ===== BASE (desktop / large screens) — padding & min-height are the source of truth, unchanged ===== */
         .fs-inner {
           max-width: 1780px; margin: 0 auto; min-height: 42px;
           display:flex; align-items:center; justify-content:space-between; gap:10px;
-          padding: 4px 18px; position:relative; z-index:2; flex-wrap: nowrap;
+          padding: 2px 4px; position:relative; z-index:2; flex-wrap: nowrap;
         }
 
         .fs-main { display:flex; align-items:center; gap:12px; flex:1; min-width:0; }
@@ -94,13 +120,14 @@ const AnnouncementBar = () => {
           box-shadow: 0 2px 0 #FFB600, 0 4px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.15);
           display:flex; align-items:center; justify-content:center; position:relative;
         }
-
         .fs-logo-img {
           width: clamp(24px, 2.6vw, 98px);
           height: clamp(24px, 2.6vw, 98px);
           object-fit: contain;
         }
         .fs-title { display:flex; align-items:center; gap:8px; white-space:nowrap; min-width:0; }
+
+        /* ===== BRAND TEXT — THE TRANSITION TARGET ===== */
         .fs-brand {
           font-family:'Plus Jakarta Sans', sans-serif; font-weight:900;
           font-size: clamp(12.5px, 1.6vw, 20.5px);
@@ -112,6 +139,10 @@ const AnnouncementBar = () => {
             0 4px 8px rgba(0,0,0,0.4),
             0 20px 23px rgba(0,0,0,0.25);
           overflow:hidden; text-overflow:ellipsis;
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          min-width: 0;
         }
         .fs-brand span {
           color:#FFD500;
@@ -124,7 +155,34 @@ const AnnouncementBar = () => {
             0 0 26px rgba(255,138,0,0.45);
           filter: brightness(1.12);
         }
-        .fs-chip { display:inline-flex; align-items:center; padding: 3px 9px; border-radius:100px; font-size: clamp(9.5px, 1.15vw, 20px); font-weight:900; letter-spacing:0.9px; line-height:1; white-space:nowrap; }
+
+        /* ===== TEASER TRANSITION ON THE BRAND TEXT ===== */
+        .fs-brand-teaser {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          transition: opacity 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+                      transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+          opacity: 1;
+          transform: translateY(0);
+          will-change: opacity, transform;
+        }
+        .fs-brand-teaser.teaser-out {
+          opacity: 0;
+          transform: translateY(-6px);
+        }
+        .fs-brand-teaser.teaser-in {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+
+        .fs-chip {
+          display:inline-flex; align-items:center; padding: 3px 9px;
+          border-radius:100px; font-size: clamp(9.5px, 1.15vw, 20px);
+          font-weight:900; letter-spacing:0.9px; line-height:1;
+          white-space:nowrap; overflow: hidden; position: relative;
+          min-width: 0;
+        }
         .fs-chip-yellow {
           background: linear-gradient(90deg, #FF8A00 0%, #FFB600 45%, #FFD500 100%);
           color:#2B0B54;
@@ -187,9 +245,6 @@ const AnnouncementBar = () => {
         @keyframes fs-btnPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.03)} }
         .fs-prog { position:absolute; bottom:0; left:0; height:2px; background:#FFD500; box-shadow:0 0 6px #FFD500; transition: width 1s linear; }
 
-        /* ===== TABLET / SMALL LAPTOP (1025px window down to the mobile stack breakpoint) =====
-           Keeps the single-row desktop layout but lets clamp() shrink text/controls smoothly
-           and tightens gaps so nothing crowds or wraps awkwardly. Padding/min-height untouched. */
         @media (max-width: 1024px) {
           .fs-main { gap:10px; }
           .fs-brand-group { gap:8px; }
@@ -199,12 +254,9 @@ const AnnouncementBar = () => {
           .fs-link-text { display: none; }
           .fs-link { width:26px; height:26px; padding:0; justify-content:center; border-radius:50%; }
         }
-
         @media (max-width: 900px) {
           .fs-chip { display:none; }
         }
-
-        /* ===== MOBILE STACK — the exact breakpoint/padding/height from the original design ===== */
         @media (max-width: 768px) {
           .fs-inner { flex-direction: column; gap:0; padding:0; min-height:0; flex-wrap: wrap; }
           .fs-main { width:100%; padding: 0px 8px; justify-content: space-between; gap:2px; }
@@ -237,10 +289,6 @@ const AnnouncementBar = () => {
           .fs-link-text { display:none; }
           .fs-shop-btn { font-size:9.5px; padding:5px 10px; margin-left:2px; }
         }
-
-        /* ===== SMALL PHONES (e.g. iPhone SE / compact Android, ~480px and below) =====
-           Same structure as the mobile stack; only spacing/sizes tighten further so
-           nothing clips or overlaps on narrow screens. Padding/height rules above are untouched. */
         @media (max-width: 480px) {
           .fs-main { gap:0; }
           .fs-brand-group { gap:6px; }
@@ -253,44 +301,31 @@ const AnnouncementBar = () => {
           .fs-shop-btn { padding:4px 8px; font-size:9px; }
           .fs-promo-badge { padding:2px 2px; }
         }
-
-        /* ===== VERY SMALL PHONES (≤360px, e.g. Galaxy Fold cover screen / old SE) =====
-           Drop the least essential label so the countdown and brand never wrap or overflow. */
         @media (max-width: 360px) {
           .fs-cd-label { display:none; }
           .fs-chip { display:none; }
           .fs-sep { font-size:7px; }
-          .fs-box { min-width:17px; padding:0 2px; }
+          .fs-box { min-width:17px; padding:0 1px; }
           .fs-promo-text { font-size: 10.5px; }
         }
-
-        /* ===== SHORT / LANDSCAPE MOBILE VIEWPORTS =====
-           On short landscape screens vertical space is scarcer than horizontal space,
-           so nudge the stacked mobile margins down without changing declared padding. */
         @media (max-width: 900px) and (max-height: 420px) and (orientation: landscape) {
           .fs-cd-label { margin-top: 0 !important; }
           .fs-cd { margin-top: 0 !important; }
           .fs-bottom { padding-top: 3px; padding-bottom: 3px; }
         }
-
-        /* ===== HIGH-DPI / FOLDABLE & TABLET LANDSCAPE (small tablets like 820px iPad, Z Fold outer) ===== */
         @media (min-width: 481px) and (max-width: 768px) and (orientation: landscape) {
           .fs-main { padding-left: 16px; padding-right: 16px; }
         }
-
-        /* ===== LARGE DESKTOP / ULTRAWIDE — cap growth so text doesn't balloon on huge monitors ===== */
         @media (min-width: 1780px) {
           .fs-brand { font-size: 20.5px; }
           .fs-chip { font-size: 20px; }
           .fs-cd-label { font-size: 16.5px; }
           .fs-promo { font-size: 16.5px; }
         }
-
         @media (prefers-reduced-motion: reduce) {
-          .fs-shine::before,
-          .fs-shop-btn,
-          .fs-dot,
-          .fs-promo-text { animation: none !important; transition: none !important; }
+          .fs-shine::before, .fs-shop-btn, .fs-dot, .fs-promo-text, .fs-brand-teaser {
+            animation: none !important; transition: none !important;
+          }
         }
       `}</style>
 
@@ -308,7 +343,13 @@ const AnnouncementBar = () => {
                     </div>
                   </div>
                   <div className="fs-title">
-                    <div className="fs-brand">FRANKO <span>SPEED SHOPPING</span></div>
+                    {/* ===== THIS IS THE TRANSITIONING BRAND TEXT ===== */}
+                    <div className="fs-brand" key={`brand-${teaserIdx}`}>
+                      <span className={`fs-brand-teaser ${teaserFading ? "teaser-out" : ""}`}>
+                        {teaserMessages[teaserIdx].main} <span>{teaserMessages[teaserIdx].highlight}</span>
+                      </span>
+                    </div>
+
                     <div className="fs-chip fs-chip-yellow">ONLY 6HRS TO SHOP</div>
                   </div>
                 </div>
@@ -341,7 +382,7 @@ const AnnouncementBar = () => {
                       </div>
                     </div>
                   ) : null}
-                  {phase === "live" && <a href="/collections" className="fs-shop-btn">SHOP NOW</a>}
+                  {phase === "live" && <a href="/" className="fs-shop-btn">SHOP NOW</a>}
                   {phase === "ended" && <span style={{color:'#FFD500', fontSize:'10px', fontWeight:900, textShadow:'0 2px 4px rgba(0,0,0,0.6)'}}>ENDED</span>}
                 </div>
               </div>
