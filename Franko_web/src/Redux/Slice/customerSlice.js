@@ -1,7 +1,9 @@
 // src/Redux/Slice/customerSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axiosInstance from "./AxiosInstance";
-
+import axiosInstance, {
+  clearAuth,
+  isUserActive,
+} from "./AxiosInstance";
 const CUSTOMER_KEY = "customer";
 
 /* ─────────────────────────────────────────────
@@ -37,7 +39,14 @@ const safeSetToStorage = (key, value) => {
 };
 
 const clearStorage = () => {
-  try { localStorage.removeItem(CUSTOMER_KEY); } catch {}
+  try {
+    localStorage.removeItem("customer");
+    localStorage.removeItem("user");
+    localStorage.removeItem("loginTime");
+    localStorage.removeItem("lastActivityTimestamp");
+  } catch {
+    // Ignore storage errors
+  }
 };
 
 /* ─────────────────────────────────────────────
@@ -45,16 +54,16 @@ const clearStorage = () => {
 ───────────────────────────────────────────── */
 const forceLogoutAndRedirect = (dispatch) => {
   clearStorage();
+  clearAuth();
+
   if (dispatch) {
-    try {
-      dispatch({ type: "customer/logoutCustomer" });
-    } catch (e) {
-      // Ignore dispatch errors during forced logout
-    }
+    dispatch({
+      type: "customer/logoutCustomer",
+    });
   }
-  // Hard redirect back to home to prevent bad UX
+
   if (window.location.pathname !== "/") {
-    window.location.href = "/";
+    window.location.replace("/");
   }
 };
 
@@ -115,100 +124,125 @@ const refreshCustomerToken = async (refreshToken) => {
 let refreshPromise = null;
 
 const silentTokenRefresh = async (dispatch) => {
-  if (refreshPromise) return refreshPromise;
-  try {
-    const stored = loadFromStorage();
-    const refreshToken = stored?.refreshToken;
+  if (refreshPromise) {
+    return refreshPromise;
+  }
 
-    if (!refreshToken || typeof refreshToken !== "string" || refreshToken.trim() === "") {
+  refreshPromise = (async () => {
+    try {
+      const stored = loadFromStorage();
+      const refreshToken = stored?.refreshToken;
+
+      if (!refreshToken) {
+        forceLogoutAndRedirect(dispatch);
+        return null;
+      }
+
+      const refreshed = await refreshCustomerToken(refreshToken);
+
+      const updatedTokens = {
+        accessToken: refreshed.accessToken,
+        refreshToken: refreshed.refreshToken || refreshToken,
+      };
+
+      const updatedCustomer = {
+        ...stored,
+        ...updatedTokens,
+        lastTokenRefresh: Date.now(),
+      };
+
+      saveToStorage(updatedCustomer);
+
+      if (dispatch) {
+        dispatch({
+          type: "customer/updateToken",
+          payload: updatedTokens,
+        });
+      }
+
+      return updatedTokens.accessToken;
+    } catch {
       forceLogoutAndRedirect(dispatch);
       return null;
+    } finally {
+      refreshPromise = null;
     }
+  })();
 
-    refreshPromise = refreshCustomerToken(refreshToken);
-    const refreshed = await refreshPromise;
-
-    const updatedTokens = { accessToken: refreshed.accessToken, refreshToken: refreshed.refreshToken };
-    const updatedCustomer = { ...stored, ...updatedTokens, lastTokenRefresh: Date.now() };
-
-    saveToStorage(updatedCustomer);
-    if (dispatch) dispatch({ type: "customer/updateToken", payload: updatedTokens });
-
-    refreshPromise = null;
-    return updatedTokens.accessToken;
-  } catch (error) {
-    refreshPromise = null;
-    forceLogoutAndRedirect(dispatch);
-    return null;
-  }
+  return refreshPromise;
 };
 
 /* ─────────────────────────────────────────────
    Request Wrapper with Activity Check & Auto-Refresh
 ───────────────────────────────────────────── */
-const requestWithAutoRefresh = async ({ endpoint, method = "GET", data, extraParams = {}, providedToken = null, dispatch = null }) => {
+const requestWithAutoRefresh = async ({
+  endpoint,
+  method = "GET",
+  data,
+  extraParams = {},
+  providedToken = null,
+  dispatch = null,
+}) => {
   let headers = buildAuthHeaders(providedToken);
-  let res;
+  let response;
 
   try {
-    res = await callBackend({ endpoint, method, data, extraParams, headers });
+    response = await callBackend({
+      endpoint,
+      method,
+      data,
+      extraParams,
+      headers,
+    });
+
+    return response;
   } catch (error) {
-    if (error?.response?.status !== 401) throw error;
-    res = error.response;
+    if (error?.response?.status !== 401) {
+      throw error;
+    }
+
+    response = error.response;
   }
 
-  if (res.status !== 401) return res;
-
-  // 1️⃣ Check User Activity
-  const lastActivity = parseInt(localStorage.getItem("lastActivityTimestamp") || "0", 10);
-  const INACTIVITY_LIMIT = 15 * 60 * 1000; // 15 mins
-  const isUserActive = (Date.now() - lastActivity) < INACTIVITY_LIMIT;
-
-  // If inactive → immediate logout & redirect (Bad UX prevention)
-  if (!isUserActive) {
+  /**
+   * The access token is expired.
+   *
+   * Do not refresh the token when the user has been inactive.
+   */
+  if (!isUserActive()) {
     forceLogoutAndRedirect(dispatch);
     throw new Error("SESSION_EXPIRED");
   }
 
-  // 2️⃣ Active user → attempt token refresh
-  if (dispatch) {
-    const newAccessToken = await silentTokenRefresh(dispatch);
-    if (newAccessToken) {
-      headers = buildAuthHeaders(newAccessToken);
-      const retryRes = await callBackend({ endpoint, method, data, extraParams, headers });
-      if (retryRes.status === 401) {
-        forceLogoutAndRedirect(dispatch);
-        throw new Error("SESSION_EXPIRED");
-      }
-      return retryRes;
-    }
+  /**
+   * The user is active, so silently refresh the token.
+   */
+  const newAccessToken = await silentTokenRefresh(dispatch);
+
+  if (!newAccessToken) {
+    forceLogoutAndRedirect(dispatch);
     throw new Error("SESSION_EXPIRED");
   }
 
-  // Fallback for non-Redux calls
-  const stored = loadFromStorage();
-  const refreshToken = stored?.refreshToken;
-  if (!refreshToken) {
-    forceLogoutAndRedirect();
-    throw new Error("SESSION_EXPIRED");
-  }
+  headers = buildAuthHeaders(newAccessToken);
 
   try {
-    const refreshed = await refreshCustomerToken(refreshToken);
-    const updatedTokens = { accessToken: refreshed.accessToken, refreshToken: refreshed.refreshToken };
-    saveToStorage({ ...stored, ...updatedTokens, lastTokenRefresh: Date.now() });
+    const retryResponse = await callBackend({
+      endpoint,
+      method,
+      data,
+      extraParams,
+      headers,
+    });
 
-    headers = buildAuthHeaders(updatedTokens.accessToken);
-    const retryRes = await callBackend({ endpoint, method, data, extraParams, headers });
-    
-    if (retryRes.status === 401) {
-      forceLogoutAndRedirect();
+    return retryResponse;
+  } catch (retryError) {
+    if (retryError?.response?.status === 401) {
+      forceLogoutAndRedirect(dispatch);
       throw new Error("SESSION_EXPIRED");
     }
-    return retryRes;
-  } catch {
-    forceLogoutAndRedirect();
-    throw new Error("SESSION_EXPIRED");
+
+    throw retryError;
   }
 };
 
@@ -323,13 +357,15 @@ const customerSlice = createSlice({
   initialState,
   reducers: {
     logoutCustomer: (state) => {
-      state.currentCustomer = null;
-      state.currentCustomerDetails = null;
-      state.customerList = [];
-      state.error = null;
-      state.isAuthenticated = false;
-      clearStorage();
-    },
+  state.currentCustomer = null;
+  state.currentCustomerDetails = null;
+  state.customerList = [];
+  state.loading = false;
+  state.error = null;
+  state.isAuthenticated = false;
+
+  clearStorage();
+},
     setCurrentCustomer: (state, action) => {
       const customer = action.payload;
       if (customer && validateCustomerData(customer)) {
@@ -435,7 +471,14 @@ const customerSlice = createSlice({
 
       // updateAccountStatus
       .addCase(updateAccountStatus.pending, (state) => { state.loading = true; state.error = null; })
-      .addCase(updateAccountStatus.fulfilled, (state) => { state.loading = false; state.currentCustomer = null; state.currentCustomerDetails = null; state.isAuthenticated = false; })
+.addCase(updateAccountStatus.fulfilled, (state) => {
+  state.loading = false;
+  state.currentCustomer = null;
+  state.currentCustomerDetails = null;
+  state.customerList = [];
+  state.isAuthenticated = false;
+  clearStorage();
+})
       .addCase(updateAccountStatus.rejected, (state, action) => { state.loading = false; state.error = action.payload?.message || "Status update failed."; })
 
       // forgotPassword

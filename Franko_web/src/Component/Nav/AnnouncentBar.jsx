@@ -5,9 +5,9 @@ const EVENT_END = EVENT_START + 3 * 60 * 60 * 1000;
 
 const teaserMessages = [
   { main: "MARK YOUR", highlight: "CALENDAR" },
-  { main: "FRANKO", highlight: "SPEED SHOPPING" },
-  { main: "SIX HOURS", highlight: "ONLY" },
-  { main: "YOU CAN'T", highlight: "MISS THIS" },
+  { main: "BIGGEST DISCOUNT", highlight: "SALE" },
+  { main: "FRANKO SPEED", highlight: "SHOPPING" },
+  { main: "7TH AUGUST", highlight: "2026" },
   { main: "ONLINE PURCHASE", highlight: "ONLY" },
 ];
 

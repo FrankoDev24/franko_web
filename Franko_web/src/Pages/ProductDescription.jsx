@@ -158,6 +158,11 @@ const ProductDescription = () => {
   }, []);
 
   // ==================== CART SYNC ====================
+  // Cart sync failures are handled silently and never surfaced to the
+  // customer as an actionable error (e.g. no "Refresh the page" prompts).
+  // Authentication-related failures (expired/invalid session) are expected
+  // to be intercepted and handled centrally by the Axios/customer session
+  // layer (e.g. redirect to login, token refresh), not here.
 
   const syncCartWithDatabase = async () => {
     if (!cartId || !networkStatus) return;
@@ -169,8 +174,10 @@ const ProductDescription = () => {
         setLocalCart(normalizedCart);
         setCartSyncError(null);
       }
-    } catch {
-      setCartSyncError("Refresh the page");
+    } catch (error) {
+      // Silent failure: don't interrupt the customer's browsing experience.
+      // Auth-related errors are handled by the Axios/session interceptor.
+      console.error("Cart sync failed:", error);
     }
   };
 
@@ -443,8 +450,9 @@ const ProductDescription = () => {
             setLocalCart(normalizedCart);
           }
           setCartSyncError(null);
-        } catch {
-          // Silent fail
+        } catch (error) {
+          // Silent: don't block the add-to-cart flow on a refresh failure.
+          console.error("Cart refresh after add failed:", error);
         } finally {
           setCartLoading(false);
         }
@@ -578,14 +586,6 @@ const ProductDescription = () => {
     navigate("/checkout");
   };
 
-  const handleShare = (platform) => {
-    const url = window.location.href;
-    const shareUrl =
-      platform === "facebook"
-        ? `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`
-        : `https://api.whatsapp.com/send?text=${encodeURIComponent(url)}`;
-    window.open(shareUrl, "_blank");
-  };
 
   const getValidImageUrl = (imagePath) => {
     if (!imagePath) return "https://via.placeholder.com/150";
