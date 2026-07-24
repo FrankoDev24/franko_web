@@ -1731,6 +1731,8 @@ const ProductDescription = () => {
       </script>
 
 
+
+
         {/* Sticky Add to Cart Bar */}
         <div className={`pd-sticky-bar ${showStickyCart ? '' : 'pd-hidden'}`}>
           <div className="pd-sticky-inner">
