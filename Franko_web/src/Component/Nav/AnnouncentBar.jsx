@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from "react";
-
-const EVENT_START = new Date("2026-08-07T09:00:00Z").getTime();
-const EVENT_END = EVENT_START + 3 * 60 * 60 * 1000;
+import { Link } from "react-router-dom";
+import { FaShoppingCart } from "react-icons/fa";
 
 const teaserMessages = [
-  { main: "MARK YOUR", highlight: "CALENDAR" },
-  { main: "BIGGEST DISCOUNT", highlight: "SALE" },
   { main: "FRANKO SPEED", highlight: "SHOPPING" },
-  { main: "7TH AUGUST", highlight: "2026" },
+  { main: "BIGGEST DISCOUNT", highlight: "SALE" },
+  { main: "40% OFF ON", highlight: "SELECTED PRODUCTS" },
+  { main: "HAPPENING", highlight: "NOW" },
+  { main: "ONLY 6 HOURS TO ", highlight: "SHOP" },
   { main: "ONLINE PURCHASE", highlight: "ONLY" },
 ];
 
@@ -17,45 +17,11 @@ const promoMessages = [
   { text: "Save More With Free Delivery Today" },
 ];
 
-const pad = (n) => String(n).padStart(2, "0");
-
-function getTimeLeft(target) {
-  const diff = target - Date.now();
-  if (diff <= 0) return { d: 0, h: 0, m: 0, s: 0, total: 0 };
-  return {
-    d: Math.floor(diff / (1000 * 60 * 60 * 24)),
-    h: Math.floor((diff / (1000 * 60 * 60)) % 24),
-    m: Math.floor((diff / (1000 * 60)) % 60),
-    s: Math.floor((diff / 1000) % 60),
-    total: diff,
-  };
-}
-
 const AnnouncementBar = () => {
-  const [countdown, setCountdown] = useState(() => getTimeLeft(EVENT_START));
-  const [phase, setPhase] = useState("upcoming");
   const [msgIdx, setMsgIdx] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
   const [teaserIdx, setTeaserIdx] = useState(0);
   const [teaserFading, setTeaserFading] = useState(false);
-
-  useEffect(() => {
-    const tick = () => {
-      const now = Date.now();
-      if (now < EVENT_START) {
-        setPhase("upcoming");
-        setCountdown(getTimeLeft(EVENT_START));
-      } else if (now < EVENT_END) {
-        setPhase("live");
-        setCountdown(getTimeLeft(EVENT_END));
-      } else {
-        setPhase("ended");
-      }
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, []);
 
   const nextMsg = useCallback(() => {
     setIsVisible(false);
@@ -70,7 +36,6 @@ const AnnouncementBar = () => {
     return () => clearInterval(id);
   }, [nextMsg]);
 
-  // Teaser: transitions the FRANKO SPEED SHOPPING bold text
   const nextTeaser = useCallback(() => {
     setTeaserFading(true);
     setTimeout(() => {
@@ -83,11 +48,6 @@ const AnnouncementBar = () => {
     const id = setInterval(nextTeaser, 3500);
     return () => clearInterval(id);
   }, [nextTeaser]);
-
-  const liveProgress =
-    phase === "live"
-      ? ((Date.now() - EVENT_START) / (EVENT_END - EVENT_START)) * 100
-      : 0;
 
   return (
     <>
@@ -127,7 +87,6 @@ const AnnouncementBar = () => {
         }
         .fs-title { display:flex; align-items:center; gap:8px; white-space:nowrap; min-width:0; }
 
-        /* ===== BRAND TEXT — THE TRANSITION TARGET ===== */
         .fs-brand {
           font-family:'Plus Jakarta Sans', sans-serif; font-weight:900;
           font-size: clamp(12.5px, 1.6vw, 20.5px);
@@ -156,7 +115,6 @@ const AnnouncementBar = () => {
           filter: brightness(1.12);
         }
 
-        /* ===== TEASER TRANSITION ON THE BRAND TEXT ===== */
         .fs-brand-teaser {
           display: inline-flex;
           align-items: center;
@@ -178,7 +136,7 @@ const AnnouncementBar = () => {
 
         .fs-chip {
           display:inline-flex; align-items:center; padding: 3px 9px;
-          border-radius:100px; font-size: clamp(9.5px, 1.15vw, 20px);
+          border-radius:100px; font-size: clamp(10.5px, 1.15vw, 20px);
           font-weight:900; letter-spacing:0.9px; line-height:1;
           white-space:nowrap; overflow: hidden; position: relative;
           min-width: 0;
@@ -198,57 +156,32 @@ const AnnouncementBar = () => {
             0 1px 2px rgba(0,0,0,0.15);
         }
 
-        .fs-cd-wrap { display:flex; align-items:center; gap:8px; flex-shrink:0; }
-        .fs-cd-label {
-          font-size: clamp(9px, 1vw, 16.5px); font-weight:800; letter-spacing:1px; text-transform:uppercase;
-          color: #FFD500; white-space:nowrap;
-          text-shadow: 0 1px 0 rgba(0,0,0,0.8), 0 2px 4px rgba(0,0,0,0.5), 0 0 8px rgba(255,213,0,0.3);
+        .fs-cd-wrap { display:flex; align-items:center; gap:8px; flex-shrink:0; margin-left:auto; }
+        .fs-shop-btn {
+          display:inline-block;
+          background: linear-gradient(90deg, #FF8A00, #FFD500); color:#1E0A36;
+          padding: 8px 20px; border-radius:100px; font-size:12px; font-weight:900; letter-spacing:0.5px;
+          text-decoration:none; box-shadow:0 3px 10px rgba(255,165,0,0.5), 0 2px 0 #8a5000;
+          animation: fs-btnPulse 1.8s infinite; white-space:nowrap;
+          text-shadow: 0 1px 0 rgba(255,255,255,0.7);
         }
-        .fs-cd-label.live { color:#fff; display:flex; align-items:center; gap:4px; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
-        .fs-dot { width:6px; height:6px; border-radius:50%; background:#FF2A2A; box-shadow:0 0 0 2px rgba(255,42,42,0.25); animation: fs-pulse 1.2s infinite; flex-shrink:0; }
-        @keyframes fs-pulse { 0%{box-shadow:0 0 0 0 rgba(255,42,42,0.5)} 70%{box-shadow:0 0 0 6px rgba(255,42,42,0)} 100%{box-shadow:0 0 0 0 rgba(255,42,42,0)} }
-        .fs-cd { display:flex; align-items:center; gap:3px; }
-        .fs-box {
-          min-width: clamp(20px, 1.7vw, 28px); height: clamp(18px, 1.5vw, 24px); padding:0 5px; border-radius:6px;
-          background: rgba(255,255,255,0.98); color:#301256;
-          display:flex; align-items:center; justify-content:center; gap:2px;
-          font-variant-numeric: tabular-nums;
-          box-shadow:
-            inset 0 1px 0 rgba(255,255,255,1),
-            0 1px 0 rgba(255,255,255,0.9),
-            0 2px 0 rgba(0,0,0,0.2),
-            0 4px 10px rgba(0,0,0,0.25);
-        }
-        .fs-box.live { background:#FFD500; color:#1E0A36; box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 0 #8a5000, 0 4px 12px rgba(0,0,0,0.3), 0 0 14px rgba(255,213,0,0.5); }
-        .fs-num { font-size: clamp(9.5px, 0.85vw, 12.5px); font-weight:900; line-height:1; text-shadow: 0 1px 0 rgba(255,255,255,0.9), 0 0.5px 0 rgba(0,0,0,0.1); }
-        .fs-lbl { font-size: clamp(6px, 0.55vw, 8px); font-weight:900; opacity:0.6; margin-top:1px; }
-        .fs-sep { color: rgba(255,255,255,0.5); font-weight:700; font-size:10px; text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
+        @keyframes fs-btnPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
 
         .fs-bottom { display:contents; }
         .fs-divider { width:1px; height:20px; background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.15), transparent); flex-shrink:0; }
         .fs-promo { display:flex; align-items:center; gap:8px; font-size: clamp(11px, 1.1vw, 16.5px); color: rgba(255,255,255,0.9); min-width:0; text-shadow: 0 1px 3px rgba(0,0,0,0.4); }
-        .fs-promo-badge { background:#fff; color:#4D1070; font-size:8px; font-weight:900; padding:2px 2px; border-radius:100px; letter-spacing:0.6px; flex-shrink:0; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
-        .fs-promo-text { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition: all 0.25s ease; }
+        .fs-promo-badge { background:#fff; color:#4D1070; font-size:24px; font-weight:900; padding:2px 2px; border-radius:100px; letter-spacing:0.6px; flex-shrink:0; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+        .fs-promo-text { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition: all 0.25s ease;font-weight:900 }
         .fs-promo-text.hide { transform: translateY(-8px); opacity:0; filter:blur(2px); }
         .fs-promo-text.show { transform: translateY(0); opacity:1; }
         .fs-side { display:flex; align-items:center; gap:8px; flex-shrink:0; }
         .fs-link { display:flex; align-items:center; gap:5px; padding:4px 12px; border-radius:100px; font-size:11px; font-weight:600; text-decoration:none; transition:0.2s; white-space:nowrap; cursor:pointer; }
         .fs-link-phone { background: rgba(255,255,255,0.12); color:#fff; border:1px solid rgba(255,255,255,0.15); }
         .fs-link-wa { background: linear-gradient(135deg, #25D366, #128C7E); color:#fff; box-shadow:0 2px 8px rgba(37,211,102,0.3); }
-        .fs-shop-btn {
-          background: linear-gradient(90deg, #FF8A00, #FFD500); color:#1E0A36;
-          padding:5px 14px; border-radius:100px; font-size:11px; font-weight:900; letter-spacing:0.4px;
-          text-decoration:none; box-shadow:0 3px 10px rgba(255,165,0,0.45), 0 2px 0 #8a5000;
-          animation: fs-btnPulse 2s infinite; white-space:nowrap;
-          text-shadow: 0 1px 0 rgba(255,255,255,0.7);
-        }
-        @keyframes fs-btnPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.03)} }
-        .fs-prog { position:absolute; bottom:0; left:0; height:2px; background:#FFD500; box-shadow:0 0 6px #FFD500; transition: width 1s linear; }
 
         @media (max-width: 1024px) {
           .fs-main { gap:10px; }
           .fs-brand-group { gap:8px; }
-          .fs-cd-wrap { gap:6px; }
           .fs-promo { gap:6px; }
           .fs-side { gap:6px; }
           .fs-link-text { display: none; }
@@ -265,16 +198,18 @@ const AnnouncementBar = () => {
           .fs-alarm-bg { width:26px; height:26px; }
           .fs-alarm-face { width:18px; height:18px; }
           .fs-logo-img { width: 24px; height: 24px; }
-          .fs-title { flex-direction:column; align-items:flex-start; gap:3px; line-height:1; }
+          /* Make title row: brand text + button side-by-side */
+          .fs-title {
+            flex-direction: row;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: nowrap;
+            min-width: 0;
+          }
           .fs-brand { font-size: clamp(11px, 3.2vw, 13px); letter-spacing:0.5px; }
-          .fs-chip { display: inline-flex; font-size: clamp(8.5px, 2.6vw, 10.5px); padding:1px 6px; }
-          .fs-cd-wrap { gap:5px; margin-left:auto; }
-          .fs-cd-label { font-size: clamp(8px, 2.4vw, 10px); margin-top: 20px }
-          .fs-cd { gap:2px; margin-top: 20px }
-          .fs-box { min-width:22px; height:20px; padding:0 3px; border-radius:5px; }
-          .fs-num { font-size: clamp(9px, 2.6vw, 10.5px); }
-          .fs-lbl { font-size:6.5px; }
-          .fs-sep { font-size:8px; }
+          .fs-chip { display: inline-flex; font-size: clamp(10.5px, 2.6vw, 10.5px); padding:3px 8px; }
+          .fs-cd-wrap { gap:4px; margin-left:auto; }
+          .fs-shop-btn { font-size:10px; padding:6px 12px; }
           .fs-bottom {
             display:flex; width:100%; align-items:center; justify-content:space-between;
             gap:8px; padding: 5px 12px;
@@ -283,47 +218,39 @@ const AnnouncementBar = () => {
           .fs-divider { display:none; }
           .fs-promo { display:flex!important; font-size: clamp(9px, 2.6vw, 10px); flex:1; min-width:0; }
           .fs-promo-badge { font-size:7px; padding:2px 5px; }
-          .fs-promo-text { max-width: 100%; font-size: clamp(11px, 3vw, 13px); }
+          .fs-promo-text { max-width: 100%; font-size: clamp(11px, 3vw, 18px); }
           .fs-side { gap:6px; margin-left:auto; }
           .fs-link { width:28px; height:28px; padding:0; justify-content:center; border-radius:50%; flex-shrink:0; }
           .fs-link-text { display:none; }
-          .fs-shop-btn { font-size:9.5px; padding:5px 10px; margin-left:2px; }
         }
         @media (max-width: 480px) {
           .fs-main { gap:0; }
           .fs-brand-group { gap:6px; }
           .fs-alarm-wrap { width:24px; height:24px; }
           .fs-alarm-bg { width:22px; height:22px; }
-          .fs-cd-wrap { gap:4px; }
-          .fs-box { min-width:19px; height:18px; }
+          .fs-cd-wrap { gap:3px; }
           .fs-side { gap:4px; }
           .fs-link { width:26px; height:26px; }
-          .fs-shop-btn { padding:4px 8px; font-size:9px; }
+          .fs-shop-btn { padding:5px 10px; font-size:9px; }
           .fs-promo-badge { padding:2px 2px; }
+          /* Keep chip visible on very small screens */
+          .fs-chip { font-size:9px; padding:2px 6px; }
         }
         @media (max-width: 360px) {
-          .fs-cd-label { display:none; }
           .fs-chip { display:none; }
-          .fs-sep { font-size:7px; }
-          .fs-box { min-width:17px; padding:0 1px; }
           .fs-promo-text { font-size: 10.5px; }
         }
         @media (max-width: 900px) and (max-height: 420px) and (orientation: landscape) {
-          .fs-cd-label { margin-top: 0 !important; }
-          .fs-cd { margin-top: 0 !important; }
           .fs-bottom { padding-top: 3px; padding-bottom: 3px; }
-        }
-        @media (min-width: 481px) and (max-width: 768px) and (orientation: landscape) {
-          .fs-main { padding-left: 16px; padding-right: 16px; }
         }
         @media (min-width: 1780px) {
           .fs-brand { font-size: 20.5px; }
           .fs-chip { font-size: 20px; }
-          .fs-cd-label { font-size: 16.5px; }
           .fs-promo { font-size: 16.5px; }
+          .fs-shop-btn { font-size: 14px; padding: 10px 24px; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .fs-shine::before, .fs-shop-btn, .fs-dot, .fs-promo-text, .fs-brand-teaser {
+          .fs-shine::before, .fs-shop-btn, .fs-promo-text, .fs-brand-teaser {
             animation: none !important; transition: none !important;
           }
         }
@@ -343,48 +270,22 @@ const AnnouncementBar = () => {
                     </div>
                   </div>
                   <div className="fs-title">
-                    {/* ===== THIS IS THE TRANSITIONING BRAND TEXT ===== */}
                     <div className="fs-brand" key={`brand-${teaserIdx}`}>
                       <span className={`fs-brand-teaser ${teaserFading ? "teaser-out" : ""}`}>
                         {teaserMessages[teaserIdx].main} <span>{teaserMessages[teaserIdx].highlight}</span>
                       </span>
                     </div>
 
-                    <div className="fs-chip fs-chip-yellow">ONLY 6HRS TO SHOP</div>
-                  </div>
+
+<Link to="/speed-shopping">
+  <div className="fs-chip fs-chip-yellow">
+    <FaShoppingCart style={{ marginRight: "6px" }} />
+    SHOP NOW
+  </div>
+</Link>                  </div>
                 </div>
 
-                <div className="fs-cd-wrap">
-                  <div className={`fs-cd-label ${phase === "live" ? "live" : ""}`}>
-                    {phase === "live" && <span className="fs-dot" />}
-                    {phase === "upcoming" ? "STARTS IN" : phase === "live" ? "ENDS IN" : ""}
-                  </div>
-                  {phase !== "ended" ? (
-                    <div className="fs-cd">
-                      {countdown.d > 0 && (
-                        <>
-                          <div className={`fs-box ${phase === "live" ? "live" : ""}`}>
-                            <span className="fs-num">{pad(countdown.d)}</span><span className="fs-lbl">D</span>
-                          </div>
-                          <span className="fs-sep">:</span>
-                        </>
-                      )}
-                      <div className={`fs-box ${phase === "live" ? "live" : ""}`}>
-                        <span className="fs-num">{pad(countdown.h)}</span><span className="fs-lbl">H</span>
-                      </div>
-                      <span className="fs-sep">:</span>
-                      <div className={`fs-box ${phase === "live" ? "live" : ""}`}>
-                        <span className="fs-num">{pad(countdown.m)}</span><span className="fs-lbl">M</span>
-                      </div>
-                      <span className="fs-sep">:</span>
-                      <div className={`fs-box ${phase === "live" ? "live" : ""}`}>
-                        <span className="fs-num">{pad(countdown.s)}</span><span className="fs-lbl">S</span>
-                      </div>
-                    </div>
-                  ) : null}
-                  {phase === "live" && <a href="/" className="fs-shop-btn">SHOP NOW</a>}
-                  {phase === "ended" && <span style={{color:'#FFD500', fontSize:'10px', fontWeight:900, textShadow:'0 2px 4px rgba(0,0,0,0.6)'}}>ENDED</span>}
-                </div>
+              
               </div>
 
               <div className="fs-bottom">
@@ -405,7 +306,6 @@ const AnnouncementBar = () => {
                   </a>
                 </div>
               </div>
-              {phase === "live" && <div className="fs-prog" style={{ width: `${liveProgress}%` }} />}
             </div>
           </div>
         </div>

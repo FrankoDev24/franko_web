@@ -104,11 +104,11 @@ const ProductDescription = () => {
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [updatingQuantity, setUpdatingQuantity] = useState({});
   const [removingItem, setRemovingItem] = useState({});
-  const [flixMediaLoaded, setFlixMediaLoaded] = useState(false);
+  const [ setFlixMediaLoaded] = useState(false);
   const [flixMediaError, setFlixMediaError] = useState(false);
   const [cartSyncError, setCartSyncError] = useState(null);
   const [networkStatus, setNetworkStatus] = useState(navigator.onLine);
-  const [pendingCheckout, setPendingCheckout] = useState(false);
+  const [ setPendingCheckout] = useState(false);
   const [viewedProducts, setViewedProducts] = useState([]);
   const [localCart, setLocalCart] = useState([]);
   const [cartLoading, setCartLoading] = useState(false);
@@ -158,11 +158,7 @@ const ProductDescription = () => {
   }, []);
 
   // ==================== CART SYNC ====================
-  // Cart sync failures are handled silently and never surfaced to the
-  // customer as an actionable error (e.g. no "Refresh the page" prompts).
-  // Authentication-related failures (expired/invalid session) are expected
-  // to be intercepted and handled centrally by the Axios/customer session
-  // layer (e.g. redirect to login, token refresh), not here.
+
 
   const syncCartWithDatabase = async () => {
     if (!cartId || !networkStatus) return;
@@ -175,8 +171,7 @@ const ProductDescription = () => {
         setCartSyncError(null);
       }
     } catch (error) {
-      // Silent failure: don't interrupt the customer's browsing experience.
-      // Auth-related errors are handled by the Axios/session interceptor.
+  
       console.error("Cart sync failed:", error);
     }
   };
