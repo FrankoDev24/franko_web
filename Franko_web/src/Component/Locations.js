@@ -52,9 +52,12 @@ const locations = [
     { name: "Osu", delivery_fee: "Free delivery" },
     { name: "Abeka", delivery_fee: "Free delivery" },
     { name: "New Town Kotobabi", delivery_fee: "Free delivery" },
-    { name: "Dwowulu", delivery_fee: "Free delivery" },
+    { name: "Dzorwulu", delivery_fee: "Free delivery" },
     { name: "Agbobloshie", delivery_fee: "Free delivery" },
-    { name: "East Legon", delivery_fee: "Free delivery" }
+    { name: "East Legon", delivery_fee: "Free delivery" },
+       { name: "Medie", delivery_fee: "Free delivery" },
+
+
   ]
 },
 {

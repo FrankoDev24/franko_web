@@ -12,7 +12,6 @@ import PhoneDeals from '../Component/PhoneDeals';
 import TeleDeals from '../Component/TeleDeals';
 import NewArrivals from '../Component/NewArrivals';
 import Footer from '../Component/Footer';
-import Speed from '../Component/speedshopping';
 
 
 
@@ -63,7 +62,7 @@ function Home() {
       <Carousel />
    
       <CategoryComponent />
-      <Speed/>
+
       <Deals />
       <BestSellers />
       <InfoBanner />

@@ -43,7 +43,7 @@ import AgentPage from "./Pages/Agents/AgentPage/AgentPage";
 import AgentDashboard from "./Pages/Agents/AgentPage/AgentDashboard";
 import AgentOrders from "./Pages/Agents/AgentPage/AgentOrders";
 import CTP001ProductsPage from "./Pages/Agents/AgentPage/CTP001ProductsPage";
-import SpeedShopping from "./Pages/Speed";
+
 
 /* ═══════════════════════════════════════════════════════════════
    ENCRYPTED LOCALSTORAGE IMPLEMENTATION
@@ -315,7 +315,7 @@ function App() {
         <Route path="/order-success/:orderId" element={<OrderSuccess />} />
         <Route path="/account" element={<Account />} />
         <Route path="/shops" element={<Locations />} />
-        <Route path='/speed-shopping' element={<SpeedShopping/>}/>
+     
         <Route path="/order-cancelled" element={<Cancellation />} />
 
         <Route path="/agent/*" element={<ProtectedRoute allowedRoles={["agent"]}><AgentPage /></ProtectedRoute>} />

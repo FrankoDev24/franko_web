@@ -468,7 +468,7 @@ const Speed = () => {
         .speed-title {
           overflow: hidden;
           color: var(--speed-purple-dark);
-          font-size: 17px;
+          font-size: 30px;
           font-weight: 900;
           line-height: 1.2;
           text-overflow: ellipsis;
@@ -897,7 +897,7 @@ const Speed = () => {
           }
 
           .speed-title {
-            font-size: 18px;
+            font-size: 24px;
           }
 
           .speed-carousel {
@@ -940,7 +940,7 @@ const Speed = () => {
           .speed-title {
             white-space: normal;
             word-wrap: break-word;
-            font-size: 15px;
+            font-size: 20px;
             line-height: 1.3;
           }
 
@@ -1034,8 +1034,8 @@ const Speed = () => {
             </div>
 
             <div className="speed-heading">
-              <div className="speed-title">Franko Speed Shopping</div>
-              <div className="speed-subtitle">Ends at midnight today</div>
+              <div className="speed-title font-extrabold">Franko Speed Shopping</div>
+              
             </div>
 
             <div className="speed-divider" />
