@@ -104,11 +104,11 @@ const ProductDescription = () => {
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [updatingQuantity, setUpdatingQuantity] = useState({});
   const [removingItem, setRemovingItem] = useState({});
-  const [ setFlixMediaLoaded] = useState(false);
+ const [flixMediaLoaded, setFlixMediaLoaded] = useState(false);
   const [flixMediaError, setFlixMediaError] = useState(false);
   const [cartSyncError, setCartSyncError] = useState(null);
   const [networkStatus, setNetworkStatus] = useState(navigator.onLine);
-  const [ setPendingCheckout] = useState(false);
+  const [pendingCheckout, setPendingCheckout] = useState(false);
   const [viewedProducts, setViewedProducts] = useState([]);
   const [localCart, setLocalCart] = useState([]);
   const [cartLoading, setCartLoading] = useState(false);
