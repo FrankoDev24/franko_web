@@ -60,10 +60,12 @@ export default function AboutUs() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800;900&display=swap');
+       @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+
 
         :root {
-          --ab-font: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          --ab-font: 'Plus Jakarta Sans', system-ui, sans-serif;
           --ab-green: #14532d;
           --ab-green-mid: #166534;
           --ab-green-600: #16a34a;

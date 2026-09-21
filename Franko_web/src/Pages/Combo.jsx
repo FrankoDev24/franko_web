@@ -421,10 +421,12 @@ const Combo = () => {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+
 
         :root {
-          --wm-font: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          --wm-font: 'Plus Jakarta Sans', system-ui, sans-serif;
           --wm-green: #14532d;
           --wm-green-mid: #166534;
           --wm-green-light: #dcfce7;

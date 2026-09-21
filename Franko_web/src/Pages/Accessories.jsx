@@ -356,10 +356,12 @@ const Accessories = () => {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+
 
         :root {
-          --ac-font: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          --ac-font: 'Plus Jakarta Sans', system-ui, sans-serif;
           --ac-green: #14532d;
           --ac-green-mid: #166534;
           --ac-green-light: #dcfce7;

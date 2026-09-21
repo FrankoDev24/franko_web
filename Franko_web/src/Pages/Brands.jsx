@@ -443,10 +443,10 @@ const Brand = () => {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@40500;600;700;800&display=swap');
 
         :root {
-          --br-font: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          --br-font: 'Plus Jakarta Sans', system-ui, sans-serif;
           --br-green: #14532d;
           --br-green-mid: #166534;
           --br-green-light: #dcfce7;

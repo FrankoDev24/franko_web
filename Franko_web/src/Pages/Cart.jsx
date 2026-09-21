@@ -669,10 +669,10 @@ const Cart = () => {
 // ==================== STYLES ====================
 
 const cartStyles = `
-  @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@40500;600;700;800&display=swap');
 
   :root {
-    --cart-font: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --cart-font: 'Plus Jakarta Sans', system-ui, sans-serif;
     --cart-green: #14532d;
     --cart-green-mid: #166534;
     --cart-green-light: #dcfce7;

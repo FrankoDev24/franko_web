@@ -343,7 +343,7 @@ const hasDiscount = product.oldPrice > 0 && product.oldPrice > product.price;
 // ==================== STYLES ====================
 
 const modalStyles = `
-  @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
 
   .pdm-modal-wrap .ant-modal-content {
     border-radius: 6px !important;

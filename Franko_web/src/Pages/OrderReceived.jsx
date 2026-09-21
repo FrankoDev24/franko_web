@@ -80,10 +80,12 @@ const OrderReceived = () => {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800;900&display=swap');
+       @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+
 
         :root {
-          --ov-font: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          --ov-font: 'Plus Jakarta Sans', system-ui, sans-serif;
           --ov-green: #14532d;
           --ov-green-mid: #166534;
           --ov-green-600: #16a34a;

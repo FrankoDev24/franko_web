@@ -411,10 +411,10 @@ const Television = () => {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800;900&display=swap');
+         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
         :root {
-          --tv-font: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          --tv-font: 'Plus Jakarta Sans', system-ui, sans-serif;
           --tv-green: #14532d;
           --tv-green-mid: #166534;
           --tv-green-light: #dcfce7;

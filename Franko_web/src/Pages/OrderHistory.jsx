@@ -460,10 +460,11 @@ const OrderHistoryPage = () => {
 // ==================== STYLES ====================
 
 const styles = `
-  @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
 
   :root {
-    --oh-font: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --oh-font: 'Plus Jakarta Sans', system-ui, sans-serif;
     --oh-green: #14532d;
     --oh-green-mid: #166534;
     --oh-green-accent: #22c55e;

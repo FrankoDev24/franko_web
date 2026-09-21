@@ -114,10 +114,12 @@ const ShopsPage = () => {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+
 
         :root {
-          --sh-font: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          --sh-font: 'Plus Jakarta Sans', system-ui, sans-serif;
           --sh-green: #14532d;
           --sh-green-mid: #166534;
           --sh-green-accent: #22c55e;

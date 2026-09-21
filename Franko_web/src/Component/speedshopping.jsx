@@ -1,17 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
-  ArrowRightIcon,
+  ArrowPathIcon,
+  BoltIcon,
   CheckCircleIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   ClockIcon,
   EyeIcon,
-  FireIcon,
   HeartIcon as OutlineHeartIcon,
   HeartIcon as SolidHeartIcon,
   ShoppingCartIcon,
+  SparklesIcon,
   XCircleIcon,
 } from "@heroicons/react/24/solid";
 import { Tooltip } from "@material-tailwind/react";
@@ -24,7 +23,13 @@ import {
 import useAddToCart from "./Cart";
 
 const SHOWROOM_ID = "84b6b4e2-4fa4-4f3e-b89c-900812d95815";
-const SPEED_SHOPPING_URL = "/speed-shopping";
+const INITIAL_FETCH_COUNT = 60;
+const PAGE_SIZE = 12;
+
+/* Sale window — Ghana runs on GMT year-round, so "Z" = Accra local time.
+   Keep this in sync with the announcement bar's PROMO_START. */
+const PROMO_START = Date.parse("2026-10-02T00:00:00Z");
+const PROMO_END = PROMO_START + 24 * 60 * 60 * 1000; // 24 hours only
 
 // =====================================================
 // NOTIFICATION
@@ -36,37 +41,24 @@ const Notification = ({ message, type, visible, onClose }) => {
   const Icon = isSuccess ? CheckCircleIcon : XCircleIcon;
 
   useEffect(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-    }
-
-    if (visible && message) {
-      timerRef.current = setTimeout(onClose, 3000);
-    }
-
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (visible && message) timerRef.current = setTimeout(onClose, 3000);
     return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [visible, message, onClose]);
 
   if (!visible || !message) return null;
 
   return (
-    <div className="speed-notification">
-      <div
-        className={`speed-notification-content ${
-          isSuccess ? "success" : "error"
-        }`}
-      >
-        <Icon className="speed-notification-icon" />
+    <div className="shp-notification">
+      <div className={`shp-notification-content ${isSuccess ? "success" : "error"}`}>
+        <Icon className="shp-notification-icon" />
         <span>{message}</span>
-
         <button
           type="button"
           onClick={onClose}
-          className="speed-notification-close"
+          className="shp-notification-close"
           aria-label="Close notification"
         >
           ×
@@ -82,72 +74,61 @@ const Notification = ({ message, type, visible, onClose }) => {
 
 const pad = (value) => String(value ?? 0).padStart(2, "0");
 
-const getEndOfToday = () => {
-  const date = new Date();
-  date.setHours(23, 59, 59, 999);
-  return date.getTime();
-};
-
-const getTimeLeft = () => {
-  const difference = getEndOfToday() - Date.now();
-
-  if (difference <= 0) {
-    return {
-      days: 0,
-      hours: 0,
-      minutes: 0,
-      seconds: 0,
-    };
-  }
-
-  return {
-    days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-    hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
-    minutes: Math.floor((difference / (1000 * 60)) % 60),
-    seconds: Math.floor((difference / 1000) % 60),
-  };
-};
+const getPhase = (now) =>
+  now < PROMO_START ? "before" : now < PROMO_END ? "live" : "ended";
 
 const getImageUrl = (imagePath) => {
-  if (!imagePath) {
-    return "https://via.placeholder.com/300x300?text=Product";
-  }
-
+  if (!imagePath) return "https://via.placeholder.com/300x300?text=Product";
   if (imagePath.includes("\\")) {
-    return `https://testing.frankotrading.com/Media/Products_Images/${
-      imagePath.split("\\").pop()
-    }`;
+    return `https://testing.frankotrading.com/Media/Products_Images/${imagePath
+      .split("\\")
+      .pop()}`;
   }
-
   return imagePath;
 };
 
 const formatPrice = (price) => {
   const numericPrice = Number(price);
-
-  if (!Number.isFinite(numericPrice)) {
-    return "GH₵0.00";
-  }
-
+  if (!Number.isFinite(numericPrice)) return "GH₵0.00";
   return `GH₵${numericPrice.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
 };
 
+/* Live countdown to PROMO_START, then to PROMO_END, then stops. Only one
+   interval for the whole page — every consumer reads from this hook. */
+const useCountdown = () => {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const phase = getPhase(now);
+  const target = phase === "before" ? PROMO_START : PROMO_END;
+  const diff = phase === "ended" ? 0 : Math.max(0, target - now);
+
+  return {
+    phase,
+    days: Math.floor(diff / 86400000),
+    hours: Math.floor((diff % 86400000) / 3600000),
+    minutes: Math.floor((diff % 3600000) / 60000),
+    seconds: Math.floor((diff % 60000) / 1000),
+  };
+};
+
 // =====================================================
-// SPEED SHOPPING COMPONENT
+// SPEED SHOPPING PAGE
 // =====================================================
 
-const Speed = () => {
+const SpeedShoppingPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const carouselRef = useRef(null);
 
-  const [timeLeft, setTimeLeft] = useState(getTimeLeft());
-  const [isHovered, setIsHovered] = useState(false);
-  const [showLeftArrow, setShowLeftArrow] = useState(false);
-  const [showRightArrow, setShowRightArrow] = useState(false);
+  const countdown = useCountdown();
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const [notification, setNotification] = useState({
     message: "",
@@ -157,88 +138,59 @@ const Speed = () => {
 
   const { addProductToCart, loading: cartLoading } = useAddToCart();
 
-  const { productsByShowroom, loading } = useSelector(
-    (state) => state.products
-  );
-
+  const { productsByShowroom, loading } = useSelector((state) => state.products);
   const wishlist = useSelector((state) => state.wishlist.items || []);
 
   const products = productsByShowroom?.[SHOWROOM_ID] || [];
+  const visibleProducts = useMemo(
+    () => products.slice(0, visibleCount),
+    [products, visibleCount]
+  );
+  const hasMore = visibleCount < products.length;
 
-  // =====================================================
-  // NOTIFICATIONS
-  // =====================================================
+  // -----------------------------------------------------
+  // Notifications
+  // -----------------------------------------------------
 
   const closeNotification = useCallback(() => {
-    setNotification((previous) => ({
-      ...previous,
-      visible: false,
-    }));
+    setNotification((prev) => ({ ...prev, visible: false }));
   }, []);
 
   const showNotification = useCallback((message, type = "success") => {
-    setNotification({
-      message,
-      type,
-      visible: true,
-    });
+    setNotification({ message, type, visible: true });
   }, []);
 
-  // =====================================================
-  // FETCH PRODUCTS
-  // =====================================================
+  // -----------------------------------------------------
+  // Fetch products
+  // -----------------------------------------------------
 
   useEffect(() => {
     dispatch(
       fetchProductByShowroomAndRecord({
         showRoomCode: SHOWROOM_ID,
-        recordNumber: 10,
+        recordNumber: INITIAL_FETCH_COUNT,
       })
     );
   }, [dispatch]);
 
-  // =====================================================
-  // COUNTDOWN - ENDS AT CLOSE OF TODAY
-  // =====================================================
-
-  useEffect(() => {
-    const updateCountdown = () => {
-      setTimeLeft(getTimeLeft());
-    };
-
-    updateCountdown();
-
-    const interval = setInterval(updateCountdown, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // =====================================================
-  // WISHLIST AND CART ACTIONS
-  // =====================================================
+  // -----------------------------------------------------
+  // Wishlist / cart actions
+  // -----------------------------------------------------
 
   const isInWishlist = useCallback(
     (productId) =>
-      wishlist.some(
-        (item) => item.id === productId || item.productID === productId
-      ),
+      wishlist.some((item) => item.id === productId || item.productID === productId),
     [wishlist]
   );
 
   const handleWishlistToggle = (product) => {
     const productId = product.productID || product.id;
-
     try {
       if (isInWishlist(productId)) {
         dispatch(removeFromWishlist(productId));
         showNotification("Removed from wishlist");
       } else {
-        dispatch(
-          addToWishlist({
-            ...product,
-            id: productId,
-          })
-        );
+        dispatch(addToWishlist({ ...product, id: productId }));
         showNotification("Added to wishlist");
       }
     } catch {
@@ -255,70 +207,17 @@ const Speed = () => {
     }
   };
 
-  // =====================================================
-  // CAROUSEL
-  // =====================================================
+  const handleLoadMore = () => setVisibleCount((count) => count + PAGE_SIZE);
 
-  const updateCarouselArrows = useCallback(() => {
-    const carousel = carouselRef.current;
+  // -----------------------------------------------------
+  // Hero copy per phase
+  // -----------------------------------------------------
 
-    if (!carousel) return;
-
-    const { scrollLeft, scrollWidth, clientWidth } = carousel;
-
-    setShowLeftArrow(scrollLeft > 5);
-    setShowRightArrow(scrollLeft + clientWidth < scrollWidth - 5);
-  }, []);
-
-  const scrollProducts = (direction) => {
-    if (!carouselRef.current) return;
-
-    carouselRef.current.scrollBy({
-      left: direction === "left" ? -320 : 320,
-      behavior: "smooth",
-    });
-  };
-
-  useEffect(() => {
-    updateCarouselArrows();
-
-    const carousel = carouselRef.current;
-
-    if (!carousel) return undefined;
-
-    carousel.addEventListener("scroll", updateCarouselArrows);
-    window.addEventListener("resize", updateCarouselArrows);
-
-    return () => {
-      carousel.removeEventListener("scroll", updateCarouselArrows);
-      window.removeEventListener("resize", updateCarouselArrows);
-    };
-  }, [products, loading, updateCarouselArrows]);
-
-  useEffect(() => {
-    if (isHovered || loading || products.length <= 1) {
-      return undefined;
-    }
-
-    const interval = setInterval(() => {
-      const carousel = carouselRef.current;
-
-      if (!carousel) return;
-
-      const { scrollLeft, scrollWidth, clientWidth } = carousel;
-
-      if (scrollLeft + clientWidth >= scrollWidth - 5) {
-        carousel.scrollTo({
-          left: 0,
-          behavior: "smooth",
-        });
-      } else {
-        scrollProducts("right");
-      }
-    }, 4500);
-
-    return () => clearInterval(interval);
-  }, [isHovered, loading, products]);
+  const heroCopy = {
+    before: { eyebrow: "Coming soon", label: "Starts in" },
+    live: { eyebrow: "Live now", label: "Ends in" },
+    ended: { eyebrow: "Sale ended", label: null },
+  }[countdown.phase];
 
   // =====================================================
   // RENDER
@@ -337,51 +236,48 @@ const Speed = () => {
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&display=swap');
 
         :root {
-          --speed-font: 'DM Sans', sans-serif;
+          --shp-font: 'DM Sans', sans-serif;
 
-          /* Promotion colours */
-          --speed-purple-dark: #1e0a36;
-          --speed-purple: #4d1070;
-          --speed-purple-soft: #f7f0fa;
-          --speed-pink: #b90f67;
-          --speed-orange: #ff8a00;
-          --speed-yellow: #ffd500;
+          --shp-purple-dark: #1e0a36;
+          --shp-purple: #4d1070;
+          --shp-pink: #b90f67;
+          --shp-orange: #ff8a00;
+          --shp-yellow: #ffd500;
 
-          /* Neutral shopping colours */
-          --speed-text: #24152f;
-          --speed-muted: #77717d;
-          --speed-border: #e9e1ec;
-          --speed-white: #ffffff;
-          --speed-danger: #c62852;
+          --shp-text: #24152f;
+          --shp-muted: #77717d;
+          --shp-border: #e9e1ec;
+          --shp-white: #ffffff;
+          --shp-danger: #c62852;
         }
 
-        .speed-root,
-        .speed-root * {
+        .shp-root, .shp-root * {
           box-sizing: border-box;
-          font-family: var(--speed-font);
+          font-family: var(--shp-font);
           -webkit-font-smoothing: antialiased;
         }
 
-        .speed-root {
+        .shp-root {
           width: 100%;
-          color: var(--speed-text);
+          color: var(--shp-text);
         }
 
-        /* =========================
-           NOTIFICATION
-        ========================== */
+        /* ============ NOTIFICATION ============ */
 
-        .speed-notification {
+        .shp-notification {
           position: fixed;
-          top: 16px;
+          top: max(16px, env(safe-area-inset-top, 0px));
           right: 16px;
+          left: 16px;
           z-index: 9999;
-          animation: speed-slide-in 0.25s ease-out;
+          display: flex;
+          justify-content: flex-end;
+          animation: shp-slide-in 0.25s ease-out;
         }
 
-        .speed-notification-content {
-          min-width: 280px;
-          max-width: calc(100vw - 32px);
+        .shp-notification-content {
+          width: 100%;
+          max-width: 320px;
           display: flex;
           align-items: center;
           gap: 9px;
@@ -393,21 +289,12 @@ const Speed = () => {
           box-shadow: 0 8px 24px rgba(30, 10, 54, 0.18);
         }
 
-        .speed-notification-content.success {
-          background: var(--speed-purple);
-        }
+        .shp-notification-content.success { background: var(--shp-purple); }
+        .shp-notification-content.error { background: var(--shp-danger); }
 
-        .speed-notification-content.error {
-          background: var(--speed-danger);
-        }
+        .shp-notification-icon { width: 19px; height: 19px; flex-shrink: 0; }
 
-        .speed-notification-icon {
-          width: 19px;
-          height: 19px;
-          flex-shrink: 0;
-        }
-
-        .speed-notification-close {
+        .shp-notification-close {
           margin-left: auto;
           border: 0;
           background: transparent;
@@ -417,273 +304,280 @@ const Speed = () => {
           cursor: pointer;
         }
 
-        /* =========================
-           HEADER
-        ========================== */
+        @keyframes shp-slide-in {
+          from { opacity: 0; transform: translateY(-12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
 
-        .speed-header {
+        /* ============ HERO ============ */
+
+        .shp-hero {
+          position: relative;
+          overflow: hidden;
+          padding: clamp(20px, 5vw, 44px) clamp(16px, 5vw, 48px);
+          border-radius: clamp(10px, 2vw, 18px);
+          background: radial-gradient(120% 160% at 0% 0%, #3a0f5c 0%, #1e0a36 55%, #12071f 100%);
+          color: #fff;
+        }
+
+        .shp-hero::before {
+          content: "";
+          position: absolute;
+          inset: -40% -10% auto auto;
+          width: 60%;
+          aspect-ratio: 1;
+          border-radius: 50%;
+          background: radial-gradient(closest-side, rgba(255, 213, 0, 0.25), transparent);
+          pointer-events: none;
+        }
+
+        .shp-hero-inner {
+          position: relative;
+          z-index: 1;
           display: flex;
+          flex-wrap: wrap;
           align-items: center;
           justify-content: space-between;
-          gap: 14px;
-          padding: 13px 16px;
-          border: 1px solid #eadced;
-          border-left: 4px solid var(--speed-pink);
-          border-radius: 8px;
-          background: linear-gradient(
-            105deg,
-            #fbeaff 0%,
-            #fff5d6 68%,
-            #fff8ed 100%
-          );
-          box-shadow: 0 4px 16px rgba(77, 16, 112, 0.09);
+          gap: clamp(16px, 4vw, 28px);
         }
 
-        .speed-header-left {
-          min-width: 0;
-          flex: 1;
-          display: flex;
+        .shp-hero-copy { min-width: 0; flex: 1 1 260px; }
+
+        .shp-eyebrow {
+          display: inline-flex;
           align-items: center;
-          gap: 12px;
+          gap: 6px;
+          padding: 4px 11px;
+          border-radius: 999px;
+          background: rgba(255, 213, 0, 0.14);
+          color: var(--shp-yellow);
+          font-size: clamp(10px, 2.4vw, 11px);
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
         }
 
-        .speed-header-icon {
-          width: 35px;
-          height: 35px;
+        .shp-hero-title {
+          margin-top: 10px;
+          font-size: clamp(24px, 6vw, 42px);
+          font-weight: 900;
+          line-height: 1.08;
+        }
+
+        .shp-hero-sub {
+          margin-top: 8px;
+          max-width: 46ch;
+          color: rgba(255, 255, 255, 0.72);
+          font-size: clamp(12.5px, 2.6vw, 15px);
+          line-height: 1.5;
+        }
+
+        .shp-hero-date {
+          margin-top: 6px;
+          color: var(--shp-yellow);
+          font-size: clamp(11px, 2.4vw, 13px);
+          font-weight: 700;
+        }
+
+        .shp-timer-card {
+          flex: 0 0 auto;
+          padding: clamp(14px, 3vw, 20px);
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          border-radius: 14px;
+          background: rgba(255, 255, 255, 0.06);
+          backdrop-filter: blur(6px);
+        }
+
+        .shp-timer-label {
           display: flex;
           align-items: center;
           justify-content: center;
-          flex-shrink: 0;
-          border: 1px solid #eadced;
-          border-radius: 50%;
-          color: var(--speed-purple);
-          background: #fff;
-        }
-
-        .speed-heading {
-          min-width: 0;
-          flex: 1;
-        }
-
-        .speed-title {
-          overflow: hidden;
-          color: var(--speed-purple-dark);
-          font-size: 30px;
-          font-weight: 900;
-          line-height: 1.2;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .speed-subtitle {
-          margin-top: 3px;
-          color: var(--speed-muted);
-          font-size: 10px;
-          font-weight: 500;
-        }
-
-        .speed-divider {
-          width: 1px;
-          height: 30px;
-          flex-shrink: 0;
-          background: #e8dceb;
-        }
-
-        .speed-timer-group {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-shrink: 0;
-        }
-
-        .speed-timer-label {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          color: var(--speed-purple);
-          font-size: 11px;
+          gap: 6px;
+          margin-bottom: 10px;
+          color: rgba(255, 255, 255, 0.85);
+          font-size: clamp(10.5px, 2.4vw, 12px);
           font-weight: 700;
-          white-space: nowrap;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
         }
 
-        .speed-timer {
-          display: flex;
-          align-items: center;
-          gap: 3px;
+        .shp-live-dot {
+          position: relative;
+          width: 7px;
+          height: 7px;
+          flex-shrink: 0;
         }
 
-        .speed-timer-block {
-          min-width: 31px;
+        .shp-live-dot::before, .shp-live-dot::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          background: #34d399;
+        }
+
+        .shp-live-dot::before {
+          animation: shp-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+          opacity: 0.6;
+        }
+
+        @keyframes shp-ping {
+          75%, 100% { transform: scale(2.4); opacity: 0; }
+        }
+
+        .shp-timer {
+          display: grid;
+          grid-auto-flow: column;
+          gap: clamp(6px, 1.6vw, 10px);
+        }
+
+        .shp-timer-block {
+          min-width: clamp(42px, 11vw, 56px);
           display: flex;
           flex-direction: column;
           align-items: center;
-          padding: 4px 5px;
-          border: 1px solid #f0da8b;
-          border-radius: 5px;
-          color: var(--speed-purple-dark);
-          background: #fff5c9;
+          padding: clamp(6px, 1.6vw, 9px) 4px;
+          border-radius: 9px;
+          background: #fff;
+          color: var(--shp-purple-dark);
         }
 
-        .speed-timer-value {
-          font-size: 12px;
+        .shp-timer-value {
+          font-size: clamp(16px, 4.2vw, 22px);
           font-weight: 900;
           line-height: 1;
           font-variant-numeric: tabular-nums;
         }
 
-        .speed-timer-unit {
-          margin-top: 2px;
-          color: #806b26;
-          font-size: 7px;
+        .shp-timer-unit {
+          margin-top: 3px;
+          color: var(--shp-muted);
+          font-size: clamp(7.5px, 1.8vw, 9px);
           font-weight: 700;
-          line-height: 1;
           text-transform: uppercase;
         }
 
-        .speed-timer-separator {
-          margin-bottom: 9px;
-          color: var(--speed-pink);
+        .shp-ended-note {
+          max-width: 220px;
+          text-align: center;
+          color: rgba(255, 255, 255, 0.85);
           font-size: 13px;
-          font-weight: 900;
+          font-weight: 600;
+          line-height: 1.5;
         }
 
-        .speed-view-button {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          flex-shrink: 0;
-          padding: 8px 14px;
-          border: 1px solid #efc800;
-          border-radius: 999px;
-          color: var(--speed-purple-dark);
-          background: var(--speed-yellow);
-          box-shadow: 0 2px 6px rgba(255, 213, 0, 0.2);
+        /* ============ GRID ============ */
+
+        .shp-grid-section { margin-top: clamp(18px, 4vw, 28px); }
+
+        .shp-grid-heading {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 10px;
+          margin-bottom: 12px;
+        }
+
+        .shp-grid-title {
+          font-size: clamp(16px, 3.6vw, 20px);
+          font-weight: 800;
+          color: var(--shp-purple-dark);
+        }
+
+        .shp-grid-count {
+          color: var(--shp-muted);
           font-size: 12px;
-          font-weight: 900;
-          text-decoration: none;
-          transition: 0.2s ease;
+          font-weight: 600;
+          white-space: nowrap;
         }
 
-        .speed-view-button:hover {
-          background: #ffca00;
-          transform: translateY(-1px);
+        .shp-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
         }
 
-        /* =========================
-           CAROUSEL
-        ========================== */
-
-        .speed-carousel-wrapper {
-          position: relative;
-          margin-top: 16px;
+        @media (min-width: 420px) {
+          .shp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
 
-        .speed-carousel {
+        @media (min-width: 700px) {
+          .shp-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+        }
+
+        @media (min-width: 1024px) {
+          .shp-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; }
+        }
+
+        @media (min-width: 1380px) {
+          .shp-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+        }
+
+        /* ============ PRODUCT CARD ============ */
+
+        .shp-card {
           display: flex;
-          gap: 12px;
-          overflow-x: auto;
-          padding: 2px 1px 5px;
-          scroll-behavior: smooth;
-          scrollbar-width: none;
-        }
-
-        .speed-carousel::-webkit-scrollbar {
-          display: none;
-        }
-
-        .speed-scroll-button {
-          position: absolute;
-          top: 50%;
-          z-index: 5;
-          width: 34px;
-          height: 34px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid var(--speed-border);
-          border-radius: 50%;
-          color: var(--speed-purple);
-          background: #fff;
-          box-shadow: 0 3px 12px rgba(30, 10, 54, 0.12);
-          cursor: pointer;
-          transform: translateY(-50%);
-          transition: 0.2s ease;
-        }
-
-        .speed-scroll-button:hover {
-          background: #fff8d8;
-          transform: translateY(-50%) scale(1.05);
-        }
-
-        .speed-scroll-button.left {
-          left: -8px;
-        }
-
-        .speed-scroll-button.right {
-          right: -8px;
-        }
-
-        /* =========================
-           PRODUCT CARD
-        ========================== */
-
-        .speed-card {
-          width: 160px;
-          min-width: 160px;
+          flex-direction: column;
           overflow: hidden;
-          flex-shrink: 0;
-          border: 1px solid var(--speed-border);
-          border-radius: 8px;
-          background: var(--speed-white);
+          border: 1px solid var(--shp-border);
+          border-radius: 10px;
+          background: var(--shp-white);
           cursor: pointer;
-          transition: 0.2s ease;
+          transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
         }
 
-        .speed-card:hover {
+        .shp-card:hover {
           border-color: #d9b8df;
-          box-shadow: 0 6px 18px rgba(77, 16, 112, 0.1);
-          transform: translateY(-2px);
+          box-shadow: 0 10px 24px rgba(77, 16, 112, 0.12);
+          transform: translateY(-3px);
         }
 
-        .speed-card-image {
+        .shp-card-image {
           position: relative;
-          height: 150px;
+          width: 100%;
+          aspect-ratio: 1 / 1;
           display: flex;
           align-items: center;
           justify-content: center;
           overflow: hidden;
-          padding: 10px;
+          padding: clamp(8px, 2vw, 14px);
           background: #fff;
         }
 
-        .speed-card-image img {
+        .shp-card-image img {
           width: 100%;
           height: 100%;
           object-fit: contain;
           transition: transform 0.25s ease;
         }
 
-        .speed-card:hover .speed-card-image img {
-          transform: scale(1.05);
-        }
+        .shp-card:hover .shp-card-image img { transform: scale(1.06); }
 
-        .speed-card-overlay {
+        .shp-card-overlay {
           position: absolute;
           inset: 0;
-          display: none;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          background: rgba(30, 10, 54, 0.66);
-        }
-
-        .speed-card:hover .speed-card-overlay {
           display: flex;
+          align-items: flex-end;
+          justify-content: center;
+          gap: 6px;
+          padding-bottom: 8px;
+          opacity: 0;
+          background: linear-gradient(180deg, transparent 40%, rgba(30, 10, 54, 0.55) 100%);
+          transition: opacity 0.2s ease;
         }
 
-        .speed-action-button {
-          width: 34px;
-          height: 34px;
+        .shp-card:hover .shp-card-overlay,
+        .shp-card:focus-within .shp-card-overlay {
+          opacity: 1;
+        }
+
+        @media (hover: none) {
+          .shp-card-overlay { opacity: 1; background: linear-gradient(180deg, transparent 55%, rgba(30, 10, 54, 0.45) 100%); }
+        }
+
+        .shp-action-button {
+          width: clamp(28px, 7vw, 34px);
+          height: clamp(28px, 7vw, 34px);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -691,52 +585,47 @@ const Speed = () => {
           border-radius: 50%;
           background: #fff;
           cursor: pointer;
-          transition: 0.2s ease;
+          transition: transform 0.2s ease, background 0.2s ease;
         }
 
-        .speed-action-button:hover {
-          background: #fff4c5;
-          transform: scale(1.08);
-        }
+        .shp-action-button:hover { background: #fff4c5; transform: scale(1.08); }
+        .shp-action-button:disabled { opacity: 0.45; cursor: not-allowed; }
 
-        .speed-action-button:disabled {
-          opacity: 0.45;
-          cursor: not-allowed;
-        }
-
-        .speed-card-body {
-          min-height: 87px;
-          padding: 10px 12px;
+        .shp-card-body {
+          display: flex;
+          flex: 1;
+          flex-direction: column;
+          padding: clamp(8px, 2vw, 12px);
           text-align: center;
         }
 
-        .speed-card-name {
-          min-height: 36px;
+        .shp-card-name {
+          min-height: 2.6em;
           overflow: hidden;
-          color: var(--speed-text);
           display: -webkit-box;
-          font-size: 14px;
-          font-weight: 600;
-          line-height: 1.35;
           -webkit-box-orient: vertical;
           -webkit-line-clamp: 2;
+          color: var(--shp-text);
+          font-size: clamp(11.5px, 2.8vw, 14px);
+          font-weight: 600;
+          line-height: 1.3;
         }
 
-        .speed-card-price {
+        .shp-card-price {
           margin-top: 6px;
-          color: var(--speed-pink);
-          font-size: 14px;
+          color: var(--shp-pink);
+          font-size: clamp(12px, 3vw, 14px);
           font-weight: 900;
         }
 
-        .speed-card-old-price {
+        .shp-card-old-price {
           margin-top: 2px;
           color: #99919d;
-          font-size: 12px;
+          font-size: clamp(10px, 2.4vw, 12px);
           text-decoration: line-through;
         }
 
-        .speed-badge {
+        .shp-badge {
           position: absolute;
           top: 8px;
           z-index: 3;
@@ -748,380 +637,188 @@ const Speed = () => {
           text-transform: uppercase;
         }
 
-        .speed-badge.sold {
-          left: 8px;
-          color: #fff;
-          background: var(--speed-purple-dark);
-        }
+        .shp-badge.sold { left: 8px; color: #fff; background: var(--shp-purple-dark); }
+        .shp-badge.discount { right: 8px; color: var(--shp-purple-dark); background: var(--shp-yellow); }
 
-        .speed-badge.discount {
-          right: 8px;
-          color: var(--speed-purple-dark);
-          background: var(--speed-yellow);
-        }
+        /* ============ LOAD MORE ============ */
 
-        /* =========================
-           VIEW ALL CARD
-        ========================== */
-
-        .speed-view-all-card {
-          width: 110px;
-          min-width: 110px;
-          min-height: 235px;
+        .shp-load-more {
           display: flex;
-          flex-shrink: 0;
-          flex-direction: column;
-          align-items: center;
           justify-content: center;
-          gap: 8px;
-          color: var(--speed-purple);
-          text-decoration: none;
+          margin-top: clamp(16px, 4vw, 26px);
         }
 
-        .speed-view-all-circle {
-          width: 48px;
-          height: 48px;
-          display: flex;
+        .shp-load-more-button {
+          display: inline-flex;
           align-items: center;
-          justify-content: center;
-          border: 1px solid #eadced;
-          border-radius: 50%;
-          color: var(--speed-purple);
+          gap: 7px;
+          padding: 10px 22px;
+          border: 1px solid var(--shp-border);
+          border-radius: 999px;
           background: #fff;
+          color: var(--shp-purple);
+          font-size: 13px;
+          font-weight: 800;
+          cursor: pointer;
           transition: 0.2s ease;
         }
 
-        .speed-view-all-card:hover .speed-view-all-circle {
-          color: var(--speed-purple-dark);
-          background: #fff3c4;
-          transform: scale(1.07);
+        .shp-load-more-button:hover {
+          border-color: #d9b8df;
+          background: #fbf3ff;
         }
 
-        .speed-view-all-label {
-          font-size: 12px;
-          font-weight: 900;
-        }
+        /* ============ SKELETON ============ */
 
-        /* =========================
-           SKELETON
-        ========================== */
-
-        .speed-skeleton {
-          width: 160px;
-          min-width: 160px;
+        .shp-skeleton {
           overflow: hidden;
-          border: 1px solid var(--speed-border);
-          border-radius: 8px;
+          border: 1px solid var(--shp-border);
+          border-radius: 10px;
           background: #fff;
         }
 
-        .speed-skeleton-image {
-          height: 150px;
-          background: linear-gradient(
-            90deg,
-            #f4f0f5 25%,
-            #eae2ed 50%,
-            #f4f0f5 75%
-          );
+        .shp-skeleton-image {
+          width: 100%;
+          aspect-ratio: 1 / 1;
+          background: linear-gradient(90deg, #f4f0f5 25%, #eae2ed 50%, #f4f0f5 75%);
           background-size: 200% 100%;
-          animation: speed-shimmer 1.4s infinite;
+          animation: shp-shimmer 1.4s infinite;
         }
 
-        .speed-skeleton-content {
-          padding: 12px;
-        }
+        .shp-skeleton-content { padding: 12px; }
 
-        .speed-skeleton-line {
+        .shp-skeleton-line {
           width: 80%;
           height: 10px;
           margin-bottom: 8px;
           border-radius: 3px;
-          background: linear-gradient(
-            90deg,
-            #f4f0f5 25%,
-            #eae2ed 50%,
-            #f4f0f5 75%
-          );
+          background: linear-gradient(90deg, #f4f0f5 25%, #eae2ed 50%, #f4f0f5 75%);
           background-size: 200% 100%;
-          animation: speed-shimmer 1.4s infinite;
+          animation: shp-shimmer 1.4s infinite;
         }
 
-        .speed-skeleton-line.short {
-          width: 50%;
-          height: 8px;
-          margin-bottom: 0;
+        .shp-skeleton-line.short { width: 50%; height: 8px; margin-bottom: 0; }
+
+        @keyframes shp-shimmer {
+          from { background-position: 200% 0; }
+          to { background-position: -200% 0; }
         }
 
-        @keyframes speed-shimmer {
-          from {
-            background-position: 200% 0;
-          }
+        /* ============ EMPTY STATE ============ */
 
-          to {
-            background-position: -200% 0;
-          }
-        }
-
-        @keyframes speed-slide-in {
-          from {
-            opacity: 0;
-            transform: translateX(25px);
-          }
-
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-
-        @media (min-width: 768px) {
-          .speed-header {
-            padding: 14px 20px;
-          }
-
-          .speed-card,
-          .speed-skeleton {
-            width: 220px;
-            min-width: 220px;
-          }
-
-          .speed-card-image,
-          .speed-skeleton-image {
-            height: 195px;
-          }
-
-          .speed-view-all-card {
-            width: 140px;
-            min-width: 140px;
-            min-height: 282px;
-          }
-
-          .speed-title {
-            font-size: 24px;
-          }
-
-          .speed-carousel {
-            gap: 16px;
-          }
-        }
-
-        /* ========================================
-           MOBILE STYLES – header title always visible
-        ========================================== */
-
-        @media (max-width: 700px) {
-          .speed-header {
-            align-items: flex-start;
-            flex-wrap: wrap;
-            background: linear-gradient(
-              105deg,
-              #fce3ff 0%,
-              #fff2c8 50%,
-              #fff9ef 100%
-            );
-          }
-
-          .speed-header-left {
-            flex-wrap: wrap;
-            gap: 8px;
-            width: 100%;
-          }
-
-          .speed-header-icon {
-            width: 32px;
-            height: 32px;
-          }
-
-          .speed-heading {
-            flex: 1 1 auto;
-            min-width: calc(100% - 60px);
-          }
-
-          .speed-title {
-            white-space: normal;
-            word-wrap: break-word;
-            font-size: 20px;
-            line-height: 1.3;
-          }
-
-          .speed-divider {
-            display: none;
-          }
-
-          .speed-timer-group {
-            margin-left: 0;
-            flex-basis: 100%;
-            justify-content: flex-start;
-          }
-
-          .speed-view-button {
-            margin-left: auto;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .speed-header {
-            padding: 11px 12px;
-          }
-
-          .speed-header-icon {
-            width: 28px;
-            height: 28px;
-          }
-
-          .speed-title {
-            font-size: 14px;
-          }
-
-          .speed-subtitle {
-            font-size: 9px;
-          }
-
-          .speed-timer-group {
-            gap: 5px;
-          }
-
-          .speed-timer-label {
-            display: none;
-          }
-
-          .speed-timer-block {
-            min-width: 27px;
-            padding: 4px 3px;
-          }
-
-          .speed-timer-value {
-            font-size: 10px;
-          }
-
-          .speed-timer-unit {
-            font-size: 6px;
-          }
-
-          .speed-view-button {
-            padding: 6px 10px;
-            font-size: 10px;
-          }
-
-          .speed-scroll-button.left {
-            left: -4px;
-          }
-
-          .speed-scroll-button.right {
-            right: -4px;
-          }
+        .shp-empty {
+          grid-column: 1 / -1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+          padding: 40px 16px;
+          color: var(--shp-muted);
+          text-align: center;
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .speed-root *,
-          .speed-root *::before,
-          .speed-root *::after {
+          .shp-root *, .shp-root *::before, .shp-root *::after {
             animation-duration: 0.01ms !important;
             animation-iteration-count: 1 !important;
-            scroll-behavior: auto !important;
             transition-duration: 0.01ms !important;
           }
         }
       `}</style>
 
-      <section className="speed-root mx-auto px-4 py-2 md:px-16">
-        {/* HEADER */}
+      <section className="shp-root mx-auto px-4 py-4 md:px-10 lg:px-16">
+        {/* HERO */}
+        <div className="shp-hero">
+          <div className="shp-hero-inner">
+            <div className="shp-hero-copy">
+              <span className="shp-eyebrow">
+                <BoltIcon style={{ width: 12, height: 12 }} />
+                {heroCopy.eyebrow}
+              </span>
 
-        <div className="speed-header">
-          <div className="speed-header-left">
-            <div className="speed-header-icon">
-              <FireIcon style={{ width: 17, height: 17 }} />
+              <h1 className="shp-hero-title">Franko Speed Shopping</h1>
+
+              <p className="shp-hero-sub">
+                Deep discounts across every category, for 24 hours only. Grab
+                what you need before the clock runs out.
+              </p>
+
+              <div className="shp-hero-date">Friday, 2nd October 2026</div>
             </div>
 
-            <div className="speed-heading">
-              <div className="speed-title font-extrabold">Franko Speed Shopping</div>
-              
-            </div>
-
-            <div className="speed-divider" />
-
-            <div className="speed-timer-group">
-              <div className="speed-timer-label">
-                <ClockIcon style={{ width: 13, height: 13 }} />
-                <span>Ends today</span>
-              </div>
-
-              <div className="speed-timer">
-                <div className="speed-timer-block">
-                  <span className="speed-timer-value">
-                    {pad(timeLeft.days)}
-                  </span>
-                  <span className="speed-timer-unit">Days</span>
+            <div className="shp-timer-card">
+              {countdown.phase === "ended" ? (
+                <div className="shp-ended-note">
+                  <SparklesIcon style={{ width: 22, height: 22, margin: "0 auto 6px" }} />
+                  This sale has ended — check back for the next drop.
                 </div>
+              ) : (
+                <>
+                  <div className="shp-timer-label">
+                    {countdown.phase === "live" ? (
+                      <span className="shp-live-dot" />
+                    ) : (
+                      <ClockIcon style={{ width: 13, height: 13 }} />
+                    )}
+                    <span>{heroCopy.label}</span>
+                  </div>
 
-                <span className="speed-timer-separator">:</span>
-
-                <div className="speed-timer-block">
-                  <span className="speed-timer-value">
-                    {pad(timeLeft.hours)}
-                  </span>
-                  <span className="speed-timer-unit">Hrs</span>
-                </div>
-
-                <span className="speed-timer-separator">:</span>
-
-                <div className="speed-timer-block">
-                  <span className="speed-timer-value">
-                    {pad(timeLeft.minutes)}
-                  </span>
-                  <span className="speed-timer-unit">Min</span>
-                </div>
-
-                <span className="speed-timer-separator">:</span>
-
-                <div className="speed-timer-block">
-                  <span className="speed-timer-value">
-                    {pad(timeLeft.seconds)}
-                  </span>
-                  <span className="speed-timer-unit">Sec</span>
-                </div>
-              </div>
+                  <div className="shp-timer">
+                    <div className="shp-timer-block">
+                      <span className="shp-timer-value">{pad(countdown.days)}</span>
+                      <span className="shp-timer-unit">Days</span>
+                    </div>
+                    <div className="shp-timer-block">
+                      <span className="shp-timer-value">{pad(countdown.hours)}</span>
+                      <span className="shp-timer-unit">Hrs</span>
+                    </div>
+                    <div className="shp-timer-block">
+                      <span className="shp-timer-value">{pad(countdown.minutes)}</span>
+                      <span className="shp-timer-unit">Min</span>
+                    </div>
+                    <div className="shp-timer-block">
+                      <span className="shp-timer-value">{pad(countdown.seconds)}</span>
+                      <span className="shp-timer-unit">Sec</span>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
-
-          <Link to={SPEED_SHOPPING_URL} className="speed-view-button">
-            <span>View All</span>
-            <ChevronRightIcon style={{ width: 14, height: 14 }} />
-          </Link>
         </div>
 
-        {/* PRODUCT CAROUSEL */}
+        {/* PRODUCT GRID */}
+        <div className="shp-grid-section">
+          <div className="shp-grid-heading">
+            <span className="shp-grid-title">
+              {countdown.phase === "before" ? "Preview the lineup" : "Deals for you"}
+            </span>
+            {!loading && products.length > 0 && (
+              <span className="shp-grid-count">
+                {visibleProducts.length} of {products.length}
+              </span>
+            )}
+          </div>
 
-        <div className="speed-carousel-wrapper">
-          {showLeftArrow && (
-            <button
-              type="button"
-              className="speed-scroll-button left"
-              onClick={() => scrollProducts("left")}
-              aria-label="Scroll products left"
-            >
-              <ChevronLeftIcon style={{ width: 17, height: 17 }} />
-            </button>
-          )}
-
-          <div
-            ref={carouselRef}
-            className="speed-carousel"
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-          >
+          <div className="shp-grid">
             {loading
-              ? Array.from({ length: 6 }).map((_, index) => (
-                  <div className="speed-skeleton" key={index}>
-                    <div className="speed-skeleton-image" />
-
-                    <div className="speed-skeleton-content">
-                      <div className="speed-skeleton-line" />
-                      <div className="speed-skeleton-line short" />
+              ? Array.from({ length: PAGE_SIZE }).map((_, index) => (
+                  <div className="shp-skeleton" key={index}>
+                    <div className="shp-skeleton-image" />
+                    <div className="shp-skeleton-content">
+                      <div className="shp-skeleton-line" />
+                      <div className="shp-skeleton-line short" />
                     </div>
                   </div>
                 ))
-              : products.map((product) => {
+              : visibleProducts.length === 0
+              ? (
+                  <div className="shp-empty">
+                    <SparklesIcon style={{ width: 26, height: 26 }} />
+                    <span>No Speed Shopping deals available right now.</span>
+                  </div>
+                )
+              : visibleProducts.map((product) => {
                   const {
                     productID,
                     productName,
@@ -1135,16 +832,9 @@ const Speed = () => {
                   const numericOldPrice = Number(oldPrice);
                   const numericStock = Number(stock);
 
-                  const isOnSale =
-                    numericOldPrice > 0 &&
-                    numericOldPrice > numericPrice;
-
+                  const isOnSale = numericOldPrice > 0 && numericOldPrice > numericPrice;
                   const discount = isOnSale
-                    ? Math.round(
-                        ((numericOldPrice - numericPrice) /
-                          numericOldPrice) *
-                          100
-                      )
+                    ? Math.round(((numericOldPrice - numericPrice) / numericOldPrice) * 100)
                     : 0;
 
                   const inWishlist = isInWishlist(productID);
@@ -1152,20 +842,13 @@ const Speed = () => {
                   return (
                     <article
                       key={productID}
-                      className="speed-card"
+                      className="shp-card"
                       onClick={() => navigate(`/product/${productID}`)}
                     >
-                      <div className="speed-card-image">
-                        {numericStock === 0 && (
-                          <span className="speed-badge sold">
-                            Sold Out
-                          </span>
-                        )}
-
+                      <div className="shp-card-image">
+                        {numericStock === 0 && <span className="shp-badge sold">Sold Out</span>}
                         {isOnSale && numericStock !== 0 && (
-                          <span className="speed-badge discount">
-                            -{discount}%
-                          </span>
+                          <span className="shp-badge discount">-{discount}%</span>
                         )}
 
                         <img
@@ -1175,44 +858,20 @@ const Speed = () => {
                         />
 
                         <div
-                          className="speed-card-overlay"
+                          className="shp-card-overlay"
                           onClick={(event) => event.stopPropagation()}
                         >
-                          <Tooltip
-                            content={
-                              inWishlist
-                                ? "Remove from Wishlist"
-                                : "Add to Wishlist"
-                            }
-                          >
+                          <Tooltip content={inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}>
                             <button
                               type="button"
-                              className="speed-action-button"
-                              onClick={() =>
-                                handleWishlistToggle(product)
-                              }
-                              aria-label={
-                                inWishlist
-                                  ? "Remove from wishlist"
-                                  : "Add to wishlist"
-                              }
+                              className="shp-action-button"
+                              onClick={() => handleWishlistToggle(product)}
+                              aria-label={inWishlist ? "Remove from wishlist" : "Add to wishlist"}
                             >
                               {inWishlist ? (
-                                <SolidHeartIcon
-                                  style={{
-                                    width: 17,
-                                    height: 17,
-                                    color: "var(--speed-pink)",
-                                  }}
-                                />
+                                <SolidHeartIcon style={{ width: 16, height: 16, color: "var(--shp-pink)" }} />
                               ) : (
-                                <OutlineHeartIcon
-                                  style={{
-                                    width: 17,
-                                    height: 17,
-                                    color: "#716a76",
-                                  }}
-                                />
+                                <OutlineHeartIcon style={{ width: 16, height: 16, color: "#716a76" }} />
                               )}
                             </button>
                           </Tooltip>
@@ -1220,92 +879,47 @@ const Speed = () => {
                           <Tooltip content="View Details">
                             <button
                               type="button"
-                              className="speed-action-button"
-                              onClick={() =>
-                                navigate(`/product/${productID}`)
-                              }
+                              className="shp-action-button"
+                              onClick={() => navigate(`/product/${productID}`)}
                               aria-label="View product details"
                             >
-                              <EyeIcon
-                                style={{
-                                  width: 17,
-                                  height: 17,
-                                  color: "var(--speed-purple)",
-                                }}
-                              />
+                              <EyeIcon style={{ width: 16, height: 16, color: "var(--shp-purple)" }} />
                             </button>
                           </Tooltip>
 
-                          <Tooltip
-                            content={
-                              numericStock === 0
-                                ? "Out of Stock"
-                                : "Add to Cart"
-                            }
-                          >
+                          <Tooltip content={numericStock === 0 ? "Out of Stock" : "Add to Cart"}>
                             <button
                               type="button"
-                              className="speed-action-button"
-                              disabled={
-                                cartLoading || numericStock === 0
-                              }
+                              className="shp-action-button"
+                              disabled={cartLoading || numericStock === 0}
                               onClick={() => handleAddToCart(product)}
                               aria-label="Add product to cart"
                             >
-                              <ShoppingCartIcon
-                                style={{
-                                  width: 17,
-                                  height: 17,
-                                  color: "var(--speed-purple)",
-                                }}
-                              />
+                              <ShoppingCartIcon style={{ width: 16, height: 16, color: "var(--shp-purple)" }} />
                             </button>
                           </Tooltip>
                         </div>
                       </div>
 
-                      <div className="speed-card-body">
-                        <div className="speed-card-name">
-                          {productName || "Unnamed product"}
-                        </div>
-
-                        <div className="speed-card-price">
-                          {formatPrice(price)}
-                        </div>
-
+                      <div className="shp-card-body">
+                        <div className="shp-card-name">{productName || "Unnamed product"}</div>
+                        <div className="shp-card-price">{formatPrice(price)}</div>
                         {numericOldPrice > 0 && (
-                          <div className="speed-card-old-price">
-                            {formatPrice(oldPrice)}
-                          </div>
+                          <div className="shp-card-old-price">{formatPrice(oldPrice)}</div>
                         )}
                       </div>
                     </article>
                   );
                 })}
-
-            {!loading && (
-              <Link
-                to={SPEED_SHOPPING_URL}
-                className="speed-view-all-card"
-              >
-                <span className="speed-view-all-circle">
-                  <ArrowRightIcon style={{ width: 20, height: 20 }} />
-                </span>
-
-                <span className="speed-view-all-label">View All</span>
-              </Link>
-            )}
           </div>
 
-          {showRightArrow && (
-            <button
-              type="button"
-              className="speed-scroll-button right"
-              onClick={() => scrollProducts("right")}
-              aria-label="Scroll products right"
-            >
-              <ChevronRightIcon style={{ width: 17, height: 17 }} />
-            </button>
+          {!loading && hasMore && (
+            <div className="shp-load-more">
+              <button type="button" className="shp-load-more-button" onClick={handleLoadMore}>
+                <ArrowPathIcon style={{ width: 14, height: 14 }} />
+                Load more deals
+              </button>
+            </div>
           )}
         </div>
       </section>
@@ -1313,4 +927,4 @@ const Speed = () => {
   );
 };
 
-export default Speed;
+export default SpeedShoppingPage;

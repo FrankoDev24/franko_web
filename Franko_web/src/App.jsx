@@ -43,6 +43,7 @@ import AgentPage from "./Pages/Agents/AgentPage/AgentPage";
 import AgentDashboard from "./Pages/Agents/AgentPage/AgentDashboard";
 import AgentOrders from "./Pages/Agents/AgentPage/AgentOrders";
 import CTP001ProductsPage from "./Pages/Agents/AgentPage/CTP001ProductsPage";
+import Speed from "./Pages/Speed";
 
 
 /* ═══════════════════════════════════════════════════════════════
@@ -310,6 +311,7 @@ function App() {
         <Route path="/brand/:brandId" element={<BrandsPage />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/products" element={<Products />} />
+        <Route path="/speed-shopping" element={<Speed />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/order-received" element={<OrderReceived />} />
         <Route path="/order-success/:orderId" element={<OrderSuccess />} />

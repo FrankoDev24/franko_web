@@ -215,10 +215,10 @@ const FridgeDeals = () => {
       />
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
         :root {
-          --fd-font: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          --fd-font: 'Plus Jakarta Sans', system-ui, sans-serif;
           --fd-green: #14532d;
           --fd-green-mid: #166534;
           --fd-green-light: #dcfce7;

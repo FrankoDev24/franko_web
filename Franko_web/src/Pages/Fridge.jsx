@@ -359,10 +359,10 @@ const Fridge = () => {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
 
         :root {
-          --fr-font: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          --fr-font: 'Plus Jakarta Sans', system-ui, sans-serif;
           --fr-green: #14532d;
           --fr-green-mid: #166534;
           --fr-green-light: #dcfce7;
