@@ -28,6 +28,7 @@ import {
   updateAccountStatus,
   logoutCustomer,
 } from "../Redux/Slice/customerSlice";
+import AuthModal from "../Component/AuthModal";
 
 const backendBaseURL = "https://testing.frankotrading.com";
 
@@ -121,6 +122,8 @@ const ConfirmDialog = ({
 // ==================== MAIN COMPONENT ====================
 const Account = () => {
   const [customer, setCustomer] = useState(null);
+  const [customerLoading, setCustomerLoading] = useState(true);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [wishlist, setWishlist] = useState([]);
   const [activeTab, setActiveTab] = useState("profile");
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -137,12 +140,15 @@ const Account = () => {
   useEffect(() => {
     try {
       const stored = localStorage.getItem("customer");
-      if (!stored) return;
-      const parsed = typeof stored === "string" ? JSON.parse(stored) : stored;
-      setCustomer(parsed);
+      if (stored) {
+        const parsed = typeof stored === "string" ? JSON.parse(stored) : stored;
+        setCustomer(parsed);
+      }
     } catch (e) {
       console.error("Failed to load customer:", e);
       setCustomer(null);
+    } finally {
+      setCustomerLoading(false);
     }
   }, []);
 
@@ -208,7 +214,7 @@ const Account = () => {
   };
 
   // Loading
-  if (!customer) {
+  if (customerLoading) {
     return (
       <>
         <style>{accountStyles}</style>
@@ -217,6 +223,43 @@ const Account = () => {
             <div className="ac-spinner" />
             <p className="ac-loading-text">Loading your profile…</p>
           </div>
+        </div>
+      </>
+    );
+  }
+
+  // Not signed in
+  if (!customer) {
+    return (
+      <>
+        <style>{accountStyles}</style>
+        <div className="ac-root">
+          <div className="ac-container">
+            <div className="ac-page-header">
+              <div className="ac-page-header-accent" />
+              <div>
+                <h1 className="ac-page-title">My Account</h1>
+                <p className="ac-page-count">Manage your profile and preferences</p>
+              </div>
+              <div className="ac-page-header-line" />
+            </div>
+            <div className="ac-empty-state">
+              <div className="ac-empty-icon-wrap">
+                <UserIcon style={{ width: 30, height: 30, color: "#888" }} />
+              </div>
+              <div className="ac-empty-title">Sign In Required</div>
+              <div className="ac-empty-desc">
+                Please log in to view your account details and manage your profile.
+              </div>
+              <button
+                className="ac-btn-outline"
+                onClick={() => setShowAuthModal(true)}
+              >
+                Sign In
+              </button>
+            </div>
+          </div>
+          <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
         </div>
       </>
     );
@@ -539,10 +582,8 @@ const Account = () => {
 
 // ==================== STYLES ====================
 const accountStyles = `
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
-  .ac-root, .ac-root * {
-    font-family: 'Plus Jakarta Sans', system-ui, sans-serif !important;
+.ac-root, .ac-root * {
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     box-sizing: border-box;
@@ -716,7 +757,7 @@ const accountStyles = `
     font-size: 13px; font-weight: 700;
     color: #888; background: transparent;
     cursor: pointer; transition: all 0.15s;
-    font-family: 'Source Sans 3', sans-serif !important;
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
   }
   .ac-tab:hover { color: #555; background: rgba(255,255,255,0.6); }
   .ac-tab-active {
@@ -853,7 +894,7 @@ const accountStyles = `
     border: 1px solid #14532d; border-radius: 4px;
     font-size: 13px; font-weight: 700; cursor: pointer;
     transition: all 0.15s;
-    font-family: 'Source Sans 3', sans-serif !important;
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
   }
   .ac-btn-outline:hover {
     background: #f0fdf4;
@@ -869,7 +910,7 @@ const accountStyles = `
     border: none; background: transparent;
     cursor: pointer; transition: background 0.12s;
     text-align: left;
-    font-family: 'Source Sans 3', sans-serif !important;
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
   }
   .ac-action-item:hover { background: #fafafa; }
   .ac-action-item-danger:hover { background: #fef2f2; }
@@ -924,7 +965,7 @@ const accountStyles = `
     border: none; border-radius: 4px;
     font-size: 12px; font-weight: 700; cursor: pointer;
     transition: all 0.15s; flex-shrink: 0;
-    font-family: 'Source Sans 3', sans-serif !important;
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
   }
   .ac-help-btn:hover { background: #f0fdf4; }
 
@@ -994,7 +1035,7 @@ const accountStyles = `
     font-size: 14px; font-weight: 700;
     cursor: pointer; transition: all 0.15s;
     display: flex; align-items: center; justify-content: center; gap: 8px;
-    font-family: 'Source Sans 3', sans-serif !important;
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
   }
   .ac-dialog-btn-confirm:hover { filter: brightness(0.9); }
   .ac-dialog-btn-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -1003,7 +1044,7 @@ const accountStyles = `
     color: #555; border: 1px solid #e0e0e0;
     border-radius: 6px; font-size: 14px; font-weight: 600;
     cursor: pointer; transition: all 0.15s;
-    font-family: 'Source Sans 3', sans-serif !important;
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
   }
   .ac-dialog-btn-cancel:hover { background: #f7f7f7; border-color: #ccc; }
   .ac-dialog-btn-cancel:disabled { opacity: 0.4; cursor: not-allowed; }

@@ -7,8 +7,7 @@ const encrypt = (data) => {
   try {
     const str = typeof data === "string" ? data : JSON.stringify(data);
     return CryptoJS.AES.encrypt(str, SECRET_KEY).toString();
-  } catch (err) {
-
+  } catch {
     return data;
   }
 };
@@ -21,8 +20,7 @@ const decrypt = (cipherText) => {
     const bytes = CryptoJS.AES.decrypt(cipherText, SECRET_KEY);
     const decrypted = bytes.toString(CryptoJS.enc.Utf8);
     return decrypted;
-  } catch (err) {
-
+  } catch {
     return cipherText;
   }
 };
@@ -43,8 +41,7 @@ const decrypt = (cipherText) => {
         const encrypted = encrypt(value);
         originalSet.call(this, key, encrypted);
       }
-    } catch (err) {
-
+    } catch {
       originalSet.call(this, key, value);
     }
   };
@@ -63,8 +60,7 @@ const decrypt = (cipherText) => {
       } catch {
         return decrypted; // plain string
       }
-    } catch (err) {
-    
+    } catch {
       return null;
     }
   };

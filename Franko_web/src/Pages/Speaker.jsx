@@ -359,12 +359,8 @@ const Speakers = () => {
   return (
     <>
       <style>{`
-       @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
-
-
-        :root {
-          --sp-font: 'Plus Jakarta Sans', system-ui, sans-serif;
+       :root {
+          --sp-font: 'Plus Jakarta Sans', sans-serif;
           --sp-green: #14532d;
           --sp-green-mid: #166534;
           --sp-green-light: #dcfce7;
@@ -825,12 +821,12 @@ const Speakers = () => {
           <meta property="og:type" content="website" />
           <meta property="og:title" content="Best Speakers for Sale | Affordable Audio Systems" />
           <meta property="og:description" content="Shop high-quality speakers for your home or office at unbeatable prices." />
-          <meta property="og:image" content={filteredProducts.length > 0 ? `https://testing.frankotrading.com/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+          <meta property="og:image" content={filteredProducts.length > 0 ? getValidImageUrl(filteredProducts[0].productImage) : "default-image-url"} />
           <meta property="og:url" content="https://www.frankotrading.com/speakers" />
           <meta name="twitter:card" content="summary_large_image" />
           <meta name="twitter:title" content="Best Speakers for Sale | Affordable Audio Systems" />
           <meta name="twitter:description" content="Find top-quality speakers with great sound at affordable prices." />
-          <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://testing.frankotrading.com/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+          <meta name="twitter:image" content={filteredProducts.length > 0 ? getValidImageUrl(filteredProducts[0].productImage) : "default-image-url"} />
           <link rel="canonical" href="https://www.frankotrading.com/speakers" />
           <script type="application/ld+json">
             {JSON.stringify({
@@ -843,7 +839,7 @@ const Speakers = () => {
                 "@type": "Product",
                 "position": index + 1,
                 "name": item.productName,
-                "image": `https://testing.frankotrading.com/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+                "image": getValidImageUrl(item.productImage),
                 "description": item.description,
                 "sku": item.productID,
                 "category": item.categoryName,

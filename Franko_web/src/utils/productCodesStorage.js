@@ -10,7 +10,7 @@ const getRawItem = (key) => {
       ? localStorage.getItem(key)
       : window.localStorage.getItem(key);
     return value;
-  } catch (e) {
+  } catch {
     return null;
   }
 };
@@ -18,8 +18,8 @@ const getRawItem = (key) => {
 const setRawItem = (key, value) => {
   try {
     localStorage.setItem(key, value);
-  } catch (e) {
-
+  } catch {
+    // Ignore storage errors
   }
 };
 
@@ -29,9 +29,8 @@ export const productCodesStorage = {
     try {
       // Your encrypted localStorage will handle the encryption
       setRawItem(STORAGE_KEY, typeof codes === 'string' ? codes : JSON.stringify(codes));
-   
-    } catch (error) {
-     
+    } catch {
+      // Ignore storage errors
     }
   },
 
@@ -54,8 +53,7 @@ export const productCodesStorage = {
       } catch {
         return {};
       }
-    } catch (error) {
-
+    } catch {
       return {};
     }
   },
@@ -83,9 +81,8 @@ export const productCodesStorage = {
   clear: () => {
     try {
       localStorage.removeItem(STORAGE_KEY);
-
-    } catch (error) {
-
+    } catch {
+      // Ignore storage errors
     }
   }
 };

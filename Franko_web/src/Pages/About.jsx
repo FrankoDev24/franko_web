@@ -60,12 +60,8 @@ export default function AboutUs() {
   return (
     <>
       <style>{`
-       @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
-
-
-        :root {
-          --ab-font: 'Plus Jakarta Sans', system-ui, sans-serif;
+       :root {
+          --ab-font: 'Plus Jakarta Sans', sans-serif;
           --ab-green: #14532d;
           --ab-green-mid: #166534;
           --ab-green-600: #16a34a;

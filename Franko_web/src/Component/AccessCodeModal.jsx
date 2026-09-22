@@ -37,7 +37,7 @@ export const checkAccessCodeValidity = async () => {
     );
     
     return response.data?.success || false;
-  } catch (error) {
+  } catch {
     // If verification fails, clear the stored code
     clearAccessCode();
     return false;

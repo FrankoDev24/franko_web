@@ -359,12 +359,8 @@ const Laptops = () => {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
-
-
         :root {
-          --lp-font: 'Plus Jakarta Sans', system-ui, sans-serif;
+          --lp-font: 'Plus Jakarta Sans', sans-serif;
           --lp-green: #14532d;
           --lp-green-mid: #166534;
           --lp-green-light: #dcfce7;
@@ -850,13 +846,13 @@ const Laptops = () => {
           <meta name="keywords" content="computers, laptops, desktops, accessories, buy online" />
           <meta property="og:title" content="Laptops - Buy Laptops, Desktops, and Accessories" />
           <meta property="og:description" content="Shop laptops, desktops, and computer accessories at Franko Trading. Choose top brands like HP, Lenovo, Acer, and Dell — with free shipping and warranty support." />
-          <meta property="og:image" content={filteredProducts.length > 0 ? `https://testing.frankotrading.com/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+          <meta property="og:image" content={filteredProducts.length > 0 ? getValidImageUrl(filteredProducts[0].productImage) : "default-image-url"} />
           <meta property="og:url" content="https://www.frankotrading.com/computers" />
           <meta property="og:type" content="website" />
           <meta name="twitter:card" content="summary_large_image" />
           <meta name="twitter:title" content="Computers - Buy Laptops, Desktops, and Accessories" />
           <meta name="twitter:description" content="Shop laptops, desktops, and computer accessories at Franko Trading. Choose top brands like HP, Lenovo, Acer, and Dell — with free shipping and warranty support." />
-          <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://testing.frankotrading.com/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+          <meta name="twitter:image" content={filteredProducts.length > 0 ? getValidImageUrl(filteredProducts[0].productImage) : "default-image-url"} />
           <link rel="canonical" href="https://www.frankotrading.com/computers" />
           <script type="application/ld+json">
             {JSON.stringify({
@@ -870,7 +866,7 @@ const Laptops = () => {
                 "@type": "Product",
                 "position": index + 1,
                 "name": item.productName,
-                "image": `https://testing.frankotrading.com/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+                "image": getValidImageUrl(item.productImage),
                 "description": item.description,
                 "brand": {
                   "@type": "Brand",

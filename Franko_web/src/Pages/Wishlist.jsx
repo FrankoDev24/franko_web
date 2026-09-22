@@ -34,7 +34,9 @@ const Wishlist = () => {
       case "price-high":
         return parseFloat(b.price) - parseFloat(a.price);
       case "name":
-        return a.productName.localeCompare(b.productName);
+        return String(a.productName || "").localeCompare(
+          String(b.productName || "")
+        );
       default:
         return 0;
     }

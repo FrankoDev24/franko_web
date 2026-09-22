@@ -356,12 +356,8 @@ const Accessories = () => {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
-
-
         :root {
-          --ac-font: 'Plus Jakarta Sans', system-ui, sans-serif;
+          --ac-font: 'Plus Jakarta Sans', sans-serif;
           --ac-green: #14532d;
           --ac-green-mid: #166534;
           --ac-green-light: #dcfce7;
@@ -740,12 +736,12 @@ const Accessories = () => {
           <meta property="og:description" content="Find high-quality accessories at the best prices. Shop now!" />
           <meta property="og:type" content="website" />
           <meta property="og:url" content="https://www.frankotrading.com/accessories" />
-          <meta property="og:image" content={filteredProducts.length > 0 ? `https://testing.frankotrading.com/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+          <meta property="og:image" content={filteredProducts.length > 0 ? getValidImageUrl(filteredProducts[0].productImage) : "default-image-url"} />
           <meta property="og:site_name" content="Franko Trading" />
           <meta name="twitter:card" content="summary_large_image" />
           <meta name="twitter:title" content="Accessories - Shop the Best Products" />
           <meta name="twitter:description" content="Find high-quality accessories at the best prices. Shop now!" />
-          <meta name="twitter:image" content={filteredProducts.length > 0 ? `https://testing.frankotrading.com/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}` : "default-image-url"} />
+          <meta name="twitter:image" content={filteredProducts.length > 0 ? getValidImageUrl(filteredProducts[0].productImage) : "default-image-url"} />
           <link rel="canonical" href="https://www.frankotrading.com/accessories" />
           <script type="application/ld+json">
             {JSON.stringify({
@@ -758,7 +754,7 @@ const Accessories = () => {
                 "@type": "Product",
                 "position": index + 1,
                 "name": item.productName,
-                "image": `https://testing.frankotrading.com/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+                "image": getValidImageUrl(item.productImage),
                 "description": item.description,
                 "brand": { "@type": "Brand", "name": item.brandName },
                 "sku": item.productID,

@@ -10,6 +10,19 @@ const toErrorPayload = (error, fallback) => {
   return server || error.message || fallback;
 };
 
+// localStorage getItem is patched to auto-parse JSON, so the returned
+// value may already be an array. Only plain strings need parsing.
+const parseStoredUserOrders = () => {
+  try {
+    const raw = localStorage.getItem("userOrders");
+    if (!raw) return [];
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
 // Async thunks
 export const fetchOrdersByDate = createAsyncThunk(
   "orders/fetchOrdersByDate",
@@ -235,18 +248,8 @@ const orderSlice = createSlice({
 
     checkoutDetails: localStorage.getItem("checkoutDetails") || {},
     orderAddressDetails: localStorage.getItem("orderAddressDetails") || {},
-    loading: {
-      orders: false,
-      deliveryAddress: false,
-      deliveryUpdate: false,
-      lifeCycle: false,
-    },
-    error: {
-      orders: null,
-      deliveryAddress: null,
-      deliveryUpdate: null,
-      lifeCycle: null,
-    },
+    loading: false,
+    error: null,
   },
   reducers: {
     // Clear localStorage and reset state
@@ -284,8 +287,7 @@ const orderSlice = createSlice({
     // Store the local order
     storeLocalOrder: (state, action) => {
       const { userId, orderId } = action.payload;
-      const storedOrders =
-        JSON.parse(localStorage.getItem("userOrders")) || [];
+      const storedOrders = parseStoredUserOrders();
 
       const existingOrderIndex = storedOrders.findIndex(
         (order) => order.userId === userId && order.orderId === orderId
@@ -304,8 +306,7 @@ const orderSlice = createSlice({
     // Fetch orders by user
     fetchOrdersByUser: (state, action) => {
       const userId = action.payload;
-      const storedOrders =
-        JSON.parse(localStorage.getItem("userOrders")) || [];
+      const storedOrders = parseStoredUserOrders();
       state.orders = storedOrders.filter((order) => order.userId === userId);
     },
 
@@ -314,17 +315,8 @@ const orderSlice = createSlice({
       state.orders = [];
       state.salesOrder = [];
       state.deliveryAddress = [];
-      state.loading = {
-        orders: false,
-        deliveryAddress: false,
-        deliveryUpdate: false,
-      };
-      state.error = {
-        orders: null,
-        lifeCycle: null,
-        deliveryAddress: null,
-        deliveryUpdate: null,
-      };
+      state.loading = false;
+      state.error = null;
     },
   },
   extraReducers: (builder) => {
@@ -359,61 +351,58 @@ const orderSlice = createSlice({
           action.error.message || "Error updating order lifecycle";
       })
       .addCase(fetchOrderLifeCycle.fulfilled, (state, action) => {
-        state.loading.lifeCycle = false;
+        state.loading = false;
         state.lifeCycle = action.payload;
       })
       .addCase(fetchOrderLifeCycle.rejected, (state, action) => {
-        state.loading.lifeCycle = false;
-        state.error.lifeCycle = action.payload;
+        state.loading = false;
+        state.error = action.error?.message || "Failed to fetch order lifecycle";
       })
       .addCase(checkOutOrder.pending, (state) => {
-        state.loading.orders = true;
-        state.error.orders = null;
+        state.loading = true;
+        state.error = null;
       })
       .addCase(checkOutOrder.fulfilled, (state, action) => {
-        state.loading.orders = false;
+        state.loading = false;
         state.orders = Array.isArray(action.payload) ? action.payload : [];
       })
       .addCase(checkOutOrder.rejected, (state, action) => {
-        state.loading.orders = false;
-        state.error.orders =
+        state.loading = false;
+        state.error =
           action.payload ||
           action.error?.message ||
           "Failed to checkout order";
       })
       .addCase(orderAddress.pending, (state) => {
-        state.loading.deliveryAddress = true;
-        state.error.deliveryAddress = null;
+        state.loading = true;
+        state.error = null;
       })
       .addCase(orderAddress.fulfilled, (state, action) => {
-        state.loading.deliveryAddress = false;
+        state.loading = false;
         state.deliveryAddress = action.payload;
       })
       .addCase(orderAddress.rejected, (state, action) => {
-        state.loading.deliveryAddress = false;
-        state.error.deliveryAddress = action.payload;
+        state.loading = false;
+        state.error = action.payload || "Failed to save order address";
       })
       .addCase(fetchOrderDeliveryAddress.fulfilled, (state, action) => {
-        if (action.payload) {
-          state.deliveryAddress = action.payload;
-        } else {
-          state.deliveryAddress = null;
-        }
+        state.deliveryAddress = action.payload || null;
       })
       .addCase(fetchOrderDeliveryAddress.rejected, (state, action) => {
-        state.error = action.payload;
+        state.loading = false;
+        state.error = action.payload || "Failed to fetch order address";
       })
       .addCase(updateOrderDelivery.pending, (state) => {
-        state.loading.deliveryUpdate = true;
-        state.error.deliveryUpdate = null;
+        state.loading = true;
+        state.error = null;
       })
       .addCase(updateOrderDelivery.fulfilled, (state, action) => {
-        state.loading.deliveryUpdate = false;
+        state.loading = false;
         state.deliveryUpdate = action.payload;
       })
       .addCase(updateOrderDelivery.rejected, (state, action) => {
-        state.loading.deliveryUpdate = false;
-        state.error.deliveryUpdate =
+        state.loading = false;
+        state.error =
           action.payload ||
           action.error?.message ||
           "Failed to update order delivery";
@@ -424,12 +413,15 @@ const orderSlice = createSlice({
       })
       .addCase(fetchSalesOrderById.fulfilled, (state, action) => {
         state.loading = false;
-        state.salesOrder = action.payload;
+        state.salesOrder = Array.isArray(action.payload)
+          ? action.payload
+          : action.payload
+          ? [action.payload]
+          : [];
       })
       .addCase(fetchSalesOrderById.rejected, (state, action) => {
         state.loading = false;
-        state.error =
-          action.payload || "Failed to fetch sales order";
+        state.error = action.payload || "Failed to fetch sales order";
       })
       .addCase(fetchOrdersByCustomer.pending, (state) => {
         state.loading = true;
@@ -437,11 +429,12 @@ const orderSlice = createSlice({
       })
       .addCase(fetchOrdersByCustomer.fulfilled, (state, action) => {
         state.loading = false;
-        state.orders = action.payload || [];
+        state.orders = Array.isArray(action.payload) ? action.payload : [];
       })
       .addCase(fetchOrdersByCustomer.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error =
+          action.payload || action.error?.message || "Failed to fetch orders";
       })
       .addCase(fetchOrdersByThirdParty.pending, (state) => {
         state.loading = true;
@@ -449,11 +442,12 @@ const orderSlice = createSlice({
       })
       .addCase(fetchOrdersByThirdParty.fulfilled, (state, action) => {
         state.loading = false;
-        state.orders = action.payload || [];
+        state.orders = Array.isArray(action.payload) ? action.payload : [];
       })
       .addCase(fetchOrdersByThirdParty.rejected, (state, action) => {
         state.loading = false;
-        state.error.orders = action.error.message;
+        state.error =
+          action.payload || action.error?.message || "Failed to fetch orders";
       });
   },
 });

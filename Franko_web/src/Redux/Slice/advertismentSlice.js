@@ -51,7 +51,7 @@ export const getAdvertisment = createAsyncThunk(
 
       const res = await axiosInstance.get('/', {
         params: {
-          endpoint: '/Advertisment/GetAdvertisment', // backend endpoint
+          endpoint: '/Advertisement/GetAdvertisment', // backend endpoint
           AdsName,
         },
       });
@@ -126,7 +126,7 @@ export const putAdvertisment = createAsyncThunk(
         formData,
         {
           params: {
-            endpoint: '/Advertisment/PutAdvertisment', // backend endpoint
+            endpoint: '/Advertisement/PutAdvertisment', // backend endpoint
             Fileid,
             AdsName,
             IndexOrder,

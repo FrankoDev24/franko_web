@@ -211,12 +211,8 @@ const TeleDeals = () => {
       />
 
       <style>{`
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
-
-
-        :root {
-          --td-font: 'Plus Jakarta Sans', system-ui, sans-serif;
+:root {
+          --td-font: 'Plus Jakarta Sans', sans-serif;
           --td-green: #14532d;
           --td-green-mid: #166534;
           --td-green-light: #dcfce7;

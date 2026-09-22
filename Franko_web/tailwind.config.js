@@ -15,7 +15,7 @@ export default withMT({
         marquee: 'marquee 40s linear infinite',
       },
       fontFamily: {
-        sans: ['ui-sans-serif', 'system-ui'],
+        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
       },
     },
 

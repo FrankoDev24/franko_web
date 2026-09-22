@@ -669,10 +669,8 @@ const Cart = () => {
 // ==================== STYLES ====================
 
 const cartStyles = `
-  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@40500;600;700;800&display=swap');
-
   :root {
-    --cart-font: 'Plus Jakarta Sans', system-ui, sans-serif;
+    --cart-font: 'Plus Jakarta Sans', sans-serif;
     --cart-green: #14532d;
     --cart-green-mid: #166534;
     --cart-green-light: #dcfce7;

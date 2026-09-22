@@ -23,7 +23,7 @@ function findScrollableElement() {
       if (el.scrollHeight > el.clientHeight && /(auto|scroll|overlay)/.test(overflowY)) {
         return el;
       }
-    } catch (e) {
+    } catch {
       // ignore cross-origin or weird nodes
     }
   }

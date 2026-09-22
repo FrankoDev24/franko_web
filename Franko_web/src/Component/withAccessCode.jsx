@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Spin } from 'antd';
 import AccessCodeModal, { checkAccessCodeValidity } from './AccessCodeModal';
 
+// eslint-disable-next-line no-unused-vars
 const withAccessCode = (WrappedComponent) => {
   return function WithAccessCodeComponent(props) {
     const [showAccessModal, setShowAccessModal] = useState(false);
@@ -10,18 +11,23 @@ const withAccessCode = (WrappedComponent) => {
     const [isCheckingAccess, setIsCheckingAccess] = useState(true);
 
     useEffect(() => {
-      const checkAccess = () => {
-        const isValid = checkAccessCodeValidity();
-        
-        if (isValid) {
-          setHasAccess(true);
-          setShowAccessModal(false);
-        } else {
+      const checkAccess = async () => {
+        try {
+          const isValid = await checkAccessCodeValidity();
+
+          if (isValid) {
+            setHasAccess(true);
+            setShowAccessModal(false);
+          } else {
+            setHasAccess(false);
+            setShowAccessModal(true);
+          }
+        } catch {
           setHasAccess(false);
           setShowAccessModal(true);
+        } finally {
+          setIsCheckingAccess(false);
         }
-        
-        setIsCheckingAccess(false);
       };
 
       // Small delay to prevent flash

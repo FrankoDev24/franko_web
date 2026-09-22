@@ -233,10 +233,8 @@ const SpeedShoppingPage = () => {
       />
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&display=swap');
-
         :root {
-          --shp-font: 'DM Sans', sans-serif;
+          --shp-font: 'Plus Jakarta Sans', sans-serif;
 
           --shp-purple-dark: #1e0a36;
           --shp-purple: #4d1070;

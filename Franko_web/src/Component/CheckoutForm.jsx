@@ -15,8 +15,6 @@ const CheckoutForm = ({
   setOrderNote,
   locations,
   customerAccountType,
-  isDifferentRecipient,   // ✅ NEW: from Checkout — is the recipient different from account holder?
-  readOnlyRecipient,      // ✅ NEW: true = name/number fields are locked (same recipient)
 }) => {
   const [region, setRegion] = useState(null);
   const [town, setTown] = useState(null);
@@ -29,7 +27,7 @@ const CheckoutForm = ({
   const [searchText, setSearchText] = useState("");
   const [locationNotFound, setLocationNotFound] = useState(false);
 
-  const isDeliveryFree = (deliveryFee) => deliveryFee === "Free delivery";
+  const _isDeliveryFree = (_deliveryFee) => _deliveryFee === "Free delivery";
 
   const formatDeliveryFee = (deliveryFee) => {
     if (deliveryFee === "Free delivery") return "Free delivery";

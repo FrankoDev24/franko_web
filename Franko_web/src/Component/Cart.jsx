@@ -10,9 +10,17 @@ const useAddToCart = () => {
   const [loading, setLoading] = useState(false);
 
   const addProductToCart = async (product) => {
-    const isProductInCart = cartItems.some(
-      (item) => item.productID === product.productID
-    );
+    const prodId = product.productId ?? product.productID ?? product.id;
+    const isProductInCart = cartItems.some((item) => {
+      const itemId = item.productId ?? item.productID ?? item.ProductId;
+      return (
+        itemId !== undefined &&
+        itemId !== null &&
+        prodId !== undefined &&
+        prodId !== null &&
+        String(itemId) === String(prodId)
+      );
+    });
 
     if (isProductInCart) {
       throw new Error("Product is already in the cart");

@@ -131,10 +131,8 @@ const CategoryComponent = () => {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
         .category-section * {
-          font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+          font-family: 'Plus Jakarta Sans', sans-serif;
           -webkit-font-smoothing: antialiased;
           -moz-osx-font-smoothing: grayscale;
         }

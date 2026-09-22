@@ -21,8 +21,8 @@ const InfoBanner = () => {
     }
   }, [advertisments]);
 
-  const imageUrl = homePageAd
-    ? `${backendBaseURL}/Media/Ads/${homePageAd.fileName.split("\\").pop()}`
+  const imageUrl = homePageAd?.fileName
+    ? `${backendBaseURL}/Media/Ads/${String(homePageAd.fileName).split("\\").pop()}`
     : "https://via.placeholder.com/1200x400";
 
   return (

@@ -29,10 +29,8 @@ const BrandsBanner = () => {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
         :root {
-          --bb-font: 'Plus Jakarta Sans', system-ui, sans-serif;
+          --bb-font: 'Plus Jakarta Sans', sans-serif;
           --bb-green: #14532d;
           --bb-green-mid: #166534;
           --bb-green-light: #dcfce7;

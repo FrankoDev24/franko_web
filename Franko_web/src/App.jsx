@@ -89,7 +89,7 @@ const decrypt = (cipherText) => {
         const encrypted = encrypt(value);
         originalSet.call(this, key, encrypted);
       }
-    } catch (err) {
+    } catch {
       originalSet.call(this, key, value);
     }
   };
@@ -102,7 +102,7 @@ const decrypt = (cipherText) => {
 
       const decrypted = decrypt(encrypted);
       try { return JSON.parse(decrypted); } catch { return decrypted; }
-    } catch (err) { return null; }
+    } catch { return null; }
   };
 
   Storage.prototype.removeItem = function (key) {
@@ -126,7 +126,7 @@ const safeGetFromStorage = (key) => {
       try { return JSON.parse(data); } catch { return null; }
     }
     return data;
-  } catch (e) {
+  } catch {
     return null;
   }
 };
@@ -157,8 +157,9 @@ const getUserRole = () => {
     const user = safeGetFromStorage("user");
     if (!customer && !user) return null;
     if (user?.position === "agent") return "agent";
-    return customer?.accountType || null; 
-  } catch (err) { return null; }
+    if (customer?.isAgent === true) return "agent";
+    return customer?.accountType || null;
+  } catch { return null; }
 };
 
 /* ═══════════════════════════════════════════════════════════════
@@ -182,7 +183,7 @@ const AuthenticationChecker = () => {
         if (customer && !storedCustomer) {
           safeSetToStorage("customer", customer);
         }
-      } catch (error) {
+      } catch {
         cleanupCorruptedEntries();
       }
     };

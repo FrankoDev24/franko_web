@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { WifiOff, RefreshCw, Wifi } from 'lucide-react';
 
 const NoInternetPage = () => {

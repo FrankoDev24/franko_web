@@ -34,9 +34,14 @@ const OrderReceived = () => {
 
     // ✅✅✅ FIRE META PIXEL CompleteRegistration WITH VALUE (deduplicated)
     try {
-      const checkoutDetails = JSON.parse(
-        localStorage.getItem("checkoutDetails") || "{}"
-      );
+      let checkoutDetails = localStorage.getItem("checkoutDetails") || {};
+      if (typeof checkoutDetails === "string") {
+        try {
+          checkoutDetails = JSON.parse(checkoutDetails);
+        } catch {
+          checkoutDetails = {};
+        }
+      }
       const orderId =
         checkoutDetails.orderCode ||
         new URLSearchParams(window.location.search).get("orderId") ||
@@ -80,12 +85,8 @@ const OrderReceived = () => {
   return (
     <>
       <style>{`
-       @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
-
-
-        :root {
-          --ov-font: 'Plus Jakarta Sans', system-ui, sans-serif;
+       :root {
+          --ov-font: 'Plus Jakarta Sans', sans-serif;
           --ov-green: #14532d;
           --ov-green-mid: #166534;
           --ov-green-600: #16a34a;

@@ -81,7 +81,7 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
           }
           
           body { 
-            font-family: 'Arial', 'Helvetica', sans-serif; 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
             margin: 0;
             padding: 20px;
             color: #2d3748;

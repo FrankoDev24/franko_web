@@ -80,6 +80,7 @@ const Notification = ({ message, type, isVisible, onClose }) => {
 
 // ─── Field ───────────────────────────────────
 const Field = ({
+  // eslint-disable-next-line no-unused-vars
   icon: Icon,
   label,
   type = "text",
@@ -254,7 +255,7 @@ const ForceChangePasswordModal = ({ customer, onSuccess }) => {
       dispatch(setCurrentCustomer(completeCustomer));
 
       setDone(true);
-      setTimeout(onSuccess, 1500);
+      setTimeout(() => onSuccess(completeCustomer), 1500);
     } catch (err) {
       setError(
         typeof err === "object"
@@ -443,11 +444,28 @@ const ChangePasswordPanel = ({ customer, showNotification, onClose }) => {
   );
 };
 
+const resolveInitialMode = (initialMode, allowGuest) => {
+  const allowed = allowGuest ? ["login", "signup", "guest"] : ["login", "signup"];
+  if (allowed.includes(initialMode)) return initialMode;
+  return allowGuest ? "login" : "signup";
+};
+
 // ─── Main AuthModal ──────────────────────────
-const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
+const AuthModal = ({
+  open,
+  onClose,
+  onSuccess,
+  currentCustomer,
+  initialMode = "login",
+  allowGuest = true,
+  autoLoginAfterSignup = false,
+  notice = "",
+}) => {
   const dispatch = useDispatch();
 
-  const [authMode, setAuthMode] = useState("login");
+  const [authMode, setAuthMode] = useState(() =>
+    resolveInitialMode(initialMode, allowGuest)
+  );
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [forcePasswordChange, setForcePasswordChange] = useState(false);
@@ -525,7 +543,7 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
   useEffect(() => {
     if (!open) {
       hideNotif();
-      setAuthMode("login");
+      setAuthMode(resolveInitialMode(initialMode, allowGuest));
       setShowChangePassword(false);
       setLoading(false);
       setForcePasswordChange(false);
@@ -554,7 +572,16 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
         contactNumber: "",
       });
     }
-  }, [open, hideNotif]);
+  }, [open, hideNotif, initialMode, allowGuest]);
+
+  useEffect(() => {
+    if (!open) return;
+    setAuthMode(resolveInitialMode(initialMode, allowGuest));
+  }, [open, initialMode, allowGuest]);
+
+  useEffect(() => {
+    if (!allowGuest && authMode === "guest") setAuthMode("signup");
+  }, [allowGuest, authMode]);
 
   useEffect(() => {
     hideNotif();
@@ -666,6 +693,43 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
         return;
       }
 
+      if (autoLoginAfterSignup) {
+        try {
+          const loginResult = await dispatch(
+            loginCustomer({
+              contactNumber: payload.contactNumber,
+              password: payload.password,
+            })
+          ).unwrap();
+
+          if (loginResult?.requiresPasswordChange || loginResult?.loginStatus === false) {
+            setPendingCustomer(loginResult);
+            setForcePasswordChange(true);
+            return;
+          }
+
+          if (!loginResult?.accessToken || !loginResult?.contactNumber) {
+            throw new Error("Login succeeded but customer session is incomplete.");
+          }
+
+          dispatch(setCurrentCustomer(loginResult));
+          showNotif("Account created. Continuing your order…", "success");
+          setTimeout(() => {
+            if (onSuccess) onSuccess(loginResult);
+            else onClose();
+          }, 700);
+          return;
+        } catch {
+          setLoginData({
+            contactNumber: payload.contactNumber,
+            password: payload.password,
+          });
+          setAuthMode("login");
+          showNotif("Account created. Please sign in to continue.", "success");
+          return;
+        }
+      }
+
       setSuccessRedirect({
         show: true,
         title: "Account created!",
@@ -695,6 +759,10 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
   };
 
   const handleGuest = async () => {
+    if (!allowGuest) {
+      setAuthMode("signup");
+      return;
+    }
     if (!validateGuest()) return;
 
     setLoading(true);
@@ -841,7 +909,7 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
     if (e.key !== "Enter" || loading) return;
     if (authMode === "login") handleLogin();
     if (authMode === "signup") handleSignup();
-    if (authMode === "guest") handleGuest();
+    if (authMode === "guest" && allowGuest) handleGuest();
   };
 
   if (!open) return null;
@@ -849,12 +917,15 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
   const tabs = [
     { key: "login", label: "Sign In", Icon: User },
     { key: "signup", label: "Register", Icon: UserPlus },
-    { key: "guest", label: "Guest", Icon: UserCheck },
+    ...(allowGuest ? [{ key: "guest", label: "Guest", Icon: UserCheck }] : []),
   ];
 
   const headings = {
     login: { title: "Welcome back", sub: "Sign in to continue shopping" },
-    signup: { title: "Create account", sub: "Join Franko Trading today" },
+    signup: {
+      title: "Create account",
+      sub: notice ? "Register before placing your order" : "Join Franko Trading today",
+    },
     guest: { title: "Quick checkout", sub: "Continue as a guest" },
   };
 
@@ -866,13 +937,13 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
       {forcePasswordChange && pendingCustomer && (
         <ForceChangePasswordModal
           customer={pendingCustomer}
-          onSuccess={() => {
+          onSuccess={(updatedCustomer) => {
             setForcePasswordChange(false);
             setPendingCustomer(null);
             showNotif("Password updated! You're now logged in.", "success");
 
             setTimeout(() => {
-              if (onSuccess) onSuccess();
+              if (onSuccess) onSuccess(updatedCustomer || pendingCustomer);
               else onClose();
             }, 1200);
           }}
@@ -898,7 +969,10 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
             <p className="am-subheading">{headings[authMode].sub}</p>
           </header>
 
+          {notice ? <div className="am-notice">{notice}</div> : null}
+
           <nav className="am-tabs" role="tablist">
+            {/* eslint-disable-next-line no-unused-vars */}
             {tabs.map(({ key, label, Icon }) => (
               <button
                 key={key}
@@ -1000,10 +1074,14 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
                       <button className="am-link" onClick={() => setAuthMode("signup")}>
                         Register
                       </button>
-                      <span className="am-dot">·</span>
-                      <button className="am-link" onClick={() => setAuthMode("guest")}>
-                        Guest
-                      </button>
+                      {allowGuest && (
+                        <>
+                          <span className="am-dot">·</span>
+                          <button className="am-link" onClick={() => setAuthMode("guest")}>
+                            Guest
+                          </button>
+                        </>
+                      )}
                     </div>
 
                     {currentCustomer && (
@@ -1139,7 +1217,7 @@ const AuthModal = ({ open, onClose, onSuccess, currentCustomer }) => {
                   </div>
                 )}
 
-                {authMode === "guest" && (
+                {allowGuest && authMode === "guest" && (
                   <div className="am-form-fields">
                     <div className="am-guest-info">
                       <UserCheck className="am-guest-info__icon" />
@@ -1208,8 +1286,6 @@ export default AuthModal;
 // Styles
 // ─────────────────────────────────────────────
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
   :root {
     --am-primary: #14532d;
     --am-primary-hover: #166534;
@@ -1229,12 +1305,12 @@ const STYLES = `
     --am-shadow-sm: 0 1px 2px rgba(0,0,0,.05);
     --am-shadow: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -2px rgba(0,0,0,.1);
     --am-shadow-lg: 0 20px 60px -12px rgba(0,0,0,.25);
-    --am-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --am-font: 'Plus Jakarta Sans', sans-serif;
     --am-transition: 200ms cubic-bezier(.4,0,.2,1);
   }
 
   .am-overlay {
-    position: fixed; inset: 0; z-index: 9998;
+    position: fixed; inset: 0; z-index: 10050;
     display: flex; align-items: center; justify-content: center;
     padding: 20px;
     animation: amFadeIn .2s ease;
@@ -1324,6 +1400,19 @@ const STYLES = `
     color: var(--am-text-secondary);
     margin: 0;
     line-height: 1.4;
+  }
+
+  .am-notice {
+    margin: 16px 28px 0;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #14532d;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.45;
+    font-family: var(--am-font);
   }
 
   .am-tabs {
@@ -1711,7 +1800,7 @@ const STYLES = `
   .am-toast-wrap {
     position: fixed; top: 20px; left: 50%;
     transform: translateX(-50%);
-    z-index: 99999;
+    z-index: 10060;
     width: calc(100% - 32px);
     max-width: 420px;
     animation: amToastIn .35s cubic-bezier(.16,1,.3,1);
@@ -1751,7 +1840,7 @@ const STYLES = `
   .am-toast__close:hover { background: rgba(255,255,255,.3); }
 
   .am-force-overlay {
-    position: fixed; inset: 0; z-index: 99997;
+    position: fixed; inset: 0; z-index: 10070;
     display: flex; align-items: center; justify-content: center;
     padding: 20px;
     animation: amFadeIn .2s ease;
@@ -1846,6 +1935,7 @@ const STYLES = `
     .am-logo { height: 32px; margin-bottom: 12px; }
     .am-heading { font-size: 20px; }
     .am-subheading { font-size: 13px; }
+    .am-notice { margin: 12px 20px 0; }
 
     .am-tabs {
       margin: 16px 20px 0;
@@ -1924,6 +2014,7 @@ const STYLES = `
     .am-header { padding: 6px 16px 0; }
     .am-heading { font-size: 18px; }
     .am-subheading { font-size: 12.5px; }
+    .am-notice { margin: 10px 16px 0; }
 
     .am-tabs { margin: 14px 16px 0; }
     .am-tab { padding: 9px 4px; }

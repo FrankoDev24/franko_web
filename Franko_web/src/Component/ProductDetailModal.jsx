@@ -343,8 +343,6 @@ const hasDiscount = product.oldPrice > 0 && product.oldPrice > product.price;
 // ==================== STYLES ====================
 
 const modalStyles = `
-  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
-
   .pdm-modal-wrap .ant-modal-content {
     border-radius: 6px !important;
     overflow: hidden !important;
@@ -361,7 +359,7 @@ const modalStyles = `
   }
 
   .pdm-root, .pdm-root * {
-    font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Plus Jakarta Sans', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     box-sizing: border-box;
@@ -758,7 +756,7 @@ const modalStyles = `
     font-weight: 600;
     color: #555;
     transition: all 0.12s;
-    font-family: 'Source Sans 3', sans-serif;
+    font-family: 'Plus Jakarta Sans', sans-serif;
   }
   .pdm-qty-btn:hover:not(:disabled) {
     background: #f0fdf4;
@@ -893,7 +891,7 @@ const modalStyles = `
     font-weight: 700;
     cursor: pointer;
     transition: all 0.2s;
-    font-family: 'Source Sans 3', sans-serif;
+    font-family: 'Plus Jakarta Sans', sans-serif;
     box-shadow: 0 2px 8px rgba(20, 83, 45, 0.2);
   }
   .pdm-cart-btn:hover:not(:disabled) {

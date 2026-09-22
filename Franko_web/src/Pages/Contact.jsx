@@ -123,10 +123,8 @@ export default function ContactUsPage() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
         .cu-root, .cu-root * {
-          font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+          font-family: 'Plus Jakarta Sans', sans-serif;
           -webkit-font-smoothing: antialiased;
           box-sizing: border-box;
         }

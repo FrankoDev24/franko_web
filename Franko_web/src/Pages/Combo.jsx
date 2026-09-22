@@ -421,12 +421,8 @@ const Combo = () => {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
-
-
         :root {
-          --wm-font: 'Plus Jakarta Sans', system-ui, sans-serif;
+          --wm-font: 'Plus Jakarta Sans', sans-serif;
           --wm-green: #14532d;
           --wm-green-mid: #166534;
           --wm-green-light: #dcfce7;
@@ -908,7 +904,7 @@ const Combo = () => {
             property="og:image"
             content={
               filteredProducts.length > 0
-                ? `https://testing.frankotrading.com/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}`
+                ? getValidImageUrl(filteredProducts[0].productImage)
                 : "default-image-url"
             }
           />
@@ -925,7 +921,7 @@ const Combo = () => {
             name="twitter:image"
             content={
               filteredProducts.length > 0
-                ? `https://testing.frankotrading.com/Media/Products_Images/${filteredProducts[0].productImage.split("\\").pop()}`
+                ? getValidImageUrl(filteredProducts[0].productImage)
                 : "default-image-url"
             }
           />
@@ -945,7 +941,7 @@ const Combo = () => {
                 "@type": "Product",
                 position: index + 1,
                 name: item.productName,
-                image: `https://testing.frankotrading.com/Media/Products_Images/${item.productImage.split("\\").pop()}`,
+                image: getValidImageUrl(item.productImage),
                 description: item.description,
                 sku: item.productID,
                 brand: {

@@ -99,7 +99,7 @@ const Deals = () => {
   const { productsByShowroom, loading } = useSelector((state) => state.products);
   const wishlist = useSelector((state) => state.wishlist.items);
 
-  const isInWishlist = (id) => wishlist.some((item) => item.id === id);
+  const isInWishlist = (id) => (wishlist || []).some((item) => item.id === id);
 
   const handleWishlistToggle = async (product) => {
     try {
@@ -237,12 +237,8 @@ const Deals = () => {
       />
 
       <style>{`
-       @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
-
-
-        :root {
-          --deals-font: 'Plus Jakarta Sans', system-ui, sans-serif;
+       :root {
+          --deals-font: 'Plus Jakarta Sans', sans-serif;
           --deals-green: #14532d;
           --deals-green-mid: #166534;
           --deals-green-light: #dcfce7;

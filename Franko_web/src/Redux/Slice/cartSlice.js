@@ -86,7 +86,8 @@ const loadCartFromLocalStorage = () => {
   try {
     const savedCart = localStorage.getItem(CART_KEY);
     if (!savedCart) return [];
-    const parsed = JSON.parse(savedCart);
+    const parsed =
+      typeof savedCart === "string" ? JSON.parse(savedCart) : savedCart;
     return Array.isArray(parsed) ? parsed.map(normalizeFromStorage) : [];
   } catch {
     return [];
@@ -239,8 +240,7 @@ export const getCartById = createAsyncThunk(
           }
         });
 
-        response.data.forEach((item) => {
-          const pid = item.productId || item.ProductId;
+        response.data.forEach(() => {
        
         });
     

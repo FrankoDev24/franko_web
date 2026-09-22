@@ -110,8 +110,7 @@ const TONE = {
 };
 
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap');
-.fk-root{font-family:'Nunito',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.fk-root{font-family:'Plus Jakarta Sans',sans-serif;-webkit-font-smoothing:antialiased}
 .fk-bg{background:linear-gradient(90deg,#A80F1B 0%,#BB1420 50%,#A80F1B 100%)}
 
 /* ── 3D extruded text ──

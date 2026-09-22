@@ -28,12 +28,8 @@ const Footer = () => {
   return (
     <>
       <style>{`
-       @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
-
-
-        .ft-root, .ft-root * {
-          font-family: 'Plus Jakarta Sans', system-ui, sans-serif !important;
+       .ft-root, .ft-root * {
+          font-family: 'Plus Jakarta Sans', sans-serif !important;
           -webkit-font-smoothing: antialiased;
           box-sizing: border-box;
         }

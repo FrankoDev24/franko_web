@@ -222,10 +222,8 @@ const BestSellers = () => {
       />
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
         :root {
-          --bs-font: 'Plus Jakarta Sans', system-ui, sans-serif;
+          --bs-font: 'Plus Jakarta Sans', sans-serif;
           --bs-green: #14532d;
           --bs-green-mid: #166534;
           --bs-green-light: #dcfce7;

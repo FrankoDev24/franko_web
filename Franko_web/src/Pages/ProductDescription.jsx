@@ -104,11 +104,11 @@ const ProductDescription = () => {
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [updatingQuantity, setUpdatingQuantity] = useState({});
   const [removingItem, setRemovingItem] = useState({});
- const [flixMediaLoaded, setFlixMediaLoaded] = useState(false);
+ const [_flixMediaLoaded, setFlixMediaLoaded] = useState(false);
   const [flixMediaError, setFlixMediaError] = useState(false);
   const [cartSyncError, setCartSyncError] = useState(null);
   const [networkStatus, setNetworkStatus] = useState(navigator.onLine);
-  const [pendingCheckout, setPendingCheckout] = useState(false);
+  const [_pendingCheckout, setPendingCheckout] = useState(false);
   const [viewedProducts, setViewedProducts] = useState([]);
   const [localCart, setLocalCart] = useState([]);
   const [cartLoading, setCartLoading] = useState(false);
@@ -201,7 +201,7 @@ const ProductDescription = () => {
   useEffect(() => {
     if (currentProduct?.length > 0) {
       const prod = currentProduct[0];
-      const image = `https://testing.frankotrading.com/Media/Products_Images/${prod.productImage.split("\\").pop()}`;
+      const image = getValidImageUrl(prod.productImage);
 
       const viewedItem = {
         id: prod.productID,
@@ -298,7 +298,7 @@ const ProductDescription = () => {
           <head>
             <base target="_parent">
             <style>
-              body { margin: 0; padding: 0; font-family: 'Source Sans 3', Arial, sans-serif; }
+              body { margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
               #flix-container { width: 100%; max-width: 100%; overflow: hidden; }
               .flix-inpage, .flix-minisite { width: 100% !important; max-width: 100% !important; }
               iframe { max-width: 100% !important; }
@@ -646,8 +646,10 @@ const ProductDescription = () => {
 
   const product = currentProduct[0];
   const outOfStock = isOutOfStock(product);
-  const imageUrl = `https://testing.frankotrading.com/Media/Products_Images/${product.productImage.split("\\").pop()}`;
-  const descriptionLines = product.description.split("\n").map((line, i) => (
+  const imageUrl = getValidImageUrl(product.productImage);
+  const descriptionLines = String(product.description || "")
+    .split("\n")
+    .map((line, i) => (
     <p key={i} className="pd-description-line">{line}</p>
   ));
   const productUrl = window.location.href;
@@ -658,10 +660,8 @@ const ProductDescription = () => {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
-
         :root {
-          --pd-font: 'Plus Jakarta Sans', system-ui, sans-serif;
+          --pd-font: 'Plus Jakarta Sans', sans-serif;
           --pd-green: #14532d;
           --pd-green-mid: #166534;
           --pd-green-light: #dcfce7;

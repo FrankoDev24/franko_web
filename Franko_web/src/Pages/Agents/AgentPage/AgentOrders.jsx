@@ -501,9 +501,9 @@ const AgentOrders = () => {
     const printWindow = window.open("", "_blank");
     const htmlContent = `<!DOCTYPE html><html><head><title>Order History</title>
       <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         *{box-sizing:border-box}
-        body{font-family:'Inter',sans-serif;margin:32px;color:#1a1a1a;background:#fff}
+        body{font-family:'Plus Jakarta Sans',sans-serif;margin:32px;color:#1a1a1a;background:#fff}
         .header{text-align:center;margin-bottom:32px;padding-bottom:20px;border-bottom:3px solid #14532d}
         .header h1{font-size:26px;font-weight:800;margin:0 0 6px;color:#14532d}
         .header p{font-size:13px;color:#666;margin:0}
@@ -1178,6 +1178,7 @@ const AgentOrders = () => {
 
         <AgentOrderModal
           orderId={selectedOrderId}
+          orderCode={selectedOrderId}
           isModalVisible={isOrderModalVisible}
           onClose={handleOrderModalClose}
         />
@@ -1195,10 +1196,8 @@ const AgentOrders = () => {
    STYLES
    ═══════════════════════════════════════════════ */
 const styles = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-
   :root {
-    --oh-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --oh-font: 'Plus Jakarta Sans', sans-serif;
     --oh-green: #14532d;
     --oh-green-mid: #166534;
     --oh-green-accent: #22c55e;

@@ -17,8 +17,10 @@ import {
   resetTransactionStatus,
 } from "../Redux/Slice/paymentSlice";
 import { clearCart, getCartById } from "../Redux/Slice/cartSlice";
-import { message, Typography, Radio, Divider, Modal, Input } from "antd";
+import { getCustomerById } from "../Redux/Slice/customerSlice";
+import { message, Radio, Divider, Modal, Input } from "antd";
 import CheckoutForm from "../Component/CheckoutForm";
+import AuthModal from "../Component/AuthModal";
 import locations from "../Component/Locations";
 import {
   ShoppingBagIcon,
@@ -44,8 +46,6 @@ import mtnLogo from "../assets/momo.png";
 import vodafoneLogo from "../assets/voda.png";
 import airteltigoLogo from "../assets/AT.png";
 
-const { Text } = Typography;
-
 // ==================== CONSTANTS ====================
 const SERVICE_CHARGE_RATE = 0.01;
 const SERVICE_CHARGE_CAP = 20.0;
@@ -59,6 +59,16 @@ const NETWORK_API_MAP = {
   vodafone: "VODAFONE",
   airteltigo: "AIRTELTIGO",
 };
+
+const CUSTOMER_STATE_KEYS = [
+  "currentCustomer",
+  "customer",
+  "customerDetails",
+  "customerData",
+  "data",
+  "user",
+  "profile",
+];
 
 // ==================== PAYMENT SUCCESS CHECK ====================
 const isPaymentSuccess = (response) => {
@@ -211,15 +221,89 @@ const safeJsonStringify = (value) => {
   }
 };
 
+// ==================== CUSTOMER PRESENCE ====================
+const isCustomerRecord = (value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const id = String(
+    value.customerAccountNumber ||
+      value.CustomerAccountNumber ||
+      value.customerId ||
+      ""
+  ).trim();
+  const phone = String(value.contactNumber || value.ContactNumber || "").trim();
+  const name = `${value.firstName || ""} ${value.lastName || ""}`.trim();
+  return Boolean(id || phone || name);
+};
+
+const hasCustomerDetails = (customer) => {
+  if (!isCustomerRecord(customer)) return false;
+  const loggedOut =
+    customer.isAuthenticated === false || customer.loginStatus === false;
+  if (loggedOut && !customer.accessToken) return false;
+  if (customer.isGuest === true) return false;
+
+  const id = String(
+    customer.customerAccountNumber ||
+      customer.CustomerAccountNumber ||
+      customer.customerId ||
+      ""
+  ).trim();
+  const phone = String(
+    customer.contactNumber || customer.ContactNumber || ""
+  ).trim();
+  return Boolean(id || phone);
+};
+
+const readCustomerFromStorage = () => {
+  try {
+    const raw = localStorage.getItem("customer");
+    if (!raw) return null;
+    const parsed = typeof raw === "string" ? safeJsonParse(raw, null) : raw;
+    return isCustomerRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const pickCustomerFromState = (customerState) => {
+  if (!customerState || typeof customerState !== "object") return null;
+
+  for (const key of CUSTOMER_STATE_KEYS) {
+    const candidate = customerState[key];
+    if (hasCustomerDetails(candidate)) return candidate;
+  }
+
+  if (hasCustomerDetails(customerState)) return customerState;
+  return null;
+};
+
+const resolveAvailableCustomer = (customerState, localCustomer) => {
+  const fromState = pickCustomerFromState(customerState);
+  if (hasCustomerDetails(fromState)) return fromState;
+
+  if (hasCustomerDetails(localCustomer)) return localCustomer;
+
+  const fromStorage = readCustomerFromStorage();
+  if (hasCustomerDetails(fromStorage)) return fromStorage;
+
+  return null;
+};
+
+const customerDisplayName = (customer) =>
+  `${customer?.firstName || ""} ${customer?.lastName || ""}`.trim();
+
+const customerPhone = (customer) =>
+  customer?.contactNumber || customer?.ContactNumber || "";
+
+const persistCustomer = (customer) => {
+  const serialized = safeJsonStringify(customer);
+  if (serialized) localStorage.setItem("customer", serialized);
+};
+
 // ==================== STYLES ====================
-// (Same styles as previous code)
 const checkoutStyles = `
-  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
-
-
   :root {
-    --co-font: 'Plus Jakarta Sans', system-ui, sans-serif;
+    --co-font: 'Plus Jakarta Sans', sans-serif;
     --co-green: #14532d;
     --co-green-mid: #166534;
     --co-green-600: #16a34a;
@@ -315,6 +399,55 @@ const checkoutStyles = `
   .co-section-accent-line {
     height: 2px; flex: 1; border-radius: 1px; background: #f0f0f0;
   }
+
+  .co-auth-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 14px;
+    background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+    border: 1px solid #bbf7d0;
+    border-radius: var(--co-radius);
+    margin-bottom: 16px;
+  }
+  .co-auth-banner-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: #fff;
+    border: 1px solid #bbf7d0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .co-auth-banner-copy { flex: 1; min-width: 0; }
+  .co-auth-banner-title {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--co-green);
+    margin: 0 0 2px;
+  }
+  .co-auth-banner-desc {
+    font-size: 12px;
+    font-weight: 500;
+    color: #166534;
+    margin: 0;
+    line-height: 1.45;
+  }
+  .co-auth-banner-btn {
+    margin-top: 8px;
+    border: none;
+    background: var(--co-green);
+    color: #fff;
+    border-radius: var(--co-radius);
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: var(--co-font);
+  }
+  .co-auth-banner-btn:hover { background: var(--co-green-mid); }
 
   .co-toggle-wrap {
     display: flex; align-items: center; justify-content: space-between;
@@ -1322,13 +1455,19 @@ const Checkout = () => {
   const autoCheckFiredRef = useRef(false);
   // Guard: prevents acting on stale polling results after success
   const paymentResolvedRef = useRef(false);
+  // Resume place-order after the customer registers or signs in
+  const resumeCheckoutRef = useRef(false);
+  const handleCheckoutRef = useRef(null);
 
   // ── Redux selectors ──
   const { cart: reduxCart, cartId: reduxCartId } = useSelector(
     (state) => state.cart
   );
+  const customerState = useSelector(
+    (state) => state.customer ?? state.customerReducer ?? state.customers ?? null
+  );
   const {
-    loading: paymentLoading,
+    loading: _paymentLoading,
     validating: accountValidating,
     validateAccountData,
     error: paymentError,
@@ -1348,6 +1487,7 @@ const Checkout = () => {
   const [isDifferentRecipient, setIsDifferentRecipient] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerNumber, setCustomerNumber] = useState("");
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // ── Local state: modals ──
   const [isValidationModalVisible, setIsValidationModalVisible] =
@@ -1371,7 +1511,7 @@ const Checkout = () => {
   const [momoNumber, setMomoNumber] = useState("233");
   const [selectedNetwork, setSelectedNetwork] = useState(null);
   const [isValidationDebouncing, setIsValidationDebouncing] = useState(false);
-  
+
   // ── 503 Error Handling ──
   const [isServiceUnavailable, setIsServiceUnavailable] = useState(false);
   const [retryValidationLoading, setRetryValidationLoading] = useState(false);
@@ -1387,7 +1527,8 @@ const Checkout = () => {
     try {
       const stored = localStorage.getItem("cart");
       if (!stored) return [];
-      const parsed = safeJsonParse(stored, []);
+      const parsed =
+        typeof stored === "string" ? safeJsonParse(stored, []) : stored;
       return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
@@ -1406,9 +1547,15 @@ const Checkout = () => {
     [reduxCartId]
   );
 
+  const sessionCustomer = useMemo(
+    () => resolveAvailableCustomer(customerState, customerData),
+    [customerState, customerData]
+  );
+
+  const customerReady = hasCustomerDetails(sessionCustomer);
+
   // ── Derived values ──
-  const customerId = customerData?.customerAccountNumber;
-  const customerAccountType = customerData?.accountType;
+  const customerAccountType = sessionCustomer?.accountType;
   const selectedAddress = deliveryInfo?.address || "";
   const isAgent = customerAccountType === "agent";
   const isFreeDelivery =
@@ -1445,7 +1592,7 @@ const Checkout = () => {
       clearAllTimers();
       dispatch(resetPaymentState());
     };
-  }, [dispatch]);
+  }, [dispatch]); // clearAllTimers is stable (useCallback defined below)
 
   const clearAllTimers = useCallback(() => {
     if (pollingRef.current) clearInterval(pollingRef.current);
@@ -1463,51 +1610,22 @@ const Checkout = () => {
     validationTimeoutRef.current = null;
   }, []);
 
-  // ==================== DATA INIT (FROM LOCAL STORAGE) ====================
+  const applyCustomerToForm = useCallback((customer) => {
+    if (!hasCustomerDetails(customer)) return;
+    setCustomerData(customer);
+    persistCustomer(customer);
+    if (!isDifferentRecipient) {
+      setCustomerName(customerDisplayName(customer));
+      setCustomerNumber(customerPhone(customer));
+    }
+  }, [isDifferentRecipient]);
+
+  // ==================== DATA INIT (STATE + LOCAL STORAGE) ====================
   useEffect(() => {
-    // Load Customer Data from LocalStorage exactly as previous code
-    try {
-      const rawCustomer = localStorage.getItem("customer");
-      // The original code checked if it was an object. We parse it.
-      // If it was stringified object, safeJsonParse handles it.
-      // If it was already an object (some older versions of LS might store weirdly), we handle that too.
-      let customerObj = rawCustomer;
-      if (typeof rawCustomer === "string") {
-        customerObj = safeJsonParse(rawCustomer, null);
-      }
-
-      if (customerObj && typeof customerObj === "object") {
-        setCustomerData(customerObj);
-        // Map to fields used in form
-        setCustomerName(
-          `${customerObj.firstName || ""} ${
-            customerObj.lastName || ""
-          }`.trim()
-        );
-        setCustomerNumber(
-          customerObj.contactNumber || customerObj.ContactNumber || ""
-        );
-      }
-    } catch {}
-
-    // Load Delivery Info from LocalStorage exactly as previous code
-    try {
-      const rawDelivery = localStorage.getItem("deliveryInfo");
-      let storedInfo = rawDelivery;
-      if (typeof rawDelivery === "string") {
-        storedInfo = safeJsonParse(rawDelivery, {});
-      }
-
-      if (storedInfo && typeof storedInfo === "object") {
-        setDeliveryInfo({
-          address: storedInfo?.address || "",
-          fee: storedInfo?.fee ?? 0,
-          feeDisplay: storedInfo?.feeDisplay || "",
-        });
-        setDeliveryFee(Number(storedInfo?.fee) || 0);
-      }
-    } catch {}
-  }, []);
+    const resolved = resolveAvailableCustomer(customerState, null);
+    if (!resolved) return;
+    applyCustomerToForm(resolved);
+  }, [customerState, applyCustomerToForm]);
 
   useEffect(() => {
     const activeCartId = reduxCartId || localStorage.getItem("cartId");
@@ -1518,17 +1636,11 @@ const Checkout = () => {
     if (isDifferentRecipient) {
       setCustomerName("");
       setCustomerNumber("");
-    } else if (customerData) {
-      setCustomerName(
-        `${customerData.firstName || ""} ${
-          customerData.lastName || ""
-        }`.trim()
-      );
-      setCustomerNumber(
-        customerData.contactNumber || customerData.ContactNumber || ""
-      );
+    } else if (sessionCustomer) {
+      setCustomerName(customerDisplayName(sessionCustomer));
+      setCustomerNumber(customerPhone(sessionCustomer));
     }
-  }, [isDifferentRecipient, customerData]);
+  }, [isDifferentRecipient, sessionCustomer]);
 
   useEffect(() => {
     if (
@@ -1549,7 +1661,7 @@ const Checkout = () => {
   // ==================== ACCOUNT VALIDATION (uses Redux + 503 Retry) ====================
   const handleRetryValidation = useCallback(async () => {
     if (!isValidMsisdn(momoNumber) || !selectedNetwork) return;
-    
+
     setRetryValidationLoading(true);
     setIsServiceUnavailable(false);
     dispatch(resetValidateAccountData());
@@ -1579,7 +1691,7 @@ const Checkout = () => {
       if (retryValidationLoading) return;
 
       setIsValidationDebouncing(true);
-      
+
       // Check for existing 503 error before dispatching again automatically
       if (paymentError && (paymentError.includes("503") || paymentError.includes("Service Unavailable"))) {
         setIsServiceUnavailable(true);
@@ -1635,7 +1747,7 @@ const Checkout = () => {
           setIsPaymentModalVisible(false);
           navigate(`/order-success/${orderId}`);
         }, 1500);
-      } catch (error) {
+      } catch {
         message.error(
           "Payment confirmed but order processing failed. Please contact support with your order ID."
         );
@@ -1713,7 +1825,7 @@ const Checkout = () => {
     if (value.startsWith("0")) value = "233" + value.slice(1);
     if (!value.startsWith("233")) value = "233";
     if (value.length > 13) value = value.slice(0, 13);
-    
+
     // Reset error state on new input
     setIsServiceUnavailable(false);
     setMomoNumber(value);
@@ -1853,7 +1965,9 @@ const Checkout = () => {
               );
               return;
             }
-          } catch {}
+          } catch {
+            // Polling error - will retry on next interval
+          }
 
           if (pollCount >= maxPolls) {
             clearInterval(pollingRef.current);
@@ -1948,11 +2062,13 @@ const Checkout = () => {
   }, [clearAllTimers, dispatch]);
 
   // ==================== VALIDATION ====================
-  const validateRequiredFields = () => {
+  const validateRequiredFields = (nameOverride, numberOverride) => {
+    const name = (nameOverride ?? customerName) || "";
+    const number = (numberOverride ?? customerNumber) || "";
     const errors = [];
-    if (!customerName?.trim())
+    if (!name?.trim())
       errors.push({ field: "name", message: "Recipient name is required" });
-    if (!customerNumber?.trim())
+    if (!number?.trim())
       errors.push({
         field: "phone",
         message: "Recipient contact number is required",
@@ -1970,27 +2086,88 @@ const Checkout = () => {
     return errors;
   };
 
-  const getSafeCustomerDetails = () => {
+  const getSafeCustomerDetails = (sourceCustomer) => {
+    const source = sourceCustomer || sessionCustomer || customerData;
     let name = customerName?.trim();
     let number = customerNumber?.trim();
-    if (!name && customerData)
-      name = `${customerData.firstName || ""} ${
-        customerData.lastName || ""
-      }`.trim();
-    if (!number && customerData)
-      number =
-        customerData.contactNumber || customerData.ContactNumber || "";
+    const accountName = customerDisplayName(source);
+    if ((!name || /^guest\b/i.test(name)) && accountName) name = accountName;
+    if (!name && source) name = accountName;
+    if (!number && source) number = customerPhone(source);
     if (!number) number = "0000000000";
     return { name, number };
   };
 
+  const enrichCustomer = useCallback(
+    async (customer) => {
+      if (!hasCustomerDetails(customer)) return customer;
+      const hasId =
+        customer.customerAccountNumber || customer.CustomerAccountNumber;
+      const phone = customerPhone(customer);
+      const token = customer.accessToken;
+      if (hasId || !phone || !token) return customer;
+
+      try {
+        const profile = await dispatch(
+          getCustomerById({ contactNumber: phone, accessToken: token })
+        ).unwrap();
+        if (!profile || typeof profile !== "object") return customer;
+        return {
+          ...profile,
+          ...customer,
+          customerAccountNumber:
+            profile.customerAccountNumber ||
+            profile.CustomerAccountNumber ||
+            customer.customerAccountNumber,
+          firstName: customer.firstName || profile.firstName,
+          lastName: customer.lastName || profile.lastName,
+          contactNumber: phone,
+          accessToken: token,
+          refreshToken: customer.refreshToken || profile.refreshToken,
+          accountType: customer.accountType || profile.accountType,
+          isAuthenticated: true,
+          loginStatus: true,
+        };
+      } catch {
+        return customer;
+      }
+    },
+    [dispatch]
+  );
+
+  const openAuthForCheckout = useCallback((shouldResume) => {
+    resumeCheckoutRef.current = shouldResume;
+    setIsAuthModalOpen(true);
+  }, []);
+
   // ==================== PAYMENT HANDLERS ====================
   const handlePaymentMethodChange = (e) => setPaymentMethod(e.target.value);
 
-  const handleCheckout = async () => {
-    const { name: safeName, number: safeNumber } = getSafeCustomerDetails();
+  const handleCheckout = async (customerOverride) => {
+    const explicitCustomer = hasCustomerDetails(customerOverride)
+      ? customerOverride
+      : null;
+    const activeCustomer =
+      explicitCustomer ||
+      resolveAvailableCustomer(customerState, customerData);
+
+    if (!hasCustomerDetails(activeCustomer)) {
+      openAuthForCheckout(true);
+      return;
+    }
+
+    const orderCustomerId =
+      activeCustomer.customerAccountNumber ||
+      activeCustomer.CustomerAccountNumber;
+    const orderAccountType = activeCustomer.accountType;
+    const orderIsAgent = orderAccountType === "agent";
+
+    const { name: safeName, number: safeNumber } =
+      getSafeCustomerDetails(activeCustomer);
+    setCustomerData(activeCustomer);
     setCustomerName(safeName);
     setCustomerNumber(safeNumber);
+    persistCustomer(activeCustomer);
 
     const nameLower = safeName.toLowerCase().trim();
     if (
@@ -2002,7 +2179,7 @@ const Checkout = () => {
       return;
     }
 
-    const validationErrors = validateRequiredFields();
+    const validationErrors = validateRequiredFields(safeName, safeNumber);
     if (validationErrors.length > 0) {
       setIsValidationModalVisible(true);
       return;
@@ -2016,11 +2193,11 @@ const Checkout = () => {
 
     const checkoutDetails = {
       Cartid: cartId,
-      customerId,
+      customerId: orderCustomerId,
       orderCode: orderId,
       PaymentMode: paymentMethod,
       PaymentAccountNumber: safeNumber || "0000000000",
-      customerAccountType,
+      customerAccountType: orderAccountType,
       paymentService: "Mtn",
       totalAmount,
       recipientName: safeName,
@@ -2032,7 +2209,7 @@ const Checkout = () => {
     const addressDetails = {
       orderCode: orderId,
       address: selectedAddress,
-      Customerid: customerId,
+      Customerid: orderCustomerId,
       recipientName: safeName,
       recipientContactNumber: safeNumber,
       orderNote: orderNote || "N/A",
@@ -2042,7 +2219,7 @@ const Checkout = () => {
     try {
       setLoading(true);
 
-      if (isAgent || !["Mobile Money"].includes(paymentMethod)) {
+      if (orderIsAgent || !["Mobile Money"].includes(paymentMethod)) {
         await processDirectCheckout(orderId, checkoutDetails, addressDetails);
         clearCartAndStorage();
         message.success("Your order has been placed successfully!");
@@ -2075,6 +2252,40 @@ const Checkout = () => {
       message.error(error.message || "An error occurred during checkout.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  handleCheckoutRef.current = handleCheckout;
+
+  const handleAuthClose = () => {
+    resumeCheckoutRef.current = false;
+    setIsAuthModalOpen(false);
+  };
+
+  const handleAuthSuccess = async (authedCustomer) => {
+    setIsAuthModalOpen(false);
+
+    let resolved = hasCustomerDetails(authedCustomer)
+      ? authedCustomer
+      : resolveAvailableCustomer(customerState, customerData);
+
+    resolved = await enrichCustomer(resolved);
+
+    if (!hasCustomerDetails(resolved)) {
+      resolved = readCustomerFromStorage();
+    }
+
+    if (hasCustomerDetails(resolved)) {
+      applyCustomerToForm(resolved);
+    }
+
+    const shouldResume = resumeCheckoutRef.current;
+    resumeCheckoutRef.current = false;
+
+    if (shouldResume && hasCustomerDetails(resolved)) {
+      setTimeout(() => {
+        handleCheckoutRef.current?.(resolved);
+      }, 0);
     }
   };
 
@@ -2192,6 +2403,8 @@ const Checkout = () => {
     isValidMsisdn(momoNumber) &&
     selectedNetwork &&
     accountStatus === "valid";
+
+  const placeOrderLabel = customerReady ? "Place Order" : "Register & Place Order";
 
   const renderAccountValidationStatus = () => {
     if (accountStatus === "idle") return null;
@@ -2380,6 +2593,32 @@ const Checkout = () => {
                   </div>
                 </div>
                 <div className="co-card-body">
+                  {!customerReady && (
+                    <div className="co-auth-banner">
+                      <div className="co-auth-banner-icon">
+                        <LockClosedIcon
+                          style={{ width: 18, height: 18, color: "#14532d" }}
+                        />
+                      </div>
+                      <div className="co-auth-banner-copy">
+                        <p className="co-auth-banner-title">
+                          Register to place this order
+                        </p>
+                        <p className="co-auth-banner-desc">
+                          No customer account is signed in. You’ll be asked to
+                          register or sign in before the order can be placed.
+                        </p>
+                        <button
+                          type="button"
+                          className="co-auth-banner-btn"
+                          onClick={() => openAuthForCheckout(false)}
+                        >
+                          Register now
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div
                     className="co-toggle-wrap"
                     onClick={() => setIsDifferentRecipient((v) => !v)}
@@ -2437,7 +2676,7 @@ const Checkout = () => {
                     setOrderNote={setOrderNote}
                     locations={locations}
                     customerAccountType={customerAccountType}
-                    firstName={customerData?.firstName || "Guest"}
+                    firstName={sessionCustomer?.firstName || "Guest"}
                     isDifferentRecipient={isDifferentRecipient}
                     readOnlyRecipient={!isDifferentRecipient}
                   />
@@ -2626,7 +2865,7 @@ const Checkout = () => {
                   {/* Desktop Place Order */}
                   <div className="co-desktop-btn">
                     <button
-                      onClick={handleCheckout}
+                      onClick={() => handleCheckout()}
                       disabled={loading}
                       className="co-btn-primary"
                     >
@@ -2647,7 +2886,7 @@ const Checkout = () => {
                           <ShoppingBagIcon
                             style={{ width: 20, height: 20 }}
                           />{" "}
-                          Place Order
+                          {placeOrderLabel}
                         </>
                       )}
                     </button>
@@ -2661,7 +2900,7 @@ const Checkout = () => {
         {/* Sticky Mobile Button */}
         <div className="co-sticky-bottom">
           <button
-            onClick={handleCheckout}
+            onClick={() => handleCheckout()}
             disabled={loading}
             className="co-btn-primary"
           >
@@ -2675,8 +2914,8 @@ const Checkout = () => {
               </>
             ) : (
               <>
-                <ShoppingBagIcon style={{ width: 20, height: 20 }} /> Place
-                Order
+                <ShoppingBagIcon style={{ width: 20, height: 20 }} />{" "}
+                {placeOrderLabel}
               </>
             )}
           </button>
@@ -3536,6 +3775,17 @@ const Checkout = () => {
             !manualVerifying &&
             setActionDialog((d) => ({ ...d, open: false }))
           }
+        />
+
+        <AuthModal
+          open={isAuthModalOpen}
+          onClose={handleAuthClose}
+          onSuccess={handleAuthSuccess}
+          currentCustomer={sessionCustomer}
+          initialMode="signup"
+          allowGuest={false}
+          autoLoginAfterSignup
+          notice="Create an account or sign in before placing your order."
         />
       </div>
     </>

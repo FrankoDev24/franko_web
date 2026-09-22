@@ -79,8 +79,8 @@ const OrderHistoryPage = () => {
     const printWindow = window.open("", "_blank");
     const htmlContent = `<!DOCTYPE html><html><head><title>Order History</title>
       <style>
-        @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap');
-        body{font-family:'Source Sans 3',sans-serif;margin:24px;color:#1a1a1a}
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        body{font-family:'Plus Jakarta Sans',sans-serif;margin:24px;color:#1a1a1a}
         .header{text-align:center;margin-bottom:32px;padding-bottom:16px;border-bottom:2px solid #e0e0e0}
         .header h1{font-size:24px;font-weight:800;margin:0 0 4px}
         .header p{font-size:13px;color:#888;margin:0}
@@ -186,6 +186,7 @@ const OrderHistoryPage = () => {
 
   // ==================== SUB COMPONENTS ====================
 
+  // eslint-disable-next-line no-unused-vars
   const StatCard = ({ value, label, icon: Icon, colorVar }) => (
     <div className="oh-stat-card" style={{ "--stat-color": colorVar }}>
       <div className="oh-stat-left">
@@ -449,7 +450,7 @@ const OrderHistoryPage = () => {
           </div>
         </div>
 
-        <OrderModal orderId={selectedOrderId} isModalVisible={isOrderModalVisible} onClose={handleOrderModalClose} />
+        <OrderModal orderId={selectedOrderId} orderCode={selectedOrderId} isModalVisible={isOrderModalVisible} onClose={handleOrderModalClose} />
         <AuthModal open={isAuthModalVisible} onClose={handleAuthModalClose} />
         <FiltersDrawerContent />
       </div>
@@ -460,11 +461,8 @@ const OrderHistoryPage = () => {
 // ==================== STYLES ====================
 
 const styles = `
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
-
-  :root {
-    --oh-font: 'Plus Jakarta Sans', system-ui, sans-serif;
+:root {
+    --oh-font: 'Plus Jakarta Sans', sans-serif;
     --oh-green: #14532d;
     --oh-green-mid: #166534;
     --oh-green-accent: #22c55e;

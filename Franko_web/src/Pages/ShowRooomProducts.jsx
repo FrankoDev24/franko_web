@@ -156,9 +156,13 @@ const ShowroomProductsPage = () => {
       case "price-high":
         return sorted.sort((a, b) => b.price - a.price);
       case "name-az":
-        return sorted.sort((a, b) => a.productName.localeCompare(b.productName));
+        return sorted.sort((a, b) =>
+          String(a.productName || "").localeCompare(String(b.productName || ""))
+        );
       case "name-za":
-        return sorted.sort((a, b) => b.productName.localeCompare(a.productName));
+        return sorted.sort((a, b) =>
+          String(b.productName || "").localeCompare(String(a.productName || ""))
+        );
       default:
         return sorted.sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated));
     }
@@ -361,12 +365,8 @@ const ShowroomProductsPage = () => {
   return (
     <>
       <style>{`
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
-
-
-        :root {
-          --sp-font: 'Plus Jakarta Sans', system-ui, sans-serif;
+:root {
+          --sp-font: 'Plus Jakarta Sans', sans-serif;
           --sp-green: #14532d;
           --sp-green-mid: #166534;
           --sp-green-light: #dcfce7;

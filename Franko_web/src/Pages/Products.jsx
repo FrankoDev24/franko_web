@@ -67,7 +67,7 @@ const SkeletonCard = () => (
 
 const ProductsPage = () => {
   const dispatch = useDispatch();
-  const { products = [], loading } = useSelector((state) => state.products || {});
+  const { products: _products, loading } = useSelector((state) => state.products || {});
   const wishlist = useSelector((state) => state.wishlist.items);
   const { addProductToCart, loading: cartLoading } = useAddToCart();
 
@@ -76,6 +76,7 @@ const ProductsPage = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [allProducts, setAllProducts] = useState([]);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   
   const [notification, setNotification] = useState({
     message: '',
@@ -104,8 +105,11 @@ const ProductsPage = () => {
   useEffect(() => {
     setLoadingMore(true);
     dispatch(fetchPaginatedProducts({ pageNumber: currentPage, pageSize: itemsPerPage })).then((response) => {
-      if (response.payload) {
+      if (response.meta?.requestStatus === "fulfilled" && Array.isArray(response.payload)) {
         setAllProducts((prev) => [...prev, ...response.payload]);
+        setHasMore(response.payload.length > 0);
+      } else {
+        setHasMore(false);
       }
       setLoadingMore(false);
     });
@@ -126,11 +130,11 @@ const ProductsPage = () => {
   };
 
   useEffect(() => {
-    if (loadingMore) return;
+    if (loadingMore || !hasMore) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
+        if (entries[0].isIntersecting && !loadingMore && hasMore) {
           setCurrentPage((prev) => prev + 1);
         }
       },
@@ -140,7 +144,7 @@ const ProductsPage = () => {
     if (observerRef.current) observer.observe(observerRef.current);
 
     return () => observer.disconnect();
-  }, [loadingMore]);
+  }, [loadingMore, hasMore]);
 
   // ==================== HELPERS ====================
 
@@ -190,10 +194,8 @@ const ProductsPage = () => {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
-
         :root {
-          --pp-font: 'Plus Jakarta Sans', system-ui, sans-serif;
+          --pp-font: 'Plus Jakarta Sans', sans-serif;
           --pp-green: #14532d;
           --pp-green-mid: #166534;
           --pp-green-light: #dcfce7;

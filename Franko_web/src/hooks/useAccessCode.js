@@ -1,6 +1,6 @@
 // hooks/useAccessCode.js
 import { useState, useEffect, useCallback } from 'react';
-import { checkAccessCodeValidity, clearAccessCode } from '../components/AccessCodeModal';
+import { checkAccessCodeValidity, clearAccessCode } from '../Component/AccessCodeModal';
 
 const useAccessCode = () => {
   const [hasAccess, setHasAccess] = useState(false);

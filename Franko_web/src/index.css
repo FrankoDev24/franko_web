@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -7,8 +8,8 @@
 @layer base {
   html,
   body {
-    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-  }
+   font-family: 'Rubik', sans-serif;
+}
 }
 
 /* Hide scrollbar in all browsers */

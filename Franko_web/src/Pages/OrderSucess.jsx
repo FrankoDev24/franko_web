@@ -71,16 +71,22 @@ const OrderSuccess = () => {
 
     const handleOrderCompletion = async () => {
       try {
-        const checkoutDetailsRaw = localStorage.getItem("checkoutDetails");
+        let checkoutDetails = localStorage.getItem("checkoutDetails");
         const addressDetails = localStorage.getItem("orderAddressDetails");
 
-        if (!checkoutDetailsRaw || !addressDetails) return;
+        if (!checkoutDetails || !addressDetails) return;
 
-        // ✅ Parse JSON — your code was using `checkoutDetails.orderCode`
-        // without parsing localStorage (which stores strings as strings).
-        const checkoutDetails = JSON.parse(checkoutDetailsRaw);
+        // ✅ localStorage getItem is patched to auto-parse JSON, so an
+        // object is returned directly. Only plain strings need parsing.
+        if (typeof checkoutDetails === "string") {
+          try {
+            checkoutDetails = JSON.parse(checkoutDetails);
+          } catch {
+            checkoutDetails = null;
+          }
+        }
 
-        if (checkoutDetails.orderCode !== orderId) return;
+        if (!checkoutDetails || checkoutDetails.orderCode !== orderId) return;
 
         const checkoutPayload = {
           Cartid: localStorage.getItem("cartId"),
@@ -144,12 +150,8 @@ const OrderSuccess = () => {
   return (
     <>
       <style>{`
-       @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
-
-
-        :root {
-          --or-font: 'Plus Jakarta Sans', system-ui, sans-serif;
+       :root {
+          --or-font: 'Plus Jakarta Sans', sans-serif;
           --or-green: #14532d;
           --or-green-mid: #166534;
           --or-green-600: #16a34a;

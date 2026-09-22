@@ -33,7 +33,7 @@ const withAutoProductCode = (productData, branchProducts) => {
   if (!isFormData) {
     const resolvedCode = resolveProductCodeFromBranch(branchProducts, productData);
     const finalProductId2 = productData.ProductId2 || productData.productId2 || resolvedCode || "";
-    const { productId2, productCode, ...rest } = productData || {};
+    const { ...rest } = productData || {};
     return { ...rest, ProductId2: finalProductId2 };
   }
 
@@ -72,7 +72,7 @@ const mergeCodesWithProducts = (products) => {
   const codesCount = Object.keys(savedCodes).length;
   
   if (codesCount > 0) {
-
+    // Codes loaded from storage
   }
 
   return products.map((product) => {
@@ -450,7 +450,7 @@ const productSlice = createSlice({
         };
       }
     },
-    clearAllProductCodes: (state) => {
+    clearAllProductCodes: () => {
       productCodesStorage.clear();
     },
   },
@@ -539,8 +539,6 @@ const productSlice = createSlice({
       .addCase(fetchAllProducts.fulfilled, (state, action) => {
         state.loading = false;
         state.products = action.payload;
-        
-        const savedCodes = productCodesStorage.load();
       })
       .addCase(fetchAllProducts.rejected, (state, action) => {
         state.loading = false;
