@@ -36,7 +36,7 @@ import { CircularPagination } from "../Component/CircularPagination";
 import ProductDetailModal from "../Component/ProductDetailModal";
 import useAddToCart from "../Component/Cart";
 import speedLogo from "../assets/speed-logo.png";
-import telecelWhite from "../assets/telecel White.png";
+import telecelWhite from "../assets/Telecel White.png";
 
 /* ===================== SHOWROOM / CONFIG ===================== */
 
