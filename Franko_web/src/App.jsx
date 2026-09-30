@@ -44,6 +44,7 @@ import AgentDashboard from "./Pages/Agents/AgentPage/AgentDashboard";
 import AgentOrders from "./Pages/Agents/AgentPage/AgentOrders";
 import CTP001ProductsPage from "./Pages/Agents/AgentPage/CTP001ProductsPage";
 import Speed from "./Pages/Speed";
+import PhoneSpeed from "./Pages/PhoneSpeed";
 
 
 /* ═══════════════════════════════════════════════════════════════
@@ -318,6 +319,7 @@ function App() {
         <Route path="/order-success/:orderId" element={<OrderSuccess />} />
         <Route path="/account" element={<Account />} />
         <Route path="/shops" element={<Locations />} />
+        <Route path="/promo-phones" element={<PhoneSpeed />} />
      
         <Route path="/order-cancelled" element={<Cancellation />} />
 

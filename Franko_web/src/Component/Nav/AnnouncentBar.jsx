@@ -17,28 +17,22 @@ gsap.registerPlugin(useGSAP);
 
    Layout
    < lg   two rows:  [ promo message ]
-                     [ countdown ............ call · WhatsApp ]
-   ≥ lg   one row:   [ promo message | countdown | contact ]
+                     [ shop-now · countdown ··········· contact ]
+   ≥ lg   one row:   [ promo message | shop-now | countdown | contact ]
    Side padding: 6px on phones, 8px from lg up.
    ──────────────────────────────────────────────────────────── */
 
-/* ── Promo timing. Ghana is on GMT all year, so "Z" = Accra time.
-      Change the start time here if the sale opens later than midnight. ── */
+/* ── Promo timing. Ghana is on GMT all year, so "Z" = Accra time. ── */
 const PROMO_START = Date.parse("2026-10-02T00:00:00Z");
 const PROMO_END = PROMO_START + 24 * 60 * 60 * 1000; // "24 hours only"
 
 const SLIDE_SECONDS = 4.5;
 
-/* Copy variants, picked with CSS so nothing needs measuring:
-   `tiny`  → phones (< md)                  falls back to `short`, then `full`
-   `full`  → tablets (md) and 2xl screens
-   `short` → laptops (lg – xl)              falls back to `full`           */
+/* Copy variants */
 const SLIDES = [
   {
     id: "launch",
-    icon: "zap",
-    badge: "Speed Shopping 2",
-    tone: "yellow",
+   
     full: [
       { t: "GHANA, GET READY! ", hl: true },
       { t: "The 2nd Edition of Franko Speed Shopping is here!" },
@@ -50,9 +44,7 @@ const SLIDES = [
   },
   {
     id: "sale",
-    icon: "percent",
-    badge: "Big sale",
-    tone: "blue",
+   
     full: [
       { t: "GET UP TO " },
       { count: 40, hl: true },
@@ -71,16 +63,13 @@ const SLIDES = [
   {
     id: "date",
     icon: "calendar",
-    badge: "Save the date",
+  
     tone: "white",
     full: [{ t: "FRIDAY, 2ND OCT. 2026", hl: true }],
   },
   {
-    // Stand-alone message
     id: "branches",
-    icon: "pin",
-    badge: "Nationwide",
-    tone: "yellow",
+   
     full: [
       { t: "AVAILABLE ACROSS ALL " },
       { t: "FRANKO BRANCHES", hl: true },
@@ -88,9 +77,7 @@ const SLIDES = [
   },
   {
     id: "delivery",
-    icon: "truck",
-    badge: "Shop online",
-    tone: "green",
+  
     full: [
       { t: "FREE DELIVERY", hl: true },
       { t: " on online orders in Accra & Kumasi" },
@@ -113,11 +100,6 @@ const CSS = `
 .fk-root{font-family:'Plus Jakarta Sans',sans-serif;-webkit-font-smoothing:antialiased}
 .fk-bg{background:linear-gradient(90deg,#A80F1B 0%,#BB1420 50%,#A80F1B 100%)}
 
-/* ── 3D extruded text ──
-   Stepped, same-color layers build a solid "slab" of depth beneath the
-   glyph, finished with a soft contact shadow so it lifts off the red bar.
-   text-shadow inherits, so [data-hl] words (rendered in yellow) get their
-   own warmer, brassier extrusion instead of the default crimson one. */
 .fk-text{
   text-shadow:
     1px 1px 0 #8a0e19,
@@ -149,7 +131,6 @@ const pad = (n) => String(n).padStart(2, "0");
 const getPhase = (now) =>
   now < PROMO_START ? "before" : now < PROMO_END ? "live" : "ended";
 
-/* Only changes state when the phase flips, so the bar doesn't re-render every second. */
 const usePromoPhase = () => {
   const [phase, setPhase] = useState("before");
   useEffect(() => {
@@ -162,7 +143,7 @@ const usePromoPhase = () => {
 };
 
 const useCountdown = () => {
-  const [now, setNow] = useState(null); // null until mounted → no SSR mismatch
+  const [now, setNow] = useState(null);
   useEffect(() => {
     setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -255,9 +236,7 @@ const WhatsAppIcon = ({ size = 15 }) => (
   </svg>
 );
 
-/* ─────────────────────── text: words → masked chars ───────────────────────
-   Every word is an overflow-hidden mask; every character inside it is what GSAP
-   moves. Highlighted words carry data-hl so they get an extra pop. */
+/* ─────────────────────── text: words → masked chars ─────────────────────── */
 
 const Chars = ({ parts }) =>
   parts.map((p, pi) => {
@@ -305,7 +284,6 @@ const plainText = (parts) => parts.map((p) => (p.count != null ? p.count : p.t))
 
 /* ─────────────────────────── countdown ─────────────────────────── */
 
-/* Digits roll up like a departure board whenever the value changes. */
 const RollDigit = ({ value }) => {
   const wrap = useRef(null);
   const prev = useRef(value);
@@ -366,8 +344,75 @@ const Divider = () => (
   <div className="mx-3 hidden h-5 w-px shrink-0 bg-white/25 lg:block" aria-hidden="true" />
 );
 
-/* Always visible: bottom-left row on phones and tablets, pinned inline from lg up.
-   Renders nothing once the sale is over. */
+/* Mobile-only divider used in the bottom row where lg:contents strips flex layout */
+const MobileDivider = () => (
+  <div className="mx-1.5 h-4 w-px shrink-0 bg-white/25 lg:hidden" aria-hidden="true" />
+);
+
+/* ──────────────────── SHOP NOW BUTTON ────────────────────
+   Fits in BOTH rows without adding height:
+   • mobile/tablet (<lg)  → 26px tall, sits in the 34px bottom row
+   • desktop (≥lg)        → 32px tall, sits in the h-11 single row
+   Uses a plain <a> so it works regardless of router; swap for
+   next/link if you want to prefetch. */
+const ShopNowButton = () => (
+  <>
+    <div className="mx-1.5 h-4 w-px shrink-0 bg-white/25 lg:hidden" aria-hidden="true" />
+    <Divider />
+    <a
+      href="/speed-shopping"
+      data-shop-btn
+      className="group relative inline-flex h-[26px] shrink-0 items-center gap-1.5 rounded-full bg-[#FFD400] px-3 text-[11px] font-black uppercase tracking-[0.08em] text-[#0F2A7A] shadow-[0_1px_0_rgba(0,0,0,0.15)] ring-1 ring-[#0F2A7A]/20 transition-all duration-200 hover:brightness-105 active:scale-95 lg:h-8 lg:px-4 lg:text-xs mr-2"
+      style={{
+        textShadow: "0 1px 0 rgba(255,255,255,0.35)",
+      }}
+      aria-label="Shop Speed Shopping deals now"
+    >
+      {/* subtle glow pulse on hover */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+        style={{
+          boxShadow: "0 0 0 2px rgba(255,212,0,0.35), 0 0 12px rgba(255,212,0,0.55)",
+        }}
+      />
+   <span
+  className="relative flex items-center gap-1.5 font-bold"
+  style={{
+    textShadow:
+      "0 1px 0 rgba(255,255,255,0.35), 0 2px 0 rgba(0,0,0,0.15), 0 3px 5px rgba(0,0,0,0.2)",
+  }}
+>
+  Shop Now
+        {/* Animated mini cart — drives forward on loop, bumps on hover */}
+        <span className="relative inline-flex items-center" aria-hidden="true">
+          <svg
+            data-cart-icon
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="lg:w-[15px] lg:h-[15px]"
+          >
+            <circle cx="9" cy="21" r="1" />
+            <circle cx="20" cy="21" r="1" />
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+          </svg>
+          {/* motion lines behind the cart, shown on hover */}
+          <span className="absolute -left-2 top-1/2 -translate-y-1/2 flex items-center gap-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <span className="block h-[2px] w-[5px] rounded-full bg-current" style={{ opacity: 0.4 }} />
+            <span className="block h-[2px] w-[3px] rounded-full bg-current" style={{ opacity: 0.6 }} />
+          </span>
+        </span>
+      </span>
+    </a>
+  </>
+);
+
 const Countdown = () => {
   const { phase, label, units, aria } = useCountdown();
   const ref = useRef(null);
@@ -388,7 +433,6 @@ const Countdown = () => {
 
   return (
     <>
-      <Divider />
       <div ref={ref} role="timer" aria-label={aria} className="flex shrink-0 items-center gap-1.5 lg:gap-2">
         <span className="fk-text flex items-center gap-1.5 whitespace-nowrap text-[11px] font-black uppercase tracking-[0.1em] text-white lg:text-xs">
           {phase === "live" && <LiveDot />}
@@ -402,12 +446,11 @@ const Countdown = () => {
   );
 };
 
-/* ─────────────────────────── contact ───────────────────────────
-   Phones: two round icon buttons (30px tap targets) so the countdown fits.
-   sm and up: pills that show the numbers. */
+/* ─────────────────────────── contact ─────────────────────────── */
 
 const Contact = () => (
   <>
+    <MobileDivider />
     <Divider />
     <div className="ml-auto flex shrink-0 items-center gap-1.5 lg:ml-0 lg:gap-2">
       <span className="fk-text hidden text-[11px] font-black uppercase tracking-[0.12em] text-white sm:inline lg:hidden xl:inline">
@@ -417,10 +460,10 @@ const Contact = () => (
       <a
         href="tel:+233302225651"
         aria-label="Call Franko on 030 222 5651"
-        className="inline-flex h-[30px] w-[30px] items-center justify-center rounded-full bg-white text-[#0F2A7A] shadow-md transition-transform duration-200 hover:-translate-y-px hover:scale-105 active:scale-95 sm:h-8 sm:w-auto sm:gap-1.5 sm:px-3.5 sm:text-[14px] sm:font-black"
+        className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-full bg-white text-[#0F2A7A] shadow-md transition-transform duration-200 hover:-translate-y-px hover:scale-105 active:scale-95 sm:h-8 sm:w-auto sm:gap-1.5 sm:px-3 sm:text-[13px] sm:font-black lg:h-[30px] lg:w-[30px] lg:rounded-full lg:sm:h-8 xl:w-auto xl:px-3.5 xl:text-sm"
       >
-        <Icon name="phone" size={15} strokeWidth={2.6} />
-        <span className="hidden tabular-nums sm:inline">030 222 5651</span>
+        <Icon name="phone" size={14} strokeWidth={2.6} />
+        <span className="hidden tabular-nums xl:inline">030 222 5651</span>
       </a>
 
       <a
@@ -428,10 +471,10 @@ const Contact = () => (
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Chat with Franko on WhatsApp, 050 360 7980"
-        className="inline-flex h-[30px] w-[30px] items-center justify-center rounded-full bg-gradient-to-br from-[#25D366] to-[#128C7E] text-white shadow-md ring-1 ring-white/30 transition-transform duration-200 hover:-translate-y-px hover:scale-105 active:scale-95 sm:h-8 sm:w-auto sm:gap-1.5 sm:px-3.5 sm:text-[14px] sm:font-black"
+        className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-full bg-gradient-to-br from-[#25D366] to-[#128C7E] text-white shadow-md ring-1 ring-white/30 transition-transform duration-200 hover:-translate-y-px hover:scale-105 active:scale-95 sm:h-8 sm:w-auto sm:gap-1.5 sm:px-3 sm:text-[13px] sm:font-black lg:h-[30px] lg:w-[30px] lg:rounded-full xl:w-auto xl:px-3.5 xl:text-sm"
       >
-        <WhatsAppIcon size={16} />
-        <span className="hidden tabular-nums sm:inline">050 360 7980</span>
+        <WhatsAppIcon size={15} />
+        <span className="hidden tabular-nums xl:inline">050 360 7980</span>
       </a>
     </div>
   </>
@@ -514,7 +557,6 @@ const AnnouncementBar = () => {
     []
   );
 
-  /* Bar entrance + occasional shine sweep */
   useGSAP(
     () => {
       const root = rootRef.current;
@@ -525,11 +567,34 @@ const AnnouncementBar = () => {
         { xPercent: -130 },
         { xPercent: 530, duration: 1.6, ease: "power2.inOut", repeat: -1, repeatDelay: 6 }
       );
+
+      /* Shop Now cart icon: looped drive + bounce on hover */
+      const cartIcon = root.querySelector("[data-cart-icon]");
+      let cleanupHover;
+      if (cartIcon) {
+        // Continuous gentle drive right, then snap back
+        gsap.set(cartIcon, { x: 0 });
+        gsap.to(cartIcon, {
+          x: 3,
+          duration: 0.5,
+          ease: "sine.inOut",
+          yoyo: true,
+          repeat: -1,
+          repeatDelay: 0.6,
+        });
+        // Extra nudge on hover
+        const btn = cartIcon.closest("[data-shop-btn]");
+        if (btn) {
+          const boost = () => gsap.fromTo(cartIcon, { x: -2 }, { x: 6, duration: 0.35, ease: "power2.out", yoyo: true, repeat: 1 });
+          btn.addEventListener("mouseenter", boost);
+          cleanupHover = () => btn.removeEventListener("mouseenter", boost);
+        }
+      }
+      return () => { if (cleanupHover) cleanupHover(); };
     },
     { scope: rootRef }
   );
 
-  /* Slide enter + progress timer, re-run for every new slide */
   useGSAP(
     () => {
       const stage = stageRef.current;
@@ -577,7 +642,6 @@ const AnnouncementBar = () => {
             0.2
           );
 
-        /* 40% counts up from zero */
         counts.forEach((el) => {
           const to = Number(el.dataset.countTo);
           const o = { v: 0 };
@@ -599,12 +663,10 @@ const AnnouncementBar = () => {
           );
         });
 
-        /* the delivery truck idles with a little drive */
         if (slide.icon === "truck" && icon.length)
           gsap.to(icon, { x: 3, duration: 0.45, ease: "sine.inOut", yoyo: true, repeat: -1, delay: 0.7 });
       }
 
-      /* the progress line is the timer: when it fills, the next slide comes in */
       if (canRotate && progressRef.current) {
         tweenRef.current = gsap.fromTo(
           progressRef.current,
@@ -617,7 +679,6 @@ const AnnouncementBar = () => {
     { dependencies: [slide.id, canRotate], scope: rootRef, revertOnUpdate: true }
   );
 
-  /* Pause on mouse hover, keyboard focus, or touch (touch resumes after 2.5s) */
   const onPointerEnter = (e) => e.pointerType === "mouse" && setPaused(true);
   const onPointerLeave = (e) => e.pointerType === "mouse" && setPaused(false);
   const onTouchStart = () => {
@@ -681,7 +742,6 @@ const AnnouncementBar = () => {
               </div>
             </div>
 
-            {/* Dots (tablets and 2xl+; hidden on lg–xl to save room) */}
             {canRotate && (
               <div className="hidden shrink-0 items-center md:flex lg:hidden 2xl:flex">
                 {slides.map((s, i) => (
@@ -706,16 +766,16 @@ const AnnouncementBar = () => {
             )}
           </div>
 
-          {/* ═══ COUNTDOWN + CONTACT ═══
-              second row below lg; from lg up the wrapper disappears (display: contents)
-              so both sit inline with the promo */}
-          <div className="flex h-[34px] items-center justify-between gap-2 border-t border-white/15 bg-black/15 px-1.5 lg:contents">
+          {/* ═══ BOTTOM ROW (mobile) / INLINE ROW (desktop) ═══
+              Shop Now → Countdown → Contact — same order on every breakpoint,
+              no extra height added. */}
+          <div className="flex h-[34px] items-center gap-1 border-t border-white/15 bg-black/15 px-1.5 lg:contents lg:h-auto lg:border-0 lg:bg-transparent lg:gap-0 lg:px-0">
+            <ShopNowButton />
             <Countdown />
             <Contact />
           </div>
         </div>
 
-        {/* Progress line (poster sky: yellow → cyan). Freezes while paused. */}
         {canRotate && (
           <span
             ref={progressRef}
