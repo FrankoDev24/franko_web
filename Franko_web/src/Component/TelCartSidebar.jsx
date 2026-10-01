@@ -24,7 +24,7 @@ import { ShoppingCartIcon } from "@heroicons/react/24/solid";
 import { updateCartItem, deleteCartItem, getCartById } from "../Redux/Slice/cartSlice";
 import useCustomer, { persistCustomer, getCustomerId } from "../hooks/useCustomer";
 import AuthModal from "./AuthModal";
-import telecelWhite from "../assets/Telecel WHite.png";
+import telecelWhite from "../assets/Telecel White.png";
 import speedLogo from "../assets/speed-logo.png";
 
 const TEL_CHECKOUT_ROUTE = "/tel-checkout";
