@@ -63,8 +63,7 @@ const SLIDES = [
   {
     id: "date",
     icon: "calendar",
-  
-    tone: "white",
+ 
     full: [{ t: "FRIDAY, 2ND OCT. 2026", hl: true }],
   },
   {
