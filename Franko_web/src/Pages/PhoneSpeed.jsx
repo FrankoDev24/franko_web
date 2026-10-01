@@ -1,27 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import {
   FunnelIcon,
   XMarkIcon,
-  TagIcon,
   ChevronDownIcon,
-  ChevronRightIcon,
   Bars3BottomLeftIcon,
-  BellIcon,
-  BellAlertIcon,
   SparklesIcon,
-  ShoppingCartIcon as CartOutlineIcon,
-  TrashIcon,
-  PlusIcon,
-  MinusIcon,
 } from "@heroicons/react/24/outline";
 import {
   HeartIcon as OutlineHeartIcon,
   HeartIcon as SolidHeartIcon,
   ShoppingCartIcon,
-  EyeIcon,
   CheckIcon,
   CheckCircleIcon,
   XCircleIcon,
@@ -35,6 +25,8 @@ import {
 import { CircularPagination } from "../Component/CircularPagination";
 import ProductDetailModal from "../Component/ProductDetailModal";
 import useAddToCart from "../Component/Cart";
+import { getCartById } from "../Redux/Slice/cartSlice";
+import TelCartSidebar from "../Component/TelCartSidebar";
 import speedLogo from "../assets/speed-logo.png";
 import telecelWhite from "../assets/Telecel White.png";
 
@@ -43,27 +35,46 @@ import telecelWhite from "../assets/Telecel White.png";
 const SHOWROOM_ID = "1eb2a7fe-7c6d-4b98-b806-3e9a82164f1f";
 const PRODUCTS_PER_PAGE = 12;
 const MAX_PRICE = 200000;
-const BROWSE_ALL_URL = "/";
-const CART_STORAGE_KEY = "telecel_speed_cart";
-const CART_PREFIX = "Tel";
 
-// Sale window — 24 hours, starting midnight Accra time (GMT year-round, so "Z" works).
-const PROMO_START = Date.parse("2026-10-02T00:00:00Z");
+// Sale window — 24 hours, starting 8:00 AM Accra time.
+// Accra is GMT+0 all year round, so the "Z" (UTC) offset is correct as-is.
+const PROMO_START = Date.parse("2026-10-02T08:00:00Z");
 const PROMO_END = PROMO_START + 24 * 60 * 60 * 1000;
-const LAUNCH_LABEL = "Friday 2 October 2026, 8:00 AM";
 
+// Orders are accepted during the pre-launch countdown too, so products for
+// this showroom are always rendered (never hidden behind the teaser).
+// Flip to `false` if the grid should ever become browse-only until launch.
+const ALLOW_EARLY_ORDERS = true;
+
+// Human label derived from PROMO_START so it can never drift out of sync.
+const PROMO_START_LABEL = (() => {
+  const date = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Accra",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(PROMO_START));
+  const time = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Africa/Accra",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(PROMO_START));
+  return `${date}, ${time}`;
+})();
+
+/* Telecel palette — this flow uses no green. */
 const COLOR = {
-  red: "#BB1420",
-  redDeep: "#A80F1B",
-  forest: "#2C5E48",
-  forestDeep: "#234A39",
-  gold: "#FFD400",
+  red: "#BB1420",        // Telecel red — primary
+  redDeep: "#A80F1B",    // pressed / hover
+  redDeeper: "#7A0B13",  // deep red (text on gold, toasts)
+  gold: "#FFD400",       // Telecel gold — accents + cart
   goldText: "#FFD400",
   goldBtn: "#FFD400",
-  sage: "#E7F0EB",
-  sageLine: "#C9D9CF",
-  rose: "#F6EEEE",
-  roseLine: "#E4CFD1",
+  rose: "#F6EEEE",       // light red surface
+  roseLight: "#FDF0F0",  // lightest red surface
+  roseLine: "#E4CFD1",   // light red border
 };
 
 const teasersBefore = [{ text: "24 hours Only", icon: "hours" }];
@@ -76,50 +87,6 @@ const teasersLive = [
 const pad = (number) => String(number ?? 0).padStart(2, "0");
 const getPhase = (now) =>
   now < PROMO_START ? "before" : now < PROMO_END ? "live" : "ended";
-
-/* ===================== TELECEL CART HELPERS =====================
- * Cart IDs always begin with "Tel". The cart itself has an id of
- * "Tel-<timestamp>-<rand>", and every line item also gets a unique
- * "Tel-..." cartItemId. Persisted to localStorage so it survives
- * refreshes, and kept in React state so the UI re-renders.
- */
-
-const generateTelId = () =>
-  `${CART_PREFIX}-${Date.now().toString(36)}-${Math.random()
-    .toString(36)
-    .slice(2, 8)}`;
-
-const loadTelCart = () => {
-  if (typeof window === "undefined") {
-    return { id: generateTelId(), items: [] };
-  }
-  try {
-    const raw = window.localStorage.getItem(CART_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (
-        parsed &&
-        typeof parsed.id === "string" &&
-        parsed.id.startsWith(CART_PREFIX) &&
-        Array.isArray(parsed.items)
-      ) {
-        return parsed;
-      }
-    }
-  } catch (_) {
-    /* ignore */
-  }
-  return { id: generateTelId(), items: [] };
-};
-
-const saveTelCart = (cart) => {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
-  } catch (_) {
-    /* ignore */
-  }
-};
 
 /* ===================== ICONS ===================== */
 
@@ -242,8 +209,8 @@ const Notification = ({ message, type, visible, onClose }) => {
   return (
     <div className="fixed top-4 right-4 z-[9999] animate-[slideIn_0.3s_ease-out]">
       <div
-        className="flex items-center gap-3 min-w-[280px] px-4 py-3 rounded-lg shadow-lg text-white text-sm font-semibold"
-        style={{ background: type === "success" ? COLOR.forest : COLOR.red }}
+        className="flex items-center gap-3 min-w-[280px] px-4 py-3 rounded-xl shadow-xl text-white text-sm font-semibold"
+        style={{ background: type === "success" ? COLOR.red : COLOR.redDeeper }}
       >
         <Icon className="w-5 h-5 flex-shrink-0" />
         <span>{message}</span>
@@ -263,11 +230,12 @@ const Notification = ({ message, type, visible, onClose }) => {
 /* ===================== SKELETON ===================== */
 
 const SkeletonCard = () => (
-  <div className="bg-white border border-[#e6e1dc] rounded-lg overflow-hidden">
-    <div className="h-60 md:h-72 bg-gradient-to-r from-[#e7f0eb] via-[#f7faf8] to-[#e7f0eb] animate-pulse" />
-    <div className="p-4 text-center">
-      <div className="h-4 w-3/4 mx-auto rounded bg-[#d7e6de] animate-pulse mb-2" />
-      <div className="h-4 w-1/2 mx-auto rounded bg-[#d7e6de] animate-pulse" />
+  <div className="bg-white border border-[#F0E6E6] rounded-2xl overflow-hidden">
+    <div className="h-44 sm:h-56 md:h-64 bg-gradient-to-r from-[#F8EEEE] via-[#FDF7F7] to-[#F8EEEE] animate-pulse" />
+    <div className="p-3.5">
+      <div className="h-4 w-3/4 rounded bg-[#F1DEDE] animate-pulse mb-2" />
+      <div className="h-4 w-1/2 rounded bg-[#F1DEDE] animate-pulse mb-3" />
+      <div className="h-9 w-full rounded-xl bg-[#F8EEEE] animate-pulse" />
     </div>
   </div>
 );
@@ -276,10 +244,10 @@ const FilterChip = ({ label, onRemove }) => (
   <button
     type="button"
     onClick={onRemove}
-    className="group inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full bg-[#e7f0eb] border border-[#c9d9cf] text-xs font-semibold text-[#2C5E48] hover:bg-[#dce8e1] transition"
+    className="group inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full bg-[#FDF0F0] border border-[#E4CFD1] text-xs font-semibold text-[#BB1420] hover:bg-[#F6E3E5] transition"
   >
     {label}
-    <XMarkIcon className="w-3.5 h-3.5 text-[#6e947e] group-hover:text-[#2C5E48] transition" />
+    <XMarkIcon className="w-3.5 h-3.5 text-[#C49AA0] group-hover:text-[#BB1420] transition" />
   </button>
 );
 
@@ -287,12 +255,12 @@ const TimeUnit = ({ value, label, size = "sm" }) => (
   <div
     className={
       size === "lg"
-        ? "min-w-[70px] sm:min-w-[84px] bg-white/95 rounded-xl py-3 px-2 text-center border border-white/40"
+        ? "min-w-[70px] sm:min-w-[84px] bg-white/95 rounded-xl py-3 px-2 text-center border border-white/40 shadow-sm"
         : "min-w-[34px] bg-white/95 rounded-md py-1 px-1.5 text-center"
     }
   >
     <span
-      className={`block font-semibold leading-none tabular-nums text-[#2C5E48] ${
+      className={`block font-semibold leading-none tabular-nums text-[#BB1420] ${
         size === "lg" ? "text-3xl sm:text-4xl" : "text-sm"
       }`}
     >
@@ -312,20 +280,24 @@ const TimeUnit = ({ value, label, size = "sm" }) => (
 
 const PhoneSpeed = () => {
   const dispatch = useDispatch();
-  const navigate = useNavigate();
 
   const { productsByShowroom = {}, loading } = useSelector(
     (state) => state.products
+  );
+  // The standard cart — same slice Cart.jsx uses. Its id begins with "Tel".
+  const { cart: reduxCart = [], cartId: reduxCartId } = useSelector(
+    (state) => state.cart
   );
   const wishlist = useSelector((state) => state.wishlist.items || []);
   const { addProductToCart, loading: cartLoading } = useAddToCart();
 
   const countdown = useCountdown();
   const isTeaser = countdown.phase === "before";
+  // Pre-launch orders are allowed, so the catalog renders in every phase.
+  const canOrder = ALLOW_EARLY_ORDERS || !isTeaser;
 
   const [teaserIndex, setTeaserIndex] = useState(0);
   const [teaserVisible, setTeaserVisible] = useState(true);
-  const [notifyMeOn, setNotifyMeOn] = useState(false);
   const [recentlyAdded, setRecentlyAdded] = useState(() => new Set());
 
   const [inputPriceRange, setInputPriceRange] = useState({
@@ -333,7 +305,6 @@ const PhoneSpeed = () => {
     max: MAX_PRICE,
   });
   const [appliedPriceRange, setAppliedPriceRange] = useState([0, MAX_PRICE]);
-  const [showDiscountedOnly, setShowDiscountedOnly] = useState(false);
   const [selectedBrand, setSelectedBrand] = useState("");
   const [sortBy, setSortBy] = useState("newest");
   const [currentPage, setCurrentPage] = useState(1);
@@ -362,85 +333,68 @@ const PhoneSpeed = () => {
     setIsModalVisible(false);
   }, []);
 
-  /* ---------- Telecel cart state ---------- */
-  const [telCart, setTelCart] = useState(() => loadTelCart());
+  /* ---------- Cart (standard slice, "Tel" cart id) ---------- */
   const [isCartOpen, setIsCartOpen] = useState(false);
+  /* id of the product currently being added — drives the card spinner and the
+     loading state on the header cart icon. */
+  const [addingProductId, setAddingProductId] = useState(null);
 
-  useEffect(() => {
-    saveTelCart(telCart);
-  }, [telCart]);
-
-  const telCartItemCount = useMemo(
-    () => telCart.items.reduce((sum, it) => sum + (it.quantity || 1), 0),
-    [telCart.items]
+  const cartItemCount = useMemo(
+    () => (reduxCart || []).reduce((sum, it) => sum + (it.quantity || 1), 0),
+    [reduxCart]
   );
-  const telCartSubtotal = useMemo(
-    () =>
-      telCart.items.reduce(
-        (sum, it) => sum + (Number(it.price) || 0) * (it.quantity || 1),
-        0
-      ),
-    [telCart.items]
-  );
+  /* Latest cart, readable from inside an async handler without a stale closure. */
+  const cartRef = useRef(reduxCart);
+  cartRef.current = reduxCart;
 
-  const addToTelCart = useCallback(
-    async (product, quantity = 1) => {
-      const pid = product.productID || product.id;
-      // Call the existing cart hook so the backend still gets the add.
-      // If it fails we still update local Tel cart so the UI works.
-      try {
-        await addProductToCart({ ...product, quantity });
-      } catch (e) {
-        // swallow — local cart still works
+  /* The app encrypts localStorage and its getItem already returns parsed JSON,
+     so accept both an array and a JSON string here. */
+  const readStoredCart = useCallback(() => {
+    try {
+      const raw = localStorage.getItem("cart");
+      if (!raw) return [];
+      if (Array.isArray(raw)) return raw;
+      if (typeof raw === "string") {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
       }
-      setTelCart((prev) => {
-        const existing = prev.items.find(
-          (i) => (i.productID || i.id) === pid
+      return [];
+    } catch {
+      return [];
+    }
+  }, []);
+
+  /** How many of this product the cart holds right now (redux ⊕ storage). */
+  const getCartLineQty = useCallback(
+    (id) => {
+      const matches = (item) =>
+        String(
+          item?.productId ??
+            item?.productID ??
+            item?.ProductId ??
+            item?.ProductID ??
+            item?.id ??
+            ""
+        ) === String(id);
+      const sum = (list) =>
+        (list || []).reduce(
+          (total, item) =>
+            matches(item) ? total + (Number(item.quantity) || 1) : total,
+          0
         );
-        let nextItems;
-        if (existing) {
-          nextItems = prev.items.map((i) =>
-            i === existing
-              ? { ...i, quantity: (i.quantity || 1) + quantity }
-              : i
-          );
-        } else {
-          nextItems = [
-            ...prev.items,
-            {
-              ...product,
-              cartItemId: generateTelId(), // Always starts with "Tel-"
-              quantity,
-              addedAt: Date.now(),
-            },
-          ];
-        }
-        return { ...prev, items: nextItems };
-      });
+      return Math.max(sum(cartRef.current), sum(readStoredCart()));
     },
-    [addProductToCart]
+    [readStoredCart]
   );
 
-  const updateTelCartQty = useCallback((cartItemId, delta) => {
-    setTelCart((prev) => ({
-      ...prev,
-      items: prev.items
-        .map((i) =>
-          i.cartItemId === cartItemId
-            ? { ...i, quantity: Math.max(1, (i.quantity || 1) + delta) }
-            : i
-        ),
-    }));
-  }, []);
+  const cartBusy = cartLoading || addingProductId !== null;
 
-  const removeFromTelCart = useCallback((cartItemId) => {
-    setTelCart((prev) => ({
-      ...prev,
-      items: prev.items.filter((i) => i.cartItemId !== cartItemId),
-    }));
-  }, []);
-
-  /* ---------- End of Telecel cart ---------- */
+  // Refresh from the API once, so the sidebar matches the server cart.
+  useEffect(() => {
+    const storedId = reduxCartId || localStorage.getItem("cartId");
+    if (storedId) dispatch(getCartById(storedId));
+  }, [dispatch, reduxCartId]);
+  /* ---------- End of cart ---------- */
 
   const teaserLines = isTeaser ? teasersBefore : teasersLive;
   const activeTeaser =
@@ -495,15 +449,20 @@ const PhoneSpeed = () => {
     setTeaserVisible(true);
   }, [countdown.phase]);
 
-  useEffect(() => {
-    if (isTeaser) return;
+  /* Products for this showroom are loaded in EVERY phase — the teaser must
+     not stop the fetch, otherwise the grid stays empty until launch. */
+  const loadProducts = useCallback(() => {
     const request = dispatch(fetchProductsByShowroom(SHOWROOM_ID));
     if (request?.then) {
       request.then(() => setHasLoadedOnce(true));
     } else {
       setHasLoadedOnce(true);
     }
-  }, [dispatch, isTeaser]);
+  }, [dispatch]);
+
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
 
   const applyPriceFilter = () => {
     const min = Math.max(0, Number(inputPriceRange.min) || 0);
@@ -515,7 +474,6 @@ const PhoneSpeed = () => {
   const resetFilters = () => {
     setInputPriceRange({ min: 0, max: MAX_PRICE });
     setAppliedPriceRange([0, MAX_PRICE]);
-    setShowDiscountedOnly(false);
     setSelectedBrand("");
     setSortBy("newest");
     setCurrentPage(1);
@@ -524,13 +482,11 @@ const PhoneSpeed = () => {
   const filteredProducts = useMemo(() => {
     const result = products.filter((product) => {
       const price = Number(product.price) || 0;
-      const oldPrice = Number(product.oldPrice) || 0;
       const matchesPrice =
         price >= appliedPriceRange[0] && price <= appliedPriceRange[1];
-      const matchesDiscount = !showDiscountedOnly || oldPrice > price;
       const matchesBrand =
         !selectedBrand || product.brandName === selectedBrand;
-      return matchesPrice && matchesDiscount && matchesBrand;
+      return matchesPrice && matchesBrand;
     });
 
     return result.sort((a, b) => {
@@ -546,12 +502,10 @@ const PhoneSpeed = () => {
         case "name-za":
           return (b.productName || "").localeCompare(a.productName || "");
         default:
-          return (
-            new Date(b.dateCreated || 0) - new Date(a.dateCreated || 0)
-          );
+          return new Date(b.dateCreated || 0) - new Date(a.dateCreated || 0);
       }
     });
-  }, [products, appliedPriceRange, showDiscountedOnly, selectedBrand, sortBy]);
+  }, [products, appliedPriceRange, selectedBrand, sortBy]);
 
   const totalPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE);
   const currentProducts = filteredProducts.slice(
@@ -571,19 +525,11 @@ const PhoneSpeed = () => {
   const priceIsDefault =
     appliedPriceRange[0] === 0 && appliedPriceRange[1] === MAX_PRICE;
 
-  const filtersActive =
-    !priceIsDefault ||
-    showDiscountedOnly ||
-    Boolean(selectedBrand) ||
-    sortBy !== "newest";
+  const filtersActive = !priceIsDefault || Boolean(selectedBrand) || sortBy !== "newest";
 
   const removePriceFilter = () => {
     setInputPriceRange({ min: 0, max: MAX_PRICE });
     setAppliedPriceRange([0, MAX_PRICE]);
-    setCurrentPage(1);
-  };
-  const removeDiscountFilter = () => {
-    setShowDiscountedOnly(false);
     setCurrentPage(1);
   };
   const removeBrandFilter = () => {
@@ -606,39 +552,70 @@ const PhoneSpeed = () => {
     }
   };
 
+  const flashAdded = useCallback((id) => {
+    setRecentlyAdded((prev) => new Set(prev).add(id));
+    setTimeout(() => {
+      setRecentlyAdded((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }, 1600);
+  }, []);
+
   const handleAddToCart = async (product) => {
+    if (!canOrder) {
+      showNotification(
+        `Ordering opens ${PROMO_START_LABEL} — browse for now`,
+        "error"
+      );
+      return;
+    }
     if (Number(product.stock) === 0) {
       showNotification("This product is out of stock", "error");
       return;
     }
-    const id = product.productID || product.id;
-    try {
-      await addToTelCart(product, 1);
-      showNotification("Added to cart successfully");
-      setRecentlyAdded((prev) => new Set(prev).add(id));
-      setTimeout(() => {
-        setRecentlyAdded((prev) => {
-          const next = new Set(prev);
-          next.delete(id);
-          return next;
-        });
-      }, 1600);
-    } catch {
-      showNotification("Unable to add product to cart", "error");
-    }
-  };
 
-  const handleNotifyMe = () => {
-    setNotifyMeOn(true);
-    showNotification(
-      "Reminder set — we'll flash it here the moment the sale opens"
-    );
+    const id = product.productID || product.id;
+    const qtyBefore = getCartLineQty(id);
+
+    setAddingProductId(id);
+    try {
+      await addProductToCart({ ...product, quantity: 1 });
+    } catch {
+      /* The call can reject even when the line landed (optimistic write, or a
+         failing follow-up refetch). The cart below has the final say. */
+    } finally {
+      setAddingProductId(null);
+    }
+
+    /* Poll briefly: the slice may update redux / localStorage a beat later. */
+    const landed = await new Promise((resolve) => {
+      let tries = 0;
+      const check = () => {
+        tries += 1;
+        if (getCartLineQty(id) > qtyBefore) return resolve(true);
+        if (tries >= 6) return resolve(false);
+        return setTimeout(check, 120);
+      };
+      check();
+    });
+
+    if (landed) {
+      showNotification("Added to cart successfully");
+      flashAdded(id);
+    } else {
+      showNotification(
+        "Couldn't add this item to your cart. Please try again.",
+        "error"
+      );
+    }
   };
 
   /* ===================== FILTERS SIDEBAR ===================== */
   const renderFilters = () => (
     <div className="flex flex-col gap-3">
-      <div className="bg-white border border-[#e6e1dc] rounded-lg p-4">
+      <div className="bg-white border border-[#F0E6E6] rounded-2xl p-4 shadow-sm">
         <h3 className="text-sm font-semibold text-[#2c3330] mb-3">
           Price Range
         </h3>
@@ -659,7 +636,7 @@ const PhoneSpeed = () => {
                     min: e.target.value,
                   }))
                 }
-                className="w-full pl-6 pr-2 py-2 border border-[#e6e1dc] rounded-lg text-xs outline-none focus:border-[#2C5E48]"
+                className="w-full pl-6 pr-2 py-2 border border-[#e6e1dc] rounded-xl text-xs outline-none focus:border-[#BB1420]"
               />
             </div>
           </label>
@@ -679,7 +656,7 @@ const PhoneSpeed = () => {
                     max: e.target.value,
                   }))
                 }
-                className="w-full pl-6 pr-2 py-2 border border-[#e6e1dc] rounded-lg text-xs outline-none focus:border-[#2C5E48]"
+                className="w-full pl-6 pr-2 py-2 border border-[#e6e1dc] rounded-xl text-xs outline-none focus:border-[#BB1420]"
               />
             </div>
           </label>
@@ -687,42 +664,14 @@ const PhoneSpeed = () => {
         <button
           type="button"
           onClick={applyPriceFilter}
-          className="w-full py-2 bg-[#2C5E48] text-white text-xs font-semibold rounded-lg hover:bg-[#234A39] active:scale-[0.98] transition"
+          className="w-full py-2 bg-[#BB1420] text-white text-xs font-semibold rounded-xl hover:bg-[#A80F1B] active:scale-[0.98] transition"
         >
           Apply Price
         </button>
       </div>
 
-      <div className="bg-white border border-[#e6e1dc] rounded-lg p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm font-semibold text-[#3c4540]">
-            <span className="w-7 h-7 rounded-lg bg-[#e7f0eb] flex items-center justify-center text-[#2C5E48]">
-              <TagIcon className="h-4 w-4" />
-            </span>
-            Discounted Products
-          </div>
-          <button
-            type="button"
-            className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 ${
-              showDiscountedOnly ? "bg-[#2C5E48]" : "bg-[#ddd8d2]"
-            }`}
-            onClick={() => {
-              setShowDiscountedOnly((prev) => !prev);
-              setCurrentPage(1);
-            }}
-            aria-label="Toggle discounted only"
-          >
-            <span
-              className={`block w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform duration-200 ${
-                showDiscountedOnly ? "translate-x-4" : ""
-              }`}
-            />
-          </button>
-        </div>
-      </div>
-
       {brands.length > 0 && (
-        <div className="bg-white border border-[#e6e1dc] rounded-lg p-4">
+        <div className="bg-white border border-[#F0E6E6] rounded-2xl p-4 shadow-sm">
           <h3 className="text-sm font-semibold text-[#2c3330] mb-3">Brands</h3>
           <div className="flex flex-wrap gap-2">
             {brands.map((brand) => (
@@ -735,8 +684,8 @@ const PhoneSpeed = () => {
                 }}
                 className={`px-3 py-1 text-xs rounded-full border font-medium transition ${
                   selectedBrand === brand
-                    ? "bg-[#2C5E48] text-white border-[#2C5E48]"
-                    : "bg-white text-[#5c6661] border-[#e6e1dc] hover:border-[#8aaf98]"
+                    ? "bg-[#BB1420] text-white border-[#BB1420]"
+                    : "bg-white text-[#5c6661] border-[#e6e1dc] hover:border-[#D8B4B8]"
                 }`}
               >
                 {brand}
@@ -746,20 +695,11 @@ const PhoneSpeed = () => {
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={() => navigate(BROWSE_ALL_URL)}
-        className="w-full flex items-center justify-center gap-1.5 py-2.5 bg-white border border-[#c9d9cf] text-[#2C5E48] rounded-lg text-xs font-semibold hover:bg-[#e7f0eb] active:scale-[0.98] transition"
-      >
-        Browse Other Products
-        <ChevronRightIcon className="w-3.5 h-3.5" />
-      </button>
-
       {filtersActive && (
         <button
           type="button"
           onClick={resetFilters}
-          className="w-full py-2 bg-white text-[#8C3D45] border border-[#e4cfd1] rounded-lg text-xs font-semibold hover:bg-[#f6eeee] active:scale-[0.98] transition"
+          className="w-full py-2 bg-white text-[#8C3D45] border border-[#e4cfd1] rounded-xl text-xs font-semibold hover:bg-[#f6eeee] active:scale-[0.98] transition"
         >
           Reset All Filters
         </button>
@@ -773,11 +713,26 @@ const PhoneSpeed = () => {
   const noResultsFromFilters = hasNoResults && filtersActive;
 
   const timerLabel =
-    countdown.phase === "live"
-      ? "Ends in"
-      : isTeaser
-      ? "Drops in"
-      : null;
+    countdown.phase === "live" ? "Ends in" : isTeaser ? "Drops in" : null;
+
+  const rangeStart = (currentPage - 1) * PRODUCTS_PER_PAGE + 1;
+  const rangeEnd = Math.min(currentPage * PRODUCTS_PER_PAGE, filteredProducts.length);
+
+  const emptyHeadline = noResultsFromFilters
+    ? "No matches for these filters"
+    : countdown.phase === "ended"
+    ? "Speed Shopping is closed"
+    : isTeaser
+    ? "Deals are on the way"
+    : "Deals are still loading";
+
+  const emptyBody = noResultsFromFilters
+    ? "Try widening your price range or clearing a brand to see more Speed Shopping deals."
+    : countdown.phase === "ended"
+    ? "The 24-hour window has closed. Thanks for shopping with us — the rest of the store is open as usual."
+    : isTeaser
+    ? `The sale opens ${PROMO_START_LABEL}. Stock is being uploaded now — refresh in a moment.`
+    : "The first batch is being uploaded now. Refresh in a moment.";
 
   return (
     <>
@@ -807,11 +762,43 @@ const PhoneSpeed = () => {
           100% { transform: scale(1); }
         }
         .speed-fk-bg { background: linear-gradient(90deg, #A80F1B 0%, #BB1420 50%, #A80F1B 100%); }
-        .speed-green-bg { background: #2A5644; }
+        .speed-green-bg { background: linear-gradient(135deg, #A80F1B 0%, #BB1420 100%); }
         .speed-pop { animation: speedPop 0.28s ease-out; }
         .cart-bounce { animation: cartBounce 0.35s ease-out; }
+
+        /* ---------- product card ---------- */
+        .speed-card {
+          transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+        }
+        .speed-card:hover,
+        .speed-card:focus-visible {
+          transform: translateY(-4px);
+          border-color: #E4CFD1;
+          box-shadow: 0 18px 34px -18px rgba(187, 20, 32, 0.35);
+          outline: none;
+        }
+        .speed-card-media img { transition: transform 0.35s ease; }
+        .speed-card:hover .speed-card-media img { transform: scale(1.06); }
+        .speed-card-view {
+          opacity: 0; transform: translateY(6px);
+          transition: opacity 0.22s ease, transform 0.22s ease;
+        }
+        .speed-card:hover .speed-card-view { opacity: 1; transform: translateY(0); }
+        .speed-card-add { transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease; }
+        .speed-card-add:active:not(:disabled) { transform: scale(0.98); }
+
+        /* ---------- cart (icon only, no button chrome) ---------- */
+        .speed-cart-btn {
+          transition: transform 0.18s ease, background 0.18s ease;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .speed-cart-btn:hover { background: rgba(255, 255, 255, 0.12); transform: translateY(-1px); }
+        .speed-cart-btn:active { transform: scale(0.94); }
+
         @media (prefers-reduced-motion: reduce) {
           .speed-pop, .cart-bounce { animation: none !important; }
+          .speed-card, .speed-card-media img, .speed-card-view, .speed-cart-btn { transition: none !important; }
+          .speed-card:hover { transform: none; }
         }
       `}</style>
 
@@ -826,161 +813,144 @@ const PhoneSpeed = () => {
         <div className="mx-auto w-full max-w-[1800px] px-3 sm:px-5 lg:px-8 py-3 sm:py-3">
 
           {/* ==================== BANNER ==================== */}
-          <header className="speed-fk-bg relative flex flex-col md:flex-row md:items-center md:justify-between gap-3 min-h-[46px] px-4 py-3 md:px-5 rounded-xl border border-[#A80F1B]">
-            <div className="relative z-[1] flex items-center gap-3 min-w-0">
-              {/* Telecel logo + Speed Shopping logo side by side */}
-              <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                <img
-                  src={telecelWhite}
-                  alt="Telecel"
-                  className="h-12 sm:h-14 w-auto object-contain"
-                />
-                <span className="h-10 sm:h-12 w-px bg-white/25" aria-hidden="true" />
-                <img
-                  src={speedLogo}
-                  alt="Speed Shopping"
-                  className="h-12 sm:h-14 w-auto object-contain"
-                />
-              </div>
-              <div className="min-w-0 hidden sm:block">
-                <h1 className="text-base sm:text-lg lg:text-2xl font-semibold text-white leading-tight">
-                   <span style={{ color: COLOR.goldText }}>Speed Shopping</span>
-                </h1>
-                <p
-                  className={`flex items-center gap-1.5 text-[12px] lg:text-[13px] text-white/90 mt-0.5 transition-opacity duration-200 ${
-                    teaserVisible ? "opacity-100" : "opacity-0"
-                  }`}
-                >
-                  <TeaserGlyph
-                    name={activeTeaser.icon}
-                    className="w-3.5 h-3.5 flex-shrink-0"
-                    // gold glyph
-                    style={{ color: "#FFD400" }}
+          <div className="sticky top-0 z-30 -mx-3 sm:-mx-5 lg:-mx-8 px-3 sm:px-5 lg:px-8 pt-3 pb-3 bg-[#f7f5f3]/95 backdrop-blur-sm">
+            <header className="speed-fk-bg relative flex flex-col md:flex-row md:items-center md:justify-between gap-3 min-h-[46px] px-4 py-3 md:px-5 rounded-xl border border-[#A80F1B] shadow-[0_10px_30px_-18px_rgba(187,20,32,0.9)]">
+              <div className="relative z-[1] flex items-center gap-3 min-w-0">
+                {/* Telecel logo + Speed Shopping logo side by side */}
+                <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                  <img
+                    src={telecelWhite}
+                    alt="Telecel"
+                    className="h-12 sm:h-14 w-auto object-contain"
                   />
-                  <span>{activeTeaser.text}</span>
-                </p>
-              </div>
-            </div>
-
-            {/* Countdown + actions */}
-            <div className="relative z-[1] flex flex-col sm:flex-row sm:items-center gap-2.5 w-full md:w-auto">
-              {countdown.phase !== "ended" ? (
-                <div className="flex items-center justify-between md:justify-end gap-3 w-full md:w-auto bg-black/10 md:bg-transparent px-3 md:px-0 py-2 md:py-0 rounded-lg md:rounded-none">
-                  <span className="flex items-center gap-1.5 text-white text-[10px] font-semibold uppercase tracking-[0.14em] whitespace-nowrap">
-                    {countdown.phase === "live" && (
-                      <span className="relative flex h-1.5 w-1.5">
-                        <span
-                          className="absolute inline-flex h-full w-full rounded-full bg-[#FFD400] opacity-70"
-                          style={{
-                            animation:
-                              "speedLivePing 1.8s cubic-bezier(0,0,0.2,1) infinite",
-                          }}
-                        />
-                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#FFD400]" />
-                      </span>
-                    )}
-                    {timerLabel}
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    {countdown.days > 0 && (
-                      <>
-                        <TimeUnit value={countdown.days} label="DAYS" />
-                        <span className="text-white/35 font-medium">:</span>
-                      </>
-                    )}
-                    <TimeUnit value={countdown.hours} label="HRS" />
-                    <span className="text-white/35 font-medium">:</span>
-                    <TimeUnit value={countdown.minutes} label="MIN" />
-                    <span className="text-white/35 font-medium">:</span>
-                    <TimeUnit value={countdown.seconds} label="SEC" />
-                  </div>
+                  <span className="h-10 sm:h-12 w-px bg-white/25" aria-hidden="true" />
+                  <img
+                    src={speedLogo}
+                    alt="Speed Shopping"
+                    className="h-12 sm:h-14 w-auto object-contain"
+                  />
                 </div>
-              ) : (
-                <div className="flex items-center gap-2 w-full md:w-auto bg-white/10 px-3 py-2 rounded-lg">
-                  <SparklesIcon className="w-4 h-4 text-[#FFD400] flex-shrink-0" />
-                  <span className="text-xs font-medium text-[#F0E2C4]">
-                    Sale ended
-                  </span>
-                </div>
-              )}
-
-              {/* Cart button */}
-              <button
-                type="button"
-                onClick={() => setIsCartOpen(true)}
-                className="relative inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/10 text-white text-xs font-semibold hover:bg-white/15 whitespace-nowrap transition active:scale-[0.98]"
-              >
-                <CartOutlineIcon className="w-4 h-4" />
-                Cart
-                {telCartItemCount > 0 && (
-                  <span
-                    key={telCartItemCount}
-                    className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 text-[10px] font-bold rounded-full flex items-center justify-center cart-bounce"
-                    style={{ background: COLOR.goldBtn, color: COLOR.forestDeep }}
+                <div className="min-w-0 hidden sm:block">
+                  <h1 className="text-base sm:text-lg lg:text-2xl font-semibold text-white leading-tight">
+                    <span style={{ color: COLOR.goldText }}>Speed Shopping</span>
+                  </h1>
+                  <p
+                    className={`flex items-center gap-1.5 text-[12px] lg:text-[13px] text-white/90 mt-0.5 transition-opacity duration-200 ${
+                      teaserVisible ? "opacity-100" : "opacity-0"
+                    }`}
                   >
-                    {telCartItemCount}
-                  </span>
-                )}
-              </button>
+                    <TeaserGlyph
+                      name={activeTeaser.icon}
+                      className="w-3.5 h-3.5 flex-shrink-0 text-[#FFD400]"
+                    />
+                    <span>{activeTeaser.text}</span>
+                  </p>
+                </div>
+              </div>
 
-              {isTeaser && (
+              {/* Countdown + cart */}
+              <div className="relative z-[1] flex items-center gap-2.5 w-full md:w-auto">
+                {countdown.phase !== "ended" ? (
+                  <div className="flex items-center justify-between md:justify-end gap-3 w-full md:w-auto bg-black/10 md:bg-transparent px-3 md:px-0 py-2 md:py-0 rounded-lg md:rounded-none">
+                    <span className="flex items-center gap-1.5 text-white text-[10px] font-semibold uppercase tracking-[0.14em] whitespace-nowrap">
+                      {countdown.phase === "live" && (
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span
+                            className="absolute inline-flex h-full w-full rounded-full bg-[#FFD400] opacity-70"
+                            style={{
+                              animation:
+                                "speedLivePing 1.8s cubic-bezier(0,0,0.2,1) infinite",
+                            }}
+                          />
+                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#FFD400]" />
+                        </span>
+                      )}
+                      {timerLabel}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {countdown.days > 0 && (
+                        <>
+                          <TimeUnit value={countdown.days} label="DAYS" />
+                          <span className="text-white/35 font-medium">:</span>
+                        </>
+                      )}
+                      <TimeUnit value={countdown.hours} label="HRS" />
+                      <span className="text-white/35 font-medium">:</span>
+                      <TimeUnit value={countdown.minutes} label="MIN" />
+                      <span className="text-white/35 font-medium">:</span>
+                      <TimeUnit value={countdown.seconds} label="SEC" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 w-full md:w-auto bg-white/10 px-3 py-2 rounded-lg">
+                    <SparklesIcon className="w-4 h-4 text-[#FFD400] flex-shrink-0" />
+                    <span className="text-xs font-medium text-[#F0E2C4]">
+                      Sale ended
+                    </span>
+                  </div>
+                )}
+
+                {/* ===== the cart — icon only, always in reach ===== */}
                 <button
                   type="button"
-                  onClick={handleNotifyMe}
-                  disabled={notifyMeOn}
-                  className={`inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition active:scale-[0.98] ${
-                    notifyMeOn
-                      ? "bg-white/10 text-[#F0E2C4] cursor-default"
-                      : "bg-[#FFD400] text-[#234A39] hover:bg-[#e6bf00]"
+                  onClick={() => setIsCartOpen(true)}
+                  aria-label={`Open cart, ${cartItemCount} item${
+                    cartItemCount === 1 ? "" : "s"
                   }`}
+                  className="speed-cart-btn relative inline-flex h-11 w-11 items-center justify-center rounded-full text-white flex-shrink-0"
                 >
-                  {notifyMeOn ? (
-                    <BellAlertIcon className="w-4 h-4 speed-pop" />
+                  {cartBusy ? (
+                    <span
+                      aria-hidden="true"
+                      className="h-6 w-6 rounded-full border-[3px] border-white/30 border-t-[#FFD400] animate-spin"
+                    />
                   ) : (
-                    <BellIcon className="w-4 h-4" />
+                    <ShoppingCartIcon className="w-7 h-7 drop-shadow-[0_2px_6px_rgba(0,0,0,0.35)]" />
                   )}
-                  {notifyMeOn ? "Reminder set" : "Remind me"}
+
+                  {cartItemCount > 0 && !cartBusy && (
+                    <span
+                      key={cartItemCount}
+                      className="absolute -top-0.5 -right-0.5 min-w-[20px] h-5 px-1 text-[11px] font-black rounded-full flex items-center justify-center cart-bounce ring-2 ring-[#A80F1B]"
+                      style={{ background: COLOR.goldBtn, color: COLOR.redDeeper }}
+                    >
+                      {cartItemCount}
+                    </span>
+                  )}
                 </button>
-              )}
+              </div>
+            </header>
+          </div>
 
-              <button
-                type="button"
-                onClick={() => navigate(BROWSE_ALL_URL)}
-                className="hidden md:inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/10 text-white text-xs font-semibold hover:bg-white/15 whitespace-nowrap transition active:scale-[0.98]"
-              >
-                Browse Other Products
-                <ChevronRightIcon className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </header>
-
-          {/* ==================== TEASER MODE ==================== */}
-          {isTeaser ? (
-            <section className="mt-5">
-              <div className="speed-green-bg relative rounded-2xl border border-[#234A39] px-5 py-14 sm:py-16 text-center">
+          {/* ==================== PRE-LAUNCH HERO ====================
+              Shown only before the promo opens. The product grid still
+              renders below it, so the showroom is never hidden. */}
+          {isTeaser && (
+            <section className="mt-1">
+              <div className="speed-green-bg relative rounded-2xl border border-[#A80F1B] px-5 py-9 sm:py-11 text-center">
                 <div className="relative z-[1] max-w-lg mx-auto flex flex-col items-center">
                   <div className="flex items-center gap-3">
                     <img
                       src={telecelWhite}
                       alt="Telecel"
-                      className="h-20 sm:h-24 w-auto object-contain"
+                      className="h-16 sm:h-20 w-auto object-contain"
                     />
-                    <span className="h-16 w-px bg-white/25" aria-hidden="true" />
+                    <span className="h-14 w-px bg-white/25" aria-hidden="true" />
                     <img
                       src={speedLogo}
                       alt="Speed Shopping"
-                      className="h-20 sm:h-24 w-auto object-contain"
+                      className="h-16 sm:h-20 w-auto object-contain"
                     />
                   </div>
 
-                  <h2 className="mt-5 text-3xl sm:text-[2rem] font-semibold text-white leading-tight tracking-tight">
+                  <h2 className="mt-4 text-2xl sm:text-3xl font-semibold text-white leading-tight tracking-tight">
                     Coming soon
                   </h2>
-                  <p className="mt-2 text-sm text-[#d5e4db]">
-                    Speed Shopping starts on {LAUNCH_LABEL}
+                  <p className="mt-2 text-sm text-[#FBD9DC]">
+                    Speed Shopping starts on {PROMO_START_LABEL}
                   </p>
 
-                  <div className="mt-7 flex items-center justify-center gap-2 sm:gap-3">
+                  <div className="mt-6 flex items-center justify-center gap-2 sm:gap-3">
                     {countdown.days > 0 && (
                       <TimeUnit value={countdown.days} label="DAYS" size="lg" />
                     )}
@@ -989,44 +959,39 @@ const PhoneSpeed = () => {
                     <TimeUnit value={countdown.seconds} label="SEC" size="lg" />
                   </div>
 
-                  <div className="mt-7 flex flex-col sm:flex-row items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={handleNotifyMe}
-                      disabled={notifyMeOn}
-                      className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition active:scale-[0.98] ${
-                        notifyMeOn
-                          ? "bg-white/10 text-white cursor-default"
-                          : "bg-[#FFD400] text-[#234A39] hover:bg-[#e6bf00]"
-                      }`}
-                    >
-                      {notifyMeOn ? (
-                        <BellAlertIcon className="w-4 h-4 speed-pop" />
-                      ) : (
-                        <BellIcon className="w-4 h-4" />
-                      )}
-                      {notifyMeOn ? "Reminder set" : "Remind me"}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => navigate(BROWSE_ALL_URL)}
-                      className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-lg bg-white/10 border border-white/20 text-white text-sm font-semibold hover:bg-white/15 transition active:scale-[0.98]"
-                    >
-                      Browse Other Products
-                      <ChevronRightIcon className="w-4 h-4" />
-                    </button>
-                  </div>
+                  {ALLOW_EARLY_ORDERS && (
+                    <p className="mt-6 inline-flex items-center gap-2 text-[13px] font-semibold text-[#FFD400]">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#FFD400]" />
+                      Ordering is open — shop the deals below
+                    </p>
+                  )}
                 </div>
               </div>
             </section>
-          ) : (
-            <>
+          )}
+
+          {/* ==================== PRE-LAUNCH NOTICE ==================== */}
+          {isTeaser && (
+            <div className="mt-4 flex items-start sm:items-center gap-2.5 rounded-xl border border-[#e5cd75] bg-[#FFF8DB] px-4 py-2.5">
+              <SparklesIcon
+                className="w-4 h-4 flex-shrink-0 mt-0.5 sm:mt-0"
+                style={{ color: "#A87D00" }}
+              />
+              <p className="text-xs sm:text-sm text-[#6f5410]">
+                {ALLOW_EARLY_ORDERS
+                  ? `Prices below are live now — browse and place your order before the sale ends. The 24-hour window opens ${PROMO_START_LABEL}.`
+                  : `Sale opens ${PROMO_START_LABEL}. You can browse everything below now — ordering unlocks when the timer hits zero.`}
+              </p>
+            </div>
+          )}
+
+          {/* ==================== CATALOG (all phases) ==================== */}
+          <>
               {/* ==================== MOBILE CONTROLS ==================== */}
               <div className="flex gap-3 mt-4 lg:hidden">
                 <button
                   type="button"
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#2C5E48] text-white text-sm font-semibold active:scale-[0.98] transition"
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#BB1420] text-white text-sm font-semibold active:scale-[0.98] transition"
                   onClick={() => setIsDrawerOpen(true)}
                 >
                   <FunnelIcon className="w-4 h-4" />
@@ -1039,7 +1004,7 @@ const PhoneSpeed = () => {
                 <div className="relative flex-1">
                   <button
                     type="button"
-                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-white border border-[#e6e1dc] text-sm font-medium active:scale-[0.98] transition"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white border border-[#e6e1dc] text-sm font-medium active:scale-[0.98] transition"
                     onClick={() => setIsSortOpen((prev) => !prev)}
                   >
                     <Bars3BottomLeftIcon className="w-4 h-4" />
@@ -1053,7 +1018,7 @@ const PhoneSpeed = () => {
 
                   {isSortOpen && (
                     <div
-                      className="absolute top-full left-0 right-0 z-20 mt-1 bg-white border border-[#e6e1dc] rounded-lg shadow-lg overflow-hidden"
+                      className="absolute top-full left-0 right-0 z-20 mt-1 bg-white border border-[#e6e1dc] rounded-xl shadow-xl overflow-hidden"
                       onClick={(e) => e.stopPropagation()}
                     >
                       {sortOptions.map((option) => (
@@ -1067,7 +1032,7 @@ const PhoneSpeed = () => {
                           }}
                           className={`w-full px-4 py-2.5 text-left text-sm border-b border-[#f1eeea] last:border-0 transition ${
                             sortBy === option.value
-                              ? "bg-[#e7f0eb] font-semibold text-[#2C5E48]"
+                              ? "bg-[#FDF0F0] font-semibold text-[#BB1420]"
                               : "text-[#3c4540] hover:bg-[#f7f5f3]"
                           }`}
                         >
@@ -1107,7 +1072,7 @@ const PhoneSpeed = () => {
               {/* ==================== MAIN LAYOUT ==================== */}
               <div className="flex gap-5 mt-5">
                 <aside className="hidden lg:block w-64 flex-shrink-0">
-                  <div className="sticky top-5">{renderFilters()}</div>
+                  <div className="sticky top-28">{renderFilters()}</div>
                 </aside>
 
                 <main className="flex-1 min-w-0">
@@ -1119,12 +1084,6 @@ const PhoneSpeed = () => {
                             appliedPriceRange[1]
                           )}`}
                           onRemove={removePriceFilter}
-                        />
-                      )}
-                      {showDiscountedOnly && (
-                        <FilterChip
-                          label="Discounted only"
-                          onRemove={removeDiscountFilter}
                         />
                       )}
                       {selectedBrand && (
@@ -1161,6 +1120,13 @@ const PhoneSpeed = () => {
 
                   {!isInitialLoading && currentProducts.length > 0 && (
                     <>
+                      <div className="flex items-baseline justify-between mb-3">
+                        <p className="text-xs font-semibold text-[#6d7a74]">
+                          Showing {rangeStart}–{rangeEnd} of {filteredProducts.length}{" "}
+                          deal{filteredProducts.length === 1 ? "" : "s"}
+                        </p>
+                      </div>
+
                       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-5">
                         {currentProducts.map((product) => {
                           const productId = product.productID || product.id;
@@ -1170,91 +1136,136 @@ const PhoneSpeed = () => {
                           const soldOut = stock === 0;
                           const onSale = oldPrice > price && oldPrice > 0;
                           const discount = onSale
-                            ? Math.round(
-                                ((oldPrice - price) / oldPrice) * 100
-                              )
+                            ? Math.round(((oldPrice - price) / oldPrice) * 100)
                             : 0;
                           const justAdded = recentlyAdded.has(productId);
+                          const isAddingThis = String(addingProductId) === String(productId);
+                          const addDisabled =
+                            cartLoading || soldOut || !canOrder || isAddingThis;
 
                           return (
                             <article
                               key={productId}
-                              className="group bg-white border border-[#e6e1dc] rounded-xl overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+                              role="button"
+                              tabIndex={0}
+                              aria-label={`View details for ${
+                                product.productName || "this product"
+                              }`}
+                              onClick={() => openProductModal(productId)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  openProductModal(productId);
+                                }
+                              }}
+                              className="speed-card group relative flex flex-col bg-white border border-[#F0E6E6] rounded-2xl overflow-hidden cursor-pointer"
                             >
-                              <div
-                                className="relative h-48 sm:h-60 md:h-72 flex items-center justify-center p-3 cursor-pointer"
-                                onClick={() => openProductModal(productId)}
-                              >
-                                {soldOut && (
-                                  <span className="absolute top-2 left-2 z-10 px-2 py-0.5 text-[9px] font-semibold rounded-full bg-[#234A39] text-white">
-                                    Sold Out
+                              {/* ---------- media ---------- */}
+                              <div className="speed-card-media relative h-44 sm:h-56 md:h-64 flex items-center justify-center p-4 bg-gradient-to-b from-[#FDF9F9] to-white">
+                                {/* ---- Speed Shopping tag + status, stacked ---- */}
+                                <div className="absolute top-2.5 left-2.5 z-10 flex flex-col items-start gap-1.5">
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-[#BB1420] px-2 py-[3px] text-[9px] font-black uppercase tracking-[0.08em] text-[#FFD400] shadow-[0_4px_10px_-4px_rgba(187,20,32,0.9)]">
+                                    <PriceTagIcon className="h-2.5 w-2.5" />
+                                    Speed Shopping
                                   </span>
-                                )}
-                                {onSale && !soldOut && (
-                                  <span className="absolute top-2 right-2 z-10 px-2 py-0.5 text-[9px] font-semibold rounded-full bg-[#FFD400] text-[#234A39]">
-                                    -{discount}%
-                                  </span>
-                                )}
+                                  {soldOut && (
+                                    <span className="px-2.5 py-1 text-[9px] font-bold uppercase tracking-wide rounded-full bg-[#5F5652] text-white">
+                                      Sold Out
+                                    </span>
+                                  )}
+                                  {onSale && !soldOut && (
+                                    <span className="px-2.5 py-1 text-[10px] font-black rounded-full bg-[#FFD400] text-[#7A0B13] shadow-sm">
+                                      -{discount}%
+                                    </span>
+                                  )}
+                                </div>
 
                                 <img
                                   src={getImageUrl(product.productImage)}
                                   alt={product.productName || "Product"}
                                   loading="lazy"
-                                  className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
+                                  className="h-full w-full object-contain drop-shadow-[0_6px_14px_rgba(0,0,0,0.06)]"
                                 />
 
-                                <div
-                                  className="absolute inset-0 bg-[#1e2824]/35 hidden group-hover:flex items-center justify-center gap-2"
-                                  onClick={(e) => e.stopPropagation()}
+                                {/* wishlist — always visible, no hover needed */}
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleWishlistToggle(product);
+                                  }}
+                                  aria-label={
+                                    isInWishlist(productId)
+                                      ? "Remove from wishlist"
+                                      : "Add to wishlist"
+                                  }
+                                  className="absolute top-2.5 right-2.5 z-10 w-9 h-9 rounded-full bg-white/95 backdrop-blur flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition"
                                 >
-                                  <button
-                                    type="button"
-                                    className="w-9 h-9 rounded-full bg-white flex items-center justify-center hover:scale-105 active:scale-95 transition"
-                                    onClick={() => handleWishlistToggle(product)}
-                                    aria-label="Wishlist"
-                                  >
-                                    {isInWishlist(productId) ? (
-                                      <SolidHeartIcon className="w-4 h-4 text-[#8C3D45]" />
-                                    ) : (
-                                      <OutlineHeartIcon className="w-4 h-4 text-[#8a928e]" />
-                                    )}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="w-9 h-9 rounded-full bg-white flex items-center justify-center hover:scale-105 active:scale-95 transition"
-                                    onClick={() => openProductModal(productId)}
-                                    aria-label="View"
-                                  >
-                                    <EyeIcon className="w-4 h-4 text-[#2C5E48]" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="w-9 h-9 rounded-full bg-white flex items-center justify-center hover:scale-105 active:scale-95 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                                    onClick={() => handleAddToCart(product)}
-                                    disabled={cartLoading || soldOut}
-                                    aria-label="Add to cart"
-                                  >
-                                    {justAdded ? (
-                                      <CheckIcon className="w-4 h-4 text-[#2C5E48] speed-pop" />
-                                    ) : (
-                                      <ShoppingCartIcon className="w-4 h-4 text-[#2C5E48]" />
-                                    )}
-                                  </button>
-                                </div>
+                                  {isInWishlist(productId) ? (
+                                    <SolidHeartIcon className="w-4 h-4 text-[#8C3D45]" />
+                                  ) : (
+                                    <OutlineHeartIcon className="w-4 h-4 text-[#8a928e]" />
+                                  )}
+                                </button>
+
+                                {/* hover hint — the whole card opens details */}
+                                <span className="speed-card-view pointer-events-none absolute inset-x-3 bottom-3 flex items-center justify-center gap-1.5 rounded-xl bg-white/90 backdrop-blur px-3 py-2 text-[11px] font-bold text-[#BB1420] shadow-md">
+                                  View details
+                                </span>
                               </div>
 
-                              <div className="p-3 border-t border-[#f1eeea] text-center">
-                                <h3 className="text-sm font-medium text-[#2c3330] line-clamp-2 min-h-[38px]">
+                              {/* ---------- body ---------- */}
+                              <div className="flex flex-1 flex-col border-t border-[#F5EDED] p-3 sm:p-3.5">
+                                <h3 className="text-[13px] sm:text-sm font-semibold leading-snug text-[#2c3330] line-clamp-2 min-h-[38px] group-hover:text-[#BB1420] transition">
                                   {product.productName || "Unnamed product"}
                                 </h3>
-                                <p className="mt-2 text-[15px] font-semibold text-[#2C5E48]">
-                                  {formatPrice(price)}
-                                </p>
-                                {onSale && (
-                                  <p className="text-xs text-[#8a928e] line-through">
-                                    {formatPrice(oldPrice)}
-                                  </p>
-                                )}
+
+                                <div className="mt-2 flex items-baseline gap-2">
+                                  <span className="text-[16px] sm:text-[17px] font-extrabold text-[#BB1420] tabular-nums">
+                                    {formatPrice(price)}
+                                  </span>
+                                  {onSale && (
+                                    <span className="text-[11px] text-[#a49c95] line-through tabular-nums">
+                                      {formatPrice(oldPrice)}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleAddToCart(product);
+                                  }}
+                                  disabled={addDisabled}
+                                  className={`speed-card-add mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[12.5px] font-bold ${
+                                    soldOut || !canOrder
+                                      ? "bg-[#f1eeea] text-[#a49c95] cursor-not-allowed"
+                                      : justAdded
+                                      ? "bg-[#A80F1B] text-white"
+                                      : "bg-[#BB1420] text-white hover:bg-[#A80F1B] hover:shadow-[0_10px_22px_-12px_rgba(187,20,32,0.85)]"
+                                  } ${cartLoading && !justAdded ? "opacity-70" : ""}`}
+                                >
+                                  {isAddingThis ? (
+                                    <>
+                                      <span
+                                        aria-hidden="true"
+                                        className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin"
+                                      />
+                                      Adding…
+                                    </>
+                                  ) : justAdded ? (
+                                    <>
+                                      <CheckIcon className="w-4 h-4 speed-pop" /> Added!
+                                    </>
+                                  ) : soldOut ? (
+                                    "Sold Out"
+                                  ) : (
+                                    <>
+                                      <ShoppingCartIcon className="w-4 h-4" /> Add to Cart
+                                    </>
+                                  )}
+                                </button>
                               </div>
                             </article>
                           );
@@ -1270,71 +1281,44 @@ const PhoneSpeed = () => {
                           />
                         </div>
                       )}
-
-                      <div className="flex justify-center mt-8">
-                        <button
-                          type="button"
-                          onClick={() => navigate(BROWSE_ALL_URL)}
-                          className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full border border-[#c9d9cf] bg-white text-[#2C5E48] text-sm font-semibold hover:bg-[#e7f0eb] active:scale-[0.98] transition"
-                        >
-                          Browse Other Products
-                          <ChevronRightIcon className="w-4 h-4" />
-                        </button>
-                      </div>
                     </>
                   )}
 
                   {hasNoResults && (
-                    <div className="bg-white border border-[#e6e1dc] rounded-xl p-10 sm:p-12 text-center">
+                    <div className="bg-white border border-[#F0E6E6] rounded-2xl p-10 sm:p-12 text-center">
                       {noResultsFromFilters ? (
                         <>
-                          <h2 className="text-2xl font-semibold text-[#2C5E48] mb-2">
-                            No matches for these filters
+                          <h2 className="text-2xl font-semibold text-[#BB1420] mb-2">
+                            {emptyHeadline}
                           </h2>
                           <p className="text-[#6d7a74] text-sm max-w-md mx-auto mb-6">
-                            Try widening your price range or clearing a filter
-                            to see more Speed Shopping deals.
-                          </p>
-                          <div className="flex flex-wrap items-center justify-center gap-3">
-                            <button
-                              type="button"
-                              onClick={resetFilters}
-                              className="px-6 py-3 rounded-lg bg-[#2C5E48] text-white text-sm font-semibold hover:bg-[#234A39] active:scale-[0.98] transition"
-                            >
-                              Clear All Filters
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => navigate(BROWSE_ALL_URL)}
-                              className="inline-flex items-center gap-1.5 px-6 py-3 rounded-lg border border-[#c9d9cf] text-[#2C5E48] text-sm font-semibold hover:bg-[#e7f0eb] active:scale-[0.98] transition"
-                            >
-                              Browse Other Products
-                              <ChevronRightIcon className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[#e7f0eb] text-[#2C5E48] flex items-center justify-center">
-                            <BagIcon className="w-6 h-6" />
-                          </div>
-                          <h2 className="text-2xl font-semibold text-[#2C5E48] mb-2">
-                            {countdown.phase === "ended"
-                              ? "Speed Shopping is closed"
-                              : "Deals are still loading"}
-                          </h2>
-                          <p className="text-[#6d7a74] text-sm max-w-md mx-auto mb-6">
-                            {countdown.phase === "ended"
-                              ? "The 24-hour window has closed. Thanks for shopping with us — the rest of the store is open as usual."
-                              : "The first batch is being uploaded now. Refresh in a moment, or explore the rest of the store while you wait."}
+                            {emptyBody}
                           </p>
                           <button
                             type="button"
-                            onClick={() => navigate(BROWSE_ALL_URL)}
-                            className="inline-flex items-center gap-1.5 px-6 py-3 rounded-lg bg-[#2C5E48] text-white text-sm font-semibold hover:bg-[#234A39] active:scale-[0.98] transition"
+                            onClick={resetFilters}
+                            className="px-6 py-3 rounded-xl bg-[#BB1420] text-white text-sm font-semibold hover:bg-[#A80F1B] active:scale-[0.98] transition"
                           >
-                            Browse Other Products
-                            <ChevronRightIcon className="w-4 h-4" />
+                            Clear All Filters
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[#FDF0F0] text-[#BB1420] flex items-center justify-center">
+                            <BagIcon className="w-6 h-6" />
+                          </div>
+                          <h2 className="text-2xl font-semibold text-[#BB1420] mb-2">
+                            {emptyHeadline}
+                          </h2>
+                          <p className="text-[#6d7a74] text-sm max-w-md mx-auto mb-6">
+                            {emptyBody}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={loadProducts}
+                            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#BB1420] text-white text-sm font-semibold hover:bg-[#A80F1B] active:scale-[0.98] transition"
+                          >
+                            Refresh deals
                           </button>
                         </>
                       )}
@@ -1342,8 +1326,7 @@ const PhoneSpeed = () => {
                   )}
                 </main>
               </div>
-            </>
-          )}
+          </>
         </div>
       </div>
 
@@ -1356,163 +1339,20 @@ const PhoneSpeed = () => {
         />
       )}
 
-      {/* ==================== TELECEL CART DRAWER ==================== */}
-      {isCartOpen && (
-        <div className="fixed inset-0 z-[9998]">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setIsCartOpen(false)}
-          />
-          <div className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl flex flex-col animate-[slideIn_0.25s_ease-out]">
-            <div className="flex items-center justify-between p-5 border-b border-gray-100">
-              <h2 className="text-lg font-bold text-[#2c3330] flex items-center gap-2">
-                <ShoppingCartIcon className="w-5 h-5" style={{ color: COLOR.red }} />
-                Your Cart
-                <span
-                  className="ml-1 px-2 py-0.5 text-xs rounded-full text-white"
-                  style={{ background: COLOR.red }}
-                >
-                  {telCartItemCount}
-                </span>
-              </h2>
-              <button
-                onClick={() => setIsCartOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition"
-                aria-label="Close cart"
-              >
-                <XMarkIcon className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-5 space-y-3" style={{ scrollbarWidth: "thin" }}>
-              {telCart.items.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                  <div
-                    className="w-16 h-16 rounded-full flex items-center justify-center mb-3"
-                    style={{ background: COLOR.sage }}
-                  >
-                    <CartOutlineIcon
-                      className="w-8 h-8"
-                      style={{ color: COLOR.forest }}
-                    />
-                  </div>
-                  <p className="text-sm font-semibold text-gray-700">
-                    Your cart is empty
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Add some Telecel Speed Shopping deals!
-                  </p>
-                </div>
-              ) : (
-                telCart.items.map((item) => (
-                  <div
-                    key={item.cartItemId}
-                    className="flex gap-3 p-3 rounded-lg border border-gray-100 hover:border-gray-200 transition"
-                  >
-                    <img
-                      src={getImageUrl(item.productImage)}
-                      alt={item.productName || "Product"}
-                      className="w-16 h-16 object-contain rounded bg-gray-50 flex-shrink-0"
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src =
-                          "https://via.placeholder.com/100?text=Product";
-                      }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">
-                        {item.productName || "Product"}
-                      </p>
-                      <p
-                        className="text-[10px] font-mono text-gray-400 mt-1 truncate"
-                        title={item.cartItemId}
-                      >
-                        {item.cartItemId}
-                      </p>
-                      <div className="flex items-center justify-between mt-2">
-                        <p
-                          className="text-sm font-bold"
-                          style={{ color: COLOR.forest }}
-                        >
-                          {formatPrice(item.price)}
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <div className="flex items-center border border-gray-200 rounded">
-                            <button
-                              onClick={() =>
-                                updateTelCartQty(item.cartItemId, -1)
-                              }
-                              className="w-6 h-6 text-gray-500 hover:bg-green-50 hover:text-green-800 text-sm font-semibold flex items-center justify-center"
-                            >
-                              <MinusIcon className="w-3 h-3" />
-                            </button>
-                            <span className="w-6 text-center text-xs font-semibold">
-                              {item.quantity}
-                            </span>
-                            <button
-                              onClick={() =>
-                                updateTelCartQty(item.cartItemId, 1)
-                              }
-                              className="w-6 h-6 text-gray-500 hover:bg-green-50 hover:text-green-800 text-sm font-semibold flex items-center justify-center"
-                            >
-                              <PlusIcon className="w-3 h-3" />
-                            </button>
-                          </div>
-                          <button
-                            onClick={() => removeFromTelCart(item.cartItemId)}
-                            className="text-gray-400 hover:text-red-600 transition"
-                            title="Remove"
-                          >
-                            <TrashIcon className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-
-              {telCart.items.length > 0 && (
-                <p className="text-[10px] font-mono text-gray-400 text-center pt-2">
-                  Cart ID: {telCart.id}
-                </p>
-              )}
-            </div>
-
-            {telCart.items.length > 0 && (
-              <div className="border-t border-gray-100 p-5 space-y-3">
-                <div className="flex items-center justify-between text-sm text-gray-500">
-                  <span>Subtotal</span>
-                  <span>{formatPrice(telCartSubtotal)}</span>
-                </div>
-                <div className="flex items-center justify-between text-lg font-bold text-[#2c3330]">
-                  <span>Total</span>
-                  <span style={{ color: COLOR.forest }}>
-                    {formatPrice(telCartSubtotal)}
-                  </span>
-                </div>
-                <button
-                  onClick={() => {
-                    showNotification("Proceeding to checkout...");
-                    setIsCartOpen(false);
-                  }}
-                  className="w-full py-3 rounded-lg text-white font-semibold transition active:scale-[0.98] hover:brightness-110"
-                  style={{ background: COLOR.forest }}
-                >
-                  Checkout
-                </button>
-                <button
-                  onClick={() => setIsCartOpen(false)}
-                  className="w-full py-2.5 rounded-lg border text-sm font-semibold transition hover:bg-gray-50"
-                  style={{ borderColor: COLOR.sageLine, color: COLOR.forest }}
-                >
-                  Continue Shopping
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* ==================== CART SIDEBAR (shared with /tel-cart) ====================
+          Same cart, same thunks, same "Tel" id as the cart page. Checkout hands
+          off to /tel-checkout, which runs the orderSlice + paymentSlice flow. */}
+      <TelCartSidebar
+        open={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        checkoutPath="/tel-checkout"
+        checkoutDisabled={!canOrder}
+        checkoutDisabledMessage={
+          canOrder
+            ? undefined
+            : `Ordering opens ${PROMO_START_LABEL} — browse for now.`
+        }
+      />
 
       {/* Close sort menu on outside click */}
       {isSortOpen && (

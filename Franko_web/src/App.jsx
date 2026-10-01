@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logoutCustomer } from "./Redux/Slice/customerSlice";
 import CryptoJS from "crypto-js";
@@ -38,6 +38,10 @@ import OrderHistory from "./Pages/OrderHistory";
 import Wishlist from "./Pages/Wishlist";
 import OrderSuccess from "./Pages/OrderSucess";
 
+/* ==================== TELECEL SPEED SHOPPING PAGES ==================== */
+import TelCart from "./Pages/TelCart";
+import TelCheckout from "./Pages/TelCheckout";
+
 /* ==================== AGENT PAGES ==================== */
 import AgentPage from "./Pages/Agents/AgentPage/AgentPage";
 import AgentDashboard from "./Pages/Agents/AgentPage/AgentDashboard";
@@ -46,6 +50,17 @@ import CTP001ProductsPage from "./Pages/Agents/AgentPage/CTP001ProductsPage";
 import Speed from "./Pages/Speed";
 import PhoneSpeed from "./Pages/PhoneSpeed";
 
+/* ═══════════════════════════════════════════════════════════════
+   ROUTES THAT RENDER WITHOUT THE MAIN NAVBAR
+   (Telecel Speed Shopping flow: promo page + its cart + checkout —
+   the Tel pages carry their own header, so the site Nav is hidden)
+═══════════════════════════════════════════════════════════════ */
+const NAVBAR_HIDDEN_PREFIXES = ["/promo-phones", "/tel-cart", "/tel-checkout"];
+
+const shouldHideNavbar = (pathname) =>
+  NAVBAR_HIDDEN_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
 
 /* ═══════════════════════════════════════════════════════════════
    ENCRYPTED LOCALSTORAGE IMPLEMENTATION
@@ -267,6 +282,7 @@ const StorageManager = () => {
 ═══════════════════════════════════════════════════════════════ */
 function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const { pathname } = useLocation();
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -289,7 +305,7 @@ function App() {
     <>
       <StorageManager />
       <AuthenticationChecker />
-      <Nav />
+      {!shouldHideNavbar(pathname) && <Nav />}
       <ScrollToTop />
 
       <Routes>
@@ -320,7 +336,11 @@ function App() {
         <Route path="/account" element={<Account />} />
         <Route path="/shops" element={<Locations />} />
         <Route path="/promo-phones" element={<PhoneSpeed />} />
-     
+
+        {/* Telecel Speed Shopping flow (navbar hidden above) */}
+        <Route path="/tel-cart" element={<TelCart />} />
+        <Route path="/tel-checkout" element={<TelCheckout />} />
+
         <Route path="/order-cancelled" element={<Cancellation />} />
 
         <Route path="/agent/*" element={<ProtectedRoute allowedRoles={["agent"]}><AgentPage /></ProtectedRoute>} />

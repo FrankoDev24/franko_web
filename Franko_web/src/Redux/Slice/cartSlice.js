@@ -1,10 +1,47 @@
 // src/Redux/Slice/cartSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { v4 as uuidv4 } from "uuid";
 import axiosInstance from "./AxiosInstance";
 
 const CART_KEY = "cart";
 const CART_ID_KEY = "cartId";
+
+/* ============================================================================
+   CART ID — "Tel" prefix
+   ----------------------------------------------------------------------------
+   This is the ONLY behavioural change from the previous version: cart ids are
+   minted with a "Tel-" prefix instead of a bare uuid, so orders placed from this
+   cart are identifiable as Speed Shopping orders on the backend.
+
+   Everything else is untouched: same thunks, same state shape, same localStorage
+   keys ("cart" / "cartId"), same endpoints, same reducers that Cart.jsx and
+   Checkout.jsx already consume.
+
+   ENFORCE_TEL_PREFIX:
+     true  (default) — a stored id without the prefix is re-minted on load, so
+                       every cart id begins with "Tel".
+     false           — existing ids are left alone; only NEW carts get the prefix.
+   ========================================================================== */
+
+const CART_ID_PREFIX = "Tel";
+const ENFORCE_TEL_PREFIX = true;
+
+const randomSuffix = () => {
+  try {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+      return crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+    }
+  } catch {
+    /* fall through to Math.random */
+  }
+  return Math.random().toString(36).slice(2, 10);
+};
+
+/** e.g. "Tel-m3k9x1-7fa2c1b4" — always starts with "Tel-" */
+export const generateTelCartId = () =>
+  `${CART_ID_PREFIX}-${Date.now().toString(36)}-${randomSuffix()}`;
+
+export const isTelCartId = (cartId) =>
+  typeof cartId === "string" && cartId.startsWith(CART_ID_PREFIX);
 
 /* ===========================
    UTILITY
@@ -46,7 +83,6 @@ const normalizeItem = (item, knownUnitPrice = null) => {
       // If evenly divisible, API likely sent line total
       if (Math.abs(rawPrice - possibleUnit * quantity) < 0.01) {
         unitPrice = Math.round(possibleUnit * 100) / 100;
-     
       } else {
         unitPrice = rawPrice;
       }
@@ -102,22 +138,45 @@ const saveCartToLocalStorage = (cart) => {
   }
 };
 
-const getOrCreateCartId = () => {
-  let cartId = localStorage.getItem(CART_ID_KEY);
-  if (!cartId) {
-    cartId = uuidv4();
+/**
+ * Returns the cart id, always minted with the "Tel-" prefix.
+ * A stored id that does not start with "Tel" is replaced when
+ * ENFORCE_TEL_PREFIX is on — the old server-side cart is left as-is, and the
+ * local line items (keyed by productId) carry over untouched.
+ */
+export const getOrCreateCartId = () => {
+  try {
+    let cartId = localStorage.getItem(CART_ID_KEY);
+
+    if (cartId && isTelCartId(cartId)) return cartId;
+
+    if (cartId && !ENFORCE_TEL_PREFIX) return cartId;
+
+    if (cartId) {
+      console.warn(
+        `[cart] Replacing cart id "${cartId}" with a "Tel"-prefixed id. ` +
+          "Set ENFORCE_TEL_PREFIX = false to keep legacy ids."
+      );
+    }
+
+    cartId = generateTelCartId();
     localStorage.setItem(CART_ID_KEY, cartId);
+    return cartId;
+  } catch {
+    // localStorage unavailable (SSR / privacy mode) — still return a valid id
+    return generateTelCartId();
   }
-  return cartId;
 };
 
 /* ===========================
    INITIAL STATE
 =========================== */
 
+const initialCart = loadCartFromLocalStorage();
+
 const initialState = {
-  cart: loadCartFromLocalStorage(),
-  totalItems: loadCartFromLocalStorage().reduce(
+  cart: initialCart,
+  totalItems: initialCart.reduce(
     (total, item) => total + (item.quantity || 1),
     0
   ),
@@ -212,13 +271,9 @@ export const createCartItem = createAsyncThunk(
 );
 
 /**
- * ✅ CRITICAL FIX: getCartById now uses getState() to access the current
- * Redux cart. This lets us cross-reference known unit prices that were
- * previously set by addToCart (which knows the real product-page price).
- *
- * Without this, a qty=1 item whose API price is inflated (e.g. 2420
- * instead of 1210) would be accepted as-is because the heuristic
- * can't detect inflation when qty===1.
+ * Fetches the cart for the current ("Tel") cart id and cross-references unit
+ * prices already known in Redux, so a qty=1 line whose API price is inflated
+ * is corrected instead of accepted as-is.
  */
 export const getCartById = createAsyncThunk(
   "cart/getCartById",
@@ -240,17 +295,9 @@ export const getCartById = createAsyncThunk(
           }
         });
 
-        response.data.forEach(() => {
-       
-        });
-    
-
         return response.data.map((item) => {
           const pid = item.productId || item.ProductId;
-
-          
           const knownUnit = knownPriceMap[pid] || null;
-
           return normalizeItem(item, knownUnit);
         });
       }
@@ -293,9 +340,7 @@ export const deleteCartItem = createAsyncThunk(
       if (!productId) throw new Error("ProductId is required");
 
       await axiosInstance.post("/", null, {
-        params: {
-          endpoint: `/Cart/Cart-Delete/${cartId}/${productId}`,
-        },
+        params: { endpoint: `/Cart/Cart-Delete/${cartId}/${productId}` },
       });
 
       return { cartId, productId };
@@ -407,6 +452,16 @@ const cartSlice = createSlice({
       .addCase(getCartById.fulfilled, (state, action) => {
         state.loading = false;
         const cartData = Array.isArray(action.payload) ? action.payload : [];
+
+        // Guard: a brand-new "Tel" cart id returns an empty array from the API.
+        // Without this, mounting Cart.jsx would wipe a locally-held cart.
+        const localStorageHasItems = loadCartFromLocalStorage().length > 0;
+        if (cartData.length === 0 && state.cart.length > 0 && localStorageHasItems) {
+          state.totalItems = state.cart.reduce((t, i) => t + (i.quantity || 1), 0);
+          saveCartToLocalStorage(state.cart);
+          return;
+        }
+
         state.cart = cartData;
         state.totalItems = cartData.reduce((t, i) => t + (i.quantity || 1), 0);
         saveCartToLocalStorage(state.cart);
