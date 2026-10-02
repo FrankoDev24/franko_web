@@ -14,7 +14,7 @@ import frankoLogo from '../assets/frankoIcon.png';
 import mtnLogo from '../assets/momo.png';
 import vodafoneLogo from '../assets/voda.png';
 import airteltigoLogo from '../assets/AT.png';
-import { paymentOutcome, generateOrderCode, assertOrderAccepted, readJSON, removeDraft } from '../utils/checkoutFlow.mjs';
+import { paymentOutcome, generateOrderCode, buildOrderDetails, completedOrderRoute, assertOrderDetails, assertOrderAccepted, readJSON, removeDraft } from '../utils/checkoutFlow.mjs';
 
 const price = item => Number(item?.unitPrice ?? item?.UnitPrice ?? item?.price ?? item?.Price ?? 0);
 const qty = item => Number(item?.quantity ?? item?.Quantity ?? 1);
@@ -109,18 +109,39 @@ export default function CheckoutShared({ telecel = false }) {
     removeDraft();
     navigate('/order-cancelled', { replace: true, state: { reason, orderId: currentRef.current?.orderId } });
   };
-  const cleanSuccess = id => {
+  const cleanSuccess = (current, paid) => {
+    const destination = completedOrderRoute({
+      orderId: current.orderId,
+      paid,
+      paymentMode: current.checkout.PaymentMode,
+      accountType: current.checkout.customerAccountType,
+      telecel,
+    });
+    // Clear only cart data. Preserve the signed-in customer AND the checkout /
+    // delivery details after success (the cart reducer may touch storage).
+    const savedCustomer = readJSON('customer') || (customerId(customer) ? customer : null);
     dispatch(clearCart());
-    try { ['cart','cartId', ...(telecel ? ['telCheckoutCart','selectedCart'] : [])].forEach(k => localStorage.removeItem(k)); } catch { /* best effort */ }
-    removeDraft();
-    navigate(`/order-success/${encodeURIComponent(id)}`, { replace: true, state: { placed: true, paymentMode: currentRef.current?.checkout.PaymentMode } });
+    try {
+      ['cart','cartId', ...(telecel ? ['telCheckoutCart','selectedCart'] : [])]
+        .forEach(k => localStorage.removeItem(k));
+      if (savedCustomer) localStorage.setItem('customer', JSON.stringify(savedCustomer));
+      localStorage.setItem('checkoutDetails', JSON.stringify(current.checkout));
+      localStorage.setItem('orderAddressDetails', JSON.stringify(current.address));
+    } catch { /* storage is best effort; Redux drafts remain available */ }
+    navigate(destination, { replace: true, state: {
+      placed: true, orderId: current.orderId,
+      paymentMode: current.checkout.PaymentMode,
+      paymentConfirmed: paid,
+    } });
   };
   const postOrder = async (current, paid) => {
     if (finished.current || current.posting) return;
     current.posting = true;
     setStage('posting');
     try {
-      // No automatic retries: order creation must be idempotent server-side.
+      // Both COD and confirmed MoMo send the SAME complete checkout details.
+      // Delivery details are posted immediately after successful order creation.
+      assertOrderDetails(current.checkout, current.address);
       const result = await dispatch(checkOutOrder({ cartId: current.checkout.Cartid, ...current.checkout })).unwrap();
       assertOrderAccepted(result);
       current.created = true;
@@ -128,7 +149,7 @@ export default function CheckoutShared({ telecel = false }) {
       assertOrderAccepted(addressResult);
       if (!active.current || finished.current) return;
       finished.current = true;
-      cleanSuccess(current.orderId);
+      cleanSuccess(current, paid);
     } catch (e) {
       if (!active.current) return;
       // A paid transaction must NEVER be described as cancelled if posting failed.
@@ -179,16 +200,26 @@ export default function CheckoutShared({ telecel = false }) {
     submitting.current = true;
     setBusy(true); setError('');
     const orderId = generateOrderCode(telecel);
-    const checkout = { Cartid: cartId, customerId: customerId(c), orderCode: orderId, PaymentMode: method, PaymentAccountNumber: contact, customerAccountType: c.accountType || 'Customer', paymentService: 'N/A', totalAmount: subtotal, recipientName: name, recipientContactNumber: contact, orderNote: note || 'N/A', orderDate: new Date().toISOString() };
-    const address = { orderCode: orderId, OrderCode: orderId, Customerid: customerId(c), address: delivery.address, recipientName: name, recipientContactNumber: contact, orderNote: note || 'N/A', geoLocation: 'N/A' };
+    const { checkout, delivery: address } = buildOrderDetails({
+      cartId, customerId: customerId(c), orderId, paymentMode: method,
+      contact, accountType: c.accountType, subtotal,
+      recipientName: name, recipientContactNumber: contact,
+      orderNote: note, orderDate: new Date().toISOString(),
+      address: delivery.address, paymentService: telecel ? NETWORKS.vodafone : 'N/A',
+    });
     const current = { orderId, checkout, address, posting: false, created: false };
     currentRef.current = current;
-    dispatch(saveCheckoutDetails(checkout)); dispatch(saveAddressDetails(address));
+    // Save both original payloads before ValidateCart, as in Checkout.jsx.
+    dispatch(saveCheckoutDetails(checkout));
+    dispatch(saveAddressDetails(address));
     try {
       await dispatch(validateCart({ cartId, customerid: customerId(c), orderDate: checkout.orderDate, paymentMode: method, paymentService: checkout.paymentService, paymentAccountNumber: contact, customerAccountType: checkout.customerAccountType, items: items.map(i => ({ productId: String(i.productId ?? i.productID ?? i.ProductId ?? i.id ?? ''), price: price(i), quantity: qty(i) })) })).unwrap();
       if (!active.current) return;
-      if (method !== 'Mobile Money') await postOrder(current, false);
-      else setStage('payment');
+      // Checkout.jsx's direct flow: agents and offline methods place the order
+      // after cart validation; only non-agent MoMo waits for PSP confirmation.
+      if ((!telecel && String(c.accountType || '').toLowerCase() === 'agent') || method !== 'Mobile Money') {
+        await postOrder(current, false);
+      } else setStage('payment');
     } catch (e) {
       if (e?.isPriceUpdate) {
         dispatch(clearCart()); setItems([]); setError(FRIENDLY_PRICE_UPDATE_MSG);
