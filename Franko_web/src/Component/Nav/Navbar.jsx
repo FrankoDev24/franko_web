@@ -51,20 +51,6 @@ import AuthModal from "../AuthModal";
 
 const backendBaseURL = "https://ct002.frankotrading.com:444";
 
-/* ── Account-type helpers ───────────────────────────────────────────────
-   Agents are the trade partners who buy in bulk; "Orders" is a
-   retail-customer feature, so we hide it for them.                     */
-const AGENT_ACCOUNT_TYPE = "agent";
-
-/** Normalises " Agent ", "AGENT", "agent" → "agent" */
-const normalizeAccountType = (accountType) =>
-  typeof accountType === "string"
-    ? accountType.trim().toLowerCase()
-    : "";
-
-const isAgentAccount = (customer) =>
-  normalizeAccountType(customer?.accountType) === AGENT_ACCOUNT_TYPE;
-
 const Nav = () => {
   const [openDrawer, setOpenDrawer] = useState(false);
   const [isRadioOpen, setIsRadioOpen] = useState(false);
@@ -138,12 +124,7 @@ const Nav = () => {
 
   /* ── Handlers ── */
   const handleWishlistClick = () => navigate("/wishlist");
-
-  /* ✅ Agent guard: never route an agent into the retail orders flow */
-  const handleMyOrdersClick = () => {
-    if (isAgentAccount(currentCustomer)) return;
-    navigate("/order-history");
-  };
+  const handleMyOrdersClick = () => navigate("/order-history");
   const closeDrawerAndNavigateToOrders = () => {
     setOpenDrawer(false);
     handleMyOrdersClick();
@@ -325,11 +306,8 @@ const Nav = () => {
     (c) => c.stockStatus !== "Products out of stock" && c.categoryName !== "Products out of stock"
   );
 
-  /* ✅ Derived flags — single source of truth for "show user info" / "show orders" */
+  /* ✅ Derived flag — single source of truth for "show user info" */
   const showUser = isAuthenticated && currentCustomer;
-  const isAgent = isAgentAccount(currentCustomer);
-  /* Orders navlink: only for signed-in, non-agent (retail) customers */
-  const showOrders = Boolean(showUser) && !isAgent;
 
   /* ── Search Results ── */
   const SearchResults = ({ maxH = 360, mobile = false }) => (
@@ -577,8 +555,8 @@ const Nav = () => {
                   <button onClick={() => navigate("/")} className={`nl ${isActive("/") ? "nl-active" : ""}`}>Home</button>
                   <button onClick={() => navigate("/about")} className={`nl ${isActive("/about") ? "nl-active" : ""}`}>About</button>
 
-                  {/* ✅ Auth-gated + hidden for agents */}
-                  {showOrders && (
+                  {/* ✅ Auth-gated */}
+                  {showUser && (
                     <button onClick={handleMyOrdersClick} className={`nl ${isActive("/order-history") ? "nl-active" : ""}`}>Orders</button>
                   )}
 
@@ -600,12 +578,6 @@ const Nav = () => {
                           <button onClick={handleProfileClick} className="n-profile-item">
                             <UserCircleIcon style={{ width: 16, height: 16 }} /> My Account
                           </button>
-                          {/* ✅ Orders entry point in the dropdown — also agent-guarded */}
-                          {showOrders && (
-                            <button onClick={() => { setShowProfileDropdown(false); handleMyOrdersClick(); }} className="n-profile-item">
-                              <TruckIcon style={{ width: 16, height: 16 }} /> My Orders
-                            </button>
-                          )}
                           <div className="n-profile-sep" />
                           <button onClick={() => { setShowProfileDropdown(false); setShowLogoutModal(true); }} className="n-profile-item" style={{ color: "#dc2626" }}>
                             <LogOut style={{ width: 16, height: 16 }} /> Logout
@@ -655,12 +627,6 @@ const Nav = () => {
                       <button onClick={handleProfileClick} className="n-profile-item">
                         <UserCircleIcon style={{ width: 16, height: 16 }} /> My Account
                       </button>
-                      {/* ✅ Hidden for agents */}
-                      {showOrders && (
-                        <button onClick={() => { setShowMobileProfileDropdown(false); navigate("/order-history"); }} className="n-profile-item">
-                          <TruckIcon style={{ width: 16, height: 16 }} /> My Orders
-                        </button>
-                      )}
                       <button onClick={() => { setShowMobileProfileDropdown(false); navigate("/wishlist"); }} className="n-profile-item">
                         <Heart style={{ width: 16, height: 16, color: "var(--nav-pink)" }} /> Wishlist
                         {wishlistCount > 0 && (
@@ -814,8 +780,8 @@ const Nav = () => {
                 {[
                   { label: "Home", icon: HomeIcon, path: "/" },
                   { label: "About Us", icon: DevicePhoneMobileIcon, path: "/about" },
-                  // ✅ Auth-gated AND hidden for agents
-                  ...(showOrders ? [{ label: "My Orders", icon: TruckIcon, path: "/order-history", customAction: closeDrawerAndNavigateToOrders }] : []),
+                  // ✅ Auth-gated
+                  ...(showUser ? [{ label: "My Orders", icon: TruckIcon, path: "/order-history", customAction: closeDrawerAndNavigateToOrders }] : []),
                   { label: "Shops", icon: Store, path: "/shops" },
                   { label: "Contact", icon: PhoneArrowDownLeftIcon, path: "/contact" },
                 ].map((item) => {

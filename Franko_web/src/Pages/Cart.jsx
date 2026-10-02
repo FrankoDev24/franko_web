@@ -5,7 +5,7 @@ import { updateCartItem, deleteCartItem, getCartById } from '../Redux/Slice/cart
 import { Checkbox, Dialog, DialogHeader, DialogBody, DialogFooter } from '@material-tailwind/react';
 import AuthModal from "../Component/AuthModal";
 import { 
-  TrashIcon, 
+  TrashIcon,  
   MinusIcon, 
   PlusIcon, 
   ShoppingBagIcon, 
