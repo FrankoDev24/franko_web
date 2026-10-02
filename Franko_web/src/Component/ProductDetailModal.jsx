@@ -1,8 +1,7 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Modal } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchProductById } from "../Redux/Slice/productSlice";
-import { getCartById } from "../Redux/Slice/cartSlice";
 import {
   CheckCircleIcon,
   ShoppingCartIcon,
@@ -14,7 +13,8 @@ import {
 } from "@heroicons/react/24/outline";
 import { HeartIcon as HeartSolidIcon } from "@heroicons/react/24/solid";
 import { Helmet } from "react-helmet";
-import useAddToCart from "./Cart";
+// Import the actual hook, not the shopping-cart page or a separate ./Cart module.
+import useAddToCart from "../Component/Cart";
 import AuthModal from "../Component/AuthModal";
 
 const formatPrice = (price) =>
@@ -23,12 +23,7 @@ const formatPrice = (price) =>
 const ProductDetailModal = ({ productID, isModalVisible, onClose }) => {
   const dispatch = useDispatch();
   const { addProductToCart, loading: cartLoading } = useAddToCart();
-  const product = useSelector(
-    (state) => state.products.currentProduct?.[0]
-  );
-  // Same cart slice the PhoneSpeed page reads from.
-  const reduxCart = useSelector((state) => state.cart.cart) || [];
-  const reduxCartId = useSelector((state) => state.cart.cartId);
+  const product = useSelector((state) => state.products.currentProduct?.[0]);
 
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -36,120 +31,67 @@ const ProductDetailModal = ({ productID, isModalVisible, onClose }) => {
   const [addedSuccess, setAddedSuccess] = useState(false);
   const [addError, setAddError] = useState("");
   const [shareSuccess, setShareSuccess] = useState(false);
+  const closeTimeoutRef = useRef(null);
+  const modalSessionRef = useRef(0);
 
   useEffect(() => {
+    modalSessionRef.current += 1;
+    setAdding(false);
+    setAddedSuccess(false);
+    setAddError("");
+
     if (productID && isModalVisible) {
       dispatch(fetchProductById(productID));
-      setAddedSuccess(false);
-      setAddError("");
     }
+
+    return () => {
+      // Do not let an old add request or success timer close a different product.
+      modalSessionRef.current += 1;
+      if (closeTimeoutRef.current) {
+        clearTimeout(closeTimeoutRef.current);
+        closeTimeoutRef.current = null;
+      }
+    };
   }, [dispatch, productID, isModalVisible]);
 
-  /* ---------- cart helpers (identical to PhoneSpeed) ---------- */
-
-  // Latest cart, readable inside an async handler without a stale closure.
-  const cartRef = useRef(reduxCart);
-  cartRef.current = reduxCart;
-
-  // The app's localStorage wrapper may return parsed JSON already.
-  const readStoredCart = useCallback(() => {
-    try {
-      const raw = localStorage.getItem("cart");
-      if (!raw) return [];
-      if (Array.isArray(raw)) return raw;
-      if (typeof raw === "string") {
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed : [];
-      }
-      return [];
-    } catch {
-      return [];
-    }
-  }, []);
-
-  // How many of this product the cart holds right now (redux or storage).
-  const getCartLineQty = useCallback(
-    (id) => {
-      const matches = (item) =>
-        String(
-          item?.productId ??
-            item?.productID ??
-            item?.ProductId ??
-            item?.ProductID ??
-            item?.id ??
-            ""
-        ) === String(id);
-      const sum = (list) =>
-        (list || []).reduce(
-          (total, item) =>
-            matches(item) ? total + (Number(item.quantity) || 1) : total,
-          0
-        );
-      return Math.max(sum(cartRef.current), sum(readStoredCart()));
-    },
-    [readStoredCart]
-  );
-
-  // Same flow as the PhoneSpeed Add to Cart: add, then confirm the line landed.
   const handleAddToCart = async () => {
-    if (!product || adding) return;
+    if (!product || adding || cartLoading || addedSuccess) return;
     if (Number(product.stock) === 0) {
       setAddError("This product is out of stock");
       return;
     }
 
-    const id = product.productID || product.id || productID;
-    const qtyBefore = getCartLineQty(id);
+    const id = product.productId ?? product.productID ?? product.ProductId ??
+      product.ProductID ?? product.id ?? productID;
+    const session = modalSessionRef.current;
 
     setAddError("");
     setAdding(true);
-    let hookError = "";
+
     try {
-      // The hook reads productID, productName, productImage and price.
       await addProductToCart({
         ...product,
         productID: id,
-        productName: product.productName,
-        productImage: product.productImage,
+        productName: product.productName || product.ProductName || product.name || "",
+        imagePath: product.imagePath || product.ImagePath ||
+          product.productImage || product.ProductImage || "",
       });
-    } catch (err) {
-      /* The call can reject even when the line landed (optimistic write or a
-         failing refetch), so the cart below has the final say. */
-      hookError = err?.message || "";
-    } finally {
-      setAdding(false);
-    }
 
-    // Poll briefly: the slice may update redux / storage a beat later.
-    const landed = await new Promise((resolve) => {
-      let tries = 0;
-      const check = () => {
-        tries += 1;
-        if (getCartLineQty(id) > qtyBefore) return resolve(true);
-        if (tries >= 6) return resolve(false);
-        return setTimeout(check, 120);
-      };
-      check();
-    });
-
-    if (landed) {
-      // Re-sync from the server (what PhoneSpeed does on load) so the cart
-      // page and sidebar get the full line details, not just the optimistic row.
-      try {
-        const cid = reduxCartId || localStorage.getItem("cartId");
-        if (cid) await dispatch(getCartById(cid));
-      } catch {
-        /* the item is already in the cart; a failed refresh must not undo that */
-      }
+      // The hook awaits the backend add and handles the cart refresh itself.
+      // No local-storage polling or second getCartById request is needed here.
+      if (modalSessionRef.current !== session) return;
       setAddedSuccess(true);
-      setTimeout(() => {
+      closeTimeoutRef.current = setTimeout(() => {
+        if (modalSessionRef.current !== session) return;
         setAddedSuccess(false);
-        onClose();
+        onClose?.();
       }, 1200);
-    } else {
-      setAddError(
-        hookError || "Couldn't add this item to your cart. Please try again."
-      );
+    } catch (error) {
+      if (modalSessionRef.current === session) {
+        setAddError(error?.message || "Couldn't add this item to your cart. Please try again.");
+      }
+    } finally {
+      if (modalSessionRef.current === session) setAdding(false);
     }
   };
 
@@ -162,11 +104,7 @@ const ProductDetailModal = ({ productID, isModalVisible, onClose }) => {
     };
 
     try {
-      if (
-        navigator.share &&
-        navigator.canShare &&
-        navigator.canShare(shareData)
-      ) {
+      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
         await navigator.share(shareData);
       } else {
         const shareText = `${shareData.title}\n${shareData.text}\n${shareData.url}`;
@@ -204,7 +142,8 @@ const ProductDetailModal = ({ productID, isModalVisible, onClose }) => {
     );
   }
 
-  const imageUrl = `https://testing.frankotrading.com/Media/Products_Images/${product.productImage?.split("\\").pop()}`;
+  const imagePath = product.productImage || product.imagePath || product.ImagePath || product.ProductImage;
+  const imageUrl = `https://testing.frankotrading.com/Media/Products_Images/${imagePath?.split("\\").pop()}`;
   const hasDiscount = product.oldPrice > 0 && product.oldPrice > product.price;
   const discountPercent = hasDiscount
     ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
@@ -234,9 +173,7 @@ const ProductDetailModal = ({ productID, isModalVisible, onClose }) => {
         closable={false}
       >
         <Helmet>
-          <title>
-            {product.productName} - GH₵{formatPrice(product.price)}
-          </title>
+          <title>{product.productName} - GH₵{formatPrice(product.price)}</title>
           <meta
             name="description"
             content={`Buy ${product.productName} for GH₵${formatPrice(product.price)}.`}
@@ -244,32 +181,22 @@ const ProductDetailModal = ({ productID, isModalVisible, onClose }) => {
         </Helmet>
 
         <div className="pdm-root">
-          {/* Close Button */}
           <button onClick={onClose} className="pdm-close-btn" title="Close">
             <XMarkIcon style={{ width: 18, height: 18 }} />
           </button>
 
           <div className="pdm-container">
-            {/* ==================== IMAGE SECTION ==================== */}
             <div className="pdm-image-section">
-              {hasDiscount && (
-                <span className="pdm-discount-badge">-{discountPercent}%</span>
-              )}
+              {hasDiscount && <span className="pdm-discount-badge">-{discountPercent}%</span>}
 
               <div className="pdm-image-actions">
                 <button
                   onClick={() => setIsFavorite(!isFavorite)}
                   className={`pdm-icon-btn ${isFavorite ? "pdm-icon-btn-active" : ""}`}
-                  title={
-                    isFavorite
-                      ? "Remove from favorites"
-                      : "Add to favorites"
-                  }
+                  title={isFavorite ? "Remove from favorites" : "Add to favorites"}
                 >
                   {isFavorite ? (
-                    <HeartSolidIcon
-                      style={{ width: 18, height: 18, color: "#e11d48" }}
-                    />
+                    <HeartSolidIcon style={{ width: 18, height: 18, color: "#e11d48" }} />
                   ) : (
                     <HeartIcon style={{ width: 18, height: 18 }} />
                   )}
@@ -280,9 +207,7 @@ const ProductDetailModal = ({ productID, isModalVisible, onClose }) => {
                   title="Share product"
                 >
                   {shareSuccess ? (
-                    <CheckCircleIcon
-                      style={{ width: 18, height: 18, color: "#16a34a" }}
-                    />
+                    <CheckCircleIcon style={{ width: 18, height: 18, color: "#16a34a" }} />
                   ) : (
                     <ShareIcon style={{ width: 18, height: 18 }} />
                   )}
@@ -302,7 +227,6 @@ const ProductDetailModal = ({ productID, isModalVisible, onClose }) => {
               </div>
             </div>
 
-            {/* ==================== DETAILS SECTION ==================== */}
             <div className="pdm-details-section">
               <div className="pdm-details-scroll">
                 <div className="pdm-details-inner">
@@ -311,27 +235,20 @@ const ProductDetailModal = ({ productID, isModalVisible, onClose }) => {
                   {product.brandName && (
                     <div className="pdm-brand">
                       <span className="pdm-brand-label">Brand:</span>
-                      <span className="pdm-brand-value">
-                        {product.brandName}
-                      </span>
+                      <span className="pdm-brand-value">{product.brandName}</span>
                     </div>
                   )}
 
                   <div className="pdm-price-block">
                     <div className="pdm-price-row">
-                      <span className="pdm-price-current">
-                        GH₵{formatPrice(product.price)}.00
-                      </span>
+                      <span className="pdm-price-current">GH₵{formatPrice(product.price)}.00</span>
                       {hasDiscount && (
-                        <span className="pdm-price-old">
-                          GH₵{formatPrice(product.oldPrice)}.00
-                        </span>
+                        <span className="pdm-price-old">GH₵{formatPrice(product.oldPrice)}.00</span>
                       )}
                     </div>
                     {hasDiscount && (
                       <div className="pdm-savings">
-                        You save GH₵
-                        {formatPrice(product.oldPrice - product.price)}.00
+                        You save GH₵{formatPrice(product.oldPrice - product.price)}.00
                       </div>
                     )}
                   </div>
@@ -354,20 +271,16 @@ const ProductDetailModal = ({ productID, isModalVisible, onClose }) => {
                   <div className="pdm-description-section">
                     <h3 className="pdm-section-title">Product Details</h3>
                     <div className="pdm-description-content">
-                      {product.description ||
-                        "No description available for this product."}
+                      {product.description || "No description available for this product."}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* ==================== STICKY CART BAR ==================== */}
               <div className="pdm-cart-bar">
                 <div className="pdm-cart-bar-price">
                   <span className="pdm-cart-bar-total-label">Total</span>
-                  <span className="pdm-cart-bar-total-value">
-                    GH₵{formatPrice(product.price)}.00
-                  </span>
+                  <span className="pdm-cart-bar-total-value">GH₵{formatPrice(product.price)}.00</span>
                 </div>
                 <button
                   onClick={handleAddToCart}
@@ -393,26 +306,17 @@ const ProductDetailModal = ({ productID, isModalVisible, onClose }) => {
                     </>
                   )}
                 </button>
-                {addError && (
-                  <div className="pdm-cart-error" role="alert">
-                    {addError}
-                  </div>
-                )}
+                {addError && <div className="pdm-cart-error" role="alert">{addError}</div>}
               </div>
             </div>
           </div>
         </div>
       </Modal>
 
-      <AuthModal
-        open={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-      />
+      <AuthModal open={authModalOpen} onClose={() => setAuthModalOpen(false)} />
     </>
   );
 };
-
-// ==================== STYLES ====================
 
 const modalStyles = `
   .pdm-modal-wrap .ant-modal-content {
