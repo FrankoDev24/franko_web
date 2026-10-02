@@ -14,7 +14,103 @@ import frankoLogo from '../assets/frankoIcon.png';
 import mtnLogo from '../assets/momo.png';
 import vodafoneLogo from '../assets/voda.png';
 import airteltigoLogo from '../assets/AT.png';
-import { paymentOutcome, generateOrderCode, buildOrderDetails, completedOrderRoute, assertOrderDetails, assertOrderAccepted, readJSON, removeDraft } from '../utils/checkoutFlow.mjs';
+
+// Self-contained payment and routing helpers: no checkoutFlow.mjs export dependency.
+// Gateway status is determined by the BODY, not HTTP 200 or responseCode alone.
+function paymentOutcome(raw) {
+  let value = raw;
+  for (let i = 0; i < 5; i += 1) {
+    if (typeof value === 'string') {
+      try { value = JSON.parse(value); continue; } catch { return 'pending'; }
+    }
+    if (Array.isArray(value)) { value = value[0]; continue; }
+    if (!value || typeof value !== 'object') return 'pending';
+    if ('responseMessage' in value || 'ResponseMessage' in value || 'responseCode' in value || 'ResponseCode' in value) break;
+    value = value.payload ?? value.data ?? value.response ?? value.result;
+  }
+  if (!value || typeof value !== 'object') return 'pending';
+  const text = String(value.responseMessage ?? value.ResponseMessage ?? '').trim().toLowerCase();
+  const code = String(value.responseCode ?? value.ResponseCode ?? '').trim();
+  if (text === 'target_authorization_error') return 'failed';
+  if (text === 'successfully processed transaction' && (code === '' || code === '01' || code === '1')) return 'success';
+  // A gateway can send a provisional responseCode (including 0/02) while
+  // processing the prompt. Only an explicit terminal *message* may cancel.
+  if (/fail(?:ed|ure)?|declin(?:ed|e)?|reject(?:ed)?|cancel(?:led|ed)?|revers(?:ed|al)?|unsuccessful|insufficient funds|expired/.test(text)) return 'failed';
+  if (/process(?:ing)?|pending|await|initiated|prompt|approval|in progress|queued/.test(text)) return 'pending';
+  return 'pending';
+}
+
+// Keep Checkout's existing ORD-<time % 10000>-<random % 1000> format.
+// Telecel uses exactly the same suffixes with a TEL prefix.
+function generateOrderCode(telecel = false, now = Date.now(), random = Math.random()) {
+  return `${telecel ? 'TEL' : 'ORD'}-${now % 10000}-${Math.floor(random * 1000)}`;
+}
+
+// Preserve the CheckOutDbCart / OrderDeliveryUpdate payload shape from Checkout.jsx.
+function buildOrderDetails({ cartId, customerId, orderId, paymentMode, contact, accountType, subtotal, recipientName, recipientContactNumber, orderNote, orderDate, address, paymentService = 'N/A' }) {
+  const checkout = {
+    Cartid: cartId, customerId, orderCode: orderId,
+    PaymentMode: paymentMode, PaymentAccountNumber: contact,
+    customerAccountType: accountType, paymentService,
+    totalAmount: subtotal, recipientName, recipientContactNumber,
+    orderNote: orderNote || 'N/A', orderDate,
+  };
+  const delivery = {
+    orderCode: orderId, OrderCode: orderId, address,
+    Customerid: customerId, recipientName, recipientContactNumber,
+    orderNote: orderNote || 'N/A', geoLocation: 'N/A',
+  };
+  return { checkout, delivery };
+}
+
+function assertOrderDetails(checkout, delivery) {
+  if (!checkout?.Cartid || !checkout?.customerId || !checkout?.orderCode ||
+      !checkout?.PaymentMode || !checkout?.PaymentAccountNumber ||
+      !checkout?.recipientName || !checkout?.recipientContactNumber ||
+      !Number.isFinite(Number(checkout?.totalAmount)) ||
+      !checkout?.orderDate || !delivery?.address ||
+      String(delivery?.OrderCode) !== String(checkout.orderCode) ||
+      String(delivery?.Customerid) !== String(checkout.customerId)) {
+    throw new Error('Order details are incomplete; the order was not dispatched.');
+  }
+  return true;
+}
+
+// Only a confirmed online payment can use the payment-success page.
+// All offline methods and standard agent orders use the received page.
+function completedOrderRoute({ orderId, paid, paymentMode, accountType, telecel = false }) {
+  // Never infer that an order has been paid merely because CheckOutDbCart
+  // succeeded: COD and agent orders also return a successful order response.
+  const mobileMoney = String(paymentMode ?? '').trim().toLowerCase() === 'mobile money';
+  const agent = !telecel && String(accountType ?? '').trim().toLowerCase() === 'agent';
+  return paid === true && mobileMoney && !agent
+    ? `/order-success/${encodeURIComponent(orderId)}`
+    : '/order-received';
+}
+
+function assertOrderAccepted(raw) {
+  let value = raw;
+  if (typeof value === 'string') { try { value = JSON.parse(value); } catch { throw new Error('Invalid order response'); } }
+  if (Array.isArray(value)) value = value[0];
+  if (!value || typeof value !== 'object') throw new Error('Empty order response');
+  const code = String(value.responseCode ?? value.ResponseCode ?? '').trim();
+  const text = String(value.responseMessage ?? value.ResponseMessage ?? value.message ?? '').toLowerCase();
+  if (value.status === false || value.success === false || (code && !['1','01'].includes(code)) || /fail|reject|cancel|error/.test(text)) {
+    throw new Error(value.responseMessage || value.message || 'Order was not accepted');
+  }
+  return value;
+}
+
+const readJSON = (key, fallback = null) => {
+  try {
+    const raw = localStorage.getItem(key);
+    if (typeof raw !== 'string') return raw ?? fallback;
+    try { return JSON.parse(raw); } catch { return raw; }
+  } catch { return fallback; }
+};
+const removeDraft = () => {
+  try { ['checkoutDetails','orderAddressDetails','checkoutDifferentRecipient'].forEach(k => localStorage.removeItem(k)); } catch { /* best effort */ }
+};
 
 const price = item => Number(item?.unitPrice ?? item?.UnitPrice ?? item?.price ?? item?.Price ?? 0);
 const qty = item => Number(item?.quantity ?? item?.Quantity ?? 1);
@@ -56,7 +152,7 @@ export default function CheckoutShared({ telecel = false }) {
   const [items, setItems] = useState(() => telecel ? (location.state?.items?.length ? location.state.items : readJSON('telCheckoutCart', {})?.items || cartState.cart || []) : (cartState.cart?.length ? cartState.cart : readJSON('cart', []) || []));
   const [recipient, setRecipient] = useState(stored.recipientName || '');
   const [phone, setPhone] = useState(stored.recipientContactNumber || '');
-  const [different, setDifferent] = useState(false);
+  const [different, setDifferent] = useState(() => readJSON('checkoutDifferentRecipient', false) === true || readJSON('checkoutDifferentRecipient', false) === 'true');
   const [note, setNote] = useState(stored.orderNote || '');
   const [delivery, setDelivery] = useState(() => ({ address: readJSON('orderAddressDetails', {})?.address || '', fee: 0, feeDisplay: '' }));
   const [method, setMethod] = useState(telecel ? 'Mobile Money' : '');
@@ -87,7 +183,28 @@ export default function CheckoutShared({ telecel = false }) {
   useEffect(() => { active.current = true; return () => { active.current = false; clearTimeout(pollTimer.current); dispatch(resetPaymentState()); }; }, [dispatch]);
   useEffect(() => { if (!telecel && cartState.cart?.length && !finished.current) setItems(cartState.cart); }, [cartState.cart, telecel]);
   useEffect(() => { if (cartId && !items.length) dispatch(getCartById(cartId)); }, [cartId, dispatch, items.length]);
-  useEffect(() => { if (loggedIn && !different) { setRecipient(customerNameOf(customer)); setPhone(customer.contactNumber || customer.ContactNumber || ''); } }, [loggedIn, customer, different]);
+  const accountName = customerNameOf(customer);
+  const accountPhone = customer?.contactNumber || customer?.ContactNumber || '';
+  const accountId = customerId(customer);
+  useEffect(() => {
+    // Prefill from the account only in normal mode. Never overwrite recipient edits.
+    if (loggedIn && !different) { setRecipient(accountName); setPhone(accountPhone); }
+  }, [loggedIn, different, accountId, accountName, accountPhone]);
+  useEffect(() => {
+    try { localStorage.setItem('checkoutDifferentRecipient', String(different)); } catch { /* best effort */ }
+  }, [different]);
+  const toggleRecipient = () => {
+    if (busy || stage !== 'form') return;
+    const next = !different;
+    // The CheckoutForm reads deliveryInfo from storage on mount. Remove that
+    // cached address so it cannot refill the previous recipient's delivery.
+    try { localStorage.removeItem('deliveryInfo'); } catch { /* best effort */ }
+    setRecipient(next ? '' : accountName);
+    setPhone(next ? '' : accountPhone);
+    setDelivery({ address: '', fee: 0, feeDisplay: '' });
+    setError('');
+    setDifferent(next);
+  };
   useEffect(() => {
     setValidatedFor('');
     if (stage !== 'payment' || !validNumber || !network) return;
@@ -192,8 +309,10 @@ export default function CheckoutShared({ telecel = false }) {
     if (submitting.current || finished.current) return;
     const c = override && customerId(override) ? override : customer;
     if (!customerId(c)) { setAuth(true); return; }
-    const name = (different ? recipient : customerNameOf(c)).trim();
-    const contact = (different ? phone : c.contactNumber || c.ContactNumber || '').trim();
+    // customerId belongs to the authenticated account. Recipient fields always
+    // come from the visible CheckoutForm, for both customers and agents.
+    const name = String(recipient || '').trim();
+    const contact = String(phone || '').trim();
     if (!items.length || !cartId || !name || /^guest\b/i.test(name) || !contact || !delivery?.address?.trim() || !method) {
       setError('Check your cart, recipient name, phone, delivery address and payment method.'); return;
     }
@@ -250,7 +369,16 @@ export default function CheckoutShared({ telecel = false }) {
       }
     } finally { submitting.current = false; if (active.current) setBusy(false); }
   };
-  const flow = { items, customer, loggedIn, different, setDifferent, recipient, setRecipient, phone, setPhone, note, setNote, delivery, setDelivery, method, setMethod, subtotal, shipping, serviceCharge, amount, error, stage, setStage, busy, begin, number, setNumber, network, setNetwork, validatedAccount, validNumber, account, pay, checkAgain, cancel, auth, setAuth, currentRef, isAgent: String(customer?.accountType || '').toLowerCase() === 'agent', telecel };
+  const handleAuthSuccess = c => {
+    setAuth(false);
+    if (!different && customerId(c)) {
+      setRecipient(customerNameOf(c));
+      setPhone(c.contactNumber || c.ContactNumber || '');
+    }
+    // Wait for the visible form to reflect the new account before submitting.
+    message.info('Signed in. Review the recipient details and place your order.');
+  };
+  const flow = { items, customer, loggedIn, different, toggleRecipient, recipient, setRecipient, phone, setPhone, note, setNote, delivery, setDelivery, method, setMethod, subtotal, shipping, serviceCharge, amount, error, stage, setStage, busy, begin, number, setNumber, network, setNetwork, validatedAccount, validNumber, account, pay, checkAgain, cancel, auth, setAuth, handleAuthSuccess, currentRef, isAgent: String(customer?.accountType || '').toLowerCase() === 'agent', telecel };
   return <CheckoutView flow={flow} />;
 }
 
@@ -269,11 +397,11 @@ function CheckoutView({ flow }) {
   const navigate = useNavigate();
   const [missing, setMissing] = useState(false);
   const {
-    items, customer, loggedIn, different, setDifferent, recipient, setRecipient,
+    items, customer, loggedIn, different, toggleRecipient, recipient, setRecipient,
     phone, setPhone, note, setNote, delivery, setDelivery, method, setMethod,
     subtotal, shipping, serviceCharge, amount, error, stage, busy, begin,
     number, setNumber, network, setNetwork, validatedAccount, validNumber, account,
-    pay, checkAgain, cancel, auth, setAuth, currentRef, isAgent, telecel,
+    pay, checkAgain, cancel, auth, setAuth, handleAuthSuccess, currentRef, isAgent, telecel,
   } = flow;
   const freeDelivery = Number(delivery.fee) === 0 && String(delivery.feeDisplay || '').toLowerCase().includes('free');
   const naDelivery = Number(delivery.fee) === 0 && (!delivery.feeDisplay || String(delivery.feeDisplay).toLowerCase() === 'n/a');
@@ -298,9 +426,9 @@ function CheckoutView({ flow }) {
       {!items.length ? <div className="co-empty"><div className="co-empty-icon"><ShoppingBagIcon style={{width:36,height:36,color:'#888'}}/></div><div className="co-empty-title">Your cart is empty</div><div className="co-empty-desc">Add items to your cart to proceed with checkout.</div><button className="co-btn-primary" style={{maxWidth:280}} onClick={() => navigate('/')}>Continue Shopping</button></div> : <div className="co-layout">
         <div className="co-sidebar"><div className="co-card"><div className="co-card-header"><h3 className="co-card-title">Billing Information</h3><div className="co-section-accent"><div className="co-section-accent-bar"/><div className="co-section-accent-line"/></div></div><div className="co-card-body">
           {!loggedIn && <div className="co-auth-banner"><div className="co-auth-banner-icon"><LockClosedIcon style={{width:18,height:18,color:'#14532d'}}/></div><div className="co-auth-banner-copy"><p className="co-auth-banner-title">Register to place this order</p><p className="co-auth-banner-desc">No customer account is signed in. You’ll be asked to register or sign in before the order can be placed.</p><button className="co-auth-banner-btn" onClick={() => setAuth(true)}>Register now</button></div></div>}
-          <div className="co-toggle-wrap" role="switch" aria-checked={different} tabIndex={0} onClick={() => setDifferent(!different)} onKeyDown={e => { if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDifferent(!different); } }}><div className="co-toggle-left"><UserIcon style={{width:16,height:16,color:'#888'}}/><span>Different recipient?</span></div><div className={`co-toggle-track ${different ? 'co-toggle-track-on':'co-toggle-track-off'}`}><div className={`co-toggle-knob ${different ? 'co-toggle-knob-on':''}`}/></div></div>
+          <div className="co-toggle-wrap" role="switch" aria-checked={different} tabIndex={0} onClick={toggleRecipient} onKeyDown={e => { if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRecipient(); } }}><div className="co-toggle-left"><UserIcon style={{width:16,height:16,color:'#888'}}/><span>Different recipient?</span></div><div className={`co-toggle-track ${different ? 'co-toggle-track-on':'co-toggle-track-off'}`}><div className={`co-toggle-knob ${different ? 'co-toggle-knob-on':''}`}/></div></div>
           {different && <div className="co-warning-banner"><ExclamationTriangleIcon style={{width:16,height:16,color:'#d97706'}}/><p>Enter the recipient's name and contact number below.</p></div>}
-          <CheckoutForm customerName={recipient} setCustomerName={setRecipient} customerNumber={phone} setCustomerNumber={setPhone} deliveryInfo={delivery} setDeliveryInfo={setDelivery} orderNote={note} setOrderNote={setNote} locations={locations} customerAccountType={customer?.accountType} firstName={customer?.firstName || 'Guest'} isDifferentRecipient={different} readOnlyRecipient={!different}/>
+          <CheckoutForm key={different ? "different-recipient" : "account-recipient"} customerName={recipient} setCustomerName={setRecipient} customerNumber={phone} setCustomerNumber={setPhone} deliveryInfo={delivery} setDeliveryInfo={setDelivery} orderNote={note} setOrderNote={setNote} locations={locations} customerAccountType={customer?.accountType} firstName={customer?.firstName || 'Guest'} isDifferentRecipient={different}/>
         </div></div></div>
         <div className="co-main"><div className="co-card"><div className="co-card-header"><h3 className="co-card-title">Order Summary</h3><div className="co-section-accent"><div className="co-section-accent-bar"/><div className="co-section-accent-line"/></div></div><div className="co-card-body">
           <div className="co-items-list">{items.map((item,index) => <div key={item.productId || item.id || index} className="co-item"><div className="co-item-left"><div>{productImage(item) ? <img src={productImage(item)} alt="Product" className="co-item-img" onError={e => { e.currentTarget.style.display='none'; e.currentTarget.nextSibling.style.display='flex'; }}/>:null}<div className="co-item-img-placeholder" style={productImage(item) ? {display:'none'}:{}}>No Image</div></div><div className="co-item-info"><p className="co-item-name">{item.productName || item.ProductName || 'Product'}</p><p className="co-item-unit">Unit: {money(unit(item))}</p><span className="co-item-qty">Qty {quantity(item)}</span></div></div><span className="co-item-price">{money(unit(item)*quantity(item))}</span></div>)}</div>
@@ -317,6 +445,6 @@ function CheckoutView({ flow }) {
       {validNumber && network && <div className={`pm-account-status ${validatedAccount?'pm-account-valid':account.validating?'pm-account-checking':'pm-account-invalid'}`}>{validatedAccount ? <CheckCircleSolid className="pm-account-icon"/> : account.validating ? <div className="co-spinner" style={{width:16,height:16,borderWidth:2}}/> : <XCircleSolid className="pm-account-icon"/>}<div>{validatedAccount ? `Account Valid${account.validateAccountData?.name ? ` · ${account.validateAccountData.name}`:''}` : account.validating ? 'Validating account…' : account.validateAccountData?.responseMessage || account.error || 'Checking account…'}</div></div>}
       <button className="pm-pay-btn" onClick={pay} disabled={busy || !validNumber || !validatedAccount}><LockClosedIcon style={{width:16,height:16}}/>Pay {money(amount)}</button><div className="pm-security"><ShieldCheckIcon style={{width:12,height:12}}/>Secured by GhIPSS</div><div className="pm-info-box"><p className="pm-info-title"><CheckCircleIcon style={{width:12,height:12}}/> What happens next?</p><ol className="pm-info-list"><li>We validate current product prices before payment</li><li>You'll receive a payment prompt on your phone</li><li>Approve the request and we confirm it automatically</li></ol></div></div></div></Modal>
     <Modal open={['pending','posting','review','support'].includes(stage)} centered width={520} footer={null} closable={false} maskClosable={false}><div style={{display:'flex',flexDirection:'column',gap:14,textAlign:'center'}}>{stage==='posting' ? <><CheckCircleSolid style={{width:45,height:45,color:'#16a34a',margin:'auto'}}/><h3>Payment Confirmed!</h3><p>Creating your order and redirecting…</p></> : stage==='support' ? <><ExclamationTriangleIcon style={{width:45,height:45,color:'#d97706',margin:'auto'}}/><h3>Order needs assistance</h3><p>{error}</p></> : <><div className="pm-pending-anim" style={{margin:'auto'}}><div className="pm-pending-ring-outer"/><div className="pm-pending-ring-spin"/><div className="pm-pending-ring-inner"><PhoneIcon style={{width:26,height:26,color:'#16a34a'}}/></div></div><h3>{stage==='review'?'Approve Your Payment':'Awaiting Approval'}</h3><p>Check your phone for the payment prompt</p><p>Reference: {orderId} · Number: {number} · Amount: {money(amount)}</p>{stage==='review' && <><div className="co-guide-steps-wrap"><div className="co-guide-steps-header"><strong>Step-by-step approval</strong></div><div className="co-guide-steps-body" style={{textAlign:'left'}}>{(approval[network] || []).map((step,i) => <div className="co-guide-step" key={step}><span className="co-guide-step-num" style={{background:'#16a34a'}}>{i+1}</span><p className="co-guide-step-text">{step}</p></div>)}</div></div><button className="co-btn-primary" onClick={checkAgain} disabled={busy}>I've Approved — Confirm Payment</button><button className="co-btn-danger" onClick={() => cancel('Customer cancelled before confirmation')} disabled={busy}>Cancel Order</button></>}</>}</div></Modal>
-    <AuthModal open={auth} onClose={() => setAuth(false)} onSuccess={c => {setAuth(false);begin(c);}} currentCustomer={customer} initialMode="signup" allowGuest={false} autoLoginAfterSignup notice="Create an account or sign in before placing your order."/>
+    <AuthModal open={auth} onClose={() => setAuth(false)} onSuccess={handleAuthSuccess} currentCustomer={customer} initialMode="signup" allowGuest={false} autoLoginAfterSignup notice="Create an account or sign in before placing your order."/>
   </div></>;
 }
