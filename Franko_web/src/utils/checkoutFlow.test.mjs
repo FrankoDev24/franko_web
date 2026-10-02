@@ -1,0 +1,16 @@
+import { test } from 'node:test';
+import { strict as assert } from 'node:assert';
+import { paymentOutcome, generateOrderCode, assertOrderAccepted } from './checkoutFlow.mjs';
+const success = {responseCode:null,responseMessage:'Successfully Processed Transaction',flag:null,name:null,data:{transactionReference:null,checkoutUrl:null}};
+test('null-code success is immediate success', () => assert.equal(paymentOutcome(success),'success'));
+test('stringified and nested success', () => assert.equal(paymentOutcome({data:JSON.stringify(success)}),'success'));
+test('explicit failure cancels', () => assert.equal(paymentOutcome({responseCode:'02',responseMessage:'Transaction declined'}),'failed'));
+test('pending is not cancelled', () => assert.equal(paymentOutcome({responseCode:null,responseMessage:'Awaiting approval'}),'pending'));
+test('provisional failure code cannot cancel a processing prompt', () => assert.equal(paymentOutcome({responseCode:'02',responseMessage:'Processing Transaction'}),'pending'));
+test('code alone cannot cancel an active prompt', () => assert.equal(paymentOutcome({responseCode:'0',responseMessage:null}),'pending'));
+test('conflicting code cannot confirm success', () => assert.equal(paymentOutcome({...success,responseCode:'02'}),'pending'));
+test('TARGET_AUTHORIZATION_ERROR immediately cancels even with a null code', () => assert.equal(paymentOutcome({responseCode:null,responseMessage:'TARGET_AUTHORIZATION_ERROR',flag:null,name:null,data:{transactionReference:null,checkoutUrl:null}}),'failed'));
+test('nested authorization error cancels', () => assert.equal(paymentOutcome({data:JSON.stringify({responseCode:null,responseMessage:'TARGET_AUTHORIZATION_ERROR'})}),'failed'));
+test('original order code format is unchanged', () => assert.equal(generateOrderCode(false, 17444, .4567),'ORD-7444-456'));
+test('Tel order code shares the original numeric format', () => assert.equal(generateOrderCode(true, 17444, .4567),'TEL-7444-456'));
+test('order rejection is thrown', () => assert.throws(() => assertOrderAccepted({responseCode:null,responseMessage:'Order failed'})));

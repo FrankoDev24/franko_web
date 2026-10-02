@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Modal } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchProductById } from "../Redux/Slice/productSlice";
+import { getCartById } from "../Redux/Slice/cartSlice";
 import {
   CheckCircleIcon,
   ShoppingCartIcon,
@@ -25,31 +26,130 @@ const ProductDetailModal = ({ productID, isModalVisible, onClose }) => {
   const product = useSelector(
     (state) => state.products.currentProduct?.[0]
   );
+  // Same cart slice the PhoneSpeed page reads from.
+  const reduxCart = useSelector((state) => state.cart.cart) || [];
+  const reduxCartId = useSelector((state) => state.cart.cartId);
 
-  const [quantity, setQuantity] = useState(1);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [addedSuccess, setAddedSuccess] = useState(false);
+  const [addError, setAddError] = useState("");
   const [shareSuccess, setShareSuccess] = useState(false);
 
   useEffect(() => {
     if (productID && isModalVisible) {
       dispatch(fetchProductById(productID));
-      setQuantity(1);
       setAddedSuccess(false);
+      setAddError("");
     }
   }, [dispatch, productID, isModalVisible]);
 
-  const handleAddToCart = async () => {
+  /* ---------- cart helpers (identical to PhoneSpeed) ---------- */
+
+  // Latest cart, readable inside an async handler without a stale closure.
+  const cartRef = useRef(reduxCart);
+  cartRef.current = reduxCart;
+
+  // The app's localStorage wrapper may return parsed JSON already.
+  const readStoredCart = useCallback(() => {
     try {
-      await addProductToCart({ ...product, quantity });
+      const raw = localStorage.getItem("cart");
+      if (!raw) return [];
+      if (Array.isArray(raw)) return raw;
+      if (typeof raw === "string") {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  }, []);
+
+  // How many of this product the cart holds right now (redux or storage).
+  const getCartLineQty = useCallback(
+    (id) => {
+      const matches = (item) =>
+        String(
+          item?.productId ??
+            item?.productID ??
+            item?.ProductId ??
+            item?.ProductID ??
+            item?.id ??
+            ""
+        ) === String(id);
+      const sum = (list) =>
+        (list || []).reduce(
+          (total, item) =>
+            matches(item) ? total + (Number(item.quantity) || 1) : total,
+          0
+        );
+      return Math.max(sum(cartRef.current), sum(readStoredCart()));
+    },
+    [readStoredCart]
+  );
+
+  // Same flow as the PhoneSpeed Add to Cart: add, then confirm the line landed.
+  const handleAddToCart = async () => {
+    if (!product || adding) return;
+    if (Number(product.stock) === 0) {
+      setAddError("This product is out of stock");
+      return;
+    }
+
+    const id = product.productID || product.id || productID;
+    const qtyBefore = getCartLineQty(id);
+
+    setAddError("");
+    setAdding(true);
+    let hookError = "";
+    try {
+      // The hook reads productID, productName, productImage and price.
+      await addProductToCart({
+        ...product,
+        productID: id,
+        productName: product.productName,
+        productImage: product.productImage,
+      });
+    } catch (err) {
+      /* The call can reject even when the line landed (optimistic write or a
+         failing refetch), so the cart below has the final say. */
+      hookError = err?.message || "";
+    } finally {
+      setAdding(false);
+    }
+
+    // Poll briefly: the slice may update redux / storage a beat later.
+    const landed = await new Promise((resolve) => {
+      let tries = 0;
+      const check = () => {
+        tries += 1;
+        if (getCartLineQty(id) > qtyBefore) return resolve(true);
+        if (tries >= 6) return resolve(false);
+        return setTimeout(check, 120);
+      };
+      check();
+    });
+
+    if (landed) {
+      // Re-sync from the server (what PhoneSpeed does on load) so the cart
+      // page and sidebar get the full line details, not just the optimistic row.
+      try {
+        const cid = reduxCartId || localStorage.getItem("cartId");
+        if (cid) await dispatch(getCartById(cid));
+      } catch {
+        /* the item is already in the cart; a failed refresh must not undo that */
+      }
       setAddedSuccess(true);
       setTimeout(() => {
         setAddedSuccess(false);
         onClose();
       }, 1200);
-    } catch {
-      alert("Failed to add to cart");
+    } else {
+      setAddError(
+        hookError || "Couldn't add this item to your cart. Please try again."
+      );
     }
   };
 
@@ -81,14 +181,6 @@ const ProductDetailModal = ({ productID, isModalVisible, onClose }) => {
     }
   };
 
-  const handleQuantityChange = (action) => {
-    if (action === "increment") {
-      setQuantity((prev) => prev + 1);
-    } else if (action === "decrement" && quantity > 1) {
-      setQuantity((prev) => prev - 1);
-    }
-  };
-
   if (!product) {
     return (
       <Modal
@@ -113,10 +205,12 @@ const ProductDetailModal = ({ productID, isModalVisible, onClose }) => {
   }
 
   const imageUrl = `https://testing.frankotrading.com/Media/Products_Images/${product.productImage?.split("\\").pop()}`;
-const hasDiscount = product.oldPrice > 0 && product.oldPrice > product.price;
+  const hasDiscount = product.oldPrice > 0 && product.oldPrice > product.price;
   const discountPercent = hasDiscount
     ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
     : 0;
+  const soldOut = Number(product.stock) === 0;
+  const busy = cartLoading || adding;
 
   return (
     <>
@@ -158,12 +252,10 @@ const hasDiscount = product.oldPrice > 0 && product.oldPrice > product.price;
           <div className="pdm-container">
             {/* ==================== IMAGE SECTION ==================== */}
             <div className="pdm-image-section">
-              {/* Badges */}
               {hasDiscount && (
                 <span className="pdm-discount-badge">-{discountPercent}%</span>
               )}
 
-              {/* Action Buttons on Image */}
               <div className="pdm-image-actions">
                 <button
                   onClick={() => setIsFavorite(!isFavorite)}
@@ -212,13 +304,10 @@ const hasDiscount = product.oldPrice > 0 && product.oldPrice > product.price;
 
             {/* ==================== DETAILS SECTION ==================== */}
             <div className="pdm-details-section">
-              {/* Scrollable Content */}
               <div className="pdm-details-scroll">
                 <div className="pdm-details-inner">
-                  {/* Product Name */}
                   <h1 className="pdm-product-name">{product.productName}</h1>
 
-                  {/* Brand */}
                   {product.brandName && (
                     <div className="pdm-brand">
                       <span className="pdm-brand-label">Brand:</span>
@@ -228,7 +317,6 @@ const hasDiscount = product.oldPrice > 0 && product.oldPrice > product.price;
                     </div>
                   )}
 
-                  {/* Price Block */}
                   <div className="pdm-price-block">
                     <div className="pdm-price-row">
                       <span className="pdm-price-current">
@@ -248,7 +336,6 @@ const hasDiscount = product.oldPrice > 0 && product.oldPrice > product.price;
                     )}
                   </div>
 
-                  {/* Status Tags */}
                   <div className="pdm-status-tags">
                     <div className="pdm-tag pdm-tag-green">
                       <CheckCircleIcon style={{ width: 14, height: 14 }} />
@@ -264,28 +351,6 @@ const hasDiscount = product.oldPrice > 0 && product.oldPrice > product.price;
                     </div>
                   </div>
 
-                  {/* Quantity Selector */}
-                  <div className="pdm-qty-section">
-                    <span className="pdm-qty-label">Quantity</span>
-                    <div className="pdm-qty-control">
-                      <button
-                        onClick={() => handleQuantityChange("decrement")}
-                        className="pdm-qty-btn"
-                        disabled={quantity <= 1}
-                      >
-                        −
-                      </button>
-                      <span className="pdm-qty-value">{quantity}</span>
-                      <button
-                        onClick={() => handleQuantityChange("increment")}
-                        className="pdm-qty-btn"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Description */}
                   <div className="pdm-description-section">
                     <h3 className="pdm-section-title">Product Details</h3>
                     <div className="pdm-description-content">
@@ -301,15 +366,15 @@ const hasDiscount = product.oldPrice > 0 && product.oldPrice > product.price;
                 <div className="pdm-cart-bar-price">
                   <span className="pdm-cart-bar-total-label">Total</span>
                   <span className="pdm-cart-bar-total-value">
-                    GH₵{formatPrice(product.price * quantity)}.00
+                    GH₵{formatPrice(product.price)}.00
                   </span>
                 </div>
                 <button
                   onClick={handleAddToCart}
-                  disabled={cartLoading || addedSuccess}
+                  disabled={busy || addedSuccess || soldOut}
                   className={`pdm-cart-btn ${addedSuccess ? "pdm-cart-btn-success" : ""}`}
                 >
-                  {cartLoading ? (
+                  {adding ? (
                     <>
                       <div className="pdm-btn-spinner" />
                       <span>Adding...</span>
@@ -319,6 +384,8 @@ const hasDiscount = product.oldPrice > 0 && product.oldPrice > product.price;
                       <CheckCircleIcon style={{ width: 20, height: 20 }} />
                       <span>Added!</span>
                     </>
+                  ) : soldOut ? (
+                    <span>Sold Out</span>
                   ) : (
                     <>
                       <ShoppingCartIcon style={{ width: 20, height: 20 }} />
@@ -326,6 +393,11 @@ const hasDiscount = product.oldPrice > 0 && product.oldPrice > product.price;
                     </>
                   )}
                 </button>
+                {addError && (
+                  <div className="pdm-cart-error" role="alert">
+                    {addError}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -349,14 +421,8 @@ const modalStyles = `
     padding: 0 !important;
     box-shadow: 0 25px 60px rgba(0,0,0,0.2) !important;
   }
-
-  .pdm-modal-wrap .ant-modal-body {
-    padding: 0 !important;
-  }
-
-  .pdm-modal-wrap .ant-modal-close {
-    display: none !important;
-  }
+  .pdm-modal-wrap .ant-modal-body { padding: 0 !important; }
+  .pdm-modal-wrap .ant-modal-close { display: none !important; }
 
   .pdm-root, .pdm-root * {
     font-family: 'Plus Jakarta Sans', sans-serif;
@@ -364,568 +430,154 @@ const modalStyles = `
     -moz-osx-font-smoothing: grayscale;
     box-sizing: border-box;
   }
-
-  .pdm-root {
-    position: relative;
-    background: #fff;
-  }
+  .pdm-root { position: relative; background: #fff; }
 
   /* ==================== CLOSE BUTTON ==================== */
-
   .pdm-close-btn {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    z-index: 20;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: #fff;
-    border: 1px solid #e0e0e0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.15s;
-    color: #555;
+    position: absolute; top: 12px; right: 12px; z-index: 20;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: #fff; border: 1px solid #e0e0e0;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.15s; color: #555;
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   }
-  .pdm-close-btn:hover {
-    background: #f5f5f5;
-    border-color: #ccc;
-    color: #1a1a1a;
-    transform: scale(1.05);
-  }
+  .pdm-close-btn:hover { background: #f5f5f5; border-color: #ccc; color: #1a1a1a; transform: scale(1.05); }
 
   /* ==================== LOADING ==================== */
-
-  .pdm-loading {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 80px 24px;
-  }
-
+  .pdm-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 24px; }
   .pdm-spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid #e0e0e0;
-    border-top-color: #14532d;
-    border-radius: 50%;
-    animation: pdm-spin 0.8s linear infinite;
-    margin-bottom: 16px;
+    width: 40px; height: 40px; border: 3px solid #e0e0e0; border-top-color: #14532d;
+    border-radius: 50%; animation: pdm-spin 0.8s linear infinite; margin-bottom: 16px;
   }
-
-  @keyframes pdm-spin {
-    to { transform: rotate(360deg); }
-  }
-
-  .pdm-loading-text {
-    font-size: 15px;
-    font-weight: 500;
-    color: #888;
-  }
+  @keyframes pdm-spin { to { transform: rotate(360deg); } }
+  .pdm-loading-text { font-size: 15px; font-weight: 500; color: #888; }
 
   /* ==================== CONTAINER ==================== */
-
-  .pdm-container {
-    display: flex;
-    flex-direction: column;
-    max-height: 92vh;
-  }
+  .pdm-container { display: flex; flex-direction: column; max-height: 92vh; }
   @media (min-width: 1024px) {
-    .pdm-container {
-      flex-direction: row;
-      height: 85vh;
-      max-height: 85vh;
-    }
+    .pdm-container { flex-direction: row; height: 85vh; max-height: 85vh; }
   }
 
   /* ==================== IMAGE SECTION ==================== */
-
   .pdm-image-section {
-    position: relative;
-    background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 32px 24px;
-    min-height: 280px;
+    position: relative; background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%);
+    display: flex; align-items: center; justify-content: center;
+    padding: 32px 24px; min-height: 280px;
   }
   @media (min-width: 1024px) {
-    .pdm-image-section {
-      width: 50%;
-      min-height: unset;
-      padding: 40px;
-    }
+    .pdm-image-section { width: 50%; min-height: unset; padding: 40px; }
   }
-
   .pdm-discount-badge {
-    position: absolute;
-    top: 16px;
-    left: 16px;
-    background: #dc2626;
-    color: #fff;
-    font-size: 12px;
-    font-weight: 700;
-    padding: 4px 10px;
-    border-radius: 100px;
-    letter-spacing: 0.02em;
-    z-index: 5;
+    position: absolute; top: 16px; left: 16px; background: #dc2626; color: #fff;
+    font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 100px;
+    letter-spacing: 0.02em; z-index: 5;
   }
-
   .pdm-image-actions {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 5;
+    position: absolute; top: 16px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 5;
   }
-  @media (min-width: 1024px) {
-    .pdm-image-actions {
-      top: 20px;
-      right: 20px;
-    }
-  }
-
+  @media (min-width: 1024px) { .pdm-image-actions { top: 20px; right: 20px; } }
   .pdm-icon-btn {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.9);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(0,0,0,0.06);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
-    color: #555;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    width: 38px; height: 38px; border-radius: 50%; background: rgba(255,255,255,0.9);
+    backdrop-filter: blur(8px); border: 1px solid rgba(0,0,0,0.06);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    transition: all 0.2s; color: #555; box-shadow: 0 2px 10px rgba(0,0,0,0.06);
   }
-  .pdm-icon-btn:hover {
-    background: #fff;
-    transform: scale(1.08);
-    box-shadow: 0 4px 14px rgba(0,0,0,0.1);
-  }
-  .pdm-icon-btn-active {
-    background: #fff0f3 !important;
-    border-color: #fecdd3 !important;
-  }
-  .pdm-icon-btn-success {
-    background: #f0fdf4 !important;
-    border-color: #bbf7d0 !important;
-  }
-
-  .pdm-image-wrapper {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    max-width: 400px;
-  }
-
+  .pdm-icon-btn:hover { background: #fff; transform: scale(1.08); box-shadow: 0 4px 14px rgba(0,0,0,0.1); }
+  .pdm-icon-btn-active { background: #fff0f3 !important; border-color: #fecdd3 !important; }
+  .pdm-icon-btn-success { background: #f0fdf4 !important; border-color: #bbf7d0 !important; }
+  .pdm-image-wrapper { display: flex; align-items: center; justify-content: center; width: 100%; max-width: 400px; }
   .pdm-product-image {
-    width: 100%;
-    height: auto;
-    max-height: 260px;
-    object-fit: contain;
-    transition: transform 0.4s ease;
-    filter: drop-shadow(0 8px 24px rgba(0,0,0,0.08));
+    width: 100%; height: auto; max-height: 260px; object-fit: contain;
+    transition: transform 0.4s ease; filter: drop-shadow(0 8px 24px rgba(0,0,0,0.08));
   }
-  .pdm-image-wrapper:hover .pdm-product-image {
-    transform: scale(1.04);
-  }
-  @media (min-width: 1024px) {
-    .pdm-product-image {
-      max-height: 420px;
-    }
-  }
+  .pdm-image-wrapper:hover .pdm-product-image { transform: scale(1.04); }
+  @media (min-width: 1024px) { .pdm-product-image { max-height: 420px; } }
 
   /* ==================== DETAILS SECTION ==================== */
+  .pdm-details-section { display: flex; flex-direction: column; position: relative; overflow: hidden; flex: 1; }
+  @media (min-width: 1024px) { .pdm-details-section { width: 50%; } }
+  .pdm-details-scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  .pdm-details-scroll::-webkit-scrollbar { width: 4px; }
+  .pdm-details-scroll::-webkit-scrollbar-track { background: transparent; }
+  .pdm-details-scroll::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+  .pdm-details-scroll::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+  .pdm-details-inner { padding: 24px 20px 120px 20px; }
+  @media (min-width: 1024px) { .pdm-details-inner { padding: 32px 32px 130px 32px; } }
 
-  .pdm-details-section {
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    overflow: hidden;
-    flex: 1;
-  }
-  @media (min-width: 1024px) {
-    .pdm-details-section {
-      width: 50%;
-    }
-  }
-
-  .pdm-details-scroll {
-    flex: 1;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Custom scrollbar */
-  .pdm-details-scroll::-webkit-scrollbar {
-    width: 4px;
-  }
-  .pdm-details-scroll::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .pdm-details-scroll::-webkit-scrollbar-thumb {
-    background: #d1d5db;
-    border-radius: 4px;
-  }
-  .pdm-details-scroll::-webkit-scrollbar-thumb:hover {
-    background: #9ca3af;
-  }
-
-  .pdm-details-inner {
-    padding: 24px 20px 100px 20px;
-  }
-  @media (min-width: 1024px) {
-    .pdm-details-inner {
-      padding: 32px 32px 110px 32px;
-    }
-  }
-
-  /* ==================== PRODUCT NAME ==================== */
-
-  .pdm-product-name {
-    font-size: 20px;
-    font-weight: 800;
-    color: #1a1a1a;
-    line-height: 1.3;
-    letter-spacing: -0.02em;
-    margin: 0 0 8px 0;
-  }
-  @media (min-width: 1024px) {
-    .pdm-product-name {
-      font-size: 24px;
-    }
-  }
-
-  /* ==================== BRAND ==================== */
-
-  .pdm-brand {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 16px;
-  }
-  .pdm-brand-label {
-    font-size: 13px;
-    font-weight: 500;
-    color: #888;
-  }
+  /* ==================== PRODUCT NAME / BRAND ==================== */
+  .pdm-product-name { font-size: 20px; font-weight: 800; color: #1a1a1a; line-height: 1.3; letter-spacing: -0.02em; margin: 0 0 8px 0; }
+  @media (min-width: 1024px) { .pdm-product-name { font-size: 24px; } }
+  .pdm-brand { display: flex; align-items: center; gap: 6px; margin-bottom: 16px; }
+  .pdm-brand-label { font-size: 13px; font-weight: 500; color: #888; }
   .pdm-brand-value {
-    font-size: 13px;
-    font-weight: 700;
-    color: #14532d;
-    background: #f0fdf4;
-    padding: 2px 10px;
-    border-radius: 100px;
-    border: 1px solid #bbf7d0;
+    font-size: 13px; font-weight: 700; color: #14532d; background: #f0fdf4;
+    padding: 2px 10px; border-radius: 100px; border: 1px solid #bbf7d0;
   }
 
   /* ==================== PRICE BLOCK ==================== */
-
   .pdm-price-block {
     background: linear-gradient(135deg, #fef2f2 0%, #fff7ed 100%);
-    border: 1px solid #fecaca;
-    border-radius: 8px;
-    padding: 14px 16px;
-    margin-bottom: 16px;
+    border: 1px solid #fecaca; border-radius: 8px; padding: 14px 16px; margin-bottom: 16px;
   }
-
-  .pdm-price-row {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-
-  .pdm-price-current {
-    font-size: 26px;
-    font-weight: 900;
-    color: #dc2626;
-    letter-spacing: -0.02em;
-    line-height: 1;
-  }
-  @media (min-width: 1024px) {
-    .pdm-price-current {
-      font-size: 30px;
-    }
-  }
-
-  .pdm-price-old {
-    font-size: 15px;
-    font-weight: 400;
-    color: #9ca3af;
-    text-decoration: line-through;
-  }
-
+  .pdm-price-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .pdm-price-current { font-size: 26px; font-weight: 900; color: #dc2626; letter-spacing: -0.02em; line-height: 1; }
+  @media (min-width: 1024px) { .pdm-price-current { font-size: 30px; } }
+  .pdm-price-old { font-size: 15px; font-weight: 400; color: #9ca3af; text-decoration: line-through; }
   .pdm-savings {
-    margin-top: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #16a34a;
-    background: #dcfce7;
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
+    margin-top: 6px; font-size: 12px; font-weight: 600; color: #16a34a; background: #dcfce7;
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
   }
 
   /* ==================== STATUS TAGS ==================== */
-
-  .pdm-status-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 20px;
-  }
-
+  .pdm-status-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
   .pdm-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 5px 12px;
-    border-radius: 100px;
-    font-size: 12px;
-    font-weight: 600;
-    border: 1px solid;
+    display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px;
+    border-radius: 100px; font-size: 12px; font-weight: 600; border: 1px solid;
   }
-
-  .pdm-tag-green {
-    background: #f0fdf4;
-    color: #15803d;
-    border-color: #bbf7d0;
-  }
-  .pdm-tag-blue {
-    background: #eff6ff;
-    color: #1d4ed8;
-    border-color: #bfdbfe;
-  }
-  .pdm-tag-purple {
-    background: #faf5ff;
-    color: #7e22ce;
-    border-color: #e9d5ff;
-  }
-
-  /* ==================== QUANTITY ==================== */
-
-  .pdm-qty-section {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 16px;
-    background: #f7f7f7;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    margin-bottom: 20px;
-  }
-
-  .pdm-qty-label {
-    font-size: 14px;
-    font-weight: 700;
-    color: #1a1a1a;
-  }
-
-  .pdm-qty-control {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    overflow: hidden;
-    background: #fff;
-  }
-
-  .pdm-qty-btn {
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #fff;
-    border: none;
-    cursor: pointer;
-    font-size: 18px;
-    font-weight: 600;
-    color: #555;
-    transition: all 0.12s;
-    font-family: 'Plus Jakarta Sans', sans-serif;
-  }
-  .pdm-qty-btn:hover:not(:disabled) {
-    background: #f0fdf4;
-    color: #14532d;
-  }
-  .pdm-qty-btn:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-  }
-
-  .pdm-qty-value {
-    width: 44px;
-    text-align: center;
-    font-size: 16px;
-    font-weight: 700;
-    color: #1a1a1a;
-    border-left: 1px solid #e5e7eb;
-    border-right: 1px solid #e5e7eb;
-    padding: 6px 0;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 36px;
-  }
+  .pdm-tag-green { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+  .pdm-tag-blue { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+  .pdm-tag-purple { background: #faf5ff; color: #7e22ce; border-color: #e9d5ff; }
 
   /* ==================== DESCRIPTION ==================== */
-
-  .pdm-description-section {
-    margin-bottom: 16px;
-  }
-
+  .pdm-description-section { margin-bottom: 16px; }
   .pdm-section-title {
-    font-size: 16px;
-    font-weight: 800;
-    color: #1a1a1a;
-    margin: 0 0 10px 0;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    letter-spacing: -0.01em;
+    font-size: 16px; font-weight: 800; color: #1a1a1a; margin: 0 0 10px 0;
+    display: flex; align-items: center; gap: 8px; letter-spacing: -0.01em;
   }
-  .pdm-section-title::before {
-    content: '';
-    width: 3px;
-    height: 16px;
-    background: #14532d;
-    border-radius: 2px;
-    flex-shrink: 0;
-  }
-
+  .pdm-section-title::before { content: ''; width: 3px; height: 16px; background: #14532d; border-radius: 2px; flex-shrink: 0; }
   .pdm-description-content {
-    font-size: 14px;
-    font-weight: 400;
-    color: #555;
-    line-height: 1.7;
-    white-space: pre-line;
-    background: #fafafa;
-    border: 1px solid #f0f0f0;
-    border-radius: 6px;
-    padding: 14px 16px;
+    font-size: 14px; font-weight: 400; color: #555; line-height: 1.7; white-space: pre-line;
+    background: #fafafa; border: 1px solid #f0f0f0; border-radius: 6px; padding: 14px 16px;
   }
-  @media (min-width: 1024px) {
-    .pdm-description-content {
-      font-size: 15px;
-    }
-  }
+  @media (min-width: 1024px) { .pdm-description-content { font-size: 15px; } }
 
   /* ==================== STICKY CART BAR ==================== */
-
   .pdm-cart-bar {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: #fff;
-    border-top: 1px solid #e0e0e0;
-    padding: 12px 20px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    z-index: 10;
+    position: absolute; bottom: 0; left: 0; right: 0; background: #fff;
+    border-top: 1px solid #e0e0e0; padding: 12px 20px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; z-index: 10;
     box-shadow: 0 -4px 20px rgba(0,0,0,0.06);
   }
-  @media (min-width: 1024px) {
-    .pdm-cart-bar {
-      padding: 16px 32px;
-    }
-  }
-
-  .pdm-cart-bar-price {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    min-width: 0;
-    flex-shrink: 0;
-  }
-
-  .pdm-cart-bar-total-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: #888;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  .pdm-cart-bar-total-value {
-    font-size: 20px;
-    font-weight: 900;
-    color: #1a1a1a;
-    letter-spacing: -0.02em;
-    line-height: 1.1;
-  }
-  @media (min-width: 1024px) {
-    .pdm-cart-bar-total-value {
-      font-size: 22px;
-    }
-  }
-
+  @media (min-width: 1024px) { .pdm-cart-bar { padding: 16px 32px; } }
+  .pdm-cart-bar-price { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex-shrink: 0; }
+  .pdm-cart-bar-total-label { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.04em; }
+  .pdm-cart-bar-total-value { font-size: 20px; font-weight: 900; color: #1a1a1a; letter-spacing: -0.02em; line-height: 1.1; }
+  @media (min-width: 1024px) { .pdm-cart-bar-total-value { font-size: 22px; } }
   .pdm-cart-btn {
-    flex: 1;
-    height: 48px;
-    background: #14532d;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s;
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    box-shadow: 0 2px 8px rgba(20, 83, 45, 0.2);
+    flex: 1; height: 48px; background: #14532d; color: #fff; border: none; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+    font-family: 'Plus Jakarta Sans', sans-serif; box-shadow: 0 2px 8px rgba(20, 83, 45, 0.2);
   }
-  .pdm-cart-btn:hover:not(:disabled) {
-    background: #166534;
-    box-shadow: 0 4px 14px rgba(20, 83, 45, 0.3);
-    transform: translateY(-1px);
-  }
-  .pdm-cart-btn:active:not(:disabled) {
-    transform: translateY(0);
-  }
-  .pdm-cart-btn:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
-    transform: none;
-  }
-  .pdm-cart-btn-success {
-    background: #16a34a !important;
-    box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3) !important;
-  }
-
-  @media (min-width: 1024px) {
-    .pdm-cart-btn {
-      height: 52px;
-      font-size: 16px;
-    }
-  }
-
+  .pdm-cart-btn:hover:not(:disabled) { background: #166534; box-shadow: 0 4px 14px rgba(20, 83, 45, 0.3); transform: translateY(-1px); }
+  .pdm-cart-btn:active:not(:disabled) { transform: translateY(0); }
+  .pdm-cart-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+  .pdm-cart-btn-success { background: #16a34a !important; box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3) !important; }
+  @media (min-width: 1024px) { .pdm-cart-btn { height: 52px; font-size: 16px; } }
+  .pdm-cart-error { flex-basis: 100%; font-size: 12px; font-weight: 600; color: #b91c1c; }
   .pdm-btn-spinner {
-    width: 18px;
-    height: 18px;
-    border: 2px solid rgba(255,255,255,0.3);
-    border-top-color: #fff;
-    border-radius: 50%;
-    animation: pdm-spin 0.7s linear infinite;
+    width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+    border-radius: 50%; animation: pdm-spin 0.7s linear infinite;
   }
 `;
 

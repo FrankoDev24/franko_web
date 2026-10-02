@@ -28,14 +28,15 @@ import speedLogo from "../assets/speed-logo.png";
 /* ============================ CONFIG ============================ */
 
 const SHOWROOM_ID = "a0631779-0be9-4cc3-825d-5b381343859c";
-const PRODUCTS_PER_PAGE = 12;
+const PRODUCTS_PER_PAGE = 10;
 const MAX_PRICE = 200000;
 const BROWSE_ALL_URL = "/";
 
-// 24-hour sale starting midnight Accra time (GMT year-round).
-const PROMO_START = Date.parse("2026-10-02T00:00:00Z");
+// 24-hour sale: the countdown to the END runs from 9:00 AM GMT (Accra) today,
+// so the sale closes at 9:00 AM GMT tomorrow.
+const PROMO_START = Date.parse("2026-10-02T09:00:00Z");
 const PROMO_END = PROMO_START + 24 * 60 * 60 * 1000;
-const LAUNCH_LABEL = "Friday 2 October 2026, 8:00 AM";
+const LAUNCH_LABEL = "Friday 2 October 2026, 9:00 AM";
 
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest First" },
@@ -46,7 +47,7 @@ const SORT_OPTIONS = [
   { value: "name-az", label: "Name: A to Z" },
   { value: "name-za", label: "Name: Z to A" },
 ];
-const DEFAULT_SORT = "price-low";
+const DEFAULT_SORT = "newest";
 
 const TEASERS = {
   before: ["24 hours only"],
@@ -62,8 +63,8 @@ const TEASERS = {
 
 const pad = (n) => String(n ?? 0).padStart(2, "0");
 
-const getPhase = (now) =>
-  now < PROMO_START ? "before" : now < PROMO_END ? "live" : "ended";
+// The sale is live straight away; only the end time matters.
+const getPhase = (now) => (now < PROMO_END ? "live" : "ended");
 
 const formatPrice = (price) => {
   const value = Number(price);
@@ -116,7 +117,7 @@ const useCountdown = () => {
   }, []);
 
   const phase = getPhase(now);
-  const target = phase === "before" ? PROMO_START : PROMO_END;
+  const target = PROMO_END;
   const diff = phase === "ended" ? 0 : Math.max(0, target - now);
 
   return {
@@ -1035,7 +1036,7 @@ const Speed = () => {
 
                   {isInitialLoading && (
                     <div className={gridClass}>
-                      {Array.from({ length: 12 }).map((_, i) => (
+                      {Array.from({ length: PRODUCTS_PER_PAGE }).map((_, i) => (
                         <SkeletonCard key={i} />
                       ))}
                     </div>

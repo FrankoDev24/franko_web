@@ -30,6 +30,7 @@ import speedLogo from "../assets/speed-logo.png";
 const TEL_CHECKOUT_ROUTE = "/tel-checkout";
 const BACKEND_BASE_URL = "https://testing.frankotrading.com";
 
+// Use the same currency formatting and price field as src/pages/Cart.jsx.
 const formatCurrency = (amount, decimals = 2) => {
   const number = parseFloat(amount) || 0;
   return number.toLocaleString("en-US", {
@@ -39,15 +40,41 @@ const formatCurrency = (amount, decimals = 2) => {
 };
 
 const formatGHS = (amount) => `GH₵${formatCurrency(amount, 2)}`;
-const getUnitPrice = (item) => parseFloat(item?.price ?? item?.unitPrice) || 0;
-const getItemLineTotal = (item) => getUnitPrice(item) * (parseInt(item?.quantity, 10) || 1);
-const fileName = (path) => String(path || "").split(/[\\/]/).pop();
+const getUnitPrice = (item) => parseFloat(item?.price) || 0;
+const getItemLineTotal = (item) =>
+  getUnitPrice(item) * (parseInt(item?.quantity, 10) || 1);
 
+// Match Cart.jsx: imagePath is a backend product-image path, not a placeholder URL.
 const getImageUrl = (imagePath) => {
-  if (!imagePath) return "https://via.placeholder.com/120?text=Product";
-  const path = String(imagePath);
-  if (/^https?:\/\//i.test(path)) return path;
-  return `${BACKEND_BASE_URL}/Media/Products_Images/${fileName(path)}`;
+  if (!imagePath) return "";
+  return `${BACKEND_BASE_URL}/Media/Products_Images/${String(imagePath).split("\\").pop()}`;
+};
+
+/* Keep missing/broken images inside the same 72px product-image box. */
+const CartProductImage = ({ imagePath, productName }) => {
+  const imageUrl = getImageUrl(imagePath);
+  const [failedImageUrl, setFailedImageUrl] = useState(null);
+
+  if (!imageUrl || failedImageUrl === imageUrl) {
+    return (
+      <div
+        className="telcart-item-no-image"
+        role="img"
+        aria-label={`No image available for ${productName || "this product"}`}
+      >
+        <span aria-hidden="true">No Image</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={imageUrl}
+      alt={productName || "Product"}
+      loading="lazy"
+      onError={() => setFailedImageUrl(imageUrl)}
+    />
+  );
 };
 
 const getSavedTelCartId = (cartId) => {
@@ -147,7 +174,7 @@ const TelCartSidebar = ({
     if (storedId) dispatch(getCartById(storedId));
   }, [dispatch, open, cartId]);
 
-  /* Escape closes the drawer and prevent the page behind it from scrolling. */
+  /* Escape closes the drawer and prevents the page behind it from scrolling. */
   useEffect(() => {
     if (!open) return undefined;
     const onKeyDown = (event) => {
@@ -283,24 +310,49 @@ const TelCartSidebar = ({
               <span className="telcart-brand-divider" aria-hidden="true" />
               <img src={speedLogo} alt="Speed Shopping" className="telcart-brand-logo telcart-speed-logo" />
             </div>
-            <button type="button" className="telcart-close" onClick={onClose} aria-label="Close cart"><XMarkIcon className="h-5 w-5" /></button>
+            <button type="button" className="telcart-close" onClick={onClose} aria-label="Close cart">
+              <XMarkIcon className="h-5 w-5" />
+            </button>
           </div>
 
           <div className="telcart-title-row">
             <span className="telcart-header-icon"><ShoppingCartIcon className="h-5 w-5" /></span>
-            <div className="telcart-header-text"><h2 className="telcart-title">Your Cart</h2><p className="telcart-cartid" title={cartId || ""}>{cartId || "Tel cart"}</p></div>
+            <div className="telcart-header-text">
+              <h2 className="telcart-title">Your Cart</h2>
+              <p className="telcart-cartid" title={cartId || ""}>{cartId || "Tel cart"}</p>
+            </div>
             <span className="telcart-count-badge">{totalItems} {totalItems === 1 ? "item" : "items"}</span>
           </div>
         </header>
 
-        {!isLoggedIn && items.length > 0 && <div className="telcart-auth-strip"><LockClosedIcon className="h-4 w-4 flex-shrink-0" /><p><strong>Register to check out.</strong> Sign in or register when you tap Checkout to complete your order.</p></div>}
-        {networkError.show && <div className="telcart-notice telcart-notice-error"><ExclamationTriangleIcon className="h-4 w-4 flex-shrink-0" /><span>{networkError.message}</span></div>}
+        {!isLoggedIn && items.length > 0 && (
+          <div className="telcart-auth-strip">
+            <LockClosedIcon className="h-4 w-4 flex-shrink-0" />
+            <p><strong>Register to check out.</strong> Sign in or register when you tap Checkout to complete your order.</p>
+          </div>
+        )}
+        {networkError.show && (
+          <div className="telcart-notice telcart-notice-error">
+            <ExclamationTriangleIcon className="h-4 w-4 flex-shrink-0" />
+            <span>{networkError.message}</span>
+          </div>
+        )}
 
         <div className="telcart-body">
           {loading && items.length === 0 ? (
-            <div className="telcart-loading"><div className="telcart-spinner" /><p>Loading your cart items…</p></div>
+            <div className="telcart-loading">
+              <div className="telcart-spinner" />
+              <p>Loading your cart items…</p>
+            </div>
           ) : items.length === 0 ? (
-            <div className="telcart-empty"><span className="telcart-empty-icon"><ShoppingBagIcon className="h-7 w-7" /></span><h3>Your cart is empty</h3><p>Add a Speed Shopping deal and it will show up here.</p><button type="button" className="telcart-btn telcart-btn-primary" onClick={onClose}>Continue shopping</button></div>
+            <div className="telcart-empty">
+              <span className="telcart-empty-icon"><ShoppingBagIcon className="h-7 w-7" /></span>
+              <h3>Your cart is empty</h3>
+              <p>Add a Speed Shopping deal and it will show up here.</p>
+              <button type="button" className="telcart-btn telcart-btn-primary" onClick={onClose}>
+                Continue shopping
+              </button>
+            </div>
           ) : (
             <ul className="telcart-list">
               {items.map((item, index) => {
@@ -308,32 +360,54 @@ const TelCartSidebar = ({
                 const quantity = parseInt(item.quantity, 10) || 1;
                 const productId = item.productId ?? item.productID;
                 const busy = String(busyProductId) === String(productId);
-                const imagePath = item.imagePath || item.productImage || item.image;
+
                 return (
-                  <li key={productId || index} className="telcart-item">
-                    <div className="telcart-item-image">
-                      <img
-                        src={getImageUrl(imagePath)}
-                        alt={item.productName || "Product"}
-                        loading="lazy"
-                        onError={(event) => {
-                          event.currentTarget.onerror = null;
-                          event.currentTarget.src = "https://via.placeholder.com/120?text=Product";
-                        }}
-                      />
-                    </div>
-                    <div className="telcart-item-main">
-                      <h3 className="telcart-item-name">{item.productName}</h3>
-                      <p className="telcart-item-price">{formatGHS(unitPrice)}</p>
-                      <div className="telcart-item-row">
-                        <div className="telcart-qty">
-                          <button type="button" onClick={() => handleQuantityChange(productId, quantity - 1)} disabled={quantity <= 1 || busy} aria-label="Decrease quantity"><MinusIcon className="h-3.5 w-3.5" /></button>
-                          <span>{quantity}</span>
-                          <button type="button" onClick={() => handleQuantityChange(productId, quantity + 1)} disabled={busy} aria-label="Increase quantity"><PlusIcon className="h-3.5 w-3.5" /></button>
-                        </div>
-                        <p className="telcart-line-total">{formatGHS(unitPrice * quantity)}</p>
-                        <button type="button" className="telcart-remove" onClick={() => handleRemoveItem(productId)} disabled={busy} aria-label={`Remove ${item.productName}`}><TrashIcon className="h-4 w-4" /></button>
+                  <li key={productId ?? index} className="telcart-item">
+                    {/* Same product-info layout and fields as Cart.jsx. */}
+                    <div className="telcart-item-left">
+                      <div className="telcart-item-image">
+                        <CartProductImage
+                          imagePath={item.imagePath}
+                          productName={item.productName}
+                        />
                       </div>
+                      <div className="telcart-item-main">
+                        <h3 className="telcart-item-name">{item.productName}</h3>
+                        <p className="telcart-item-price">{formatGHS(item.price)}</p>
+                      </div>
+                    </div>
+
+                    {/* Keep the drawer's compact actions below the product info. */}
+                    <div className="telcart-item-row">
+                      <div className="telcart-qty">
+                        <button
+                          type="button"
+                          onClick={() => handleQuantityChange(productId, quantity - 1)}
+                          disabled={quantity <= 1 || busy}
+                          aria-label="Decrease quantity"
+                        >
+                          <MinusIcon className="h-3.5 w-3.5" />
+                        </button>
+                        <span>{quantity}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleQuantityChange(productId, quantity + 1)}
+                          disabled={busy}
+                          aria-label="Increase quantity"
+                        >
+                          <PlusIcon className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <p className="telcart-line-total">{formatGHS(unitPrice * quantity)}</p>
+                      <button
+                        type="button"
+                        className="telcart-remove"
+                        onClick={() => handleRemoveItem(productId)}
+                        disabled={busy}
+                        aria-label={`Remove ${item.productName}`}
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
                     </div>
                   </li>
                 );
@@ -342,12 +416,36 @@ const TelCartSidebar = ({
           )}
         </div>
 
-        {items.length > 0 && <footer className="telcart-footer">
-            <div className="telcart-total-card"><div className="telcart-total-row">
-                <span>Subtotal ({totalItems} items)</span><strong>{formatGHS(subtotal)}</strong>
-                </div><p className="telcart-note">Taxes, discounts &amp; delivery calculated at checkout.</p></div>
-               
-                <button type="button" className="telcart-btn telcart-btn-primary telcart-btn-block" onClick={handleCheckout} disabled={checkoutDisabled}>{isLoggedIn ? "Checkout" : "Register & Checkout"}<ArrowRightIcon className="h-4 w-4" /></button>{checkoutDisabled && <p className="telcart-note telcart-note-warning">{checkoutDisabledMessage}</p>}<button type="button" className="telcart-btn telcart-btn-ghost telcart-btn-block" onClick={onClose}>Continue shopping</button></footer>}
+        {items.length > 0 && (
+          <footer className="telcart-footer">
+            <div className="telcart-total-card">
+              <div className="telcart-total-row">
+                <span>Subtotal ({totalItems} items)</span>
+                <strong>{formatGHS(subtotal)}</strong>
+              </div>
+              <p className="telcart-note">Taxes, discounts &amp; delivery calculated at checkout.</p>
+            </div>
+            <button
+              type="button"
+              className="telcart-btn telcart-btn-primary telcart-btn-block"
+              onClick={handleCheckout}
+              disabled={checkoutDisabled}
+            >
+              {isLoggedIn ? "Checkout" : "Register & Checkout"}
+              <ArrowRightIcon className="h-4 w-4" />
+            </button>
+            {checkoutDisabled && (
+              <p className="telcart-note telcart-note-warning">{checkoutDisabledMessage}</p>
+            )}
+            <button
+              type="button"
+              className="telcart-btn telcart-btn-ghost telcart-btn-block"
+              onClick={onClose}
+            >
+              Continue shopping
+            </button>
+          </footer>
+        )}
       </aside>
 
       <AuthModal
@@ -367,7 +465,8 @@ const TelCartSidebar = ({
 const sidebarStyles = `
   .telcart-backdrop { position: fixed; inset: 0; border: 0; padding: 0; background: rgba(20,26,22,.45); opacity: 0; pointer-events: none; transition: opacity .25s ease; z-index: 9000; }
   .telcart-backdrop.is-open { opacity: 1; pointer-events: auto; }
-  .telcart-drawer { position: fixed; top: 0; right: 0; height: 100%; width: 100%; max-width: 420px; background: #fff; box-shadow: -8px 0 30px rgba(0,0,0,.18); display: flex; flex-direction: column; transform: translateX(100%); transition: transform .28s cubic-bezier(.32,.72,0,1); z-index: 9001; font-family: 'Plus Jakarta Sans',system-ui,-apple-system,sans-serif; }
+  .telcart-drawer { position: fixed; top: 0; right: 0; height: 100%; width: 100%; max-width: 420px; background: #fff; box-shadow: -8px 0 30px rgba(0,0,0,.18); display: flex; flex-direction: column; transform: translateX(100%); transition: transform .28s cubic-bezier(.32,.72,0,1); z-index: 9001; }
+  .telcart-drawer, .telcart-drawer * { font-family: 'Plus Jakarta Sans',sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; box-sizing: border-box; }
   .telcart-drawer.is-open { transform: translateX(0); }
   .telcart-header { padding: 14px 18px 16px; border-bottom: 1px solid #eee6e7; background: linear-gradient(90deg,#A80F1B 0%,#BB1420 50%,#A80F1B 100%); color: #fff; }
   .telcart-brand-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -391,15 +490,21 @@ const sidebarStyles = `
   .telcart-notice-error { background: #F6EEEE; color: #8C3D45; }
   .telcart-body { flex: 1; overflow-y: auto; padding: 14px 18px; background: #fcfbfa; }
   .telcart-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; background: #fff; border: 1px solid #e0e0e0; border-radius: 4px; overflow: hidden; }
-  .telcart-item { display: flex; align-items: center; gap: 12px; padding: 16px; background: #fff; border-bottom: 1px solid #e0e0e0; transition: background .2s ease; }
+
+  /* Product info matches Cart.jsx's mobile layout, which fits a 420px drawer. */
+  .telcart-item { display: flex; flex-direction: column; align-items: stretch; gap: 16px; padding: 16px; background: #fff; border-bottom: 1px solid #e0e0e0; transition: background .2s ease; }
   .telcart-item:last-child { border-bottom: 0; }
   .telcart-item:hover { background: #f0fdf4; }
-  .telcart-item-image { width: 72px; height: 72px; border-radius: 4px; background: #f7f7f7; flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-  .telcart-item-image img { width: 100%; height: 100%; object-fit: cover; }
+  .telcart-item-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+  .telcart-item-image { width: 72px; height: 72px; border-radius: 4px; background: #f7f7f7; flex-shrink: 0; overflow: hidden; }
+  .telcart-item-image img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .telcart-item-no-image { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #f7f7f7; }
+  .telcart-item-no-image span { color: #888; font-size: 11px; }
   .telcart-item-main { flex: 1; min-width: 0; }
   .telcart-item-name { margin: 0 0 4px; color: #1a1a1a; font-size: 15px; font-weight: 600; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .telcart-item-price { margin: 0; color: #dc2626; font-size: 15px; font-weight: 900; }
-  .telcart-item-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+
+  .telcart-item-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .telcart-qty { display: flex; align-items: center; background: #f7f7f7; border: 1px solid #e0e0e0; border-radius: 4px; overflow: hidden; }
   .telcart-qty button { width: 28px; height: 28px; border: 0; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #555; }
   .telcart-qty button:hover:not(:disabled) { background: #dcfce7; color: #14532d; }
@@ -435,7 +540,9 @@ const sidebarStyles = `
   .telcart-btn:disabled { opacity: .5; cursor: not-allowed; }
   .telcart-btn-ghost { background: #fff; border-color: #e3ded9; color: #5c6661; }
   .telcart-btn-ghost:hover { background: #f7f5f3; border-color: #E4CFD1; }
-  @media (max-width: 360px) { .telcart-body { padding: 10px; } .telcart-item { gap: 9px; padding: 12px; } .telcart-item-image { width: 60px; height: 60px; } .telcart-item-row { gap: 5px; } .telcart-line-total { min-width: 70px; font-size: 12px; } }
+
+  /* Keep product images at 72px on small screens, just like Cart.jsx. */
+  @media (max-width: 360px) { .telcart-body { padding: 10px; } }
   @media (prefers-reduced-motion: reduce) { .telcart-drawer,.telcart-backdrop { transition: none !important; } }
 `;
 

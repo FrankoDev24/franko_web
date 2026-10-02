@@ -24,7 +24,7 @@ import useAddToCart from "./Cart";
 
 const SHOWROOM_ID = "a0631779-0be9-4cc3-825d-5b381343859c";
 const INITIAL_FETCH_COUNT = 60;
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 10;
 
 /* Sale window — Ghana runs on GMT year-round, so "Z" = Accra local time.
    Keep this in sync with the announcement bar's PROMO_START. */
