@@ -24,59 +24,94 @@ gsap.registerPlugin(useGSAP);
 
 /* ── Promo timing. Ghana is on GMT all year, so "Z" = Accra time. ── */
 const PROMO_START = Date.parse("2026-10-02T00:00:00Z");
-const PROMO_END = PROMO_START + 24 * 60 * 60 * 1000; // "24 hours only"
+// Extended until today (Saturday, 3 October 2026) at 6:00 PM GMT
+const PROMO_END = Date.parse("2026-10-03T18:00:00Z");
 
 const SLIDE_SECONDS = 4.5;
 
 /* Copy variants */
 const SLIDES = [
   {
-    id: "launch",
-   
+    id: "extension",
+    icon: "zap",
+    badge: "Extended",
+    tone: "yellow",
     full: [
-      { t: "GHANA, GET READY! ", hl: true },
-      { t: "The 2nd Edition of Franko Speed Shopping is here!" },
+      { t: "PROMO EXTENDED! ", hl: true },
+      { t: "Franko Speed Shopping 2 continues until " },
+      { t: "6:00 PM TODAY!", hl: true },
     ],
     short: [
-      { t: "GHANA, GET READY! ", hl: true },
-      { t: "Speed Shopping 2 is here!" },
+      { t: "PROMO EXTENDED! ", hl: true },
+      { t: "Speed Shopping 2 ends " },
+      { t: "6:00 PM TODAY!", hl: true },
+    ],
+    tiny: [
+      { t: "EXTENDED! ", hl: true },
+      { t: "Ends today at " },
+      { t: "6:00 PM!", hl: true },
     ],
   },
   {
     id: "sale",
-   
+    icon: "percent",
+    badge: "Up to 40% Off",
+    tone: "white",
     full: [
       { t: "GET UP TO " },
       { count: 40, hl: true },
       { t: "% OFF", hl: true },
-      { t: " selected items  " },
-      { t: "24 HOURS ONLY!", hl: true },
+      { t: " selected items · " },
+      { t: "EXTENDED TILL 6:00 PM TODAY!", hl: true },
     ],
     short: [
       { t: "UP TO " },
       { count: 40, hl: true },
       { t: "% OFF", hl: true },
       { t: " selected items · " },
-      { t: "24 HRS ONLY!", hl: true },
+      { t: "TILL 6PM TODAY!", hl: true },
+    ],
+    tiny: [
+      { t: "UP TO " },
+      { count: 40, hl: true },
+      { t: "% OFF", hl: true },
+      { t: " · " },
+      { t: "ENDS 6PM TODAY!", hl: true },
     ],
   },
   {
     id: "date",
     icon: "calendar",
- 
-    full: [{ t: "FRIDAY, 2ND OCT. 2026", hl: true }],
+    badge: "Final Hours",
+    tone: "blue",
+    full: [
+      { t: "EXTENDED TODAY · ", hl: true },
+      { t: "SATURDAY, 3RD OCT. 2026 UNTIL 6:00 PM" },
+    ],
+    short: [
+      { t: "EXTENDED TODAY · ", hl: true },
+      { t: "ENDS AT 6:00 PM!" },
+    ],
   },
   {
     id: "branches",
-   
+    icon: "pin",
+    badge: "Nationwide",
+    tone: "yellow",
     full: [
       { t: "AVAILABLE ACROSS ALL " },
+      { t: "FRANKO BRANCHES & ONLINE", hl: true },
+    ],
+    short: [
+      { t: "AVAILABLE AT ALL " },
       { t: "FRANKO BRANCHES", hl: true },
     ],
   },
   {
     id: "delivery",
-  
+    icon: "truck",
+    badge: "Free Delivery",
+    tone: "green",
     full: [
       { t: "FREE DELIVERY", hl: true },
       { t: " on online orders in Accra & Kumasi" },
@@ -131,7 +166,7 @@ const getPhase = (now) =>
   now < PROMO_START ? "before" : now < PROMO_END ? "live" : "ended";
 
 const usePromoPhase = () => {
-  const [phase, setPhase] = useState("before");
+  const [phase, setPhase] = useState(() => getPhase(Date.now()));
   useEffect(() => {
     const tick = () => setPhase(getPhase(Date.now()));
     tick();
@@ -151,10 +186,10 @@ const useCountdown = () => {
 
   if (now === null) {
     return {
-      phase: "before",
-      label: "Starts in",
+      phase: "live",
+      label: "Extended · Ends in",
       units: ["--", "--", "--", "--"],
-      aria: "Countdown to Franko Speed Shopping",
+      aria: "Countdown to extended Franko Speed Shopping end at 6:00 PM today",
     };
   }
 
@@ -165,13 +200,13 @@ const useCountdown = () => {
   const h = Math.floor((total % 86400) / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
-  const label = phase === "live" ? "Ends in" : "Starts in";
+  const label = phase === "live" ? "Ends 6PM" : "Starts in";
 
   return {
     phase,
     label,
     units: [pad(d), pad(h), pad(m), pad(s)],
-    aria: `${label} ${d} days, ${h} hours, ${m} minutes`,
+    aria: `${label} in ${d} days, ${h} hours, ${m} minutes`,
   };
 };
 
@@ -213,21 +248,24 @@ const ICONS = {
   ),
 };
 
-const Icon = ({ name, size = 16, strokeWidth = 2.4 }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={strokeWidth}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    {ICONS[name]}
-  </svg>
-);
+const Icon = ({ name, size = 16, strokeWidth = 2.4 }) => {
+  if (!name || !ICONS[name]) return null;
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {ICONS[name]}
+    </svg>
+  );
+};
 
 const WhatsAppIcon = ({ size = 15 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -375,14 +413,14 @@ const ShopNowButton = () => (
           boxShadow: "0 0 0 2px rgba(255,212,0,0.35), 0 0 12px rgba(255,212,0,0.55)",
         }}
       />
-   <span
-  className="relative flex items-center gap-1.5 font-bold"
-  style={{
-    textShadow:
-      "0 1px 0 rgba(255,255,255,0.35), 0 2px 0 rgba(0,0,0,0.15), 0 3px 5px rgba(0,0,0,0.2)",
-  }}
->
-  Shop Now
+      <span
+        className="relative flex items-center gap-1.5 font-bold"
+        style={{
+          textShadow:
+            "0 1px 0 rgba(255,255,255,0.35), 0 2px 0 rgba(0,0,0,0.15), 0 3px 5px rgba(0,0,0,0.2)",
+        }}
+      >
+        Shop Now
         {/* Animated mini cart — drives forward on loop, bumps on hover */}
         <span className="relative inline-flex items-center" aria-hidden="true">
           <svg
@@ -584,12 +622,19 @@ const AnnouncementBar = () => {
         // Extra nudge on hover
         const btn = cartIcon.closest("[data-shop-btn]");
         if (btn) {
-          const boost = () => gsap.fromTo(cartIcon, { x: -2 }, { x: 6, duration: 0.35, ease: "power2.out", yoyo: true, repeat: 1 });
+          const boost = () =>
+            gsap.fromTo(
+              cartIcon,
+              { x: -2 },
+              { x: 6, duration: 0.35, ease: "power2.out", yoyo: true, repeat: 1 }
+            );
           btn.addEventListener("mouseenter", boost);
           cleanupHover = () => btn.removeEventListener("mouseenter", boost);
         }
       }
-      return () => { if (cleanupHover) cleanupHover(); };
+      return () => {
+        if (cleanupHover) cleanupHover();
+      };
     },
     { scope: rootRef }
   );
@@ -715,16 +760,22 @@ const AnnouncementBar = () => {
           <div className="flex h-8 min-w-0 items-center justify-center gap-2 px-1.5 lg:h-full lg:flex-1 lg:justify-start lg:px-0">
             <div className="flex h-full min-w-0 items-center overflow-hidden">
               <div key={slide.id} ref={stageRef} className="flex min-w-0 items-center gap-1.5 md:gap-2">
-                <span data-icon className="shrink-0 text-[#FFD400]">
-                  <Icon name={slide.icon} size={16} />
-                </span>
+                {slide.icon && (
+                  <span data-icon className="shrink-0 text-[#FFD400]">
+                    <Icon name={slide.icon} size={16} />
+                  </span>
+                )}
 
-                <span
-                  data-badge
-                  className={`hidden h-[22px] shrink-0 items-center rounded-full px-3 text-[14px] font-black uppercase tracking-[0.1em] shadow-md xl:inline-flex ${TONE[slide.tone]}`}
-                >
-                  {slide.badge}
-                </span>
+                {slide.badge && (
+                  <span
+                    data-badge
+                    className={`hidden h-[22px] shrink-0 items-center rounded-full px-3 text-[12px] font-black uppercase tracking-[0.1em] shadow-md xl:inline-flex ${
+                      TONE[slide.tone] || TONE.yellow
+                    }`}
+                  >
+                    {slide.badge}
+                  </span>
+                )}
 
                 <span className="fk-text min-w-0 truncate text-[clamp(12px,3.75vw,15px)] font-black leading-none md:text-base lg:text-[14.5px] xl:text-[15.5px] 2xl:text-[15.5px]">
                   <span className="sr-only">{plainText(slide.full)}</span>
