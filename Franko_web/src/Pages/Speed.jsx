@@ -32,11 +32,12 @@ const PRODUCTS_PER_PAGE = 10;
 const MAX_PRICE = 200000;
 const BROWSE_ALL_URL = "/";
 
-// 24-hour sale: the countdown to the END runs from 9:00 AM GMT (Accra) today,
-// so the sale closes at 9:00 AM GMT tomorrow.
+// Promotion started Friday 2 Oct 2026 at 9:00 AM GMT (Accra)
+// and has been extended until today, Saturday 3 Oct 2026 at 6:00 PM GMT.
 const PROMO_START = Date.parse("2026-10-02T09:00:00Z");
-const PROMO_END = PROMO_START + 24 * 60 * 60 * 1000;
+const PROMO_END = Date.parse("2026-10-03T18:00:00Z");
 const LAUNCH_LABEL = "Friday 2 October 2026, 9:00 AM";
+const EXTENSION_BADGE = "Extended Today Until 6:00 PM";
 
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest First" },
@@ -50,13 +51,13 @@ const SORT_OPTIONS = [
 const DEFAULT_SORT = "newest";
 
 const TEASERS = {
-  before: ["24 hours only"],
+  before: ["Limited-time flash sale"],
   live: [
-    "Shop today's exclusive deals before they are gone.",
-    "Limited-time prices. No need to wait.",
-    "Find it. Love it. Add it to your cart.",
+    "Promotion extended! Shop exclusive deals until 6:00 PM today.",
+    "Extended by popular demand — final hours close at 6:00 PM today.",
+    "Limited-time prices. Find it. Love it. Add it to your cart.",
   ],
-  ended: ["This flash sale has ended — thanks for shopping with us."],
+  ended: ["This extended flash sale has ended — thanks for shopping with us."],
 };
 
 /* ============================ HELPERS ============================ */
@@ -728,7 +729,7 @@ const Speed = () => {
         <title>
           {isTeaser
             ? "Speed Shopping drops 2 October | Franko Trading"
-            : "Speed Shopping | Franko Trading"}
+            : "Speed Shopping – Extended Until 6:00 PM Today | Franko Trading"}
         </title>
         <meta
           name="viewport"
@@ -777,9 +778,17 @@ const Speed = () => {
                 className="h-12 sm:h-16 w-auto flex-shrink-0 object-contain"
               />
               <div className="min-w-0">
-                <h1 className="text-base sm:text-lg lg:text-2xl font-semibold text-white leading-tight">
-                  Franko <span className="text-[#FFD400]">Speed Shopping</span>
-                </h1>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-base sm:text-lg lg:text-2xl font-semibold text-white leading-tight">
+                    Franko <span className="text-[#FFD400]">Speed Shopping</span>
+                  </h1>
+                  {phase === "live" && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#FFD400] text-[#234A39] text-[10px] sm:text-[11px] font-bold uppercase tracking-wide shadow-sm">
+                      <SparklesIcon className="w-3.5 h-3.5" />
+                      {EXTENSION_BADGE}
+                    </span>
+                  )}
+                </div>
                 <p
                   className={`mt-0.5 text-[12px] lg:text-[13px] text-white/90 transition-opacity duration-200 ${
                     teaserVisible ? "opacity-100" : "opacity-0"
@@ -793,18 +802,20 @@ const Speed = () => {
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full md:w-auto">
               {phase !== "ended" ? (
                 <div className="flex items-center justify-between md:justify-end gap-3 w-full md:w-auto bg-black/10 md:bg-transparent px-3 md:px-0 py-2 md:py-0 rounded-lg">
-                  <span className="flex items-center gap-1.5 text-white text-[10px] font-semibold uppercase tracking-[0.14em] whitespace-nowrap">
-                    {phase === "live" && (
-                      <span className="relative flex h-1.5 w-1.5">
-                        <span
-                          className="absolute inline-flex h-full w-full rounded-full bg-[#FFD400] opacity-70"
-                          style={{ animation: "speedLivePing 1.8s cubic-bezier(0,0,0.2,1) infinite" }}
-                        />
-                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#FFD400]" />
-                      </span>
-                    )}
-                    {phase === "live" ? "Ends in" : "Drops in"}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="flex items-center gap-1.5 text-white text-[10px] font-semibold uppercase tracking-[0.14em] whitespace-nowrap">
+                      {phase === "live" && (
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span
+                            className="absolute inline-flex h-full w-full rounded-full bg-[#FFD400] opacity-70"
+                            style={{ animation: "speedLivePing 1.8s cubic-bezier(0,0,0.2,1) infinite" }}
+                          />
+                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#FFD400]" />
+                        </span>
+                      )}
+                      {phase === "live" ? "Extended · Ends 6 PM" : "Drops in"}
+                    </span>
+                  </div>
                   <div className="flex items-center gap-1.5">
                     <CountdownRow countdown={countdown} size="sm" />
                   </div>
@@ -1093,7 +1104,7 @@ const Speed = () => {
                         {filtersActive
                           ? "Try widening your price range or clearing a filter to see more deals."
                           : phase === "ended"
-                          ? "The 24-hour window has closed. The rest of the store is open as usual."
+                          ? "The extended promotion window has closed. The rest of the store is open as usual."
                           : "The first batch is being uploaded now. Refresh in a moment, or explore the rest of the store."}
                       </p>
                       <div className="flex flex-col xs:flex-row items-stretch justify-center gap-3">
