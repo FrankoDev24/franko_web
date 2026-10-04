@@ -1,61 +1,119 @@
-import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchProductsByCategory } from "../Redux/Slice/productSlice";
 import { useNavigate } from "react-router-dom";
-import { addToWishlist, removeFromWishlist } from "../Redux/Slice/wishlistSlice";
+import { Helmet } from "react-helmet";
 import {
   FunnelIcon,
   XMarkIcon,
-  AdjustmentsHorizontalIcon,
   TagIcon,
   ChevronDownIcon,
-  Bars3BottomLeftIcon,
-  MagnifyingGlassIcon,
+  ArrowsUpDownIcon,
 } from "@heroicons/react/24/outline";
 import {
-  HeartIcon as OutlineHeartIcon,
-  HeartIcon as SolidHeartIcon,
   ShoppingCartIcon,
-  EyeIcon,
+  CheckIcon,
   CheckCircleIcon,
   XCircleIcon,
 } from "@heroicons/react/24/solid";
-import { Tooltip } from "@material-tailwind/react";
+
+import { fetchProductsByCategory } from "../Redux/Slice/productSlice";
 import { CircularPagination } from "../Component/CircularPagination";
 import useAddToCart from "../Component/Cart";
-import { Helmet } from "react-helmet";
 
-const categoryId = "2cf502a2-e621-4ed1-9bd5-6cebc165d6fe";
+/* ============================ CONFIG ============================ */
 
-// ==================== NOTIFICATION ====================
+const CATEGORY_ID = "2cf502a2-e621-4ed1-9bd5-6cebc165d6fe";
+const PRODUCTS_PER_PAGE = 10;
+const MAX_PRICE = 200000;
 
-const Notification = ({ message, type, isVisible, onClose }) => {
-  const timeoutRef = useRef(null);
+const SORT_OPTIONS = [
+  { value: "newest", label: "Newest First" },
+  { value: "oldest", label: "Oldest First" },
+  { value: "price-low", label: "Price: Low to High" },
+  { value: "price-high", label: "Price: High to Low" },
+  { value: "discount", label: "Biggest Discount" },
+  { value: "name-az", label: "Name: A to Z" },
+  { value: "name-za", label: "Name: Z to A" },
+];
+const DEFAULT_SORT = "newest";
 
+/* ============================ HELPERS ============================ */
+
+const formatPrice = (price) => {
+  const value = Number(price);
+  if (!Number.isFinite(value)) return "GH₵0.00";
+  return `GH₵${value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+};
+
+const getImageUrl = (path) => {
+  if (!path) return "https://via.placeholder.com/500";
+  if (path.includes("\\")) {
+    return `https://testing.frankotrading.com/Media/Products_Images/${path
+      .split("\\")
+      .pop()}`;
+  }
+  return path;
+};
+
+const getDiscount = (product) => {
+  const price = Number(product.price) || 0;
+  const oldPrice = Number(product.oldPrice) || 0;
+  return oldPrice > price && oldPrice > 0
+    ? Math.round(((oldPrice - price) / oldPrice) * 100)
+    : 0;
+};
+
+const sortProducts = (list, sortBy) => {
+  const byDate = (p) => new Date(p.dateCreated || 0).getTime();
+  const byPrice = (p) => Number(p.price) || 0;
+  const byName = (p) => p.productName || "";
+  const sorters = {
+    newest: (a, b) => byDate(b) - byDate(a),
+    oldest: (a, b) => byDate(a) - byDate(b),
+    "price-low": (a, b) => byPrice(a) - byPrice(b),
+    "price-high": (a, b) => byPrice(b) - byPrice(a),
+    discount: (a, b) => getDiscount(b) - getDiscount(a),
+    "name-az": (a, b) => byName(a).localeCompare(byName(b)),
+    "name-za": (a, b) => byName(b).localeCompare(byName(a)),
+  };
+  return [...list].sort(sorters[sortBy] || sorters.newest);
+};
+
+/* ============================ SMALL PIECES ============================ */
+
+const Notification = ({ message, type, visible, onClose }) => {
   useEffect(() => {
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, []);
+    if (!visible || !message) return undefined;
+    const id = setTimeout(onClose, 3000);
+    return () => clearTimeout(id);
+  }, [visible, message, onClose]);
 
-  useEffect(() => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    if (isVisible && message) {
-      timeoutRef.current = setTimeout(() => onClose(), 3000);
-    }
-  }, [isVisible, message]);
-
-  if (!isVisible || !message) return null;
-
-  const bgClass = type === "success" ? "wm-notif-success" : "wm-notif-error";
+  if (!visible || !message) return null;
   const Icon = type === "success" ? CheckCircleIcon : XCircleIcon;
 
   return (
-    <div className="fixed top-4 right-4 z-50 wm-animate-slide-in">
-      <div className={`wm-notif ${bgClass}`}>
+    <div
+      className="fixed top-2 left-2 right-2 sm:left-auto sm:right-4 sm:top-4 z-[9999] sm:max-w-sm animate-[speedSlideIn_0.3s_ease-out]"
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
+      role="status"
+      aria-live="polite"
+    >
+      <div
+        className={`flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg text-white text-xs sm:text-sm font-semibold ${
+          type === "success" ? "bg-[#2C5E48]" : "bg-[#BB1420]"
+        }`}
+      >
         <Icon className="w-5 h-5 flex-shrink-0" />
-        <span className="wm-notif-text">{message}</span>
-        <button onClick={onClose} className="wm-notif-close">
+        <span className="min-w-0">{message}</span>
+        <button
+          type="button"
+          onClick={onClose}
+          className="ml-auto -mr-1 p-1 text-xl leading-none hover:opacity-70"
+          aria-label="Close notification"
+        >
           ×
         </button>
       </div>
@@ -63,1374 +121,880 @@ const Notification = ({ message, type, isVisible, onClose }) => {
   );
 };
 
-// ==================== SKELETON ====================
-
 const SkeletonCard = () => (
-  <div className="wm-skeleton">
-    <div className="wm-skeleton-img" />
-    <div style={{ padding: "10px 12px" }}>
-      <div
-        className="wm-skeleton-line"
-        style={{
-          width: "80%",
-          marginBottom: 8,
-          marginLeft: "auto",
-          marginRight: "auto",
-        }}
-      />
-      <div
-        className="wm-skeleton-line"
-        style={{
-          width: "50%",
-          height: 8,
-          marginLeft: "auto",
-          marginRight: "auto",
-        }}
-      />
+  <div className="bg-white border border-[#e6e1dc] rounded-xl overflow-hidden">
+    <div className="aspect-[4/3] bg-gradient-to-r from-[#e7f0eb] via-[#f7faf8] to-[#e7f0eb] animate-pulse" />
+    <div className="p-2.5 space-y-2">
+      <div className="h-3 w-4/5 rounded bg-[#d7e6de] animate-pulse" />
+      <div className="h-4 w-2/5 rounded bg-[#d7e6de] animate-pulse" />
+      <div className="h-9 w-full rounded-lg bg-[#d7e6de] animate-pulse" />
     </div>
   </div>
 );
 
-// ==================== MAIN COMPONENT ====================
+const FilterChip = ({ label, onRemove }) => (
+  <button
+    type="button"
+    onClick={onRemove}
+    className="group inline-flex items-center gap-1.5 pl-3 pr-2 py-2 sm:py-1.5 rounded-full bg-[#e7f0eb] border border-[#c9d9cf] text-xs font-semibold text-[#2C5E48] hover:bg-[#dce8e1] active:scale-[0.97] transition"
+  >
+    <span className="max-w-[45vw] truncate">{label}</span>
+    <XMarkIcon className="w-3.5 h-3.5 text-[#6e947e] group-hover:text-[#2C5E48]" />
+  </button>
+);
+
+const SortSelect = ({ value, onChange, id, className = "" }) => (
+  <div className={`relative ${className}`}>
+    <label htmlFor={id} className="sr-only">
+      Sort products
+    </label>
+    <ArrowsUpDownIcon className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#2C5E48]" />
+    <select
+      id={id}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full appearance-none pl-8 pr-8 py-2.5 rounded-lg bg-white border border-[#c9d9cf] text-xs sm:text-sm font-semibold text-[#2C5E48] outline-none focus:border-[#2C5E48] focus:ring-2 focus:ring-[#2C5E48]/15 cursor-pointer"
+    >
+      {SORT_OPTIONS.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+    <ChevronDownIcon className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#2C5E48]" />
+  </div>
+);
+
+/* ============================ PRODUCT CARD ============================ */
+// Defined at module level (exact match to Speed page card UI).
+
+const ProductCard = memo(function ProductCard({
+  product,
+  disabled,
+  loading,
+  justAdded,
+  onAdd,
+  onOpen,
+}) {
+  const id = product.productID || product.id;
+  const price = Number(product.price) || 0;
+  const oldPrice = Number(product.oldPrice) || 0;
+  const soldOut = Number(product.stock) === 0;
+  const discount = getDiscount(product);
+  const name = product.productName || "Unnamed product";
+
+  return (
+    <article className="group flex flex-col bg-white border border-[#e6e1dc] rounded-xl overflow-hidden transition hover:border-[#c9d9cf] hover:shadow-sm">
+      <div
+        className="relative aspect-[4/3] flex items-center justify-center p-2 cursor-pointer"
+        onClick={() => onOpen(id)}
+        role="link"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onOpen(id);
+          }
+        }}
+        aria-label={`View ${name}`}
+      >
+        {discount > 0 && !soldOut && (
+          <span className="absolute top-2 left-2 z-10 px-2 py-0.5 text-[10px] font-bold rounded-md bg-[#BB1420] text-white">
+            -{discount}%
+          </span>
+        )}
+        {soldOut && (
+          <span className="absolute top-2 left-2 z-10 px-2 py-0.5 text-[10px] font-semibold rounded-md bg-[#234A39] text-white">
+            Sold out
+          </span>
+        )}
+        <img
+          src={getImageUrl(product.productImage)}
+          alt={name}
+          loading="lazy"
+          onError={(e) => {
+            e.target.onerror = null;
+            e.target.src = "https://via.placeholder.com/500";
+          }}
+          className={`h-full w-full object-contain transition-transform duration-300 group-hover:scale-[1.03] ${
+            soldOut ? "opacity-60" : ""
+          }`}
+        />
+      </div>
+
+      <div className="flex flex-col flex-1 gap-1.5 px-2.5 pb-2.5 pt-2 border-t border-[#f1eeea]">
+        <h3 className="text-[13px] sm:text-sm font-medium text-[#2c3330] leading-snug line-clamp-2 min-h-[2.5em]">
+          {name}
+        </h3>
+
+        <div className="flex items-baseline flex-wrap gap-x-2">
+          <span className="text-[15px] sm:text-base font-semibold text-[#2C5E48]">
+            {formatPrice(price)}
+          </span>
+          {discount > 0 && (
+            <span className="text-[11px] text-[#8a928e] line-through">
+              {formatPrice(oldPrice)}
+            </span>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onAdd(product)}
+          disabled={disabled || soldOut}
+          aria-label={soldOut ? `${name} is sold out` : `Add ${name} to cart`}
+          className={`mt-auto min-h-[38px] w-full inline-flex items-center justify-center gap-1.5 rounded-lg px-2 text-xs sm:text-[13px] font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed ${
+            soldOut
+              ? "bg-[#f1eeea] text-[#9aa29d] border border-[#e6e1dc]"
+              : justAdded
+              ? "bg-[#2C5E48] text-white"
+              : "bg-[#BB1420] text-white hover:bg-[#A80F1B]"
+          }`}
+        >
+          {soldOut ? (
+            "Sold out"
+          ) : justAdded ? (
+            <>
+              <CheckIcon className="w-4 h-4 speed-pop" /> Added
+            </>
+          ) : loading ? (
+            <>
+              <span className="speed-spinner" aria-hidden="true" /> Adding…
+            </>
+          ) : (
+            <>
+              <ShoppingCartIcon className="w-4 h-4" /> Add to cart
+            </>
+          )}
+        </button>
+      </div>
+    </article>
+  );
+});
+
+/* ============================ MAIN COMPONENT ============================ */
 
 const Combo = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const { productsByCategory = {}, loading } = useSelector(
-    (state) => state.products
-  );
-  const wishlist = useSelector((state) => state.wishlist.items || []);
+  const { productsByCategory = {}, loading } = useSelector((s) => s.products);
   const { addProductToCart, loading: cartLoading } = useAddToCart();
 
-  const [inputPriceRange, setInputPriceRange] = useState({
-    min: 0,
-    max: 200000,
-  });
-  const [appliedPriceRange, setAppliedPriceRange] = useState([0, 200000]);
-  const [showDiscountedOnly, setShowDiscountedOnly] = useState(false);
-  const [selectedBrand, setSelectedBrand] = useState(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [sortBy, setSortBy] = useState("newest");
-  const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [recentlyAdded, setRecentlyAdded] = useState(() => new Set());
+  const [addingIds, setAddingIds] = useState(() => new Set());
+
+  const [inputPrice, setInputPrice] = useState({ min: 0, max: MAX_PRICE });
+  const [priceRange, setPriceRange] = useState([0, MAX_PRICE]);
+  const [discountedOnly, setDiscountedOnly] = useState(false);
+  const [brand, setBrand] = useState("");
+  const [sortBy, setSortBy] = useState(DEFAULT_SORT);
+  const [page, setPage] = useState(1);
+
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [notice, setNotice] = useState({ message: "", type: "success", visible: false });
 
-  const [notification, setNotification] = useState({
-    message: "",
-    type: "success",
-    isVisible: false,
-  });
+  const gridTopRef = useRef(null);
 
-  const itemsPerPage = 12;
+  const products = useMemo(
+    () => productsByCategory?.[CATEGORY_ID] || [],
+    [productsByCategory]
+  );
 
-  const hideNotification = useCallback(() => {
-    setNotification((prev) => ({ ...prev, isVisible: false }));
+  const brands = useMemo(
+    () =>
+      [...new Set(products.map((p) => p.brandName).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b)
+      ),
+    [products]
+  );
+
+  const showNotice = useCallback((message, type = "success") => {
+    setNotice({ message, type, visible: true });
   }, []);
+  const hideNotice = useCallback(
+    () => setNotice((prev) => ({ ...prev, visible: false })),
+    []
+  );
 
-  const showNotification = useCallback((message, type = "success") => {
-    setNotification({ message: "", type: "success", isVisible: false });
-    requestAnimationFrame(() => {
-      setNotification({ message, type, isVisible: true });
-    });
-  }, []);
+  /* ---------- effects ---------- */
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
-    dispatch(fetchProductsByCategory(categoryId)).then(() => {
-      setHasLoadedOnce(true);
-    });
+    window.scrollTo?.({ top: 0, behavior: "smooth" });
+    const request = dispatch(fetchProductsByCategory(CATEGORY_ID));
+    if (request?.then) request.then(() => setHasLoadedOnce(true));
+    else setHasLoadedOnce(true);
   }, [dispatch]);
 
-  const products = useMemo(() => {
-    return productsByCategory[categoryId] || [];
-  }, [productsByCategory]);
+  // Lock scroll + Escape to close while the filter sheet is open.
+  useEffect(() => {
+    if (!drawerOpen) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e) => e.key === "Escape" && setDrawerOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [drawerOpen]);
 
-  const brands = useMemo(() => {
-    return Array.from(
-      new Set(products.map((product) => product.brandName))
-    ).sort();
-  }, [products]);
+  const scrollToGrid = useCallback(() => {
+    const node = gridTopRef.current;
+    if (!node) return;
+    const top = node.getBoundingClientRect().top + window.pageYOffset - 84;
+    window.scrollTo?.({ top: Math.max(0, top), behavior: "smooth" });
+  }, []);
+
+  /* ---------- derived data ---------- */
+
+  const filteredProducts = useMemo(() => {
+    const result = products.filter((p) => {
+      const price = Number(p.price) || 0;
+      return (
+        price >= priceRange[0] &&
+        price <= priceRange[1] &&
+        (!discountedOnly || getDiscount(p) > 0) &&
+        (!brand || p.brandName === brand)
+      );
+    });
+    return sortProducts(result, sortBy);
+  }, [products, priceRange, discountedOnly, brand, sortBy]);
+
+  const totalPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE);
+  const safePage = Math.min(Math.max(1, page), Math.max(1, totalPages));
+  const currentProducts = filteredProducts.slice(
+    (safePage - 1) * PRODUCTS_PER_PAGE,
+    safePage * PRODUCTS_PER_PAGE
+  );
+
+  useEffect(() => {
+    if (totalPages > 0 && page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const priceIsDefault = priceRange[0] === 0 && priceRange[1] === MAX_PRICE;
+  const filtersActive =
+    !priceIsDefault || discountedOnly || Boolean(brand) || sortBy !== DEFAULT_SORT;
+  const activeFilterCount = [!priceIsDefault, discountedOnly, Boolean(brand)].filter(
+    Boolean
+  ).length;
+
+  const isInitialLoading = loading && !hasLoadedOnce;
+  const hasNoResults = hasLoadedOnce && !loading && filteredProducts.length === 0;
+  const countLabel = isInitialLoading
+    ? "Loading washing machines…"
+    : `${filteredProducts.length} ${
+        filteredProducts.length === 1 ? "washing machine" : "washing machines"
+      }`;
+
+  /* ---------- handlers ---------- */
+
+  const handleSortChange = useCallback(
+    (value) => {
+      setSortBy(value);
+      setPage(1);
+      scrollToGrid();
+    },
+    [scrollToGrid]
+  );
+
+  const handlePageChange = useCallback(
+    (p) => {
+      setPage(p);
+      scrollToGrid();
+    },
+    [scrollToGrid]
+  );
 
   const applyPriceFilter = () => {
-    const min = Math.max(0, inputPriceRange.min || 0);
-    const max = Math.min(200000, inputPriceRange.max || 200000);
-    setAppliedPriceRange([min, max]);
-    setCurrentPage(1);
+    const min = Math.max(0, Number(inputPrice.min) || 0);
+    const max = Math.min(MAX_PRICE, Number(inputPrice.max) || MAX_PRICE);
+    setPriceRange([Math.min(min, max), Math.max(min, max)]);
+    setPage(1);
+    setDrawerOpen(false);
+    scrollToGrid();
+  };
+
+  const removePrice = () => {
+    setInputPrice({ min: 0, max: MAX_PRICE });
+    setPriceRange([0, MAX_PRICE]);
+    setPage(1);
   };
 
   const resetFilters = () => {
-    setInputPriceRange({ min: 0, max: 200000 });
-    setAppliedPriceRange([0, 200000]);
-    setShowDiscountedOnly(false);
-    setSelectedBrand(null);
-    setSortBy("newest");
-    setCurrentPage(1);
+    removePrice();
+    setDiscountedOnly(false);
+    setBrand("");
+    setSortBy(DEFAULT_SORT);
+    setDrawerOpen(false);
   };
 
-  const sortProducts = (products) => {
-    const sorted = [...products];
-    switch (sortBy) {
-      case "oldest":
-        return sorted.sort(
-          (a, b) => new Date(a.dateCreated) - new Date(b.dateCreated)
-        );
-      case "price-low":
-        return sorted.sort((a, b) => a.price - b.price);
-      case "price-high":
-        return sorted.sort((a, b) => b.price - a.price);
-      case "name-az":
-        return sorted.sort((a, b) =>
-          a.productName.localeCompare(b.productName)
-        );
-      case "name-za":
-        return sorted.sort((a, b) =>
-          b.productName.localeCompare(a.productName)
-        );
-      default:
-        return sorted.sort(
-          (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
-        );
-    }
-  };
+  const openProduct = useCallback((id) => navigate(`/product/${id}`), [navigate]);
 
-  const filteredProducts = sortProducts(
-    products.filter((p) => {
-      const withinRange =
-        p.price >= appliedPriceRange[0] && p.price <= appliedPriceRange[1];
-      const hasDiscount = showDiscountedOnly
-        ? (p.oldPrice || 0) > p.price
-        : true;
-      const matchesBrand = selectedBrand
-        ? p.brandName === selectedBrand
-        : true;
-      return withinRange && hasDiscount && matchesBrand;
-    })
-  );
-
-  const currentProducts = filteredProducts.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-
-  const isFiltersActive =
-    appliedPriceRange[0] !== 0 ||
-    appliedPriceRange[1] !== 200000 ||
-    showDiscountedOnly ||
-    selectedBrand !== null ||
-    sortBy !== "newest";
-
-  const sortOptions = [
-    { value: "newest", label: "Newest First" },
-    { value: "oldest", label: "Oldest First" },
-    { value: "price-low", label: "Price: Low → High" },
-    { value: "price-high", label: "Price: High → Low" },
-    { value: "name-az", label: "Name: A → Z" },
-    { value: "name-za", label: "Name: Z → A" },
-  ];
-
-  // ==================== HELPERS ====================
-
-  const formatPrice = (price) => {
-    if (!price || isNaN(price)) return "₵0.00";
-    return `GH₵${Number(price).toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
-  };
-
-  const getValidImageUrl = (imagePath) => {
-    if (!imagePath) return "https://via.placeholder.com/150";
-    return imagePath.includes("\\")
-      ? `https://testing.frankotrading.com/Media/Products_Images/${imagePath.split("\\").pop()}`
-      : imagePath;
-  };
-
-  const isInWishlist = (id) =>
-    Array.isArray(wishlist) && wishlist.some((item) => item.id === id);
-
-  const handleWishlistToggle = async (product) => {
-    try {
-      const id = product.productID;
-      if (isInWishlist(id)) {
-        dispatch(removeFromWishlist(id));
-        showNotification("Removed from wishlist");
-      } else {
-        dispatch(addToWishlist({ ...product, id }));
-        showNotification("Added to wishlist");
+  const handleAddToCart = useCallback(
+    async (product) => {
+      const id = product.productID || product.id;
+      setAddingIds((prev) => new Set(prev).add(id));
+      try {
+        await addProductToCart(product);
+        showNotice("Added to cart successfully", "success");
+        setRecentlyAdded((prev) => new Set(prev).add(id));
+        setTimeout(() => {
+          setRecentlyAdded((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+        }, 1600);
+      } catch {
+        showNotice("Failed to add to cart", "error");
+      } finally {
+        setAddingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
       }
-    } catch {
-      showNotification("Failed to update wishlist", "error");
-    }
-  };
+    },
+    [addProductToCart, showNotice]
+  );
 
-  const handleAddToCart = async (product) => {
-    try {
-      await addProductToCart(product);
-      showNotification("Added to cart");
-    } catch {
-      showNotification("Failed to add to cart", "error");
-    }
-  };
+  /* ---------- filters panel (sidebar + sheet — exact Speed page UI) ---------- */
 
-  // ==================== FILTER SIDEBAR ====================
+  const panel = "bg-white border border-[#e6e1dc] rounded-lg p-4";
+  const priceInput =
+    "w-full pl-6 pr-2 py-2.5 border border-[#e6e1dc] rounded-lg text-sm outline-none focus:border-[#2C5E48] focus:ring-2 focus:ring-[#2C5E48]/15";
 
-  const renderFilterContent = () => (
-    <div className="wm-filter-content">
-      <div className="hidden wm-filter-header wm-desktop-only">
-        <AdjustmentsHorizontalIcon
-          style={{ width: 18, height: 18, color: "var(--wm-green)" }}
+  const renderFilters = () => (
+    <div className="flex flex-col gap-3">
+      <div className={panel}>
+        <h3 className="text-sm font-semibold mb-3">Sort by</h3>
+        <SortSelect
+          id="combo-sort-drawer"
+          value={sortBy}
+          onChange={(v) => {
+            setSortBy(v);
+            setPage(1);
+          }}
         />
-        <span className="wm-filter-header-text">Filters</span>
       </div>
 
-      {/* Price Range */}
-      <div className="wm-filter-section">
-        <div className="wm-filter-section-title">
-          <div
-            className="wm-dot"
-            style={{ background: "var(--wm-green-accent)" }}
-          />
-          <span>Price Range</span>
+      <div className={panel}>
+        <h3 className="text-sm font-semibold mb-3">Price range</h3>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          {["min", "max"].map((key) => (
+            <label
+              key={key}
+              className="text-[10px] font-semibold uppercase tracking-wide text-[#6d7a74]"
+            >
+              {key}
+              <div className="relative mt-1">
+                <span className="absolute left-2 top-2.5 text-xs text-[#8a928e]">₵</span>
+                <input
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  value={inputPrice[key]}
+                  onChange={(e) => setInputPrice((p) => ({ ...p, [key]: e.target.value }))}
+                  className={priceInput}
+                />
+              </div>
+            </label>
+          ))}
         </div>
-        <div className="wm-price-inputs">
-          <div className="wm-price-field">
-            <label className="wm-price-label">Min</label>
-            <div className="wm-price-input-wrap">
-              <span className="wm-price-symbol">₵</span>
-              <input
-                type="number"
-                min="0"
-                max="200000"
-                value={inputPriceRange.min}
-                onChange={(e) =>
-                  setInputPriceRange((prev) => ({
-                    ...prev,
-                    min: +e.target.value,
-                  }))
-                }
-                className="wm-price-input"
-                placeholder="0"
-              />
-            </div>
-          </div>
-          <div className="wm-price-field">
-            <label className="wm-price-label">Max</label>
-            <div className="wm-price-input-wrap">
-              <span className="wm-price-symbol">₵</span>
-              <input
-                type="number"
-                min="0"
-                max="200000"
-                value={inputPriceRange.max}
-                onChange={(e) =>
-                  setInputPriceRange((prev) => ({
-                    ...prev,
-                    max: +e.target.value,
-                  }))
-                }
-                className="wm-price-input"
-                placeholder="200000"
-              />
-            </div>
-          </div>
-        </div>
-        <button onClick={applyPriceFilter} className="wm-apply-btn">
-          Apply Price Filter
+        <button
+          type="button"
+          onClick={applyPriceFilter}
+          className="w-full min-h-[44px] bg-[#2C5E48] text-white text-sm font-semibold rounded-lg hover:bg-[#234A39] active:scale-[0.98] transition"
+        >
+          Apply price
         </button>
-        <div className="wm-applied-range">
-          <span className="wm-applied-label">Active:</span>
-          <span className="wm-applied-value">
-            ₵{appliedPriceRange[0].toLocaleString()} – ₵
-            {appliedPriceRange[1].toLocaleString()}
+      </div>
+
+      <div className={`${panel} flex items-center justify-between gap-3`}>
+        <div className="flex items-center gap-2 text-sm font-semibold min-w-0">
+          <span className="w-7 h-7 rounded-lg bg-[#e7f0eb] flex items-center justify-center text-[#2C5E48] flex-shrink-0">
+            <TagIcon className="h-4 w-4" />
           </span>
+          <span className="truncate">Discounted only</span>
         </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={discountedOnly}
+          aria-label="Show discounted products only"
+          onClick={() => {
+            setDiscountedOnly((v) => !v);
+            setPage(1);
+          }}
+          className={`relative w-11 h-6 rounded-full p-0.5 transition-colors flex-shrink-0 ${
+            discountedOnly ? "bg-[#2C5E48]" : "bg-[#ddd8d2]"
+          }`}
+        >
+          <span
+            className={`block w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${
+              discountedOnly ? "translate-x-5" : ""
+            }`}
+          />
+        </button>
       </div>
 
-      {/* Discount Toggle */}
-      <div className="wm-filter-section wm-discount-section">
-        <div className="wm-discount-row">
-          <div className="wm-discount-info">
-            <div className="wm-discount-icon">
-              <TagIcon style={{ width: 14, height: 14, color: "#fff" }} />
-            </div>
-            <span className="wm-discount-label">Discounted Only</span>
-          </div>
-          <div
-            onClick={() => setShowDiscountedOnly(!showDiscountedOnly)}
-            className={`wm-toggle ${showDiscountedOnly ? "wm-toggle-on" : ""}`}
-          >
-            <div className="wm-toggle-knob" />
-          </div>
-        </div>
-      </div>
-
-      {/* Brands */}
       {brands.length > 0 && (
-        <div className="wm-filter-section">
-          <div className="wm-filter-section-title">
-            <div
-              className="wm-dot"
-              style={{ background: "var(--wm-green)" }}
-            />
-            <span>Brands</span>
-          </div>
-          <div className="wm-brand-tags">
-            {brands.map((brand) => (
+        <div className={panel}>
+          <h3 className="text-sm font-semibold mb-3">Brands</h3>
+          <div className="flex flex-wrap gap-2">
+            {brands.map((b) => (
               <button
-                key={brand}
+                type="button"
+                key={b}
+                aria-pressed={brand === b}
                 onClick={() => {
-                  setSelectedBrand(
-                    selectedBrand === brand ? null : brand
-                  );
-                  setCurrentPage(1);
+                  setBrand(brand === b ? "" : b);
+                  setPage(1);
                 }}
-                className={`wm-brand-tag ${
-                  selectedBrand === brand ? "wm-brand-tag-active" : ""
+                className={`px-3 py-2 min-h-[38px] text-xs rounded-full border font-medium transition active:scale-[0.97] ${
+                  brand === b
+                    ? "bg-[#2C5E48] text-white border-[#2C5E48]"
+                    : "bg-white text-[#5c6661] border-[#e6e1dc] hover:border-[#8aaf98]"
                 }`}
               >
-                {brand}
+                {b}
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {isFiltersActive && (
-        <button onClick={resetFilters} className="wm-reset-btn">
-          Reset All Filters
+      {filtersActive && (
+        <button
+          type="button"
+          onClick={resetFilters}
+          className="w-full min-h-[44px] bg-white text-[#8C3D45] border border-[#e4cfd1] rounded-lg text-sm font-semibold hover:bg-[#f6eeee] active:scale-[0.98] transition"
+        >
+          Reset all filters
         </button>
       )}
     </div>
   );
 
-  // ==================== DETERMINE WHAT TO SHOW ====================
+  const gridClass =
+    "grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5 sm:gap-3 lg:gap-4";
 
-  const isInitialLoading = loading && !hasLoadedOnce;
-  const hasProducts = currentProducts.length > 0;
-  const trulyEmpty =
-    hasLoadedOnce && !loading && filteredProducts.length === 0;
-
-  // ==================== RENDER ====================
+  /* ============================ RENDER ============================ */
 
   return (
     <>
+      <Helmet>
+        <title>
+          Washing Machines in Ghana | Best Prices &amp; Brands – Franko Trading
+        </title>
+        <meta
+          name="description"
+          content="Find the best washing machine deals and discounts on your favorite products. Shop top brands at affordable prices with fast delivery across Ghana."
+        />
+        <meta
+          name="keywords"
+          content="Washing Machines, Buy Washing Machine Online, Best Washing Machine Brands Ghana, Affordable Washing Machines"
+        />
+        <meta
+          property="og:title"
+          content="Washing Machines in Ghana | Best Prices & Brands – Franko Trading"
+        />
+        <meta
+          property="og:description"
+          content="Get amazing discounts on our exclusive washing machine deals."
+        />
+        <meta property="og:type" content="product.group" />
+        <meta
+          property="og:url"
+          content="https://www.frankotrading.com/washing-machine"
+        />
+        <meta
+          property="og:image"
+          content={
+            filteredProducts.length > 0
+              ? getImageUrl(filteredProducts[0].productImage)
+              : "default-image-url"
+          }
+        />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta
+          name="twitter:title"
+          content="Washing Machines in Ghana | Best Prices – Franko Trading"
+        />
+        <meta
+          name="twitter:description"
+          content="Get amazing discounts on our washing machines."
+        />
+        <meta
+          name="twitter:image"
+          content={
+            filteredProducts.length > 0
+              ? getImageUrl(filteredProducts[0].productImage)
+              : "default-image-url"
+          }
+        />
+        <link
+          rel="canonical"
+          href="https://www.frankotrading.com/washing-machine"
+        />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, viewport-fit=cover"
+        />
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            name: "Washing Machines",
+            description:
+              "Shop high-quality washing machines from top brands at Franko Trading.",
+            url: "https://www.frankotrading.com/washing-machine",
+            itemListElement: filteredProducts.map((item, index) => ({
+              "@type": "Product",
+              position: index + 1,
+              name: item.productName,
+              image: getImageUrl(item.productImage),
+              description: item.description,
+              sku: item.productID,
+              brand: {
+                "@type": "Brand",
+                name: item.brandName,
+              },
+              offers: {
+                "@type": "Offer",
+                priceCurrency: "GHS",
+                price: item.price,
+                priceValidUntil: "2026-12-31",
+                itemCondition: "https://schema.org/NewCondition",
+                availability: "https://schema.org/InStock",
+                url: `https://www.frankotrading.com/product/${item.productID}`,
+                seller: {
+                  "@type": "Organization",
+                  name: "Franko Trading",
+                },
+                shippingDetails: {
+                  "@type": "OfferShippingDetails",
+                  shippingRate: {
+                    "@type": "MonetaryAmount",
+                    currency: "GHS",
+                    value: "30.00",
+                  },
+                  shippingDestination: {
+                    "@type": "DefinedRegion",
+                    addressCountry: "GH",
+                  },
+                  deliveryTime: {
+                    "@type": "ShippingDeliveryTime",
+                    handlingTime: {
+                      "@type": "QuantitativeValue",
+                      minValue: 1,
+                      maxValue: 2,
+                      unitCode: "DAY",
+                    },
+                    transitTime: {
+                      "@type": "QuantitativeValue",
+                      minValue: 3,
+                      maxValue: 5,
+                      unitCode: "DAY",
+                    },
+                  },
+                },
+                hasMerchantReturnPolicy: {
+                  "@type": "MerchantReturnPolicy",
+                  returnPolicyCategory:
+                    "https://schema.org/MerchantReturnFiniteReturnWindow",
+                  merchantReturnDays: 14,
+                  returnMethod: "https://schema.org/ReturnByMail",
+                  returnFees: "https://schema.org/FreeReturn",
+                  applicableCountry: "GH",
+                },
+              },
+            })),
+          })}
+        </script>
+      </Helmet>
+
       <style>{`
-        :root {
-          --wm-font: 'Plus Jakarta Sans', sans-serif;
-          --wm-green: #14532d;
-          --wm-green-mid: #166534;
-          --wm-green-light: #dcfce7;
-          --wm-green-lighter: #f0fdf4;
-          --wm-green-accent: #22c55e;
-          --wm-dark: #1a1a1a;
-          --wm-mid: #555;
-          --wm-light: #888;
-          --wm-border: #e0e0e0;
-          --wm-bg-subtle: #f7f7f7;
-          --wm-red: #dc2626;
-          --wm-pink: #e11d48;
-          --wm-radius: 4px;
+        @keyframes speedSlideIn { from { transform: translateY(-12px); opacity: 0; } to { transform: none; opacity: 1; } }
+        @keyframes speedPop { 0% { transform: scale(0.85); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes speedSheetUp { from { transform: translateY(100%); } to { transform: none; } }
+        @keyframes speedDrawerIn { from { transform: translateX(-100%); } to { transform: none; } }
+        @keyframes speedSpin { to { transform: rotate(360deg); } }
+        .speed-pop { animation: speedPop 0.28s ease-out; }
+        .speed-sheet { animation: speedSheetUp 0.26s cubic-bezier(0.22,1,0.36,1); }
+        @media (min-width: 640px) { .speed-sheet { animation: speedDrawerIn 0.25s ease-out; } }
+        .speed-spinner { width: 14px; height: 14px; flex-shrink: 0; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 9999px; animation: speedSpin 0.7s linear infinite; }
+        .speed-sticky { position: sticky; top: 0; z-index: 30; }
+        /* Inputs under 16px make iOS zoom in */
+        .speed-scroll input, .speed-scroll select { font-size: 16px; }
+        @media (min-width: 640px) { .speed-scroll input, .speed-scroll select { font-size: inherit; } }
+        @media (prefers-reduced-motion: reduce) {
+          .speed-pop, .speed-sheet, .speed-spinner { animation: none !important; }
+          article, article * { transition: none !important; }
         }
-
-        .wm-root, .wm-root * {
-          font-family: var(--wm-font);
-          -webkit-font-smoothing: antialiased;
-          -moz-osx-font-smoothing: grayscale;
-          box-sizing: border-box;
-        }
-
-        .wm-desktop-only { display: none; }
-        @media (min-width: 1024px) { .wm-desktop-only { display: flex; } }
-
-        /* ==================== NOTIFICATION ==================== */
-
-        .wm-notif {
-          display: flex; align-items: center; gap: 10px; padding: 12px 16px;
-          border-radius: var(--wm-radius); min-width: 280px;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-        }
-        .wm-notif-success { background: var(--wm-green); color: #fff; }
-        .wm-notif-error { background: var(--wm-red); color: #fff; }
-        .wm-notif-text { font-size: 14px; font-weight: 500; flex: 1; }
-        .wm-notif-close {
-          background: transparent; border: none; color: rgba(255,255,255,0.8);
-          font-size: 18px; cursor: pointer; padding: 0; line-height: 1;
-        }
-        .wm-notif-close:hover { color: #fff; }
-
-        @keyframes wm-slide-in-right {
-          from { transform: translateX(100%); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
-        }
-        .wm-animate-slide-in { animation: wm-slide-in-right 0.3s ease-out; }
-
-        /* ==================== PAGE HEADER ==================== */
-
-        .wm-page-header {
-          display: flex; align-items: center; gap: 16px;
-          margin-bottom: 20px; padding-bottom: 16px;
-          border-bottom: 1px solid var(--wm-border);
-        }
-        .wm-page-header-accent {
-          width: 4px; height: 28px; border-radius: 2px;
-          background: var(--wm-green); flex-shrink: 0;
-        }
-        .wm-page-title {
-          font-size: 20px; font-weight: 800; color: var(--wm-dark);
-          letter-spacing: -0.02em; line-height: 1.2; margin: 0;
-        }
-        @media (min-width: 768px) { .wm-page-title { font-size: 24px; } }
-        .wm-page-count {
-          font-size: 13px; font-weight: 500; color: var(--wm-light); margin-top: 2px;
-        }
-        .wm-page-header-line {
-          flex: 1; height: 1px; background: var(--wm-border); display: none;
-        }
-        @media (min-width: 768px) { .wm-page-header-line { display: block; } }
-
-        /* ==================== MOBILE CONTROLS ==================== */
-
-        .wm-mobile-controls { display: flex; gap: 8px; margin-bottom: 16px; }
-        @media (min-width: 1024px) { .wm-mobile-controls { display: none; } }
-
-        .wm-filter-trigger {
-          flex: 1; display: flex; align-items: center; justify-content: center;
-          gap: 6px; padding: 10px 14px; background: var(--wm-green); color: #fff;
-          border: none; border-radius: var(--wm-radius); font-size: 13px;
-          font-weight: 600; cursor: pointer; transition: all 0.15s;
-          font-family: var(--wm-font);
-        }
-        .wm-filter-trigger:active { transform: scale(0.98); }
-
-        .wm-sort-trigger {
-          flex: 1; display: flex; align-items: center; justify-content: center;
-          gap: 6px; padding: 10px 14px; background: #fff; color: var(--wm-mid);
-          border: 1px solid var(--wm-border); border-radius: var(--wm-radius);
-          font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s;
-          font-family: var(--wm-font); position: relative;
-        }
-        .wm-sort-trigger:active { transform: scale(0.98); }
-
-        /* ==================== SORT DROPDOWN ==================== */
-
-        .wm-sort-drop {
-          position: absolute; top: calc(100% + 4px); left: 0; right: 0;
-          background: #fff; border: 1px solid var(--wm-border);
-          border-radius: var(--wm-radius); box-shadow: 0 8px 30px rgba(0,0,0,0.08);
-          z-index: 50; overflow: hidden; animation: wm-fade 0.15s ease;
-        }
-
-        @keyframes wm-fade {
-          from { opacity: 0; transform: translateY(-4px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        .wm-sort-option {
-          display: block; width: 100%; text-align: left; padding: 10px 14px;
-          font-size: 13px; font-weight: 500; color: var(--wm-mid);
-          background: none; border: none; cursor: pointer; transition: all 0.1s;
-          font-family: var(--wm-font); border-bottom: 1px solid #f5f5f5;
-        }
-        .wm-sort-option:last-child { border-bottom: none; }
-        .wm-sort-option:hover { background: var(--wm-bg-subtle); }
-        .wm-sort-option-active {
-          background: var(--wm-green-light) !important;
-          color: var(--wm-green) !important; font-weight: 600 !important;
-        }
-
-        /* ==================== DESKTOP TOOLBAR ==================== */
-
-        .wm-toolbar {
-          display: none; align-items: center; justify-content: space-between;
-          padding: 12px 16px; background: #fff; border: 1px solid var(--wm-border);
-          border-radius: var(--wm-radius); margin-bottom: 16px;
-        }
-        @media (min-width: 768px) { .wm-toolbar { display: flex; } }
-
-        .wm-toolbar-left { display: flex; align-items: center; gap: 12px; }
-        .wm-toolbar-count { font-size: 13px; font-weight: 500; color: var(--wm-light); }
-        .wm-toolbar-count strong { color: var(--wm-dark); font-weight: 700; }
-        .wm-toolbar-badge {
-          display: inline-flex; align-items: center; gap: 4px;
-          background: var(--wm-green-light); color: var(--wm-green);
-          font-size: 11px; font-weight: 700; padding: 3px 10px;
-          border-radius: 100px; text-transform: uppercase; letter-spacing: 0.03em;
-        }
-        .wm-toolbar-right { display: flex; align-items: center; gap: 8px; }
-
-        .wm-desktop-sort { position: relative; }
-        .wm-desktop-sort-btn {
-          display: flex; align-items: center; gap: 6px; padding: 7px 14px;
-          background: #fff; border: 1px solid var(--wm-border);
-          border-radius: var(--wm-radius); font-size: 13px; font-weight: 500;
-          color: var(--wm-mid); cursor: pointer; transition: all 0.15s;
-          font-family: var(--wm-font);
-        }
-        .wm-desktop-sort-btn:hover {
-          border-color: var(--wm-green-accent); color: var(--wm-dark);
-        }
-        .wm-desktop-sort-drop {
-          position: absolute; top: calc(100% + 4px); right: 0; width: 200px;
-          background: #fff; border: 1px solid var(--wm-border);
-          border-radius: var(--wm-radius); box-shadow: 0 8px 30px rgba(0,0,0,0.08);
-          z-index: 50; overflow: hidden; animation: wm-fade 0.15s ease;
-        }
-
-        /* ==================== FILTER SIDEBAR ==================== */
-
-        .wm-filter-content { display: flex; flex-direction: column; gap: 16px; }
-
-        .wm-filter-header {
-          display: flex; align-items: center; gap: 8px;
-          padding-bottom: 12px; border-bottom: 1px solid var(--wm-border);
-        }
-        .wm-filter-header-text {
-          font-size: 16px; font-weight: 800; color: var(--wm-dark); letter-spacing: -0.01em;
-        }
-
-        .wm-filter-section {
-          padding: 16px; background: #fff; border: 1px solid var(--wm-border);
-          border-radius: var(--wm-radius);
-        }
-        .wm-filter-section-title {
-          display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
-          font-size: 14px; font-weight: 700; color: var(--wm-dark);
-        }
-        .wm-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-
-        .wm-price-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-        .wm-price-field { display: flex; flex-direction: column; gap: 4px; }
-        .wm-price-label {
-          font-size: 11px; font-weight: 600; color: var(--wm-light);
-          text-transform: uppercase; letter-spacing: 0.04em;
-        }
-        .wm-price-input-wrap { position: relative; display: flex; align-items: center; }
-        .wm-price-symbol {
-          position: absolute; left: 10px; font-size: 13px; font-weight: 600; color: var(--wm-light);
-        }
-        .wm-price-input {
-          width: 100%; padding: 8px 10px 8px 24px; border: 1px solid var(--wm-border);
-          border-radius: var(--wm-radius); font-size: 13px; font-weight: 500;
-          color: var(--wm-dark); font-family: var(--wm-font);
-          transition: border-color 0.15s; outline: none;
-        }
-        .wm-price-input:focus {
-          border-color: var(--wm-green-accent);
-          box-shadow: 0 0 0 2px rgba(34,197,94,0.1);
-        }
-
-        .wm-apply-btn {
-          width: 100%; padding: 9px; background: var(--wm-green); color: #fff;
-          border: none; border-radius: var(--wm-radius); font-size: 13px;
-          font-weight: 600; cursor: pointer; transition: background 0.15s;
-          font-family: var(--wm-font); margin-bottom: 10px;
-        }
-        .wm-apply-btn:hover { background: var(--wm-green-mid); }
-        .wm-apply-btn:active { transform: scale(0.98); }
-
-        .wm-applied-range {
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 8px 10px; background: var(--wm-green-lighter);
-          border: 1px solid #bbf7d0; border-radius: var(--wm-radius);
-        }
-        .wm-applied-label { font-size: 11px; font-weight: 600; color: var(--wm-green-mid); }
-        .wm-applied-value { font-size: 12px; font-weight: 700; color: var(--wm-green); }
-
-        .wm-discount-section { background: var(--wm-green-lighter); border-color: #bbf7d0; }
-        .wm-discount-row { display: flex; align-items: center; justify-content: space-between; }
-        .wm-discount-info { display: flex; align-items: center; gap: 10px; }
-        .wm-discount-icon {
-          width: 28px; height: 28px; border-radius: var(--wm-radius);
-          background: var(--wm-green); display: flex; align-items: center;
-          justify-content: center; flex-shrink: 0;
-        }
-        .wm-discount-label { font-size: 13px; font-weight: 600; color: var(--wm-dark); }
-
-        .wm-toggle {
-          width: 40px; height: 22px; border-radius: 11px; background: #d1d5db;
-          cursor: pointer; transition: background 0.2s; padding: 2px; flex-shrink: 0;
-        }
-        .wm-toggle-on { background: var(--wm-green) !important; }
-        .wm-toggle-knob {
-          width: 18px; height: 18px; border-radius: 50%; background: #fff;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.15); transition: transform 0.2s;
-        }
-        .wm-toggle-on .wm-toggle-knob { transform: translateX(18px); }
-
-        .wm-brand-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-        .wm-brand-tag {
-          padding: 5px 12px; font-size: 12px; font-weight: 500; color: var(--wm-mid);
-          background: var(--wm-bg-subtle); border: 1px solid var(--wm-border);
-          border-radius: 100px; cursor: pointer; transition: all 0.15s;
-          font-family: var(--wm-font); white-space: nowrap;
-        }
-        .wm-brand-tag:hover {
-          border-color: var(--wm-green-accent); color: var(--wm-green);
-          background: var(--wm-green-light);
-        }
-        .wm-brand-tag-active {
-          background: var(--wm-green) !important; color: #fff !important;
-          border-color: var(--wm-green) !important; font-weight: 600 !important;
-        }
-
-        .wm-reset-btn {
-          width: 100%; padding: 9px; background: #fff; color: var(--wm-red);
-          border: 1px solid #fecaca; border-radius: var(--wm-radius);
-          font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s;
-          font-family: var(--wm-font);
-        }
-        .wm-reset-btn:hover { background: #fef2f2; border-color: var(--wm-red); }
-        .wm-reset-btn:active { transform: scale(0.98); }
-
-        /* ==================== DRAWER ==================== */
-
-        .wm-drawer-overlay {
-          position: fixed; inset: 0; z-index: 100; display: flex;
-          animation: wm-fade 0.2s ease;
-        }
-        .wm-drawer-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.4); }
-        .wm-drawer-panel {
-          position: relative; width: 100%; max-width: 320px; height: 100%;
-          background: #fff; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
-          overflow-y: auto; z-index: 1; animation: wm-slide-in 0.25s ease;
-        }
-        @keyframes wm-slide-in {
-          from { transform: translateX(-100%); }
-          to { transform: translateX(0); }
-        }
-        .wm-drawer-header {
-          position: sticky; top: 0; background: #fff; display: flex;
-          align-items: center; justify-content: space-between; padding: 14px 16px;
-          border-bottom: 1px solid var(--wm-border); z-index: 2;
-        }
-        .wm-drawer-header-left { display: flex; align-items: center; gap: 8px; }
-        .wm-drawer-header-title { font-size: 16px; font-weight: 800; color: var(--wm-dark); }
-        .wm-drawer-close {
-          width: 32px; height: 32px; display: flex; align-items: center;
-          justify-content: center; border: 1px solid var(--wm-border);
-          border-radius: var(--wm-radius); background: #fff; cursor: pointer;
-          transition: background 0.12s;
-        }
-        .wm-drawer-close:active { background: #f5f5f5; }
-        .wm-drawer-body { padding: 16px; }
-
-        /* ==================== PRODUCT GRID ==================== */
-
-        .wm-grid {
-          display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
-        }
-        @media (min-width: 640px) { .wm-grid { grid-template-columns: repeat(3, 1fr); } }
-        @media (min-width: 1024px) { .wm-grid { grid-template-columns: repeat(3, 1fr); gap: 16px; } }
-        @media (min-width: 1280px) { .wm-grid { grid-template-columns: repeat(4, 1fr); } }
-
-        /* ==================== CARDS ==================== */
-
-        .wm-card {
-          border: 1px solid var(--wm-border); border-radius: var(--wm-radius);
-          overflow: hidden; background: #fff; transition: all 0.2s ease; cursor: pointer;
-        }
-        .wm-card:hover {
-          border-color: var(--wm-green-accent);
-          box-shadow: 0 4px 16px rgba(20, 83, 45, 0.08);
-        }
-
-        .wm-card-img {
-          position: relative; height: 190px; display: flex; align-items: center;
-          justify-content: center; padding: 10px; overflow: hidden;
-        }
-        @media (min-width: 768px) { .wm-card-img { height: 195px; } }
-
-        .wm-card-img img {
-          height: 100%; width: 100%; object-fit: contain; transition: transform 0.3s ease;
-        }
-        .wm-card:hover .wm-card-img img { transform: scale(1.05); }
-
-        .wm-card-overlay {
-          position: absolute; inset: 0; background: rgba(20, 83, 45, 0.45);
-          display: none; align-items: center; justify-content: center; gap: 8px; z-index: 2;
-        }
-        .wm-card:hover .wm-card-overlay { display: flex; }
-
-        .wm-card-action {
-          display: flex; align-items: center; justify-content: center;
-          width: 34px; height: 34px; border-radius: 50%; background: #fff;
-          border: none; cursor: pointer; transition: all 0.15s;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        .wm-card-action:hover {
-          transform: scale(1.1); box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        .wm-card-action:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-
-        .wm-card-body { padding: 10px 12px; text-align: center; }
-
-        .wm-card-name {
-          font-size: 15px; font-weight: 600; color: var(--wm-dark); line-height: 1.35;
-          display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-          overflow: hidden; min-height: 35px;
-        }
-
-        .wm-card-price { font-size: 15px; font-weight: 900; color: var(--wm-red); margin-top: 2px; }
-
-        .wm-card-old-price {
-          font-size: 12px; font-weight: 400; color: var(--wm-light);
-          text-decoration: line-through; margin-top: 2px;
-        }
-
-        .wm-card-badge {
-          position: absolute; top: 8px; font-size: 9px; font-weight: 700;
-          padding: 3px 8px; border-radius: 100px; z-index: 3;
-          letter-spacing: 0.04em; text-transform: uppercase;
-        }
-        .wm-card-badge-sold { left: 8px; background: var(--wm-dark); color: #fff; }
-        .wm-card-badge-discount {
-          right: 8px; background: var(--wm-red); color: #fff;
-          font-size: 10px; padding: 3px 7px;
-        }
-
-        /* ==================== SKELETON ==================== */
-
-        .wm-skeleton {
-          border: 1px solid #eee; border-radius: var(--wm-radius);
-          overflow: hidden; background: #fff;
-        }
-        .wm-skeleton-img {
-          height: 150px;
-          background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
-          background-size: 200% 100%; animation: wm-shimmer 1.5s infinite;
-        }
-        @media (min-width: 768px) { .wm-skeleton-img { height: 195px; } }
-
-        @keyframes wm-shimmer {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-        .wm-skeleton-line {
-          height: 10px; border-radius: 2px;
-          background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
-          background-size: 200% 100%; animation: wm-shimmer 1.5s infinite;
-        }
-
-        /* ==================== EMPTY STATE ==================== */
-
-        .wm-empty {
-          display: flex; flex-direction: column; align-items: center;
-          justify-content: center; text-align: center; padding: 60px 24px;
-          background: #fff; border: 1px solid var(--wm-border);
-          border-radius: var(--wm-radius); margin-top: 16px;
-        }
-        .wm-empty-icon-wrap {
-          width: 80px; height: 80px; border-radius: 50%;
-          background: var(--wm-bg-subtle); display: flex; align-items: center;
-          justify-content: center; margin-bottom: 20px;
-          border: 1px solid var(--wm-border);
-        }
-        .wm-empty-title {
-          font-size: 18px; font-weight: 700; color: var(--wm-dark); margin-bottom: 8px;
-        }
-        .wm-empty-desc {
-          font-size: 14px; color: var(--wm-light); max-width: 360px;
-          line-height: 1.6; margin-bottom: 24px;
-        }
-        .wm-empty-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
-        .wm-empty-reset {
-          padding: 10px 20px; background: var(--wm-green); color: #fff;
-          border: none; border-radius: var(--wm-radius); font-size: 13px;
-          font-weight: 600; cursor: pointer; transition: background 0.15s;
-          font-family: var(--wm-font);
-        }
-        .wm-empty-reset:hover { background: var(--wm-green-mid); }
-        .wm-empty-browse {
-          padding: 10px 20px; background: #fff; color: var(--wm-mid);
-          border: 1px solid var(--wm-border); border-radius: var(--wm-radius);
-          font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s;
-          font-family: var(--wm-font); text-decoration: none;
-        }
-        .wm-empty-browse:hover { border-color: var(--wm-green-accent); color: var(--wm-dark); }
-
-        /* ==================== LAYOUT ==================== */
-
-        .wm-layout { display: flex; flex-direction: column; gap: 0; }
-        @media (min-width: 1024px) { .wm-layout { flex-direction: row; gap: 24px; } }
-
-        .wm-sidebar { display: none; width: 280px; flex-shrink: 0; }
-        @media (min-width: 1024px) { .wm-sidebar { display: block; } }
-
-        .wm-sidebar-sticky { position: sticky; top: 80px; }
-        .wm-main { flex: 1; min-width: 0; }
-        .wm-pagination { display: flex; justify-content: center; margin-top: 24px; }
       `}</style>
 
       <Notification
-        message={notification.message}
-        type={notification.type}
-        isVisible={notification.isVisible}
-        onClose={hideNotification}
+        message={notice.message}
+        type={notice.type}
+        visible={notice.visible}
+        onClose={hideNotice}
       />
 
-      <div className="wm-root min-h-screen">
-        <Helmet>
-          <title>
-            Washing Machines in Ghana | Best Prices & Brands – Franko Trading
-          </title>
-          <meta
-            name="description"
-            content="Find the best washing machine deals and discounts on your favorite products. Shop top brands at affordable prices with fast delivery across Ghana."
-          />
-          <meta
-            name="keywords"
-            content="Washing Machines, Buy Washing Machine Online, Best Washing Machine Brands Ghana, Affordable Washing Machines"
-          />
-          <meta
-            property="og:title"
-            content="Washing Machines in Ghana | Best Prices & Brands – Franko Trading"
-          />
-          <meta
-            property="og:description"
-            content="Get amazing discounts on our exclusive washing machine deals."
-          />
-          <meta property="og:type" content="product.group" />
-          <meta
-            property="og:url"
-            content="https://www.frankotrading.com/washing-machine"
-          />
-          <meta
-            property="og:image"
-            content={
-              filteredProducts.length > 0
-                ? getValidImageUrl(filteredProducts[0].productImage)
-                : "default-image-url"
-            }
-          />
-          <meta name="twitter:card" content="summary_large_image" />
-          <meta
-            name="twitter:title"
-            content="Washing Machines in Ghana | Best Prices – Franko Trading"
-          />
-          <meta
-            name="twitter:description"
-            content="Get amazing discounts on our washing machines."
-          />
-          <meta
-            name="twitter:image"
-            content={
-              filteredProducts.length > 0
-                ? getValidImageUrl(filteredProducts[0].productImage)
-                : "default-image-url"
-            }
-          />
-          <link
-            rel="canonical"
-            href="https://www.frankotrading.com/washing-machine"
-          />
-          <script type="application/ld+json">
-            {JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "ItemList",
-              name: "Washing Machines",
-              description:
-                "Shop high-quality washing machines from top brands at Franko Trading.",
-              url: "https://www.frankotrading.com/washing-machine",
-              itemListElement: filteredProducts.map((item, index) => ({
-                "@type": "Product",
-                position: index + 1,
-                name: item.productName,
-                image: getValidImageUrl(item.productImage),
-                description: item.description,
-                sku: item.productID,
-                brand: {
-                  "@type": "Brand",
-                  name: item.brandName,
-                },
-                offers: {
-                  "@type": "Offer",
-                  priceCurrency: "GHS",
-                  price: item.price,
-                  priceValidUntil: "2025-12-31",
-                  itemCondition: "https://schema.org/NewCondition",
-                  availability: "https://schema.org/InStock",
-                  url: `https://www.frankotrading.com/product/${item.productID}`,
-                  seller: {
-                    "@type": "Organization",
-                    name: "Franko Trading",
-                  },
-                  shippingDetails: {
-                    "@type": "OfferShippingDetails",
-                    shippingRate: {
-                      "@type": "MonetaryAmount",
-                      currency: "GHS",
-                      value: "30.00",
-                    },
-                    shippingDestination: {
-                      "@type": "DefinedRegion",
-                      addressCountry: "GH",
-                    },
-                    deliveryTime: {
-                      "@type": "ShippingDeliveryTime",
-                      handlingTime: {
-                        "@type": "QuantitativeValue",
-                        minValue: 1,
-                        maxValue: 2,
-                        unitCode: "DAY",
-                      },
-                      transitTime: {
-                        "@type": "QuantitativeValue",
-                        minValue: 3,
-                        maxValue: 5,
-                        unitCode: "DAY",
-                      },
-                    },
-                  },
-                  hasMerchantReturnPolicy: {
-                    "@type": "MerchantReturnPolicy",
-                    returnPolicyCategory:
-                      "https://schema.org/MerchantReturnFiniteReturnWindow",
-                    merchantReturnDays: 14,
-                    returnMethod: "https://schema.org/ReturnByMail",
-                    returnFees: "https://schema.org/FreeReturn",
-                    applicableCountry: "GH",
-                  },
-                },
-              })),
-            })}
-          </script>
-        </Helmet>
-
-        <div className="px-4 md:px-16 py-6">
-          {/* Page Header */}
-          <div className="wm-page-header">
-            <div className="wm-page-header-accent" />
-            <div>
-              <h1 className="wm-page-title">
-                {selectedBrand
-                  ? `${selectedBrand} Washing Machines`
-                  : "Washing Machines"}
-              </h1>
-              <p className="wm-page-count">
-                {isInitialLoading
-                  ? "Loading products..."
-                  : `${filteredProducts.length} product${filteredProducts.length !== 1 ? "s" : ""} found`}
-              </p>
+      <div className="speed-scroll min-h-screen bg-[#f7f5f3] text-[#2c3330]">
+        <div className="mx-auto w-full max-w-[1800px] px-2.5 sm:px-5 lg:px-8 py-3">
+          {/* ---------- Page Header ---------- */}
+          <header className="flex items-center justify-between gap-3 bg-white border border-[#e6e1dc] rounded-xl px-4 py-3.5 md:px-5">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="w-1.5 h-8 rounded-full bg-[#2C5E48] flex-shrink-0" />
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl lg:text-2xl font-semibold text-[#2c3330] leading-tight truncate">
+                  {brand ? `${brand} Washing Machines` : "Washing Machines"}
+                </h1>
+                <p className="mt-0.5 text-xs text-[#6d7a74]">
+                  {isInitialLoading
+                    ? "Loading washing machines…"
+                    : `${filteredProducts.length} ${
+                        filteredProducts.length === 1 ? "product" : "products"
+                      } available`}
+                </p>
+              </div>
             </div>
-            <div className="wm-page-header-line" />
+          </header>
+
+          {/* ---------- Sticky toolbar (mobile + tablet) ---------- */}
+          <div className="speed-sticky lg:hidden -mx-2.5 sm:-mx-5 px-2.5 sm:px-5 pt-3 pb-2.5 bg-[#f7f5f3]/95 backdrop-blur-sm border-b border-[#e6e1dc]">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={() => setDrawerOpen(true)}
+                aria-label="Open filters"
+                className="relative flex-shrink-0 min-h-[44px] inline-flex items-center gap-1.5 px-3 sm:px-4 rounded-lg bg-[#2C5E48] text-white text-xs sm:text-sm font-semibold active:scale-[0.98] transition"
+              >
+                <FunnelIcon className="w-4 h-4" />
+                <span className="hidden xs:inline">Filters</span>
+                {activeFilterCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#FFD400] text-[10px] font-bold text-[#234A39] flex items-center justify-center">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+              <SortSelect
+                id="combo-sort-toolbar"
+                value={sortBy}
+                onChange={handleSortChange}
+                className="flex-1 min-w-0"
+              />
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-[#6d7a74]">
+              <span>{countLabel}</span>
+              {sortBy !== DEFAULT_SORT && (
+                <button
+                  type="button"
+                  onClick={() => handleSortChange(DEFAULT_SORT)}
+                  className="font-semibold text-[#8C3D45] hover:underline"
+                >
+                  Reset sort
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Mobile Controls */}
-          <div className="wm-mobile-controls">
-            <button
-              onClick={() => setIsDrawerOpen(true)}
-              className="wm-filter-trigger"
-            >
-              <FunnelIcon style={{ width: 16, height: 16 }} />
-              <span>Filters</span>
-              {isFiltersActive && (
-                <span
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: "50%",
-                    background: "#fff",
-                    marginLeft: 2,
-                  }}
-                />
-              )}
-            </button>
+          {/* ---------- Filter sheet ---------- */}
+          {drawerOpen && (
             <div
-              className="wm-sort-trigger"
-              onClick={() => setShowSortDropdown(!showSortDropdown)}
+              className="fixed inset-0 z-50 lg:hidden"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Filters"
             >
-              <Bars3BottomLeftIcon style={{ width: 16, height: 16 }} />
-              <span>Sort</span>
-              <ChevronDownIcon
-                style={{
-                  width: 14,
-                  height: 14,
-                  transition: "transform 0.2s",
-                  transform: showSortDropdown ? "rotate(180deg)" : "none",
-                }}
-              />
-              {showSortDropdown && (
-                <div className="wm-sort-drop">
-                  {sortOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSortBy(option.value);
-                        setShowSortDropdown(false);
-                        setCurrentPage(1);
-                      }}
-                      className={`wm-sort-option ${sortBy === option.value ? "wm-sort-option-active" : ""}`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Mobile Drawer */}
-          {isDrawerOpen && (
-            <div className="wm-drawer-overlay">
               <div
-                className="wm-drawer-backdrop"
-                onClick={() => setIsDrawerOpen(false)}
+                className="absolute inset-0 bg-black/45"
+                onClick={() => setDrawerOpen(false)}
               />
-              <div className="wm-drawer-panel">
-                <div className="wm-drawer-header">
-                  <div className="wm-drawer-header-left">
-                    <AdjustmentsHorizontalIcon
-                      style={{
-                        width: 18,
-                        height: 18,
-                        color: "var(--wm-green)",
-                      }}
-                    />
-                    <span className="wm-drawer-header-title">Filters</span>
-                  </div>
+              <div className="speed-sheet absolute inset-x-0 bottom-0 sm:right-auto sm:top-0 sm:w-[340px] sm:max-w-[88vw] max-h-[86vh] sm:max-h-full bg-[#f7f5f3] rounded-t-2xl sm:rounded-none overflow-hidden flex flex-col">
+                <div className="flex items-center justify-between px-4 sm:px-5 pt-4 pb-3 bg-white border-b border-[#f1eeea]">
+                  <span className="text-base sm:text-lg font-semibold">
+                    Filters &amp; sort
+                  </span>
                   <button
-                    onClick={() => setIsDrawerOpen(false)}
-                    className="wm-drawer-close"
+                    type="button"
+                    onClick={() => setDrawerOpen(false)}
+                    className="p-2 -mr-2 rounded-lg hover:bg-[#f7f5f3] active:scale-95 transition"
+                    aria-label="Close filters"
                   >
-                    <XMarkIcon
-                      style={{
-                        width: 14,
-                        height: 14,
-                        color: "var(--wm-light)",
-                      }}
-                    />
+                    <XMarkIcon className="w-5 h-5" />
                   </button>
                 </div>
-                <div className="wm-drawer-body">{renderFilterContent()}</div>
+                <div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-5 py-4">
+                  {renderFilters()}
+                </div>
+                <div
+                  className="grid grid-cols-2 gap-2.5 px-4 sm:px-5 py-3 bg-white border-t border-[#f1eeea]"
+                  style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+                >
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="min-h-[46px] rounded-lg border border-[#e4cfd1] text-[#8C3D45] text-sm font-semibold hover:bg-[#f6eeee] active:scale-[0.98] transition"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPage(1);
+                      setDrawerOpen(false);
+                      scrollToGrid();
+                    }}
+                    className="min-h-[46px] rounded-lg bg-[#2C5E48] text-white text-sm font-semibold hover:bg-[#234A39] active:scale-[0.98] transition"
+                  >
+                    Show {filteredProducts.length} results
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Layout */}
-          <div className="wm-layout">
-            <aside className="wm-sidebar">
-              <div className="wm-sidebar-sticky">{renderFilterContent()}</div>
+          {/* ---------- Main layout ---------- */}
+          <div className="flex gap-5 mt-3 sm:mt-5">
+            <aside className="hidden lg:block w-60 xl:w-64 flex-shrink-0">
+              <div className="sticky top-5">{renderFilters()}</div>
             </aside>
 
-            <section className="wm-main">
-              {/* Desktop Toolbar */}
-              {(hasProducts || isInitialLoading) && (
-                <div className="wm-toolbar">
-                  <div className="wm-toolbar-left">
-                    <span className="wm-toolbar-count">
-                      {isInitialLoading ? (
-                        "Loading..."
-                      ) : (
-                        <>
-                          Showing{" "}
-                          <strong>
-                            {(currentPage - 1) * itemsPerPage + 1}
-                          </strong>
-                          –
-                          <strong>
-                            {Math.min(
-                              currentPage * itemsPerPage,
-                              filteredProducts.length
-                            )}
-                          </strong>{" "}
-                          of <strong>{filteredProducts.length}</strong>
-                        </>
-                      )}
-                    </span>
-                    {isFiltersActive && (
-                      <span className="wm-toolbar-badge">Filtered</span>
-                    )}
-                  </div>
-                  <div className="wm-toolbar-right">
-                    <div className="wm-desktop-sort">
-                      <button
-                        onClick={() =>
-                          setShowSortDropdown(!showSortDropdown)
-                        }
-                        className="wm-desktop-sort-btn"
-                      >
-                        <Bars3BottomLeftIcon
-                          style={{ width: 14, height: 14 }}
-                        />
-                        <span>
-                          {
-                            sortOptions.find((o) => o.value === sortBy)
-                              ?.label
-                          }
+            <main className="flex-1 min-w-0">
+              <div ref={gridTopRef} className="scroll-mt-24" />
+
+              <div className="hidden lg:flex items-center justify-between gap-4 mb-4">
+                <p className="text-sm text-[#6d7a74]">
+                  {isInitialLoading ? (
+                    "Loading washing machines…"
+                  ) : (
+                    <>
+                      <span className="font-semibold text-[#2c3330]">
+                        {filteredProducts.length}
+                      </span>{" "}
+                      {filteredProducts.length === 1
+                        ? "washing machine"
+                        : "washing machines"}{" "}
+                      found
+                      {totalPages > 1 && (
+                        <span className="text-[#8a928e]">
+                          {" "}
+                          · page {safePage} of {totalPages}
                         </span>
-                        <ChevronDownIcon
-                          style={{
-                            width: 12,
-                            height: 12,
-                            transition: "transform 0.2s",
-                            transform: showSortDropdown
-                              ? "rotate(180deg)"
-                              : "none",
-                          }}
-                        />
-                      </button>
-                      {showSortDropdown && (
-                        <div className="wm-desktop-sort-drop">
-                          {sortOptions.map((option) => (
-                            <button
-                              key={option.value}
-                              onClick={() => {
-                                setSortBy(option.value);
-                                setShowSortDropdown(false);
-                                setCurrentPage(1);
-                              }}
-                              className={`wm-sort-option ${sortBy === option.value ? "wm-sort-option-active" : ""}`}
-                            >
-                              {option.label}
-                            </button>
-                          ))}
-                        </div>
                       )}
-                    </div>
-                  </div>
+                    </>
+                  )}
+                </p>
+                <SortSelect
+                  id="combo-sort-desktop"
+                  value={sortBy}
+                  onChange={handleSortChange}
+                  className="w-56"
+                />
+              </div>
+
+              {filtersActive && !isInitialLoading && (
+                <div className="flex flex-wrap items-center gap-2 mb-3 sm:mb-4">
+                  {!priceIsDefault && (
+                    <FilterChip
+                      label={`${formatPrice(priceRange[0])} – ${formatPrice(priceRange[1])}`}
+                      onRemove={removePrice}
+                    />
+                  )}
+                  {discountedOnly && (
+                    <FilterChip
+                      label="Discounted only"
+                      onRemove={() => setDiscountedOnly(false)}
+                    />
+                  )}
+                  {brand && <FilterChip label={brand} onRemove={() => setBrand("")} />}
+                  {sortBy !== DEFAULT_SORT && (
+                    <FilterChip
+                      label={SORT_OPTIONS.find((o) => o.value === sortBy)?.label}
+                      onRemove={() => setSortBy(DEFAULT_SORT)}
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="text-xs font-semibold text-[#8C3D45] hover:underline ml-1 py-1"
+                  >
+                    Clear all
+                  </button>
                 </div>
               )}
 
-              {/* ==================== CONTENT STATES ==================== */}
-
-              {/* Loading State */}
               {isInitialLoading && (
-                <div className="wm-grid">
-                  {Array.from({ length: 12 }).map((_, i) => (
+                <div className={gridClass}>
+                  {Array.from({ length: PRODUCTS_PER_PAGE }).map((_, i) => (
                     <SkeletonCard key={i} />
                   ))}
                 </div>
               )}
 
-              {/* Products */}
-              {!isInitialLoading && hasProducts && (
+              {!isInitialLoading && currentProducts.length > 0 && (
                 <>
-                  <div className="wm-grid">
+                  <div className={gridClass}>
                     {currentProducts.map((product) => {
-                      const {
-                        productID,
-                        productName,
-                        productImage,
-                        price,
-                        oldPrice,
-                        stock,
-                      } = product;
-                      const isOnSale = oldPrice > 0 && oldPrice > price;
-                      const discountPercent = isOnSale
-                        ? Math.round(
-                            ((oldPrice - price) / oldPrice) * 100
-                          )
-                        : 0;
-                      const soldOut = stock === 0;
-                      const inWishlist = isInWishlist(productID);
-
+                      const id = product.productID || product.id;
                       return (
-                        <div key={productID} className="wm-card">
-                          <div className="wm-card-img">
-                            {soldOut && (
-                              <span className="wm-card-badge wm-card-badge-sold">
-                                Sold Out
-                              </span>
-                            )}
-                            {isOnSale && !soldOut && (
-                              <span className="wm-card-badge wm-card-badge-discount">
-                                -{discountPercent}%
-                              </span>
-                            )}
-
-                            <div
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                              }}
-                              onClick={() =>
-                                navigate(`/product/${productID}`)
-                              }
-                            >
-                              <img
-                                src={getValidImageUrl(productImage)}
-                                alt={productName}
-                                onError={(e) => {
-                                  e.target.onerror = null;
-                                  e.target.src =
-                                    "https://via.placeholder.com/150";
-                                }}
-                              />
-                            </div>
-
-                            <div
-                              className="wm-card-overlay"
-                              onClick={() =>
-                                navigate(`/product/${productID}`)
-                              }
-                            >
-                              <Tooltip
-                                content={
-                                  inWishlist
-                                    ? "Remove from Wishlist"
-                                    : "Add to Wishlist"
-                                }
-                              >
-                                <button
-                                  className="wm-card-action"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleWishlistToggle(product);
-                                  }}
-                                >
-                                  {inWishlist ? (
-                                    <SolidHeartIcon
-                                      style={{
-                                        width: 16,
-                                        height: 16,
-                                        color: "var(--wm-pink)",
-                                      }}
-                                    />
-                                  ) : (
-                                    <OutlineHeartIcon
-                                      style={{
-                                        width: 16,
-                                        height: 16,
-                                        color: "var(--wm-mid)",
-                                      }}
-                                    />
-                                  )}
-                                </button>
-                              </Tooltip>
-                              <Tooltip content="View Details">
-                                <button
-                                  className="wm-card-action"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`/product/${productID}`);
-                                  }}
-                                >
-                                  <EyeIcon
-                                    style={{
-                                      width: 16,
-                                      height: 16,
-                                      color: "var(--wm-green)",
-                                    }}
-                                  />
-                                </button>
-                              </Tooltip>
-                              <Tooltip
-                                content={
-                                  soldOut
-                                    ? "Out of Stock"
-                                    : "Add to Cart"
-                                }
-                              >
-                                <button
-                                  className="wm-card-action"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleAddToCart(product);
-                                  }}
-                                  disabled={cartLoading || soldOut}
-                                >
-                                  <ShoppingCartIcon
-                                    style={{
-                                      width: 16,
-                                      height: 16,
-                                      color: "var(--wm-green-mid)",
-                                    }}
-                                  />
-                                </button>
-                              </Tooltip>
-                            </div>
-                          </div>
-
-                          <div className="wm-card-body">
-                            <div className="wm-card-name">
-                              {productName}
-                            </div>
-                            <div className="wm-card-price">
-                              {formatPrice(price)}
-                            </div>
-                            {oldPrice > 0 && (
-                              <div className="wm-card-old-price">
-                                {formatPrice(oldPrice)}
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                        <ProductCard
+                          key={id}
+                          product={product}
+                          disabled={cartLoading || addingIds.has(id)}
+                          loading={addingIds.has(id)}
+                          justAdded={recentlyAdded.has(id)}
+                          onAdd={handleAddToCart}
+                          onOpen={openProduct}
+                        />
                       );
                     })}
                   </div>
 
                   {totalPages > 1 && (
-                    <div className="wm-pagination">
+                    <div className="flex justify-center mt-6 sm:mt-8">
                       <CircularPagination
-                        currentPage={currentPage}
+                        currentPage={safePage}
                         totalPages={totalPages}
-                        onPageChange={setCurrentPage}
+                        onPageChange={handlePageChange}
                       />
                     </div>
                   )}
                 </>
               )}
 
-              {/* Empty State */}
-              {trulyEmpty && (
-                <div className="wm-empty">
-                  <div className="wm-empty-icon-wrap">
-                    <MagnifyingGlassIcon
-                      style={{
-                        width: 32,
-                        height: 32,
-                        color: "var(--wm-light)",
-                      }}
-                    />
-                  </div>
-                  <div className="wm-empty-title">
-                    {isFiltersActive
-                      ? "No matching washing machines"
+              {hasNoResults && (
+                <div className="bg-white border border-[#e6e1dc] rounded-xl p-8 sm:p-12 text-center">
+                  <h2 className="text-xl sm:text-2xl font-semibold text-[#2C5E48] mb-2">
+                    {filtersActive
+                      ? "No matches for these filters"
                       : "No washing machines available"}
-                  </div>
-                  <div className="wm-empty-desc">
-                    {isFiltersActive
-                      ? "Try adjusting your price range, brand, or filters to find what you're looking for."
-                      : "We don't have any washing machines available at the moment. Please check back later or explore other categories."}
-                  </div>
-                  <div className="wm-empty-actions">
-                    {isFiltersActive && (
+                  </h2>
+                  <p className="text-[#6d7a74] text-sm max-w-md mx-auto mb-6">
+                    {filtersActive
+                      ? "Try widening your price range or clearing a filter to see more washing machines."
+                      : "We don't have any washing machines available at the moment. Please check back later."}
+                  </p>
+                  {filtersActive && (
+                    <div className="flex justify-center">
                       <button
+                        type="button"
                         onClick={resetFilters}
-                        className="wm-empty-reset"
+                        className="min-h-[46px] px-6 rounded-lg bg-[#2C5E48] text-white text-sm font-semibold hover:bg-[#234A39] active:scale-[0.98] transition"
                       >
-                        Clear Filters
+                        Clear all filters
                       </button>
-                    )}
-                    <button
-                      onClick={() => navigate("/")}
-                      className="wm-empty-browse"
-                    >
-                      Browse All Products
-                    </button>
-                  </div>
+                    </div>
+                  )}
                 </div>
               )}
-            </section>
+            </main>
           </div>
         </div>
-
-        {showSortDropdown && (
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setShowSortDropdown(false)}
-          />
-        )}
       </div>
     </>
   );

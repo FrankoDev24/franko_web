@@ -39,16 +39,16 @@ import Wishlist from "./Pages/Wishlist";
 import OrderSuccess from "./Pages/OrderSucess";
 
 /* ==================== TELECEL SPEED SHOPPING PAGES ==================== */
-import TelCart from "./Pages/TelCart";
-import TelCheckout from "./Pages/TelCheckout";
+// import TelCart from "./Pages/TelCart";
+// import TelCheckout from "./Pages/TelCheckout";
 
 /* ==================== AGENT PAGES ==================== */
 import AgentPage from "./Pages/Agents/AgentPage/AgentPage";
 import AgentDashboard from "./Pages/Agents/AgentPage/AgentDashboard";
 import AgentOrders from "./Pages/Agents/AgentPage/AgentOrders";
 import CTP001ProductsPage from "./Pages/Agents/AgentPage/CTP001ProductsPage";
-import Speed from "./Pages/Speed";
-import PhoneSpeed from "./Pages/PhoneSpeed";
+// import Speed from "./Pages/Speed";
+// import PhoneSpeed from "./Pages/PhoneSpeed";
 
 /* ═══════════════════════════════════════════════════════════════
    ROUTES THAT RENDER WITHOUT THE MAIN NAVBAR
@@ -329,17 +329,17 @@ function App() {
         <Route path="/brand/:brandId" element={<BrandsPage />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/products" element={<Products />} />
-        <Route path="/speed-shopping" element={<Speed />} />
+        {/* <Route path="/speed-shopping" element={<Speed />} /> */}
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/order-received" element={<OrderReceived />} />
         <Route path="/order-success/:orderId" element={<OrderSuccess />} />
         <Route path="/account" element={<Account />} />
         <Route path="/shops" element={<Locations />} />
-        <Route path="/promo-phones" element={<PhoneSpeed />} />
+        {/* <Route path="/promo-phones" element={<PhoneSpeed />} /> */}
 
         {/* Telecel Speed Shopping flow (navbar hidden above) */}
-        <Route path="/tel-cart" element={<TelCart />} />
-        <Route path="/tel-checkout" element={<TelCheckout />} />
+        {/* <Route path="/tel-cart" element={<TelCart />} />
+        <Route path="/tel-checkout" element={<TelCheckout />} /> */}
 
         <Route path="/order-cancelled" element={<Cancellation />} />
 

@@ -21,7 +21,6 @@ import {
   Search,
   Filter,
   Package,
-  TrendingUp,
   CheckCircle,
   AlertCircle,
   XCircle,
@@ -53,6 +52,19 @@ const safeParseCustomer = () => {
     return null;
   }
 };
+
+const getCustomerType = (customer) =>
+  String(
+    customer?.customerType ??
+      customer?.CustomerType ??
+      customer?.customer_type ??
+      customer?.accountType ??
+      customer?.AccountType ??
+      customer?.account_type ??
+      "",
+  )
+    .trim()
+    .toLowerCase();
 
 // ONLY Order Placement can be cancelled
 const isCancellable = (status) => {
@@ -94,9 +106,9 @@ const statusOptions = [
 const OrderHistoryPage = () => {
   const dispatch = useDispatch();
   const ordersData = useSelector((state) => state.orders || { orders: [], loading: false, error: null });
+  const currentCustomer = useSelector((state) => state.customer?.currentCustomer || null);
   const orders = ordersData.orders || [];
 
-  // FIX: loading can be boolean OR loadingStatus object - always return boolean
   const loading = useMemo(() => {
     if (ordersData.loadingStatus && typeof ordersData.loadingStatus.orders === "boolean") {
       return ordersData.loadingStatus.orders;
@@ -104,23 +116,11 @@ const OrderHistoryPage = () => {
     return typeof ordersData.loading === "boolean" ? ordersData.loading : false;
   }, [ordersData.loading, ordersData.loadingStatus]);
 
-  // FIX: error can be string OR object {orders, ...} - always return string or null, NEVER object
   const error = useMemo(() => {
-    const raw =
-      ordersData.errorStatus?.orders ??
-      ordersData.error?.orders ??
-      null;
-
-    // If raw is string, use it
+    const raw = ordersData.errorStatus?.orders ?? ordersData.error?.orders ?? null;
     if (typeof raw === "string" && raw.trim()) return raw;
-
-    // If error is object with message
     if (raw && typeof raw === "object" && typeof raw.message === "string") return raw.message;
-
-    // If ordersData.error is a string (legacy)
     if (typeof ordersData.error === "string" && ordersData.error.trim()) return ordersData.error;
-
-    // If error is object, find first string value inside it
     if (ordersData.error && typeof ordersData.error === "object") {
       const firstString = Object.values(ordersData.error).find((v) => typeof v === "string" && v.trim());
       if (firstString) return firstString;
@@ -129,7 +129,6 @@ const OrderHistoryPage = () => {
       const firstString = Object.values(ordersData.errorStatus).find((v) => typeof v === "string" && v.trim());
       if (firstString) return firstString;
     }
-
     return null;
   }, [ordersData.error, ordersData.errorStatus]);
 
@@ -145,7 +144,6 @@ const OrderHistoryPage = () => {
   const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
   const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(false);
 
-  // Cancel state
   const [cancelModal, setCancelModal] = useState({
     open: false,
     orderId: null,
@@ -155,7 +153,15 @@ const OrderHistoryPage = () => {
   });
   const [cancellingId, setCancellingId] = useState(null);
 
-  const customerObj = useMemo(() => safeParseCustomer(), []);
+  const customerObj = useMemo(() => {
+    const storedCustomer = safeParseCustomer();
+    // The authenticated customer is stored in Redux as
+    // state.customer.currentCustomer. Fall back to localStorage for sessions
+    // that have not hydrated Redux yet.
+    return currentCustomer || storedCustomer?.currentCustomer || storedCustomer || null;
+  }, [currentCustomer]);
+  const customerType = useMemo(() => getCustomerType(customerObj), [customerObj]);
+  const isAgentCustomer = customerType === "agent";
   const customerId =
     customerObj?.customerAccountNumber ||
     customerObj?.CustomerAccountNumber ||
@@ -227,7 +233,7 @@ const OrderHistoryPage = () => {
     const total = orders.length;
     const completed = orders.filter((o) => ["Delivery", "Completed"].includes(o.orderCycle)).length;
     const inProgress = orders.filter((o) =>
-      ["Processing", "Pending", "Order Placement", "Wrong Number"].includes(o.orderCycle)
+      ["Processing", "Pending", "Order Placement", "Wrong Number"].includes(o.orderCycle),
     ).length;
     const cancelled = orders.filter((o) => o.orderCycle === "Cancelled").length;
     return { total, completed, inProgress, cancelled };
@@ -271,6 +277,7 @@ const OrderHistoryPage = () => {
 
   // ==================== CANCEL LOGIC ====================
   const openCancelModal = (order) => {
+    if (isAgentCustomer) return;
     if (!isCancellable(order.orderCycle)) {
       message.warning(`Only 'Order Placement' orders can be cancelled. Order #${order.orderId} is at ${order.orderCycle} stage`);
       return;
@@ -290,7 +297,7 @@ const OrderHistoryPage = () => {
   };
 
   const handleConfirmCancel = async () => {
-    if (!cancelModal.orderId) return;
+    if (isAgentCustomer || !cancelModal.orderId) return;
     setCancelModal((p) => ({ ...p, loading: true }));
     setCancellingId(cancelModal.orderId);
     try {
@@ -360,7 +367,7 @@ const OrderHistoryPage = () => {
       key: "action",
       width: 230,
       render: (_, record) => {
-        const cancellable = isCancellable(record.orderCycle);
+        const cancellable = !isAgentCustomer && isCancellable(record.orderCycle);
         const isThisCancelling = cancellingId === record.orderId;
         return (
           <div className="oh-action-group">
@@ -384,7 +391,7 @@ const OrderHistoryPage = () => {
                     boxShadow: "0 2px 8px rgba(220,38,38,0.2)",
                   }}
                 >
-                  {isThisCancelling ? <Spin size="small" /> : <X style={{ width: 14, height: 14 }} />}
+                  {isThisCancelling ? <Spin size="small" /> : <X style={{ width: 12, height: 12 }} />}
                   Cancel Order
                 </button>
               </Tooltip>
@@ -399,7 +406,7 @@ const OrderHistoryPage = () => {
   const StatCard = ({ value, label, icon: Icon, color, bg }) => (
     <div className="oh-stat-card" style={{ "--stat-color": color, "--stat-bg": bg }}>
       <div className="oh-stat-top">
-        <div className="oh-stat-icon" style={{ background: bg, color: color }}>
+        <div className="oh-stat-icon" style={{ background: bg, color }}>
           <Icon style={{ width: 18, height: 18 }} />
         </div>
       </div>
@@ -410,7 +417,7 @@ const OrderHistoryPage = () => {
 
   const MobileOrderCard = ({ order }) => {
     const cfg = getStatusConfig(order.orderCycle);
-    const cancellable = isCancellable(order.orderCycle);
+    const cancellable = !isAgentCustomer && isCancellable(order.orderCycle);
     const isThisCancelling = cancellingId === order.orderId;
     return (
       <div className="oh-mobile-card">
@@ -450,9 +457,9 @@ const OrderHistoryPage = () => {
               className="oh-mobile-btn oh-mobile-btn-cancel-active"
               onClick={() => openCancelModal(order)}
               disabled={isThisCancelling}
-              style={{ background: "#dc2626", color: "#fff", borderColor: "#dc2626", fontWeight: 800, flex: 1 }}
+              style={{ background: "#dc2626", color: "#fff", borderColor: "#dc2626", fontWeight: 800 }}
             >
-              {isThisCancelling ? <Spin size="small" /> : <X style={{ width: 14, height: 14 }} />}
+              {isThisCancelling ? <Spin size="small" /> : <X style={{ width: 12, height: 12 }} />}
               Cancel Order
             </button>
           )}
@@ -527,7 +534,6 @@ const OrderHistoryPage = () => {
         <AlertCircle style={{ width: 32, height: 32, color: "#dc2626" }} />
       </div>
       <h3 className="oh-empty-title">Unable to load orders</h3>
-      {/* FIX: error is now guaranteed string, never object */}
       <p className="oh-empty-desc">
         {typeof error === "string" && error.toLowerCase().includes("datareader")
           ? "Something went wrong. Please try again."
@@ -648,26 +654,28 @@ const OrderHistoryPage = () => {
           )}
         </div>
 
-        <Modal open={cancelModal.open} onCancel={closeCancelModal} footer={null} centered width={440} closeIcon={false} className="oh-cancel-modal" maskClosable={!cancelModal.loading}>
-          <div className="oh-cancel-content">
-            <div className="oh-cancel-icon-wrap">
-              <div className="oh-cancel-icon-bg"><AlertCircle style={{ width: 28, height: 28, color: "#dc2626" }} /></div>
-              <button className="oh-cancel-close" onClick={closeCancelModal} disabled={cancelModal.loading}><X style={{ width: 18, height: 18 }} /></button>
+        {!isAgentCustomer && (
+          <Modal open={cancelModal.open} onCancel={closeCancelModal} footer={null} centered width={440} closeIcon={false} className="oh-cancel-modal" maskClosable={!cancelModal.loading}>
+            <div className="oh-cancel-content">
+              <div className="oh-cancel-icon-wrap">
+                <div className="oh-cancel-icon-bg"><AlertCircle style={{ width: 28, height: 28, color: "#dc2626" }} /></div>
+                <button className="oh-cancel-close" onClick={closeCancelModal} disabled={cancelModal.loading}><X style={{ width: 18, height: 18 }} /></button>
+              </div>
+              <h3 className="oh-cancel-title">Cancel Order?</h3>
+              <p className="oh-cancel-desc">You are about to cancel order <strong>#{cancelModal.orderId}</strong>. This action cannot be undone.</p>
+              <div className="oh-cancel-details">
+                <div className="oh-cancel-detail-row"><span className="oh-cancel-detail-label">Order ID</span><span className="oh-cancel-detail-value">#{cancelModal.orderId}</span></div>
+                <div className="oh-cancel-detail-row"><span className="oh-cancel-detail-label">Date</span><span className="oh-cancel-detail-value">{cancelModal.orderDate}</span></div>
+                <div className="oh-cancel-detail-row"><span className="oh-cancel-detail-label">Status</span><span className="oh-cancel-detail-value"><span className="oh-cancel-status">{cancelModal.status}</span></span></div>
+              </div>
+              <div className="oh-cancel-warning"><ShieldAlert style={{ width: 14, height: 14, flexShrink: 0 }} /><span>Refund will be processed according to our cancellation policy. If you paid via Mobile Money, it may take 24-48 hours.</span></div>
+              <div className="oh-cancel-actions">
+                <button className="oh-btn-secondary oh-btn-block" onClick={closeCancelModal} disabled={cancelModal.loading}>Keep Order</button>
+                <button className="oh-btn-danger oh-btn-block" onClick={handleConfirmCancel} disabled={cancelModal.loading}>{cancelModal.loading ? <><Spin size="small" />Cancelling...</> : <><Ban style={{ width: 16, height: 16 }} />Yes, Cancel Order</>}</button>
+              </div>
             </div>
-            <h3 className="oh-cancel-title">Cancel Order?</h3>
-            <p className="oh-cancel-desc">You are about to cancel order <strong>#{cancelModal.orderId}</strong>. This action cannot be undone.</p>
-            <div className="oh-cancel-details">
-              <div className="oh-cancel-detail-row"><span className="oh-cancel-detail-label">Order ID</span><span className="oh-cancel-detail-value">#{cancelModal.orderId}</span></div>
-              <div className="oh-cancel-detail-row"><span className="oh-cancel-detail-label">Date</span><span className="oh-cancel-detail-value">{cancelModal.orderDate}</span></div>
-              <div className="oh-cancel-detail-row"><span className="oh-cancel-detail-label">Status</span><span className="oh-cancel-detail-value"><span className="oh-cancel-status">{cancelModal.status}</span></span></div>
-            </div>
-            <div className="oh-cancel-warning"><ShieldAlert style={{ width: 14, height: 14, flexShrink: 0 }} /><span>Refund will be processed according to our cancellation policy. If you paid via Mobile Money, it may take 24-48 hours.</span></div>
-            <div className="oh-cancel-actions">
-              <button className="oh-btn-secondary oh-btn-block" onClick={closeCancelModal} disabled={cancelModal.loading}>Keep Order</button>
-              <button className="oh-btn-danger oh-btn-block" onClick={handleConfirmCancel} disabled={cancelModal.loading}>{cancelModal.loading ? <><Spin size="small" />Cancelling...</> : <><Ban style={{ width: 16, height: 16 }} />Yes, Cancel Order</>}</button>
-            </div>
-          </div>
-        </Modal>
+          </Modal>
+        )}
 
         <OrderModal orderId={selectedOrderId} orderCode={selectedOrderId} isModalVisible={isOrderModalVisible} onClose={handleOrderModalClose} onCancelled={handleRefresh} />
         <AuthModal open={isAuthModalVisible} onClose={handleAuthModalClose} />
@@ -756,7 +764,7 @@ const styles = `
   .oh-action-btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px; border-radius: var(--oh-radius-xs); font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; border: 1px solid; line-height: 1; }
   .oh-action-view { background: #fff; border-color: var(--oh-border); color: var(--oh-mid); }
   .oh-action-view:hover { background: var(--oh-green-lighter); border-color: var(--oh-green-light); color: var(--oh-green); }
-  .oh-action-cancel-active { background: #dc2626; color: #fff; border-color: #dc2626; font-weight: 700; }
+  .oh-action-cancel-active { padding: 3px 6px !important; gap: 3px !important; min-height: 22px; font-size: 10px !important; line-height: 1 !important; }
   .oh-mobile-list { display: block; } @media (min-width: 768px) { .oh-mobile-list { display: none; } }
   .oh-mobile-list-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #f9fafb; border-bottom: 1px solid var(--oh-border-light); font-size: 12px; font-weight: 600; color: var(--oh-mid); }
   .oh-mobile-list-sub { font-weight: 500; color: var(--oh-light); font-size: 11px; }
@@ -769,10 +777,10 @@ const styles = `
   .oh-mobile-meta-label { font-weight: 600; color: var(--oh-light); text-transform: uppercase; font-size: 10px; letter-spacing: 0.04em; }
   .oh-mobile-meta-value { font-weight: 600; color: var(--oh-dark); }
   .oh-mobile-amount { color: var(--oh-green); font-weight: 800; }
-  .oh-mobile-card-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .oh-mobile-card-actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
   .oh-mobile-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 12px; border-radius: var(--oh-radius-xs); font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.15s; border: 1px solid; }
   .oh-mobile-btn-view { background: var(--oh-green); color: #fff; border-color: var(--oh-green); }
-  .oh-mobile-btn-cancel-active { background: #dc2626; color: #fff; border-color: #dc2626; }
+  .oh-mobile-btn-cancel-active { flex: 0 0 auto !important; padding: 5px 7px !important; gap: 3px !important; min-height: 28px; font-size: 10px !important; white-space: nowrap; background: #dc2626; color: #fff; border-color: #dc2626; }
   .oh-empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 48px 20px; }
   @media (min-width: 768px) { .oh-empty-state { padding: 64px 32px; } }
   .oh-empty-icon-wrap { width: 72px; height: 72px; border-radius: 20px; background: #f9fafb; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; border: 1px solid var(--oh-border-light); box-shadow: var(--oh-shadow-sm); }
