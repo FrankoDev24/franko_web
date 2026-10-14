@@ -1,6 +1,16 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { paymentOutcome, generateOrderCode, buildOrderDetails, completedOrderRoute, assertOrderDetails, assertOrderAccepted } from './checkoutFlow.mjs';
+import {
+  paymentOutcome,
+  generateOrderCode,
+  buildOrderDetails,
+  completedOrderRoute,
+  assertOrderDetails,
+  assertOrderAccepted,
+  isValidVerificationCode,
+  isVerificationExpired,
+} from './checkoutFlow.mjs';
+
 const success = {responseCode:null,responseMessage:'Successfully Processed Transaction',flag:null,name:null,data:{transactionReference:null,checkoutUrl:null}};
 test('null-code success is immediate success', () => assert.equal(paymentOutcome(success),'success'));
 test('stringified and nested success', () => assert.equal(paymentOutcome({data:JSON.stringify(success)}),'success'));
@@ -41,3 +51,70 @@ test('only confirmed Mobile Money goes to order-success', () => {
   assert.equal(completedOrderRoute({orderId:'TEL-1234-567',paymentMode:'Mobile Money',paid:true,accountType:'Agent',telecel:true}),'/order-success/TEL-1234-567');
 });
 test('order rejection is thrown', () => assert.throws(() => assertOrderAccepted({responseCode:null,responseMessage:'Order failed'})));
+
+test('verification code validation recognizes valid 6-digit codes', () => {
+  assert.equal(isValidVerificationCode('123456'), true);
+  assert.equal(isValidVerificationCode('999999'), true);
+  assert.equal(isValidVerificationCode('000123'), true);
+  assert.equal(isValidVerificationCode('12345'), false); // 5 digits
+  assert.equal(isValidVerificationCode('1234567'), false); // 7 digits
+  assert.equal(isValidVerificationCode('abcdef'), false); // letters
+  assert.equal(isValidVerificationCode(null), false);
+  assert.equal(isValidVerificationCode(''), false);
+});
+
+test('verification expiration identifies expired sessions correctly', () => {
+  const now = 1000000000;
+  const fiveMinAgo = now - (5 * 60 * 1000);
+  const elevenMinAgo = now - (11 * 60 * 1000);
+  assert.equal(isVerificationExpired(fiveMinAgo, 10 * 60 * 1000, now), false);
+  assert.equal(isVerificationExpired(elevenMinAgo, 10 * 60 * 1000, now), true);
+});
+
+test('detectMoMoNetwork identifies MTN prefixes accurately', async () => {
+  const { detectMoMoNetwork } = await import('./checkoutFlow.mjs');
+  const mtnPrefixes = ['024', '025', '053', '054', '055', '059'];
+  for (const prefix of mtnPrefixes) {
+    const res = detectMoMoNetwork(`${prefix}1234567`);
+    assert.ok(res, `Failed for prefix ${prefix}`);
+    assert.equal(res.network, 'mtn');
+    assert.equal(res.service, 'MTN');
+  }
+  // Test with 233 country code
+  assert.equal(detectMoMoNetwork('233241234567')?.network, 'mtn');
+  assert.equal(detectMoMoNetwork('+233541234567')?.network, 'mtn');
+});
+
+test('detectMoMoNetwork identifies Telecel / Vodafone prefixes accurately', async () => {
+  const { detectMoMoNetwork } = await import('./checkoutFlow.mjs');
+  const telecelPrefixes = ['020', '050'];
+  for (const prefix of telecelPrefixes) {
+    const res = detectMoMoNetwork(`${prefix}1234567`);
+    assert.ok(res, `Failed for prefix ${prefix}`);
+    assert.equal(res.network, 'vodafone');
+    assert.equal(res.service, 'VODAFONE');
+  }
+  assert.equal(detectMoMoNetwork('233201234567')?.network, 'vodafone');
+});
+
+test('detectMoMoNetwork identifies AirtelTigo / AT prefixes accurately', async () => {
+  const { detectMoMoNetwork } = await import('./checkoutFlow.mjs');
+  const atPrefixes = ['026', '027', '056', '057'];
+  for (const prefix of atPrefixes) {
+    const res = detectMoMoNetwork(`${prefix}1234567`);
+    assert.ok(res, `Failed for prefix ${prefix}`);
+    assert.equal(res.network, 'airteltigo');
+    assert.equal(res.service, 'AIRTELTIGO');
+  }
+  assert.equal(detectMoMoNetwork('233261234567')?.network, 'airteltigo');
+});
+
+test('detectMoMoNetwork rejects invalid prefixes or lengths', async () => {
+  const { detectMoMoNetwork } = await import('./checkoutFlow.mjs');
+  assert.equal(detectMoMoNetwork('0281234567'), null); // invalid prefix
+  assert.equal(detectMoMoNetwork('0231234567'), null); // invalid prefix
+  assert.equal(detectMoMoNetwork('024123'), null); // too short
+  assert.equal(detectMoMoNetwork('024123456789'), null); // too long
+  assert.equal(detectMoMoNetwork(''), null);
+  assert.equal(detectMoMoNetwork(null), null);
+});
