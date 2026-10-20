@@ -1,6 +1,6 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchOrdersByCustomer, cancelOrder } from "../Redux/Slice/orderSlice";
+import * as orderSliceActions from "../Redux/Slice/orderSlice";
 import {
   DatePicker,
   Table,
@@ -35,10 +35,14 @@ import {
   ArrowUpRight,
   Download,
   SlidersHorizontal,
+  Truck,
+  Check,
 } from "lucide-react";
 import moment from "moment";
 import OrderModal from "../Component/OrderModal";
 import AuthModal from "../Component/AuthModal";
+
+const { fetchOrdersByCustomer, cancelOrder } = orderSliceActions;
 
 // ==================== HELPERS ====================
 const safeParseCustomer = () => {
@@ -47,7 +51,7 @@ const safeParseCustomer = () => {
     if (!raw || raw === "null" || raw === "undefined") return null;
     const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (!parsed || typeof parsed !== "object") return null;
-    return parsed;
+    return parsed?.currentCustomer || parsed;
   } catch {
     return null;
   }
@@ -66,6 +70,33 @@ const getCustomerType = (customer) =>
     .trim()
     .toLowerCase();
 
+const getStatus = (order) =>
+  order?.orderCycle || order?.OrderCycle || order?.status || "Pending";
+
+const statusLabel = (status) =>
+  ({
+    "Order Placement": "Placed",
+    Delivery: "Delivered",
+    Completed: "Completed",
+    Processing: "Processing",
+    Pending: "Pending",
+    Cancelled: "Cancelled by customer",
+  })[status] || status;
+
+const isDelivered = (status) => ["Delivery", "Completed"].includes(status);
+
+const statusClass = (status) =>
+  isDelivered(status)
+    ? "delivered"
+    : status === "Cancelled"
+      ? "cancelled"
+      : ["Delivery", "Processing"].includes(status)
+        ? "shipping"
+        : "placed";
+
+const amount = (order) =>
+  Number(order?.totalAmount ?? order?.orderAmount ?? order?.amount ?? 0);
+
 // ONLY Order Placement can be cancelled
 const isCancellable = (status) => {
   if (!status) return false;
@@ -74,18 +105,97 @@ const isCancellable = (status) => {
 
 const getStatusConfig = (status) => {
   const map = {
-    Pending: { bg: "#fffbeb", color: "#92400e", border: "#fde68a", dot: "#f59e0b", icon: Clock, label: "Pending" },
-    Processing: { bg: "#eff6ff", color: "#1e40af", border: "#bfdbfe", dot: "#3b82f6", icon: Timer, label: "Processing" },
-    "Order Placement": { bg: "#eef2ff", color: "#3730a3", border: "#c7d2fe", dot: "#6366f1", icon: FileText, label: "Placed" },
-    "Wrong Number": { bg: "#faf5ff", color: "#6b21a8", border: "#e9d5ff", dot: "#a855f7", icon: AlertCircle, label: "Wrong Number" },
-    Delivery: { bg: "#f0fdf4", color: "#166534", border: "#bbf7d0", dot: "#22c55e", icon: PackageCheck, label: "Delivered" },
-    Completed: { bg: "#f0fdf4", color: "#14532d", border: "#86efac", dot: "#16a34a", icon: CheckCircle, label: "Completed" },
-    Cancelled: { bg: "#fef2f2", color: "#991b1b", border: "#fecaca", dot: "#ef4444", icon: Ban, label: "Cancelled" },
-    Unreachable: { bg: "#f9fafb", color: "#374151", border: "#e5e7eb", dot: "#6b7280", icon: UserX, label: "Unreachable" },
-    "Not Answered": { bg: "#fff7ed", color: "#9a3412", border: "#fed7aa", dot: "#f97316", icon: AlertCircle, label: "No Answer" },
-    "Multiple order": { bg: "#f0f9ff", color: "#0c4a6e", border: "#bae6fd", dot: "#0ea5e9", icon: Package, label: "Multiple" },
+    Pending: {
+      bg: "#fffbeb",
+      color: "#92400e",
+      border: "#fde68a",
+      dot: "#f59e0b",
+      icon: Clock,
+      label: "Pending",
+    },
+    Processing: {
+      bg: "#eff6ff",
+      color: "#1e40af",
+      border: "#bfdbfe",
+      dot: "#3b82f6",
+      icon: Timer,
+      label: "Processing",
+    },
+    "Order Placement": {
+      bg: "#eef2ff",
+      color: "#3730a3",
+      border: "#c7d2fe",
+      dot: "#6366f1",
+      icon: FileText,
+      label: "Placed",
+    },
+    "Wrong Number": {
+      bg: "#faf5ff",
+      color: "#6b21a8",
+      border: "#e9d5ff",
+      dot: "#a855f7",
+      icon: AlertCircle,
+      label: "Wrong Number",
+    },
+    Delivery: {
+      bg: "#f0fdf4",
+      color: "#166534",
+      border: "#bbf7d0",
+      dot: "#22c55e",
+      icon: PackageCheck,
+      label: "Delivered",
+    },
+    Completed: {
+      bg: "#f0fdf4",
+      color: "#14532d",
+      border: "#86efac",
+      dot: "#16a34a",
+      icon: CheckCircle,
+      label: "Completed",
+    },
+    Cancelled: {
+      bg: "#fef2f2",
+      color: "#991b1b",
+      border: "#fecaca",
+      dot: "#ef4444",
+      icon: Ban,
+      label: "Cancelled",
+    },
+    Unreachable: {
+      bg: "#f9fafb",
+      color: "#374151",
+      border: "#e5e7eb",
+      dot: "#6b7280",
+      icon: UserX,
+      label: "Unreachable",
+    },
+    "Not Answered": {
+      bg: "#fff7ed",
+      color: "#9a3412",
+      border: "#fed7aa",
+      dot: "#f97316",
+      icon: AlertCircle,
+      label: "No Answer",
+    },
+    "Multiple order": {
+      bg: "#f0f9ff",
+      color: "#0c4a6e",
+      border: "#bae6fd",
+      dot: "#0ea5e9",
+      icon: Package,
+      label: "Multiple",
+    },
   };
-  return map[status] || { bg: "#f9fafb", color: "#374151", border: "#e5e7eb", dot: "#9ca3af", icon: AlertCircle, label: status };
+  return (
+    map[status] || {
+      bg: "#f9fafb",
+      color: "#374151",
+      border: "#e5e7eb",
+      dot: "#9ca3af",
+      icon: AlertCircle,
+      label: status,
+    }
+  );
 };
 
 const statusOptions = [
@@ -105,28 +215,99 @@ const statusOptions = [
 // ==================== COMPONENT ====================
 const OrderHistoryPage = () => {
   const dispatch = useDispatch();
-  const ordersData = useSelector((state) => state.orders || { orders: [], loading: false, error: null });
-  const currentCustomer = useSelector((state) => state.customer?.currentCustomer || null);
-  const orders = ordersData.orders || [];
+  const ordersData = useSelector(
+    (state) => state.orders || { orders: [], loading: false, error: null },
+  );
+  const currentCustomer = useSelector(
+    (state) => state.customer?.currentCustomer || null,
+  );
+
+  const customerObj = useMemo(() => {
+    const storedCustomer = safeParseCustomer();
+    return currentCustomer || storedCustomer || null;
+  }, [currentCustomer]);
+
+  const customerType = useMemo(() => getCustomerType(customerObj), [customerObj]);
+  const isAgentCustomer = customerType === "agent";
+  const customerId =
+    customerObj?.customerAccountNumber ||
+    customerObj?.CustomerAccountNumber ||
+    customerObj?.customerId ||
+    null;
+  const hasValidCustomer = Boolean(customerObj && customerId);
+
+  // Instant session cache so orders appear immediately while background refresh runs
+  const cacheKey = customerId ? `franko_orders_cache_${customerId}` : null;
+  const [cachedOrders, setCachedOrders] = useState(() => {
+    if (!cacheKey) return [];
+    try {
+      const saved = sessionStorage.getItem(cacheKey);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Optimistic overrides for instant UI feedback on cancel or delivery updates
+  const [optimisticOverrides, setOptimisticOverrides] = useState({});
+  const prefetchedOrdersRef = useRef(new Set());
+
+  const rawOrders = useMemo(() => {
+    const reduxOrders = Array.isArray(ordersData.orders) ? ordersData.orders : [];
+    const baseList = reduxOrders.length > 0 ? reduxOrders : cachedOrders;
+
+    return baseList.map((order) => {
+      const code = order?.orderCode || order?.orderId;
+      if (code && optimisticOverrides[code]) {
+        return { ...order, ...optimisticOverrides[code] };
+      }
+      return order;
+    });
+  }, [ordersData.orders, cachedOrders, optimisticOverrides]);
+
+  useEffect(() => {
+    if (
+      cacheKey &&
+      Array.isArray(ordersData.orders) &&
+      ordersData.orders.length > 0
+    ) {
+      setCachedOrders(ordersData.orders);
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify(ordersData.orders));
+      } catch {
+        // Ignore storage quota errors
+      }
+    }
+  }, [cacheKey, ordersData.orders]);
 
   const loading = useMemo(() => {
-    if (ordersData.loadingStatus && typeof ordersData.loadingStatus.orders === "boolean") {
+    if (
+      ordersData.loadingStatus &&
+      typeof ordersData.loadingStatus.orders === "boolean"
+    ) {
       return ordersData.loadingStatus.orders;
     }
     return typeof ordersData.loading === "boolean" ? ordersData.loading : false;
   }, [ordersData.loading, ordersData.loadingStatus]);
 
   const error = useMemo(() => {
-    const raw = ordersData.errorStatus?.orders ?? ordersData.error?.orders ?? null;
+    const raw =
+      ordersData.errorStatus?.orders ?? ordersData.error?.orders ?? null;
     if (typeof raw === "string" && raw.trim()) return raw;
-    if (raw && typeof raw === "object" && typeof raw.message === "string") return raw.message;
-    if (typeof ordersData.error === "string" && ordersData.error.trim()) return ordersData.error;
+    if (raw && typeof raw === "object" && typeof raw.message === "string")
+      return raw.message;
+    if (typeof ordersData.error === "string" && ordersData.error.trim())
+      return ordersData.error;
     if (ordersData.error && typeof ordersData.error === "object") {
-      const firstString = Object.values(ordersData.error).find((v) => typeof v === "string" && v.trim());
+      const firstString = Object.values(ordersData.error).find(
+        (v) => typeof v === "string" && v.trim(),
+      );
       if (firstString) return firstString;
     }
     if (ordersData.errorStatus && typeof ordersData.errorStatus === "object") {
-      const firstString = Object.values(ordersData.errorStatus).find((v) => typeof v === "string" && v.trim());
+      const firstString = Object.values(ordersData.errorStatus).find(
+        (v) => typeof v === "string" && v.trim(),
+      );
       if (firstString) return firstString;
     }
     return null;
@@ -139,6 +320,7 @@ const OrderHistoryPage = () => {
   const [dateRange, setDateRange] = useState([defaultFromDate, defaultToDate]);
   const [isOrderModalVisible, setIsOrderModalVisible] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [trackingOrder, setTrackingOrder] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
@@ -153,38 +335,53 @@ const OrderHistoryPage = () => {
   });
   const [cancellingId, setCancellingId] = useState(null);
 
-  const customerObj = useMemo(() => {
-    const storedCustomer = safeParseCustomer();
-    // The authenticated customer is stored in Redux as
-    // state.customer.currentCustomer. Fall back to localStorage for sessions
-    // that have not hydrated Redux yet.
-    return currentCustomer || storedCustomer?.currentCustomer || storedCustomer || null;
-  }, [currentCustomer]);
-  const customerType = useMemo(() => getCustomerType(customerObj), [customerObj]);
-  const isAgentCustomer = customerType === "agent";
-  const customerId =
-    customerObj?.customerAccountNumber ||
-    customerObj?.CustomerAccountNumber ||
-    customerObj?.customerId ||
-    null;
-  const hasValidCustomer = Boolean(customerObj && customerId);
-
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
-  useEffect(() => {
+  const handleRefresh = useCallback(() => {
     if (hasValidCustomer) {
       const [from, to] = dateRange.map((date) => date.format("MM/DD/YYYY"));
       dispatch(fetchOrdersByCustomer({ from, to, customerId }));
     }
-  }, [dateRange, customerId, dispatch, hasValidCustomer]);
+  }, [hasValidCustomer, dateRange, customerId, dispatch]);
+
+  useEffect(() => {
+    handleRefresh();
+  }, [handleRefresh]);
+
+  // Prefetch Sales Order & Delivery Address on hover/click so OrderModal renders data immediately
+  const prefetchOrderDetails = useCallback(
+    (orderId) => {
+      if (!orderId || prefetchedOrdersRef.current.has(orderId)) return;
+      prefetchedOrdersRef.current.add(orderId);
+
+      const salesOrderAction =
+        orderSliceActions.fetchSalesOrderById ||
+        orderSliceActions.getSalesOrderById ||
+        orderSliceActions.fetchSalesOrder;
+
+      const deliveryAction =
+        orderSliceActions.fetchOrderDeliveryAddress ||
+        orderSliceActions.getOrderDeliveryAddress ||
+        orderSliceActions.fetchDeliveryAddress;
+
+      if (typeof salesOrderAction === "function") {
+        dispatch(salesOrderAction(orderId));
+      }
+      if (typeof deliveryAction === "function") {
+        dispatch(deliveryAction(orderId));
+      }
+    },
+    [dispatch],
+  );
 
   const handleDateChange = (dates) => {
     if (dates && dates[0] && dates[1]) setDateRange(dates);
   };
 
   const handleViewOrder = (orderId) => {
+    prefetchOrderDetails(orderId);
     setSelectedOrderId(orderId);
     setIsOrderModalVisible(true);
   };
@@ -194,50 +391,78 @@ const OrderHistoryPage = () => {
     setSelectedOrderId(null);
   };
 
+  // Called when OrderModal updates delivery address or cancels order
+  const handleModalOrderMutated = useCallback(
+    (updatedData) => {
+      if (selectedOrderId && updatedData && typeof updatedData === "object") {
+        setOptimisticOverrides((prev) => ({
+          ...prev,
+          [selectedOrderId]: {
+            ...(prev[selectedOrderId] || {}),
+            ...updatedData,
+          },
+        }));
+      }
+      // Clear prefetch lock for this order so next view fetches fresh data
+      if (selectedOrderId) {
+        prefetchedOrdersRef.current.delete(selectedOrderId);
+      }
+      handleRefresh();
+    },
+    [selectedOrderId, handleRefresh],
+  );
+
   const handleAuthModalClose = () => setIsAuthModalVisible(false);
   const handleSignInClick = () => setIsAuthModalVisible(true);
 
-  const handleRefresh = useCallback(() => {
-    if (hasValidCustomer) {
-      const [from, to] = dateRange.map((date) => date.format("MM/DD/YYYY"));
-      dispatch(fetchOrdersByCustomer({ from, to, customerId }));
-    }
-  }, [hasValidCustomer, dateRange, customerId, dispatch]);
-
   const transformedOrders = useMemo(() => {
-    return (orders || [])
-      .map((order, index) => ({
-        key: order?.orderCode ? `${order.orderCode}-${index}` : `order-${index}`,
-        orderId: order?.orderCode || "N/A",
-        orderDate: order?.orderDate ? moment(order.orderDate).format("MMM DD, YYYY") : "N/A",
-        orderDateRaw: order?.orderDate,
-        orderDateMoment: order?.orderDate ? moment(order.orderDate) : moment(0),
-        customerName: order?.fullName || customerObj?.firstName || "N/A",
-        orderCycle: order?.orderCycle || "Pending",
-        totalAmount: order?.totalAmount || order?.orderAmount || null,
-        paymentMode: order?.paymentMode || order?.PaymentMode || "N/A",
-        raw: order,
-      }))
+    return (rawOrders || [])
+      .map((order, index) => {
+        const id = order?.orderCode || order?.orderId || "N/A";
+        const cycle = getStatus(order);
+        return {
+          key: id !== "N/A" ? `${id}-${index}` : `order-${index}`,
+          orderId: id,
+          orderCode: id,
+          orderDate: order?.orderDate
+            ? moment(order.orderDate).format("MMM DD, YYYY")
+            : "N/A",
+          orderDateRaw: order?.orderDate,
+          orderDateMoment: order?.orderDate ? moment(order.orderDate) : moment(0),
+          customerName: order?.fullName || customerObj?.firstName || "Customer",
+          orderCycle: cycle,
+          totalAmount: amount(order),
+          paymentMode: order?.paymentMode || order?.PaymentMode || "N/A",
+          raw: order,
+        };
+      })
       .filter((order) => {
         const matchesSearch =
           !searchTerm ||
           order.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
           order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus = statusFilter === "all" || order.orderCycle === statusFilter;
+        const matchesStatus =
+          statusFilter === "all" || order.orderCycle === statusFilter;
         return matchesSearch && matchesStatus;
       })
       .sort((a, b) => b.orderDateMoment.valueOf() - a.orderDateMoment.valueOf());
-  }, [orders, searchTerm, statusFilter, customerObj]);
+  }, [rawOrders, searchTerm, statusFilter, customerObj]);
 
   const stats = useMemo(() => {
-    const total = orders.length;
-    const completed = orders.filter((o) => ["Delivery", "Completed"].includes(o.orderCycle)).length;
-    const inProgress = orders.filter((o) =>
-      ["Processing", "Pending", "Order Placement", "Wrong Number"].includes(o.orderCycle),
+    const total = rawOrders.length;
+    const completed = rawOrders.filter((o) =>
+      ["Delivery", "Completed"].includes(getStatus(o)),
     ).length;
-    const cancelled = orders.filter((o) => o.orderCycle === "Cancelled").length;
+    const inProgress = rawOrders.filter((o) =>
+      ["Processing", "Pending", "Order Placement", "Wrong Number"].includes(
+        getStatus(o),
+      ),
+    ).length;
+    const cancelled = rawOrders.filter(
+      (o) => getStatus(o) === "Cancelled",
+    ).length;
     return { total, completed, inProgress, cancelled };
-  }, [orders]);
+  }, [rawOrders]);
 
   const handleExportPDF = () => {
     if (transformedOrders.length === 0) {
@@ -263,7 +488,10 @@ const OrderHistoryPage = () => {
       <div class="date-range"><strong>Period:</strong> ${dateRange[0].format("MMM DD, YYYY")} – ${dateRange[1].format("MMM DD, YYYY")}</div>
       <table><thead><tr><th>Order ID</th><th>Date</th><th>Status</th><th>Payment</th></tr></thead>
       <tbody>${transformedOrders
-        .map((o) => `<tr><td>#${o.orderId}</td><td>${o.orderDate}</td><td>${o.orderCycle}</td><td>${o.paymentMode}</td></tr>`)
+        .map(
+          (o) =>
+            `<tr><td>#${o.orderId}</td><td>${o.orderDate}</td><td>${o.orderCycle}</td><td>${o.paymentMode}</td></tr>`,
+        )
         .join("")}</tbody></table>
       <div class="footer"><p>Generated: ${moment().format("MMM DD, YYYY HH:mm")}</p><p>Total: ${transformedOrders.length} orders</p></div>
       </body></html>`;
@@ -279,7 +507,9 @@ const OrderHistoryPage = () => {
   const openCancelModal = (order) => {
     if (isAgentCustomer) return;
     if (!isCancellable(order.orderCycle)) {
-      message.warning(`Only 'Order Placement' orders can be cancelled. Order #${order.orderId} is at ${order.orderCycle} stage`);
+      message.warning(
+        ` Order #${order.orderId} is at ${order.orderCycle} stage`,
+      );
       return;
     }
     setCancelModal({
@@ -293,20 +523,47 @@ const OrderHistoryPage = () => {
 
   const closeCancelModal = () => {
     if (cancelModal.loading) return;
-    setCancelModal({ open: false, orderId: null, orderDate: null, status: null, loading: false });
+    setCancelModal({
+      open: false,
+      orderId: null,
+      orderDate: null,
+      status: null,
+      loading: false,
+    });
   };
 
   const handleConfirmCancel = async () => {
     if (isAgentCustomer || !cancelModal.orderId) return;
+    const targetId = cancelModal.orderId;
     setCancelModal((p) => ({ ...p, loading: true }));
-    setCancellingId(cancelModal.orderId);
+    setCancellingId(targetId);
+
     try {
-      await dispatch(cancelOrder(cancelModal.orderId)).unwrap();
-      message.success(`Order #${cancelModal.orderId} cancelled successfully`);
-      setCancelModal({ open: false, orderId: null, orderDate: null, status: null, loading: false });
+      await dispatch(
+        cancelOrder({ orderCode: targetId, cancelledBy: "Customer" }),
+      ).unwrap();
+
+      // Optimistically update the status immediately so the table reflects it right away
+      setOptimisticOverrides((prev) => ({
+        ...prev,
+        [targetId]: { orderCycle: "Cancelled", status: "Cancelled" },
+      }));
+
+      message.success(`Order #${targetId} cancelled successfully`);
+      setCancelModal({
+        open: false,
+        orderId: null,
+        orderDate: null,
+        status: null,
+        loading: false,
+      });
       handleRefresh();
     } catch (err) {
-      const errMsg = err?.message || err?.responseMessage || err?.rawMessage || "Failed to cancel order. Please try again.";
+      const errMsg =
+        err?.message ||
+        err?.responseMessage ||
+        err?.rawMessage ||
+        "Failed to cancel order. Please try again.";
       const lower = String(errMsg).toLowerCase();
       const friendly =
         lower.includes("datareader") || lower.includes("transaction failed")
@@ -350,35 +607,78 @@ const OrderHistoryPage = () => {
       dataIndex: "orderCycle",
       key: "orderCycle",
       width: 160,
-      render: (status) => {
+      render: (status, record) => {
         const cfg = getStatusConfig(status);
         const Icon = cfg.icon;
         return (
-          <span className="oh-status-badge" style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.border }}>
-            <span className="oh-status-dot" style={{ background: cfg.dot }} />
-            <Icon style={{ width: 12, height: 12 }} />
-            {cfg.label}
-          </span>
+          <Tooltip title="Click to view order tracking lifecycle">
+            <span
+              className="oh-status-badge"
+              style={{
+                background: cfg.bg,
+                color: cfg.color,
+                borderColor: cfg.border,
+                cursor: "pointer",
+              }}
+              onClick={() =>
+                setTrackingOrder({
+                  ...record.raw,
+                  orderCode: record.orderId,
+                  orderCycle: record.orderCycle,
+                  orderDate: record.orderDateRaw,
+                  totalAmount: record.totalAmount,
+                })
+              }
+            >
+              <span className="oh-status-dot" style={{ background: cfg.dot }} />
+              <Icon style={{ width: 12, height: 12 }} />
+              {cfg.label}
+            </span>
+          </Tooltip>
         );
       },
     },
     {
       title: "Action",
       key: "action",
-      width: 230,
+      width: 280,
       render: (_, record) => {
-        const cancellable = !isAgentCustomer && isCancellable(record.orderCycle);
+        const cancellable =
+          !isAgentCustomer && isCancellable(record.orderCycle);
         const isThisCancelling = cancellingId === record.orderId;
         return (
           <div className="oh-action-group">
-            <Tooltip title="View order details, invoice & receipt">
-              <button className="oh-action-btn oh-action-view" onClick={() => handleViewOrder(record.orderId)}>
+            <Tooltip title="View order details, delivery address & invoice">
+              <button
+                className="oh-action-btn oh-action-view"
+                onMouseEnter={() => prefetchOrderDetails(record.orderId)}
+                onClick={() => handleViewOrder(record.orderId)}
+              >
                 <Eye style={{ width: 14, height: 14 }} />
                 View
               </button>
             </Tooltip>
+
+            <Tooltip title="Track order status lifecycle">
+              <button
+                className="oh-action-btn oh-action-track"
+                onClick={() =>
+                  setTrackingOrder({
+                    ...record.raw,
+                    orderCode: record.orderId,
+                    orderCycle: record.orderCycle,
+                    orderDate: record.orderDateRaw,
+                    totalAmount: record.totalAmount,
+                  })
+                }
+              >
+                <Truck style={{ width: 14, height: 14 }} />
+                Track
+              </button>
+            </Tooltip>
+
             {cancellable && (
-              <Tooltip title="Cancel this order - Only Order Placement status can be cancelled">
+              <Tooltip title="Cancel this order">
                 <button
                   className="oh-action-btn oh-action-cancel-active"
                   onClick={() => openCancelModal(record)}
@@ -391,7 +691,11 @@ const OrderHistoryPage = () => {
                     boxShadow: "0 2px 8px rgba(220,38,38,0.2)",
                   }}
                 >
-                  {isThisCancelling ? <Spin size="small" /> : <X style={{ width: 12, height: 12 }} />}
+                  {isThisCancelling ? (
+                    <Spin size="small" />
+                  ) : (
+                    <X style={{ width: 12, height: 12 }} />
+                  )}
                   Cancel Order
                 </button>
               </Tooltip>
@@ -404,7 +708,10 @@ const OrderHistoryPage = () => {
 
   // ==================== SUB COMPONENTS ====================
   const StatCard = ({ value, label, icon: Icon, color, bg }) => (
-    <div className="oh-stat-card" style={{ "--stat-color": color, "--stat-bg": bg }}>
+    <div
+      className="oh-stat-card"
+      style={{ "--stat-color": color, "--stat-bg": bg }}
+    >
       <div className="oh-stat-top">
         <div className="oh-stat-icon" style={{ background: bg, color }}>
           <Icon style={{ width: 18, height: 18 }} />
@@ -424,7 +731,24 @@ const OrderHistoryPage = () => {
         <div className="oh-mobile-card-header">
           <div className="oh-mobile-card-idrow">
             <span className="oh-mobile-id">#{order.orderId}</span>
-            <span className="oh-status-badge oh-status-badge-sm" style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.border }}>
+            <span
+              className="oh-status-badge oh-status-badge-sm"
+              style={{
+                background: cfg.bg,
+                color: cfg.color,
+                borderColor: cfg.border,
+                cursor: "pointer",
+              }}
+              onClick={() =>
+                setTrackingOrder({
+                  ...order.raw,
+                  orderCode: order.orderId,
+                  orderCycle: order.orderCycle,
+                  orderDate: order.orderDateRaw,
+                  totalAmount: order.totalAmount,
+                })
+              }
+            >
               <span className="oh-status-dot" style={{ background: cfg.dot }} />
               {cfg.label}
             </span>
@@ -439,28 +763,60 @@ const OrderHistoryPage = () => {
             <span className="oh-mobile-meta-label">Payment</span>
             <span className="oh-mobile-meta-value">{order.paymentMode}</span>
           </div>
-          {order.totalAmount && (
+          {order.totalAmount > 0 && (
             <div className="oh-mobile-meta">
               <span className="oh-mobile-meta-label">Amount</span>
-              <span className="oh-mobile-meta-value oh-mobile-amount">GH₵{Number(order.totalAmount).toFixed(2)}</span>
+              <span className="oh-mobile-meta-value oh-mobile-amount">
+                GH₵{Number(order.totalAmount).toFixed(2)}
+              </span>
             </div>
           )}
         </div>
         <div className="oh-mobile-card-actions">
-          <button className="oh-mobile-btn oh-mobile-btn-view" onClick={() => handleViewOrder(order.orderId)} style={{ flex: cancellable ? 1 : "auto" }}>
+          <button
+            className="oh-mobile-btn oh-mobile-btn-view"
+            onTouchStart={() => prefetchOrderDetails(order.orderId)}
+            onClick={() => handleViewOrder(order.orderId)}
+          >
             <Eye style={{ width: 14, height: 14 }} />
             View Details
             <ArrowUpRight style={{ width: 12, height: 12, opacity: 0.6 }} />
           </button>
+
+          <button
+            className="oh-mobile-btn oh-mobile-btn-track"
+            onClick={() =>
+              setTrackingOrder({
+                ...order.raw,
+                orderCode: order.orderId,
+                orderCycle: order.orderCycle,
+                orderDate: order.orderDateRaw,
+                totalAmount: order.totalAmount,
+              })
+            }
+          >
+            <Truck style={{ width: 14, height: 14 }} />
+            Track
+          </button>
+
           {cancellable && (
             <button
               className="oh-mobile-btn oh-mobile-btn-cancel-active"
               onClick={() => openCancelModal(order)}
               disabled={isThisCancelling}
-              style={{ background: "#dc2626", color: "#fff", borderColor: "#dc2626", fontWeight: 800 }}
+              style={{
+                background: "#dc2626",
+                color: "#fff",
+                borderColor: "#dc2626",
+                fontWeight: 800,
+              }}
             >
-              {isThisCancelling ? <Spin size="small" /> : <X style={{ width: 12, height: 12 }} />}
-              Cancel Order
+              {isThisCancelling ? (
+                <Spin size="small" />
+              ) : (
+                <X style={{ width: 12, height: 12 }} />
+              )}
+              Cancel
             </button>
           )}
         </div>
@@ -474,13 +830,19 @@ const OrderHistoryPage = () => {
         <UserX style={{ width: 32, height: 32, color: "#d97706" }} />
       </div>
       <h3 className="oh-empty-title">Sign in to view orders</h3>
-      <p className="oh-empty-desc">Your order history is tied to your account. Please sign in to track, view and manage your purchases.</p>
+      <p className="oh-empty-desc">
+        Your order history is tied to your account. Please sign in to track,
+        view and manage your purchases.
+      </p>
       <div className="oh-empty-actions">
         <button className="oh-btn-primary" onClick={handleSignInClick}>
           <UserX style={{ width: 16, height: 16 }} />
           Sign In
         </button>
-        <button className="oh-btn-secondary" onClick={() => (window.location.href = "/")}>
+        <button
+          className="oh-btn-secondary"
+          onClick={() => (window.location.href = "/")}
+        >
           <ShoppingCart style={{ width: 16, height: 16 }} />
           Continue Shopping
         </button>
@@ -493,7 +855,11 @@ const OrderHistoryPage = () => {
       <div className="oh-empty-icon-wrap">
         <Package style={{ width: 32, height: 32, color: "#9ca3af" }} />
       </div>
-      <h3 className="oh-empty-title">{searchTerm || statusFilter !== "all" ? "No matching orders" : "No orders yet"}</h3>
+      <h3 className="oh-empty-title">
+        {searchTerm || statusFilter !== "all"
+          ? "No matching orders"
+          : "No orders yet"}
+      </h3>
       <p className="oh-empty-desc">
         {searchTerm || statusFilter !== "all"
           ? `No orders found for "${searchTerm || statusFilter}". Try adjusting your filters.`
@@ -501,14 +867,23 @@ const OrderHistoryPage = () => {
       </p>
       {searchTerm || statusFilter !== "all" ? (
         <div className="oh-empty-actions">
-          <button className="oh-btn-secondary" onClick={() => { setSearchTerm(""); setStatusFilter("all"); }}>
+          <button
+            className="oh-btn-secondary"
+            onClick={() => {
+              setSearchTerm("");
+              setStatusFilter("all");
+            }}
+          >
             <X style={{ width: 16, height: 16 }} />
             Clear Filters
           </button>
         </div>
       ) : (
         <div className="oh-empty-actions">
-          <button className="oh-btn-primary" onClick={() => (window.location.href = "/")}>
+          <button
+            className="oh-btn-primary"
+            onClick={() => (window.location.href = "/")}
+          >
             <ShoppingCart style={{ width: 16, height: 16 }} />
             Start Shopping
           </button>
@@ -523,7 +898,9 @@ const OrderHistoryPage = () => {
         <div className="oh-spinner" />
         <div className="oh-spinner-ring" />
       </div>
-      <h3 className="oh-empty-title" style={{ marginTop: 20 }}>Loading your orders</h3>
+      <h3 className="oh-empty-title" style={{ marginTop: 20 }}>
+        Loading your orders
+      </h3>
       <p className="oh-empty-desc">Fetching latest order information...</p>
     </div>
   );
@@ -538,8 +915,8 @@ const OrderHistoryPage = () => {
         {typeof error === "string" && error.toLowerCase().includes("datareader")
           ? "Something went wrong. Please try again."
           : typeof error === "string"
-          ? error
-          : "Failed to load orders. Please try again."}
+            ? error
+            : "Failed to load orders. Please try again."}
       </p>
       <div className="oh-empty-actions">
         <button className="oh-btn-primary" onClick={handleRefresh}>
@@ -560,7 +937,9 @@ const OrderHistoryPage = () => {
               <div className="oh-page-header-accent" />
               <div className="oh-page-header-content">
                 <h1 className="oh-page-title">Order History</h1>
-                <p className="oh-page-subtitle">Track and manage your purchases</p>
+                <p className="oh-page-subtitle">
+                  Track and manage your purchases
+                </p>
               </div>
             </div>
             <div className="oh-main-card">
@@ -573,6 +952,9 @@ const OrderHistoryPage = () => {
     );
   }
 
+  // Only block the table if we have no cached/existing orders at all
+  const showInitialLoader = loading && rawOrders.length === 0;
+
   return (
     <>
       <style>{styles}</style>
@@ -583,110 +965,478 @@ const OrderHistoryPage = () => {
             <div className="oh-page-header-content">
               <h1 className="oh-page-title">Order History</h1>
               <p className="oh-page-subtitle">
-                {loading ? "Loading..." : `${transformedOrders.length} ${transformedOrders.length === 1 ? "order" : "orders"} • ${stats.total} total`}
+                {showInitialLoader
+                  ? "Loading..."
+                  : `${transformedOrders.length} ${
+                      transformedOrders.length === 1 ? "order" : "orders"
+                    } • ${stats.total} total`}
               </p>
             </div>
             <div className="oh-page-header-line" />
             <div className="oh-header-actions">
-              <button className="oh-header-btn oh-header-btn-ghost" onClick={handleRefresh} disabled={loading}>
-                <RefreshCw style={{ width: 16, height: 16 }} className={loading ? "oh-spin" : ""} />
-                <span className="oh-hide-mobile">Refresh</span>
+              <button
+                className="oh-header-btn oh-header-btn-ghost"
+                onClick={handleRefresh}
+                disabled={loading}
+              >
+                <RefreshCw
+                  style={{ width: 16, height: 16 }}
+                  className={loading ? "oh-spin" : ""}
+                />
+                <span className="oh-hide-mobile">
+                  {loading && rawOrders.length > 0 ? "Syncing..." : "Refresh"}
+                </span>
               </button>
-              <button className="oh-mobile-filter-btn" onClick={() => setFiltersDrawerOpen(true)}>
+              <button
+                className="oh-mobile-filter-btn"
+                onClick={() => setFiltersDrawerOpen(true)}
+              >
                 <SlidersHorizontal style={{ width: 16, height: 16 }} />
                 Filters
               </button>
             </div>
           </div>
 
-          {!loading && !error && orders.length > 0 && (
+          {rawOrders.length > 0 && (
             <div className="oh-stats-grid">
-              <StatCard value={stats.total} label="Total Orders" icon={Package} color="#2563eb" bg="#eff6ff" />
-              <StatCard value={stats.completed} label="Completed" icon={CheckCircle} color="#16a34a" bg="#f0fdf4" />
-              <StatCard value={stats.inProgress} label="In Progress" icon={Clock} color="#d97706" bg="#fffbeb" />
-              <StatCard value={stats.cancelled} label="Cancelled" icon={XCircle} color="#dc2626" bg="#fef2f2" />
+              <StatCard
+                value={stats.total}
+                label="Total Orders"
+                icon={Package}
+                color="#2563eb"
+                bg="#eff6ff"
+              />
+              <StatCard
+                value={stats.completed}
+                label="Completed"
+                icon={CheckCircle}
+                color="#16a34a"
+                bg="#f0fdf4"
+              />
+              <StatCard
+                value={stats.inProgress}
+                label="In Progress"
+                icon={Clock}
+                color="#d97706"
+                bg="#fffbeb"
+              />
+              <StatCard
+                value={stats.cancelled}
+                label="Cancelled"
+                icon={XCircle}
+                color="#dc2626"
+                bg="#fef2f2"
+              />
             </div>
           )}
 
           <div className="oh-filters-card">
             <div className="oh-filters-grid">
               <div className="oh-filter-group">
-                <label className="oh-filter-label"><Calendar style={{ width: 12, height: 12 }} />Date Range</label>
-                <DatePicker.RangePicker value={dateRange} onChange={handleDateChange} format="MM/DD/YYYY" className="oh-filter-input" size="middle" />
+                <label className="oh-filter-label">
+                  <Calendar style={{ width: 12, height: 12 }} />
+                  Date Range
+                </label>
+                <DatePicker.RangePicker
+                  value={dateRange}
+                  onChange={handleDateChange}
+                  format="MM/DD/YYYY"
+                  className="oh-filter-input"
+                  size="middle"
+                />
               </div>
               <div className="oh-filter-group">
-                <label className="oh-filter-label"><Search style={{ width: 12, height: 12 }} />Search Order</label>
-                <Input placeholder="Order ID or name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} prefix={<Search style={{ width: 14, height: 14, color: "#9ca3af" }} />} allowClear className="oh-filter-input" />
+                <label className="oh-filter-label">
+                  <Search style={{ width: 12, height: 12 }} />
+                  Search Order
+                </label>
+                <Input
+                  placeholder="Order ID or name..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  prefix={
+                    <Search
+                      style={{ width: 14, height: 14, color: "#9ca3af" }}
+                    />
+                  }
+                  allowClear
+                  className="oh-filter-input"
+                />
               </div>
               <div className="oh-filter-group">
-                <label className="oh-filter-label"><Filter style={{ width: 12, height: 12 }} />Status</label>
-                <Select value={statusFilter} onChange={setStatusFilter} className="oh-filter-input" style={{ width: "100%" }} size="middle" options={statusOptions.map((s) => ({ value: s, label: s === "all" ? "All Status" : s }))} />
+                <label className="oh-filter-label">
+                  <Filter style={{ width: 12, height: 12 }} />
+                  Status
+                </label>
+                <Select
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  className="oh-filter-input"
+                  style={{ width: "100%" }}
+                  size="middle"
+                  options={statusOptions.map((s) => ({
+                    value: s,
+                    label: s === "all" ? "All Status" : s,
+                  }))}
+                />
               </div>
               <div className="oh-filter-group">
-                <label className="oh-filter-label"><Download style={{ width: 12, height: 12 }} />Export</label>
-                <Button icon={<FileText style={{ width: 14, height: 14 }} />} disabled={transformedOrders.length === 0} onClick={handleExportPDF} className="oh-export-btn" block>Export PDF</Button>
+                <label className="oh-filter-label">
+                  <Download style={{ width: 12, height: 12 }} />
+                  Export
+                </label>
+                <Button
+                  icon={<FileText style={{ width: 14, height: 14 }} />}
+                  disabled={transformedOrders.length === 0}
+                  onClick={handleExportPDF}
+                  className="oh-export-btn"
+                  block
+                >
+                  Export PDF
+                </Button>
               </div>
             </div>
           </div>
 
           <div className="oh-main-card">
-            {loading ? <LoadingState /> : error ? <ErrorState /> : transformedOrders.length > 0 ? (
+            {showInitialLoader ? (
+              <LoadingState />
+            ) : error && rawOrders.length === 0 ? (
+              <ErrorState />
+            ) : transformedOrders.length > 0 ? (
               <>
                 <div className="oh-desktop-table">
-                  <Table dataSource={transformedOrders} columns={columns} rowKey="key" pagination={{ pageSize: 10, showSizeChanger: true, pageSizeOptions: ["10", "20", "50"], showTotal: (total, range) => (<span className="oh-pagination-total">{range[0]}–{range[1]} of {total} orders</span>) }} size="middle" scroll={{ x: 700 }} rowClassName="oh-table-row" />
+                  <Table
+                    dataSource={transformedOrders}
+                    columns={columns}
+                    rowKey="key"
+                    onRow={(record) => ({
+                      onMouseEnter: () => prefetchOrderDetails(record.orderId),
+                    })}
+                    pagination={{
+                      pageSize: 10,
+                      showSizeChanger: true,
+                      pageSizeOptions: ["10", "20", "50"],
+                      showTotal: (total, range) => (
+                        <span className="oh-pagination-total">
+                          {range[0]}–{range[1]} of {total} orders
+                        </span>
+                      ),
+                    }}
+                    size="middle"
+                    scroll={{ x: 740 }}
+                    rowClassName="oh-table-row"
+                  />
                 </div>
                 <div className="oh-mobile-list">
-                  <div className="oh-mobile-list-header"><span>{transformedOrders.length} orders</span><span className="oh-mobile-list-sub">Tap to view details</span></div>
-                  {transformedOrders.map((order) => (<MobileOrderCard key={order.key} order={order} />))}
+                  <div className="oh-mobile-list-header">
+                    <span>{transformedOrders.length} orders</span>
+                    <span className="oh-mobile-list-sub">
+                      Tap to view or track
+                    </span>
+                  </div>
+                  {transformedOrders.map((order) => (
+                    <MobileOrderCard key={order.key} order={order} />
+                  ))}
                 </div>
               </>
-            ) : <EmptyState />}
+            ) : (
+              <EmptyState />
+            )}
           </div>
 
-          {transformedOrders.length > 0 && (
-            <div className="oh-info-banner">
-              <div className="oh-info-icon"><ShieldAlert style={{ width: 16, height: 16 }} /></div>
-              <div className="oh-info-content">
-                <p className="oh-info-title">Cancellation Policy</p>
-                <p className="oh-info-text">Only orders with status <strong>Order Placement</strong> can be cancelled. Once order moves to processing/delivery, it cannot be cancelled. Contact support for help.</p>
-              </div>
-            </div>
-          )}
+         
         </div>
 
+        {/* ==================== ORDER LIFECYCLE / TRACKING MODAL (MAINTAINED FROM 1ST UI) ==================== */}
+        <Modal
+          open={Boolean(trackingOrder)}
+          onCancel={() => setTrackingOrder(null)}
+          footer={null}
+          centered
+          width={620}
+          title="Order Tracking"
+          className="tracking-modal"
+        >
+          {trackingOrder && (
+            <div className="tracking-content">
+              <div className="tracking-summary">
+                <Package size={30} />
+                <div>
+                  <b>
+                    Order #{trackingOrder.orderCode || trackingOrder.orderId}
+                  </b>
+                  <span>
+                    Placed{" "}
+                    {trackingOrder.orderDate
+                      ? moment(trackingOrder.orderDate).format("DD/MM/YYYY")
+                      : "—"}
+                    {amount(trackingOrder) > 0
+                      ? ` · ${amount(trackingOrder).toLocaleString("en-GH")} GH₵`
+                      : ""}
+                  </span>
+                </div>
+                <strong
+                  className={`order-status-text ${statusClass(
+                    getStatus(trackingOrder),
+                  )}`}
+                >
+                  {statusLabel(getStatus(trackingOrder))}
+                </strong>
+              </div>
+              {getStatus(trackingOrder) === "Cancelled" ? (
+                <div className="tracking-cancelled">Cancelled by customer</div>
+              ) : (
+                <div className="tracking-steps">
+                  {[
+                    "Order Placement",
+                    "Processing",
+                    "Delivery",
+                    "Completed",
+                  ].map((stage, index) => {
+                    const currentStatus = getStatus(trackingOrder);
+                    const progress = [
+                      "Order Placement",
+                      "Processing",
+                      "Delivery",
+                      "Completed",
+                    ].indexOf(currentStatus);
+                    const completed =
+                      currentStatus === "Completed" || progress >= index;
+                    const title =
+                      stage === "Delivery"
+                        ? "Out for Delivery"
+                        : stage === "Completed"
+                          ? "Delivered / Completed"
+                          : stage;
+                    return (
+                      <div
+                        className={`tracking-step ${completed ? "done" : ""}`}
+                        key={stage}
+                      >
+                        <div className="tracking-dot">
+                          {completed ? (
+                            <Check size={17} />
+                          ) : index === 2 ? (
+                            <Truck size={17} />
+                          ) : (
+                            <Package size={17} />
+                          )}
+                        </div>
+                        <div>
+                          <b>{title}</b>
+                          <span>
+                            {currentStatus === stage
+                              ? "Current order status"
+                              : completed
+                                ? "Stage completed"
+                                : "Awaiting status update"}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            
+            </div>
+          )}
+        </Modal>
+
+        {/* ==================== CANCEL MODAL ==================== */}
         {!isAgentCustomer && (
-          <Modal open={cancelModal.open} onCancel={closeCancelModal} footer={null} centered width={440} closeIcon={false} className="oh-cancel-modal" maskClosable={!cancelModal.loading}>
+          <Modal
+            open={cancelModal.open}
+            onCancel={closeCancelModal}
+            footer={null}
+            centered
+            width={440}
+            closeIcon={false}
+            className="oh-cancel-modal"
+            maskClosable={!cancelModal.loading}
+          >
             <div className="oh-cancel-content">
               <div className="oh-cancel-icon-wrap">
-                <div className="oh-cancel-icon-bg"><AlertCircle style={{ width: 28, height: 28, color: "#dc2626" }} /></div>
-                <button className="oh-cancel-close" onClick={closeCancelModal} disabled={cancelModal.loading}><X style={{ width: 18, height: 18 }} /></button>
+                <div className="oh-cancel-icon-bg">
+                  <AlertCircle
+                    style={{ width: 28, height: 28, color: "#dc2626" }}
+                  />
+                </div>
+                <button
+                  className="oh-cancel-close"
+                  onClick={closeCancelModal}
+                  disabled={cancelModal.loading}
+                >
+                  <X style={{ width: 18, height: 18 }} />
+                </button>
               </div>
               <h3 className="oh-cancel-title">Cancel Order?</h3>
-              <p className="oh-cancel-desc">You are about to cancel order <strong>#{cancelModal.orderId}</strong>. This action cannot be undone.</p>
+              <p className="oh-cancel-desc">
+                You are about to cancel order{" "}
+                <strong>#{cancelModal.orderId}</strong>. This action cannot be
+                undone.
+              </p>
               <div className="oh-cancel-details">
-                <div className="oh-cancel-detail-row"><span className="oh-cancel-detail-label">Order ID</span><span className="oh-cancel-detail-value">#{cancelModal.orderId}</span></div>
-                <div className="oh-cancel-detail-row"><span className="oh-cancel-detail-label">Date</span><span className="oh-cancel-detail-value">{cancelModal.orderDate}</span></div>
-                <div className="oh-cancel-detail-row"><span className="oh-cancel-detail-label">Status</span><span className="oh-cancel-detail-value"><span className="oh-cancel-status">{cancelModal.status}</span></span></div>
+                <div className="oh-cancel-detail-row">
+                  <span className="oh-cancel-detail-label">Order ID</span>
+                  <span className="oh-cancel-detail-value">
+                    #{cancelModal.orderId}
+                  </span>
+                </div>
+                <div className="oh-cancel-detail-row">
+                  <span className="oh-cancel-detail-label">Date</span>
+                  <span className="oh-cancel-detail-value">
+                    {cancelModal.orderDate}
+                  </span>
+                </div>
+                <div className="oh-cancel-detail-row">
+                  <span className="oh-cancel-detail-label">Status</span>
+                  <span className="oh-cancel-detail-value">
+                    <span className="oh-cancel-status">
+                      {cancelModal.status}
+                    </span>
+                  </span>
+                </div>
               </div>
-              <div className="oh-cancel-warning"><ShieldAlert style={{ width: 14, height: 14, flexShrink: 0 }} /><span>Refund will be processed according to our cancellation policy. If you paid via Mobile Money, it may take 24-48 hours.</span></div>
+              <div className="oh-cancel-warning">
+                <ShieldAlert
+                  style={{ width: 14, height: 14, flexShrink: 0 }}
+                />
+                <span>
+                  Refund will be processed according to our cancellation policy.
+                  If you paid via Mobile Money, it may take 24-48 hours.
+                </span>
+              </div>
               <div className="oh-cancel-actions">
-                <button className="oh-btn-secondary oh-btn-block" onClick={closeCancelModal} disabled={cancelModal.loading}>Keep Order</button>
-                <button className="oh-btn-danger oh-btn-block" onClick={handleConfirmCancel} disabled={cancelModal.loading}>{cancelModal.loading ? <><Spin size="small" />Cancelling...</> : <><Ban style={{ width: 16, height: 16 }} />Yes, Cancel Order</>}</button>
+                <button
+                  className="oh-btn-secondary oh-btn-block"
+                  onClick={closeCancelModal}
+                  disabled={cancelModal.loading}
+                >
+                  Keep Order
+                </button>
+                <button
+                  className="oh-btn-danger oh-btn-block"
+                  onClick={handleConfirmCancel}
+                  disabled={cancelModal.loading}
+                >
+                  {cancelModal.loading ? (
+                    <>
+                      <Spin size="small" />
+                      Cancelling...
+                    </>
+                  ) : (
+                    <>
+                      <Ban style={{ width: 16, height: 16 }} />
+                      Yes, Cancel Order
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </Modal>
         )}
 
-        <OrderModal orderId={selectedOrderId} orderCode={selectedOrderId} isModalVisible={isOrderModalVisible} onClose={handleOrderModalClose} onCancelled={handleRefresh} />
+        {/* ==================== ORDER DETAILS MODAL (MAINTAINED) ==================== */}
+        <OrderModal
+          orderId={selectedOrderId}
+          orderCode={selectedOrderId}
+          isModalVisible={isOrderModalVisible}
+          onClose={handleOrderModalClose}
+          onCancelled={handleModalOrderMutated}
+          onUpdated={handleModalOrderMutated}
+          isAgent={isAgentCustomer}
+        />
+
         <AuthModal open={isAuthModalVisible} onClose={handleAuthModalClose} />
 
-        <Drawer title={<div className="oh-drawer-title"><SlidersHorizontal style={{ width: 18, height: 18, color: "#14532d" }} />Filters & Export</div>} placement="bottom" height="auto" open={filtersDrawerOpen} onClose={() => setFiltersDrawerOpen(false)} className="oh-drawer">
+        {/* ==================== MOBILE FILTERS DRAWER ==================== */}
+        <Drawer
+          title={
+            <div className="oh-drawer-title">
+              <SlidersHorizontal
+                style={{ width: 18, height: 18, color: "#14532d" }}
+              />
+              Filters & Export
+            </div>
+          }
+          placement="bottom"
+          height="auto"
+          open={filtersDrawerOpen}
+          onClose={() => setFiltersDrawerOpen(false)}
+          className="oh-drawer"
+        >
           <div className="oh-drawer-body">
-            <div className="oh-drawer-field"><label className="oh-drawer-label"><Calendar style={{ width: 14, height: 14 }} />Date Range</label><DatePicker.RangePicker value={dateRange} onChange={handleDateChange} format="MM/DD/YYYY" style={{ width: "100%" }} size="large" /></div>
-            <div className="oh-drawer-field"><label className="oh-drawer-label"><Search style={{ width: 14, height: 14 }} />Search</label><Input placeholder="Order ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} size="large" prefix={<Search style={{ width: 16, height: 16, color: "#888" }} />} allowClear /></div>
-            <div className="oh-drawer-field"><label className="oh-drawer-label"><Filter style={{ width: 14, height: 14 }} />Status</label><Select value={statusFilter} onChange={setStatusFilter} style={{ width: "100%" }} size="large" options={statusOptions.map((s) => ({ value: s, label: s === "all" ? "All Status" : s }))} /></div>
-            <div className="oh-drawer-field"><Button icon={<Download style={{ width: 16, height: 16 }} />} disabled={transformedOrders.length === 0} onClick={() => { handleExportPDF(); setFiltersDrawerOpen(false); }} size="large" block>Export PDF ({transformedOrders.length})</Button></div>
-            <div className="oh-drawer-field"><Button type="primary" size="large" block onClick={() => setFiltersDrawerOpen(false)} style={{ background: "#14532d", borderColor: "#14532d" }}>Apply Filters</Button></div>
+            <div className="oh-drawer-field">
+              <label className="oh-drawer-label">
+                <Calendar style={{ width: 14, height: 14 }} />
+                Date Range
+              </label>
+              <DatePicker.RangePicker
+                value={dateRange}
+                onChange={handleDateChange}
+                format="MM/DD/YYYY"
+                style={{ width: "100%" }}
+                size="large"
+              />
+            </div>
+            <div className="oh-drawer-field">
+              <label className="oh-drawer-label">
+                <Search style={{ width: 14, height: 14 }} />
+                Search
+              </label>
+              <Input
+                placeholder="Order ID..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                size="large"
+                prefix={
+                  <Search style={{ width: 16, height: 16, color: "#888" }} />
+                }
+                allowClear
+              />
+            </div>
+            <div className="oh-drawer-field">
+              <label className="oh-drawer-label">
+                <Filter style={{ width: 14, height: 14 }} />
+                Status
+              </label>
+              <Select
+                value={statusFilter}
+                onChange={setStatusFilter}
+                style={{ width: "100%" }}
+                size="large"
+                options={statusOptions.map((s) => ({
+                  value: s,
+                  label: s === "all" ? "All Status" : s,
+                }))}
+              />
+            </div>
+            <div className="oh-drawer-field">
+              <Button
+                icon={<Download style={{ width: 16, height: 16 }} />}
+                disabled={transformedOrders.length === 0}
+                onClick={() => {
+                  handleExportPDF();
+                  setFiltersDrawerOpen(false);
+                }}
+                size="large"
+                block
+              >
+                Export PDF ({transformedOrders.length})
+              </Button>
+            </div>
+            <div className="oh-drawer-field">
+              <Button
+                type="primary"
+                size="large"
+                block
+                onClick={() => setFiltersDrawerOpen(false)}
+                style={{ background: "#14532d", borderColor: "#14532d" }}
+              >
+                Apply Filters
+              </Button>
+            </div>
           </div>
         </Drawer>
       </div>
@@ -760,11 +1510,13 @@ const styles = `
   .oh-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 100px; border: 1px solid; font-size: 12px; font-weight: 700; white-space: nowrap; line-height: 1; }
   .oh-status-badge-sm { padding: 4px 8px; font-size: 11px; }
   .oh-status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-  .oh-action-group { display: flex; align-items: center; gap: 6px; }
+  .oh-action-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .oh-action-btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px; border-radius: var(--oh-radius-xs); font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; border: 1px solid; line-height: 1; }
   .oh-action-view { background: #fff; border-color: var(--oh-border); color: var(--oh-mid); }
   .oh-action-view:hover { background: var(--oh-green-lighter); border-color: var(--oh-green-light); color: var(--oh-green); }
-  .oh-action-cancel-active { padding: 3px 6px !important; gap: 3px !important; min-height: 22px; font-size: 10px !important; line-height: 1 !important; }
+  .oh-action-track { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+  .oh-action-track:hover { background: #dcfce7; border-color: #86efac; color: #14532d; }
+  .oh-action-cancel-active { padding: 5px 8px !important; gap: 4px !important; min-height: 26px; font-size: 11px !important; line-height: 1 !important; }
   .oh-mobile-list { display: block; } @media (min-width: 768px) { .oh-mobile-list { display: none; } }
   .oh-mobile-list-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #f9fafb; border-bottom: 1px solid var(--oh-border-light); font-size: 12px; font-weight: 600; color: var(--oh-mid); }
   .oh-mobile-list-sub { font-weight: 500; color: var(--oh-light); font-size: 11px; }
@@ -777,10 +1529,11 @@ const styles = `
   .oh-mobile-meta-label { font-weight: 600; color: var(--oh-light); text-transform: uppercase; font-size: 10px; letter-spacing: 0.04em; }
   .oh-mobile-meta-value { font-weight: 600; color: var(--oh-dark); }
   .oh-mobile-amount { color: var(--oh-green); font-weight: 800; }
-  .oh-mobile-card-actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+  .oh-mobile-card-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .oh-mobile-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 12px; border-radius: var(--oh-radius-xs); font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.15s; border: 1px solid; }
-  .oh-mobile-btn-view { background: var(--oh-green); color: #fff; border-color: var(--oh-green); }
-  .oh-mobile-btn-cancel-active { flex: 0 0 auto !important; padding: 5px 7px !important; gap: 3px !important; min-height: 28px; font-size: 10px !important; white-space: nowrap; background: #dc2626; color: #fff; border-color: #dc2626; }
+  .oh-mobile-btn-view { flex: 1; background: var(--oh-green); color: #fff; border-color: var(--oh-green); }
+  .oh-mobile-btn-track { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+  .oh-mobile-btn-cancel-active { flex: 0 0 auto !important; padding: 10px 12px !important; gap: 4px !important; font-size: 12px !important; white-space: nowrap; background: #dc2626; color: #fff; border-color: #dc2626; }
   .oh-empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 48px 20px; }
   @media (min-width: 768px) { .oh-empty-state { padding: 64px 32px; } }
   .oh-empty-icon-wrap { width: 72px; height: 72px; border-radius: 20px; background: #f9fafb; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; border: 1px solid var(--oh-border-light); box-shadow: var(--oh-shadow-sm); }
@@ -822,6 +1575,29 @@ const styles = `
   .oh-drawer-body { display: flex; flex-direction: column; gap: 16px; padding-bottom: 24px; }
   .oh-drawer-field { display: flex; flex-direction: column; gap: 6px; }
   .oh-drawer-label { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--oh-light); text-transform: uppercase; letter-spacing: 0.04em; }
+
+  /* ==================== MAINTAINED ORDER LIFECYCLE / TRACKING STYLES ==================== */
+  .order-status-text { font-weight: 650 !important; }
+  .order-status-text.placed, .order-status-text.shipping { color: #526fb4; }
+  .order-status-text.delivered { color: #3b8151; }
+  .order-status-text.cancelled { color: #bb4249; }
+  .tracking-content { padding: 4px 2px 2px; font-family: var(--oh-font); }
+  .tracking-summary { display: flex; align-items: center; gap: 13px; background: #fbfbfb; border: 1px solid #eee; border-radius: 14px; padding: 16px; margin-bottom: 22px; color: #a6323e; }
+  .tracking-summary > div { display: flex; flex-direction: column; gap: 5px; flex: 1; color: #171717; }
+  .tracking-summary > div span { font-size: 13px; color: #888; }
+  .tracking-summary > strong { font-size: 13px; }
+  .tracking-steps { position: relative; padding: 4px 0 0 9px; }
+  .tracking-step { display: flex; align-items: flex-start; gap: 14px; position: relative; min-height: 69px; color: #aaa; }
+  .tracking-step:not(:last-child):before { content: ""; position: absolute; left: 16px; top: 34px; height: 34px; width: 3px; background: #e5e7eb; }
+  .tracking-step.done:not(:last-child):before { background: #287c3d; }
+  .tracking-dot { width: 35px; height: 35px; border-radius: 50%; background: #eee; display: grid; place-items: center; color: #8c8c8c; z-index: 1; flex-shrink: 0; }
+  .tracking-step.done .tracking-dot { background: #287c3d; color: white; }
+  .tracking-step > div:last-child { display: flex; flex-direction: column; gap: 5px; padding-top: 1px; }
+  .tracking-step b { font-size: 15px; }
+  .tracking-step span { font-size: 13px; color: #777; }
+  .tracking-step.done b { color: #287c3d; }
+  .tracking-footnote { font-size: 12px; color: #888; line-height: 1.5; border-top: 1px solid #eee; padding-top: 12px; margin: 5px 0 0; }
+  .tracking-cancelled { padding: 20px; text-align: center; border-radius: 12px; background: #fff4f4; color: #b33b46; font-weight: 700; }
 `;
 
 export default OrderHistoryPage;

@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
-import { Image } from "antd";
+import { Image, Divider } from "antd";
 import { fetchProductById, fetchProducts } from "../Redux/Slice/productSlice";
 import {
   updateCartItem,
@@ -27,10 +27,11 @@ import {
   XMarkIcon,
   ExclamationTriangleIcon,
   ArrowPathIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import AuthModal from "../Component/AuthModal";
 import { Helmet } from "react-helmet";
-import { Divider } from "antd";
 
 // ==================== UTILITY FUNCTIONS ====================
 
@@ -42,6 +43,19 @@ const formatPrice = (price) => {
   });
 };
 
+const getValidImageUrl = (imagePath) => {
+  if (!imagePath || typeof imagePath !== "string") {
+    return "https://via.placeholder.com/150";
+  }
+  if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
+    return imagePath;
+  }
+  const base = "https://testing.frankotrading.com/Media/Products_Images/";
+  if (imagePath.includes("\\")) return base + imagePath.split("\\").pop();
+  if (imagePath.includes("/")) return base + imagePath.split("/").pop();
+  return base + imagePath;
+};
+
 const getItemLineTotal = (item) => {
   const price = parseFloat(item.price) || 0;
   const quantity = parseInt(item.quantity, 10) || 1;
@@ -51,9 +65,10 @@ const getItemLineTotal = (item) => {
 const normalizeCartItem = (item) => {
   if (!item || typeof item !== "object") return null;
 
-  const price = parseFloat(
-    item.price ?? item.Price ?? item.unitPrice ?? item.UnitPrice ?? 0,
-  ) || 0;
+  const price =
+    parseFloat(
+      item.price ?? item.Price ?? item.unitPrice ?? item.UnitPrice ?? 0,
+    ) || 0;
   const quantity = parseInt(item.quantity ?? item.Quantity ?? 1, 10) || 1;
 
   const productId =
@@ -71,7 +86,11 @@ const normalizeCartItem = (item) => {
   return {
     productId: String(productId),
     productName:
-      item.productName ?? item.ProductName ?? item.name ?? item.Name ?? "Product",
+      item.productName ??
+      item.ProductName ??
+      item.name ??
+      item.Name ??
+      "Product",
     imagePath:
       item.imagePath ??
       item.ImagePath ??
@@ -189,6 +208,7 @@ const ProductDescription = () => {
     normalizeCartItems(safeLocalStorage.getItem("cart", [])),
   );
   const [cartLoading, setCartLoading] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   const productDetailsRef = useRef(null);
   const flixMediaSectionRef = useRef(null);
@@ -202,7 +222,29 @@ const ProductDescription = () => {
   );
   const { cart, cartId } = useSelector((state) => state.cart);
 
-  // Keep the page's existing UI state, but make local cart writes consistent.
+  // Build combined list of main productImage + otherImages
+  const allProductImages = useMemo(() => {
+    if (!currentProduct?.length) return [];
+    const prod = currentProduct[0];
+
+    const rawImages = [
+      prod.productImage,
+      ...(Array.isArray(prod.otherImages) ? prod.otherImages : []),
+    ].filter((img) => typeof img === "string" && img.trim() !== "");
+
+    const resolvedUrls = rawImages.map((img) => getValidImageUrl(img));
+    const uniqueUrls = [...new Set(resolvedUrls)];
+
+    return uniqueUrls.length > 0
+      ? uniqueUrls
+      : ["https://via.placeholder.com/150"];
+  }, [currentProduct]);
+
+  // Reset selected image index when navigating to a new product
+  useEffect(() => {
+    setSelectedImageIndex(0);
+  }, [productID, currentProduct]);
+
   const commitLocalCart = useCallback((items) => {
     const normalizedCart = normalizeCartItems(items);
     localCartRef.current = normalizedCart;
@@ -210,9 +252,6 @@ const ProductDescription = () => {
     safeLocalStorage.setItem("cart", normalizedCart);
   }, []);
 
-  // The cart slice owns the Telecel cart-ID policy. ProductDescription must
-  // never mint a cart_<timestamp> ID because getCartById/update/delete use
-  // getOrCreateCartId(), which replaces non-Tel IDs with a new Tel ID.
   const getActiveCartId = useCallback(() => {
     const activeId = getOrCreateCartId();
     safeLocalStorage.setItem("cartId", activeId);
@@ -234,7 +273,9 @@ const ProductDescription = () => {
     const handleOffline = () => {
       networkStatusRef.current = false;
       setNetworkStatus(false);
-      setCartSyncError("You're offline. Changes will sync when connection is restored.");
+      setCartSyncError(
+        "You're offline. Changes will sync when connection is restored.",
+      );
     };
 
     window.addEventListener("online", handleOnline);
@@ -247,11 +288,6 @@ const ProductDescription = () => {
 
   // ==================== CART SYNC ====================
 
-  /**
-   * Fetch the cart through the slice that owns the API contract. The thunk
-   * intentionally uses getOrCreateCartId() and returns the normalized array.
-   * The request token prevents an older GET from overwriting a newer add.
-   */
   const refreshCartFromDatabase = useCallback(
     async ({ preserveItems = [], silent = false } = {}) => {
       if (!networkStatusRef.current) {
@@ -262,25 +298,30 @@ const ProductDescription = () => {
       const requestId = ++cartSyncRequestRef.current;
 
       try {
-        // cartSlice.getCartById reads the canonical Tel cart ID itself. Passing
-        // a stale/legacy ID here would not change what the thunk requests.
         const result = await dispatch(getCartById()).unwrap();
 
-        // Ignore a late response from a request started before a newer cart
-        // mutation. This is important when add and initial hydration overlap.
         if (requestId !== cartSyncRequestRef.current) {
           return { ok: true, ignored: true, items: localCartRef.current };
         }
 
         if (!Array.isArray(result)) {
           if (!silent) {
-            setCartSyncError("Your cart could not be refreshed. Please try again.");
+            setCartSyncError(
+              "Your cart could not be refreshed. Please try again.",
+            );
           }
-          return { ok: false, reason: "invalid-response", items: localCartRef.current };
+          return {
+            ok: false,
+            reason: "invalid-response",
+            items: localCartRef.current,
+          };
         }
 
         const serverItems = normalizeCartItems(result);
-        const nextCart = mergeCartItemsKeepingAddedItem(serverItems, preserveItems);
+        const nextCart = mergeCartItemsKeepingAddedItem(
+          serverItems,
+          preserveItems,
+        );
         commitLocalCart(nextCart);
         setCartSyncError(null);
         return { ok: true, items: nextCart };
@@ -308,9 +349,6 @@ const ProductDescription = () => {
     }
   }, [cartId, networkStatus, refreshCartFromDatabase]);
 
-  // Hydrate from Redux once when the page mounts. Do not mirror every Redux
-  // update: addToCart already updates the slice, and mirroring it here can
-  // race with the optimistic drawer update and increment an item twice.
   useEffect(() => {
     if (hasHydratedReduxCartRef.current || !Array.isArray(cart)) return;
     hasHydratedReduxCartRef.current = true;
@@ -335,7 +373,7 @@ const ProductDescription = () => {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
+  }, [productID]);
 
   // ==================== PRODUCT DATA ====================
 
@@ -365,7 +403,9 @@ const ProductDescription = () => {
 
       const parsed = safeLocalStorage.getItem("viewedProducts", []);
       const existingProducts = Array.isArray(parsed) ? parsed : [];
-      const filtered = existingProducts.filter((item) => item?.id !== viewedItem.id);
+      const filtered = existingProducts.filter(
+        (item) => item?.id !== viewedItem.id,
+      );
       const updated = [viewedItem, ...filtered].slice(0, 4);
       safeLocalStorage.setItem("viewedProducts", updated);
       setViewedProducts(updated);
@@ -402,12 +442,16 @@ const ProductDescription = () => {
     const productBrand = "Samsung";
 
     const cleanupFlixMedia = () => {
-      document.querySelectorAll('script[src*="flixfacts.com"]').forEach((s) => s.remove());
+      document
+        .querySelectorAll('script[src*="flixfacts.com"]')
+        .forEach((s) => s.remove());
       document
         .querySelectorAll('link[href*="flixfacts.com"], style[data-flix]')
         .forEach((s) => s.remove());
       document
-        .querySelectorAll("#flix-inpage, #flix-minisite, .flix-inpage, .flix-minisite")
+        .querySelectorAll(
+          "#flix-inpage, #flix-minisite, .flix-inpage, .flix-minisite",
+        )
         .forEach((s) => s.remove());
       if (window.flixJsCallbacks) delete window.flixJsCallbacks;
       if (window.flixJs) delete window.flixJs;
@@ -439,7 +483,8 @@ const ProductDescription = () => {
 
       const iframe = document.createElement("iframe");
       iframe.id = "flix-media-iframe";
-      iframe.style.cssText = "width: 100%; height: 800px; border: none; overflow: hidden;";
+      iframe.style.cssText =
+        "width: 100%; height: 800px; border: none; overflow: hidden;";
       iframe.onload = () => {
         setFlixMediaLoaded(true);
         loadingDiv.remove();
@@ -531,7 +576,9 @@ const ProductDescription = () => {
   useEffect(() => {
     const handleScroll = () => {
       if (productDetailsRef.current) {
-        setShowStickyCart(productDetailsRef.current.getBoundingClientRect().bottom < 0);
+        setShowStickyCart(
+          productDetailsRef.current.getBoundingClientRect().bottom < 0,
+        );
       }
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
@@ -551,7 +598,8 @@ const ProductDescription = () => {
       "not available",
     ];
     const matchesAny = (field) =>
-      field && indicators.some((i) => field.toLowerCase().includes(i.toLowerCase()));
+      field &&
+      indicators.some((i) => field.toLowerCase().includes(i.toLowerCase()));
 
     return (
       matchesAny(product.brandName) ||
@@ -587,9 +635,6 @@ const ProductDescription = () => {
     setCartSyncError(null);
 
     try {
-      // Use the exact ID policy used by cartSlice. The previous implementation
-      // created cart_<timestamp>, while cartSlice reminted a different Tel ID
-      // before GET/UPDATE/DELETE, which caused the "no cart found" result.
       const storedCartId = getActiveCartId();
       const customer = safeLocalStorage.getItem("customer", null);
       const customerId = customer?.customerAccountNumber || null;
@@ -609,8 +654,6 @@ const ProductDescription = () => {
 
       const addResult = await dispatch(addToCart(cartItemPayload)).unwrap();
 
-      // Show the successful add immediately. The drawer is no longer put into
-      // its loading/empty branch while the follow-up GET is in flight.
       const addedItem = normalizeCartItem({
         ...cartItemPayload,
         ...(addResult && typeof addResult === "object" ? addResult : {}),
@@ -625,8 +668,6 @@ const ProductDescription = () => {
         (item) => String(item.productId) === String(productId),
       );
 
-      // Reconcile with the server in the background. If the GET briefly
-      // returns an empty collection, keep the item acknowledged by addToCart.
       void refreshCartFromDatabase({
         preserveItems: preservedItem ? [preservedItem] : [],
         silent: true,
@@ -689,11 +730,15 @@ const ProductDescription = () => {
 
       const refreshed = await refreshCartFromDatabase({ silent: true });
       if (!refreshed.ok && refreshed.reason !== "offline") {
-        setCartSyncError("Quantity updated. We will finish syncing your cart shortly.");
+        setCartSyncError(
+          "Quantity updated. We will finish syncing your cart shortly.",
+        );
       }
     } catch (error) {
       commitLocalCart(previousLocalCart);
-      setCartSyncError(`Failed to update quantity: ${error?.message || "Unknown error"}`);
+      setCartSyncError(
+        `Failed to update quantity: ${error?.message || "Unknown error"}`,
+      );
 
       void refreshCartFromDatabase({ silent: true });
     } finally {
@@ -728,11 +773,15 @@ const ProductDescription = () => {
 
       const refreshed = await refreshCartFromDatabase({ silent: true });
       if (!refreshed.ok && refreshed.reason !== "offline") {
-        setCartSyncError("Item removed. We will finish syncing your cart shortly.");
+        setCartSyncError(
+          "Item removed. We will finish syncing your cart shortly.",
+        );
       }
     } catch (error) {
       commitLocalCart(previousLocalCart);
-      setCartSyncError(`Failed to remove item: ${error?.message || "Unknown error"}`);
+      setCartSyncError(
+        `Failed to remove item: ${error?.message || "Unknown error"}`,
+      );
       void refreshCartFromDatabase({ silent: true });
     } finally {
       setRemovingItem((prev) => ({ ...prev, [productKey]: false }));
@@ -765,14 +814,6 @@ const ProductDescription = () => {
     navigate("/checkout");
   };
 
-  const getValidImageUrl = (imagePath) => {
-    if (!imagePath) return "https://via.placeholder.com/150";
-    const base = "https://testing.frankotrading.com/Media/Products_Images/";
-    if (imagePath.includes("\\")) return base + imagePath.split("\\").pop();
-    if (imagePath.includes("/")) return base + imagePath.split("/").pop();
-    return base + imagePath;
-  };
-
   const renderImage = (imagePath) => {
     const imageUrl = getValidImageUrl(imagePath);
     return (
@@ -787,6 +828,22 @@ const ProductDescription = () => {
     );
   };
 
+  // ==================== GALLERY NAVIGATION ====================
+
+  const handlePrevImage = () => {
+    if (allProductImages.length <= 1) return;
+    setSelectedImageIndex((prev) =>
+      prev === 0 ? allProductImages.length - 1 : prev - 1,
+    );
+  };
+
+  const handleNextImage = () => {
+    if (allProductImages.length <= 1) return;
+    setSelectedImageIndex((prev) =>
+      prev === allProductImages.length - 1 ? 0 : prev + 1,
+    );
+  };
+
   // ==================== TOTALS ====================
 
   const cartTotal = Array.isArray(localCart)
@@ -794,7 +851,10 @@ const ProductDescription = () => {
     : 0;
 
   const totalCartItems = Array.isArray(localCart)
-    ? localCart.reduce((acc, item) => acc + (parseInt(item.quantity, 10) || 0), 0)
+    ? localCart.reduce(
+        (acc, item) => acc + (parseInt(item.quantity, 10) || 0),
+        0,
+      )
     : 0;
 
   const handleAuthModalClose = () => {
@@ -831,14 +891,19 @@ const ProductDescription = () => {
 
   const product = currentProduct[0];
   const outOfStock = isOutOfStock(product);
-  const imageUrl = getValidImageUrl(product.productImage);
+  const activeImageUrl =
+    allProductImages[selectedImageIndex] || allProductImages[0];
+  const primaryImageUrl = allProductImages[0];
+
   const descriptionLines = String(product.description || "")
-    .split("\n")
+    .split(/\r?\n/)
+    .filter((line) => line.trim() !== "")
     .map((line, i) => (
       <p key={i} className="pd-description-line">
         {line}
       </p>
     ));
+
   const productUrl = window.location.href;
   const related = products.slice(-12);
 
@@ -1093,28 +1158,166 @@ const ProductDescription = () => {
           cursor: not-allowed;
         }
 
-        /* ==================== SHARE BUTTON ==================== */
+        /* ==================== GALLERY & OTHER IMAGES ==================== */
 
-        .pd-share-btn {
-          width: 40px;
-          height: 40px;
+        /* Mobile (< 768px): Main image on top, horizontal thumbnails below */
+        .pd-gallery-container {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          width: 100%;
+        }
+
+        /* Medium & Large (>= 768px): Vertical thumbnails on the LEFT, main image on the RIGHT */
+        @media (min-width: 768px) {
+          .pd-gallery-container {
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 16px;
+          }
+        }
+
+        .pd-image-container {
+          position: relative;
+          display: flex;
+          justify-content: center;
+          align-items: flex-start;
+          width: 100%;
+          flex: 1;
+          order: 1;
+        }
+
+        @media (min-width: 768px) {
+          .pd-image-container {
+            order: 2;
+          }
+        }
+
+        .pd-main-image {
+          border-radius: var(--pd-radius);
+          box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+          max-width: 100%;
+          transition: transform 0.3s ease;
+        }
+
+        .pd-main-image:hover {
+          transform: scale(1.02);
+        }
+
+        .pd-gallery-nav-btn {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 38px;
+          height: 38px;
           border-radius: 50%;
-          background: var(--pd-green-light);
-          border: none;
-          cursor: pointer;
+          background: rgba(255, 255, 255, 0.92);
+          border: 1px solid var(--pd-border);
           display: flex;
           align-items: center;
           justify-content: center;
+          cursor: pointer;
+          z-index: 10;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
           transition: all 0.2s ease;
+          color: var(--pd-dark);
         }
 
-        .pd-share-btn:hover {
+        .pd-gallery-nav-btn:hover {
           background: var(--pd-green);
-          transform: scale(1.1);
+          border-color: var(--pd-green);
+          color: #fff;
         }
 
-        .pd-share-btn:hover svg {
-          color: #fff !important;
+        .pd-gallery-nav-prev {
+          left: 12px;
+        }
+
+        .pd-gallery-nav-next {
+          right: 12px;
+        }
+
+        .pd-gallery-counter {
+          position: absolute;
+          bottom: 12px;
+          right: 12px;
+          background: rgba(26, 26, 26, 0.7);
+          color: #fff;
+          font-size: 11px;
+          font-weight: 700;
+          padding: 4px 10px;
+          border-radius: 100px;
+          z-index: 10;
+          letter-spacing: 0.04em;
+        }
+
+        /* Mobile thumbnail strip (horizontal below image) */
+        .pd-thumbnails-strip {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          gap: 10px;
+          overflow-x: auto;
+          overflow-y: hidden;
+          padding: 4px 2px;
+          scrollbar-width: thin;
+          order: 2;
+        }
+
+        /* Desktop/Tablet thumbnail strip (vertical on the left of main image) */
+        @media (min-width: 768px) {
+          .pd-thumbnails-strip {
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 2px 4px;
+            flex-shrink: 0;
+            order: 1;
+          }
+        }
+
+        .pd-thumbnail-btn {
+          width: 70px;
+          height: 70px;
+          border-radius: var(--pd-radius);
+          border: 2px solid var(--pd-border);
+          background: #fff;
+          padding: 4px;
+          cursor: pointer;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          transition: all 0.2s ease;
+          opacity: 0.7;
+        }
+
+        @media (min-width: 768px) {
+          .pd-thumbnail-btn {
+            width: 80px;
+            height: 80px;
+          }
+        }
+
+        .pd-thumbnail-btn:hover {
+          opacity: 1;
+          border-color: var(--pd-green-accent);
+        }
+
+        .pd-thumbnail-btn.pd-thumbnail-active {
+          opacity: 1;
+          border-color: var(--pd-green);
+          box-shadow: 0 0 0 2px var(--pd-green-light);
+        }
+
+        .pd-thumbnail-btn img {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          border-radius: 2px;
         }
 
         /* ==================== CARDS ==================== */
@@ -1815,41 +2018,31 @@ const ProductDescription = () => {
         @keyframes pd-spin {
           to { transform: rotate(360deg); }
         }
-
-        /* ==================== IMAGE CONTAINER ==================== */
-
-        .pd-image-container {
-          display: flex;
-          justify-content: center;
-          align-items: flex-start;
-        }
-
-        .pd-main-image {
-          border-radius: var(--pd-radius);
-          box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-          max-width: 100%;
-          transition: transform 0.3s ease;
-        }
-
-        .pd-main-image:hover {
-          transform: scale(1.02);
-        }
       `}</style>
 
       <div className="pd-root max-w-7xl mx-auto px-4 py-2">
         <Helmet>
-          <title>{`${product?.productName || "Product"} - Best Price in Ghanna`}</title>
+          <title>{`${product?.productName || "Product"} - Best Price in Ghana`}</title>
           <meta
             name="description"
             content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}. High-quality and best prices available.`}
           />
-          <meta property="og:title" content={product?.productName || "Product"} />
+          <meta
+            property="og:title"
+            content={product?.productName || "Product"}
+          />
           <meta
             property="og:description"
             content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}.`}
           />
-          <meta property="og:image" content={imageUrl || "default-image-url.jpg"} />
-          <meta property="og:url" content={productUrl || "https://www.frankotrading.com"} />
+          <meta
+            property="og:image"
+            content={primaryImageUrl || "default-image-url.jpg"}
+          />
+          <meta
+            property="og:url"
+            content={productUrl || "https://www.frankotrading.com"}
+          />
           <meta name="twitter:card" content="summary_large_image" />
           <link
             rel="canonical"
@@ -1862,7 +2055,7 @@ const ProductDescription = () => {
             "@context": "https://schema.org/",
             "@type": "Product",
             name: product.productName,
-            image: imageUrl,
+            image: allProductImages,
             description: product.description,
             sku: product.productID,
             brand: {
@@ -1875,7 +2068,9 @@ const ProductDescription = () => {
               price: product.price,
               priceValidUntil: "2025-12-31",
               itemCondition: "https://schema.org/NewCondition",
-              availability: "https://schema.org/InStock",
+              availability: outOfStock
+                ? "https://schema.org/OutOfStock"
+                : "https://schema.org/InStock",
               url: `https://www.frankotrading.com/product/${product.productID}`,
               seller: {
                 "@type": "Organization",
@@ -1926,7 +2121,7 @@ const ProductDescription = () => {
           <div className="pd-sticky-inner">
             <div className="pd-sticky-product">
               <img
-                src={imageUrl}
+                src={primaryImageUrl}
                 alt={product.productName}
                 className="pd-sticky-img"
                 onError={(e) => {
@@ -1936,7 +2131,9 @@ const ProductDescription = () => {
               <div className="pd-sticky-info">
                 <h3 className="pd-sticky-name">{product.productName}</h3>
                 <div>
-                  <span className="pd-sticky-price">GH₵{formatPrice(product.price)}</span>
+                  <span className="pd-sticky-price">
+                    GH₵{formatPrice(product.price)}
+                  </span>
                   {product.oldPrice > 0 && (
                     <span className="pd-sticky-old-price">
                       GH₵{formatPrice(product.oldPrice)}
@@ -1976,7 +2173,8 @@ const ProductDescription = () => {
                 role="button"
                 tabIndex={0}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") handleOpenCart();
+                  if (event.key === "Enter" || event.key === " ")
+                    handleOpenCart();
                 }}
               >
                 <ShoppingCartIcon
@@ -1994,7 +2192,11 @@ const ProductDescription = () => {
         {/* Network / Cart Error Alert */}
         {cartSyncError && (
           <div
-            className={`pd-alert ${cartSyncError.includes("successfully") ? "pd-alert-success" : "pd-alert-warning"}`}
+            className={`pd-alert ${
+              cartSyncError.includes("successfully")
+                ? "pd-alert-success"
+                : "pd-alert-warning"
+            }`}
           >
             <ExclamationTriangleIcon
               className="w-5 h-5"
@@ -2014,28 +2216,103 @@ const ProductDescription = () => {
           ref={productDetailsRef}
           className="grid lg:grid-cols-2 gap-12 pt-4"
         >
-          <div className="pd-image-container">
-            <Image.PreviewGroup>
-              <Image
-                src={imageUrl}
-                className="pd-main-image"
-                alt={product.productName}
-                style={{ maxWidth: "100%", borderRadius: "var(--pd-radius)" }}
-              />
-            </Image.PreviewGroup>
+          {/* Product Image & Other Images Gallery */}
+          <div className="pd-gallery-container">
+            <div className="pd-image-container">
+              {allProductImages.length > 1 && (
+                <button
+                  type="button"
+                  onClick={handlePrevImage}
+                  className="pd-gallery-nav-btn pd-gallery-nav-prev"
+                  aria-label="Previous image"
+                >
+                  <ChevronLeftIcon className="w-5 h-5" />
+                </button>
+              )}
+
+              <Image.PreviewGroup>
+                {allProductImages.map((imgSrc, idx) => (
+                  <div
+                    key={`preview-${idx}`}
+                    style={{
+                      display: idx === selectedImageIndex ? "block" : "none",
+                    }}
+                  >
+                    <Image
+                      src={imgSrc || activeImageUrl}
+                      className="pd-main-image"
+                      alt={`${product.productName} - View ${idx + 1}`}
+                      fallback="https://via.placeholder.com/400?text=No+Image"
+                      style={{
+                        maxWidth: "100%",
+                        borderRadius: "var(--pd-radius)",
+                      }}
+                    />
+                  </div>
+                ))}
+              </Image.PreviewGroup>
+
+              {allProductImages.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleNextImage}
+                    className="pd-gallery-nav-btn pd-gallery-nav-next"
+                    aria-label="Next image"
+                  >
+                    <ChevronRightIcon className="w-5 h-5" />
+                  </button>
+                  <span className="pd-gallery-counter">
+                    {selectedImageIndex + 1} / {allProductImages.length}
+                  </span>
+                </>
+              )}
+            </div>
+
+            {/* Thumbnail Strip (Left side on md/lg, Bottom on mobile) */}
+            {allProductImages.length > 1 && (
+              <div className="pd-thumbnails-strip">
+                {allProductImages.map((imgSrc, index) => (
+                  <button
+                    key={`thumb-${index}`}
+                    type="button"
+                    onClick={() => setSelectedImageIndex(index)}
+                    className={`pd-thumbnail-btn ${
+                      selectedImageIndex === index ? "pd-thumbnail-active" : ""
+                    }`}
+                    aria-label={`View product image ${index + 1}`}
+                  >
+                    <img
+                      src={imgSrc}
+                      alt={`${product.productName} thumbnail ${index + 1}`}
+                      onError={(e) => {
+                        e.target.src = "https://via.placeholder.com/150";
+                      }}
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
+          {/* Product Information Column */}
           <div className="space-y-4">
             <h1 className="pd-product-title">{product.productName}</h1>
 
             <div className="pd-price-container">
               <span className="pd-price">GH₵{formatPrice(product.price)}</span>
               {product.oldPrice > 0 && (
-                <span className="pd-old-price">GH₵{formatPrice(product.oldPrice)}</span>
+                <span className="pd-old-price">
+                  GH₵{formatPrice(product.oldPrice)}
+                </span>
               )}
             </div>
 
-            <div className={`pd-stock ${outOfStock ? "pd-stock-out" : "pd-stock-in"}`}>
+            <div
+              className={`pd-stock ${
+                outOfStock ? "pd-stock-out" : "pd-stock-in"
+              }`}
+            >
               {outOfStock ? (
                 <>
                   <ExclamationTriangleIcon className="w-4 h-4" />
@@ -2117,9 +2394,15 @@ const ProductDescription = () => {
             id="flix-media-section"
             ref={flixMediaSectionRef}
             className="mt-8 bg-white border border-gray-200 overflow-hidden p-6"
-            style={{ borderRadius: "var(--pd-radius)", contain: "layout style paint" }}
+            style={{
+              borderRadius: "var(--pd-radius)",
+              contain: "layout style paint",
+            }}
           >
-            <div className="pd-section-header" style={{ marginBottom: "24px" }}>
+            <div
+              className="pd-section-header"
+              style={{ marginBottom: "24px" }}
+            >
               <div className="pd-title-wrap">
                 <div className="pd-title-accent" />
                 <h2 className="pd-section-title">More Product Details</h2>
@@ -2127,7 +2410,10 @@ const ProductDescription = () => {
               <div className="pd-header-line" />
             </div>
             {flixMediaError && (
-              <div className="text-center py-8" style={{ color: "var(--pd-light)" }}>
+              <div
+                className="text-center py-8"
+                style={{ color: "var(--pd-light)" }}
+              >
                 <p>Unable to load additional product details at this time.</p>
               </div>
             )}
@@ -2140,22 +2426,42 @@ const ProductDescription = () => {
             {
               title: "Fast Shipping",
               subtitle: "All over Ghana",
-              icon: <TruckIcon className="pd-feature-icon" style={{ color: "var(--pd-green)" }} />,
+              icon: (
+                <TruckIcon
+                  className="pd-feature-icon"
+                  style={{ color: "var(--pd-green)" }}
+                />
+              ),
             },
             {
               title: "Quality Assurance",
               subtitle: "Certified products",
-              icon: <ShieldCheckIcon className="pd-feature-icon" style={{ color: "var(--pd-green-accent)" }} />,
+              icon: (
+                <ShieldCheckIcon
+                  className="pd-feature-icon"
+                  style={{ color: "var(--pd-green-accent)" }}
+                />
+              ),
             },
             {
               title: "Customer Support",
               subtitle: "Dedicated support team",
-              icon: <PhoneIcon className="pd-feature-icon" style={{ color: "var(--pd-green-mid)" }} />,
+              icon: (
+                <PhoneIcon
+                  className="pd-feature-icon"
+                  style={{ color: "var(--pd-green-mid)" }}
+                />
+              ),
             },
             {
               title: "Secure Payment",
               subtitle: "Safe Payment Processing",
-              icon: <CreditCardIcon className="pd-feature-icon" style={{ color: "var(--pd-green)" }} />,
+              icon: (
+                <CreditCardIcon
+                  className="pd-feature-icon"
+                  style={{ color: "var(--pd-green)" }}
+                />
+              ),
             },
           ].map((item, idx) => (
             <div key={idx} className="pd-feature">
@@ -2182,9 +2488,14 @@ const ProductDescription = () => {
               {viewedProducts.map((viewedProduct, index) => {
                 if (!viewedProduct || !viewedProduct.id) return null;
                 const productOutOfStock = isOutOfStock(viewedProduct);
-                const discount = viewedProduct.oldPrice > 0
-                  ? Math.round(((viewedProduct.oldPrice - viewedProduct.price) / viewedProduct.oldPrice) * 100)
-                  : 0;
+                const discount =
+                  viewedProduct.oldPrice > 0
+                    ? Math.round(
+                        ((viewedProduct.oldPrice - viewedProduct.price) /
+                          viewedProduct.oldPrice) *
+                          100,
+                      )
+                    : 0;
                 const imgUrl = getValidImageUrl(viewedProduct.image);
 
                 return (
@@ -2195,51 +2506,100 @@ const ProductDescription = () => {
                   >
                     <div className="pd-card-img">
                       {productOutOfStock && (
-                        <span className="pd-card-badge pd-card-badge-sold">Sold Out</span>
+                        <span className="pd-card-badge pd-card-badge-sold">
+                          Sold Out
+                        </span>
                       )}
                       {discount > 0 && !productOutOfStock && (
-                        <span className="pd-card-badge pd-card-badge-discount">-{discount}%</span>
+                        <span className="pd-card-badge pd-card-badge-discount">
+                          -{discount}%
+                        </span>
                       )}
                       <div
-                        style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
-                        onClick={() => navigate(`/product/${viewedProduct.id}`)}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                        onClick={() =>
+                          navigate(`/product/${viewedProduct.id}`)
+                        }
                       >
                         <img
                           src={imgUrl}
                           alt={viewedProduct.name}
-                          onError={(e) => { e.target.src = "https://via.placeholder.com/150"; }}
+                          onError={(e) => {
+                            e.target.src = "https://via.placeholder.com/150";
+                          }}
                         />
                       </div>
-                      <div className="pd-card-overlay" onClick={() => navigate(`/product/${viewedProduct.id}`)}>
+                      <div
+                        className="pd-card-overlay"
+                        onClick={() =>
+                          navigate(`/product/${viewedProduct.id}`)
+                        }
+                      >
                         <Tooltip content="Add to Wishlist" placement="top">
-                          <button className="pd-card-action" onClick={(e) => e.stopPropagation()}>
-                            <SolidHeartIcon className="w-4 h-4" style={{ color: "var(--pd-mid)" }} />
+                          <button
+                            className="pd-card-action"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <SolidHeartIcon
+                              className="w-4 h-4"
+                              style={{ color: "var(--pd-mid)" }}
+                            />
                           </button>
                         </Tooltip>
                         <Tooltip content="View Details" placement="top">
-                          <button className="pd-card-action" onClick={(e) => { e.stopPropagation(); navigate(`/product/${viewedProduct.id}`); }}>
-                            <EyeIcon className="w-4 h-4" style={{ color: "var(--pd-green)" }} />
-                          </button>
-                        </Tooltip>
-                        <Tooltip content={productOutOfStock ? "Out of Stock" : "Add to Cart"} placement="top">
                           <button
                             className="pd-card-action"
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (!productOutOfStock) handleAddToCartAndOpenSidebar(viewedProduct);
+                              navigate(`/product/${viewedProduct.id}`);
+                            }}
+                          >
+                            <EyeIcon
+                              className="w-4 h-4"
+                              style={{ color: "var(--pd-green)" }}
+                            />
+                          </button>
+                        </Tooltip>
+                        <Tooltip
+                          content={
+                            productOutOfStock ? "Out of Stock" : "Add to Cart"
+                          }
+                          placement="top"
+                        >
+                          <button
+                            className="pd-card-action"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!productOutOfStock)
+                                handleAddToCartAndOpenSidebar(viewedProduct);
                             }}
                             disabled={productOutOfStock}
                           >
-                            <ShoppingCartIcon className="w-4 h-4" style={{ color: "var(--pd-green-mid)" }} />
+                            <ShoppingCartIcon
+                              className="w-4 h-4"
+                              style={{ color: "var(--pd-green-mid)" }}
+                            />
                           </button>
                         </Tooltip>
                       </div>
                     </div>
                     <div className="pd-card-body">
-                      <h3 className="pd-card-name">{viewedProduct.name || "Unnamed Product"}</h3>
-                      <div className="pd-card-price">GH₵{formatPrice(viewedProduct.price)}</div>
+                      <h3 className="pd-card-name">
+                        {viewedProduct.name || "Unnamed Product"}
+                      </h3>
+                      <div className="pd-card-price">
+                        GH₵{formatPrice(viewedProduct.price)}
+                      </div>
                       {viewedProduct.oldPrice > 0 && (
-                        <div className="pd-card-old-price">GH₵{formatPrice(viewedProduct.oldPrice)}</div>
+                        <div className="pd-card-old-price">
+                          GH₵{formatPrice(viewedProduct.oldPrice)}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -2264,9 +2624,14 @@ const ProductDescription = () => {
                 if (!relatedProduct || !relatedProduct.productID) return null;
 
                 const productOutOfStock = isOutOfStock(relatedProduct);
-                const discount = relatedProduct.oldPrice > 0
-                  ? Math.round(((relatedProduct.oldPrice - relatedProduct.price) / relatedProduct.oldPrice) * 100)
-                  : 0;
+                const discount =
+                  relatedProduct.oldPrice > 0
+                    ? Math.round(
+                        ((relatedProduct.oldPrice - relatedProduct.price) /
+                          relatedProduct.oldPrice) *
+                          100,
+                      )
+                    : 0;
                 const imgUrl = getValidImageUrl(relatedProduct.productImage);
 
                 return (
@@ -2277,22 +2642,41 @@ const ProductDescription = () => {
                   >
                     <div className="pd-card-img">
                       {productOutOfStock && (
-                        <span className="pd-card-badge pd-card-badge-sold">Sold Out</span>
+                        <span className="pd-card-badge pd-card-badge-sold">
+                          Sold Out
+                        </span>
                       )}
                       {discount > 0 && !productOutOfStock && (
-                        <span className="pd-card-badge pd-card-badge-discount">-{discount}%</span>
+                        <span className="pd-card-badge pd-card-badge-discount">
+                          -{discount}%
+                        </span>
                       )}
                       <div
-                        style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
-                        onClick={() => navigate(`/product/${relatedProduct.productID}`)}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                        onClick={() =>
+                          navigate(`/product/${relatedProduct.productID}`)
+                        }
                       >
                         <img
                           src={imgUrl}
                           alt={relatedProduct.productName}
-                          onError={(e) => { e.target.src = "https://via.placeholder.com/150"; }}
+                          onError={(e) => {
+                            e.target.src = "https://via.placeholder.com/150";
+                          }}
                         />
                       </div>
-                      <div className="pd-card-overlay" onClick={() => navigate(`/product/${relatedProduct.productID}`)}>
+                      <div
+                        className="pd-card-overlay"
+                        onClick={() =>
+                          navigate(`/product/${relatedProduct.productID}`)
+                        }
+                      >
                         <Tooltip content="Add to Wishlist" placement="top">
                           <button
                             className="pd-card-action"
@@ -2300,7 +2684,10 @@ const ProductDescription = () => {
                               e.stopPropagation();
                             }}
                           >
-                            <SolidHeartIcon className="w-4 h-4" style={{ color: "var(--pd-mid)" }} />
+                            <SolidHeartIcon
+                              className="w-4 h-4"
+                              style={{ color: "var(--pd-mid)" }}
+                            />
                           </button>
                         </Tooltip>
                         <Tooltip content="View Details" placement="top">
@@ -2311,10 +2698,18 @@ const ProductDescription = () => {
                               navigate(`/product/${relatedProduct.productID}`);
                             }}
                           >
-                            <EyeIcon className="w-4 h-4" style={{ color: "var(--pd-green)" }} />
+                            <EyeIcon
+                              className="w-4 h-4"
+                              style={{ color: "var(--pd-green)" }}
+                            />
                           </button>
                         </Tooltip>
-                        <Tooltip content={productOutOfStock ? "Out of Stock" : "Add to Cart"} placement="top">
+                        <Tooltip
+                          content={
+                            productOutOfStock ? "Out of Stock" : "Add to Cart"
+                          }
+                          placement="top"
+                        >
                           <button
                             className="pd-card-action"
                             onClick={(e) => {
@@ -2325,16 +2720,25 @@ const ProductDescription = () => {
                             }}
                             disabled={productOutOfStock}
                           >
-                            <ShoppingCartIcon className="w-4 h-4" style={{ color: "var(--pd-green-mid)" }} />
+                            <ShoppingCartIcon
+                              className="w-4 h-4"
+                              style={{ color: "var(--pd-green-mid)" }}
+                            />
                           </button>
                         </Tooltip>
                       </div>
                     </div>
                     <div className="pd-card-body">
-                      <h3 className="pd-card-name">{relatedProduct.productName || "Unnamed Product"}</h3>
-                      <div className="pd-card-price">GH₵{formatPrice(relatedProduct.price)}</div>
+                      <h3 className="pd-card-name">
+                        {relatedProduct.productName || "Unnamed Product"}
+                      </h3>
+                      <div className="pd-card-price">
+                        GH₵{formatPrice(relatedProduct.price)}
+                      </div>
                       {relatedProduct.oldPrice > 0 && (
-                        <div className="pd-card-old-price">GH₵{formatPrice(relatedProduct.oldPrice)}</div>
+                        <div className="pd-card-old-price">
+                          GH₵{formatPrice(relatedProduct.oldPrice)}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -2352,10 +2756,16 @@ const ProductDescription = () => {
           className="p-0"
           size={400}
         >
-          <div className="flex flex-col h-full" style={{ fontFamily: "var(--pd-font)" }}>
+          <div
+            className="flex flex-col h-full"
+            style={{ fontFamily: "var(--pd-font)" }}
+          >
             <div className="pd-cart-header">
               <div className="pd-cart-title">
-                <ShoppingCartIcon className="w-5 h-5" style={{ color: "var(--pd-green)" }} />
+                <ShoppingCartIcon
+                  className="w-5 h-5"
+                  style={{ color: "var(--pd-green)" }}
+                />
                 <span>Shopping Cart</span>
                 {localCart.length > 0 && (
                   <span className="pd-cart-count">
@@ -2363,8 +2773,14 @@ const ProductDescription = () => {
                   </span>
                 )}
               </div>
-              <button className="pd-cart-close" onClick={() => setCartSidebarOpen(false)}>
-                <XMarkIcon className="w-4 h-4" style={{ color: "var(--pd-mid)" }} />
+              <button
+                className="pd-cart-close"
+                onClick={() => setCartSidebarOpen(false)}
+              >
+                <XMarkIcon
+                  className="w-4 h-4"
+                  style={{ color: "var(--pd-mid)" }}
+                />
               </button>
             </div>
 
@@ -2374,20 +2790,27 @@ const ProductDescription = () => {
                   <div style={{ position: "relative" }}>
                     <div
                       className="w-16 h-16 border-4 rounded-full animate-spin mb-4"
-                      style={{ borderColor: "var(--pd-green-light)", borderTopColor: "var(--pd-green)" }}
+                      style={{
+                        borderColor: "var(--pd-green-light)",
+                        borderTopColor: "var(--pd-green)",
+                      }}
                     />
                     <ArrowPathIcon
                       className="w-6 h-6 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 animate-pulse"
                       style={{ color: "var(--pd-green)" }}
                     />
                   </div>
-                  <p style={{ color: "var(--pd-mid)", fontWeight: 600 }}>Updating your cart...</p>
+                  <p style={{ color: "var(--pd-mid)", fontWeight: 600 }}>
+                    Updating your cart...
+                  </p>
                 </div>
               ) : !Array.isArray(localCart) || localCart.length === 0 ? (
                 <div className="pd-cart-empty">
                   <ShoppingCartIcon className="pd-cart-empty-icon" />
                   <h3 className="pd-cart-empty-title">Your cart is empty</h3>
-                  <p className="pd-cart-empty-text">Start shopping to fill it up!</p>
+                  <p className="pd-cart-empty-text">
+                    Start shopping to fill it up!
+                  </p>
                 </div>
               ) : (
                 <div className="p-4 space-y-4">
@@ -2403,7 +2826,8 @@ const ProductDescription = () => {
                         className="pd-cart-item"
                         style={{
                           opacity: isUpdating || isRemoving ? 0.5 : 1,
-                          pointerEvents: isUpdating || isRemoving ? "none" : "auto",
+                          pointerEvents:
+                            isUpdating || isRemoving ? "none" : "auto",
                         }}
                       >
                         <div className="pd-cart-item-inner">
@@ -2414,34 +2838,64 @@ const ProductDescription = () => {
                             <h4 className="pd-cart-item-name">
                               {item.productName || "Product Name"}
                             </h4>
-                            <p className="pd-cart-item-price">GH₵{formatPrice(item.price || 0)}</p>
+                            <p className="pd-cart-item-price">
+                              GH₵{formatPrice(item.price || 0)}
+                            </p>
                             <div className="pd-cart-item-actions">
                               <div className="pd-qty-control">
                                 <button
                                   className="pd-qty-btn"
-                                  onClick={() => handleQuantityChange(item.productId, (item.quantity || 1) - 1)}
-                                  disabled={isUpdating || isRemoving || (item.quantity || 1) <= 1}
+                                  onClick={() =>
+                                    handleQuantityChange(
+                                      item.productId,
+                                      (item.quantity || 1) - 1,
+                                    )
+                                  }
+                                  disabled={
+                                    isUpdating ||
+                                    isRemoving ||
+                                    (item.quantity || 1) <= 1
+                                  }
                                 >
                                   <MinusIcon className="w-3 h-3" />
                                 </button>
-                                <span className="pd-qty-value">{item.quantity || 1}</span>
+                                <span className="pd-qty-value">
+                                  {item.quantity || 1}
+                                </span>
                                 <button
                                   className="pd-qty-btn"
-                                  onClick={() => handleQuantityChange(item.productId, (item.quantity || 1) + 1)}
+                                  onClick={() =>
+                                    handleQuantityChange(
+                                      item.productId,
+                                      (item.quantity || 1) + 1,
+                                    )
+                                  }
                                   disabled={isUpdating || isRemoving}
                                 >
                                   <PlusIcon className="w-3 h-3" />
                                 </button>
                               </div>
 
-                              <div style={{ display: "flex", alignItems: "center" }}>
-                                <span className="pd-cart-item-total">GH₵{formatPrice(lineTotal)}</span>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                }}
+                              >
+                                <span className="pd-cart-item-total">
+                                  GH₵{formatPrice(lineTotal)}
+                                </span>
                                 <button
                                   className="pd-cart-item-remove"
-                                  onClick={() => handleRemoveItem(item.productId)}
+                                  onClick={() =>
+                                    handleRemoveItem(item.productId)
+                                  }
                                   disabled={isUpdating || isRemoving}
                                 >
-                                  <TrashIcon className="w-3 h-3" style={{ color: "var(--pd-red)" }} />
+                                  <TrashIcon
+                                    className="w-3 h-3"
+                                    style={{ color: "var(--pd-red)" }}
+                                  />
                                 </button>
                               </div>
                             </div>
@@ -2454,22 +2908,34 @@ const ProductDescription = () => {
               )}
             </div>
 
-            {Array.isArray(localCart) && localCart.length > 0 && !cartLoading && (
-              <div className="pd-cart-footer">
-                <div className="pd-cart-total-row">
-                  <span className="pd-cart-total-label">Total:</span>
-                  <span className="pd-cart-total-value">GH₵{formatPrice(cartTotal)}</span>
+            {Array.isArray(localCart) &&
+              localCart.length > 0 &&
+              !cartLoading && (
+                <div className="pd-cart-footer">
+                  <div className="pd-cart-total-row">
+                    <span className="pd-cart-total-label">Total:</span>
+                    <span className="pd-cart-total-value">
+                      GH₵{formatPrice(cartTotal)}
+                    </span>
+                  </div>
+                  <p className="pd-cart-note">
+                    * Taxes & shipping calculated at checkout
+                  </p>
+                  <Divider style={{ margin: "12px 0" }} />
+                  <button
+                    className="pd-cart-checkout"
+                    onClick={handleCheckout}
+                  >
+                    Proceed to Checkout
+                  </button>
+                  <button
+                    className="pd-cart-continue"
+                    onClick={handleContinueShopping}
+                  >
+                    Continue Shopping
+                  </button>
                 </div>
-                <p className="pd-cart-note">* Taxes & shipping calculated at checkout</p>
-                <Divider style={{ margin: "12px 0" }} />
-                <button className="pd-cart-checkout" onClick={handleCheckout}>
-                  Proceed to Checkout
-                </button>
-                <button className="pd-cart-continue" onClick={handleContinueShopping}>
-                  Continue Shopping
-                </button>
-              </div>
-            )}
+              )}
           </div>
         </Drawer>
 

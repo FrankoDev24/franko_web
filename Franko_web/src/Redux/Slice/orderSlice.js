@@ -677,6 +677,8 @@ export const cancelOrder = createAsyncThunk(
       const { data } = await axiosInstance.get("/", {
         params: {
           endpoint: `${ORDER_PREFIX}/CancelOrder/${encodePart(OrderCode)}`,
+          // Explicit audit reason for APIs that accept a customer cancellation source.
+          cancelledBy: typeof arg === "object" ? (arg.cancelledBy || arg.CancelledBy || "Customer") : "Customer",
         },
       });
       return data;

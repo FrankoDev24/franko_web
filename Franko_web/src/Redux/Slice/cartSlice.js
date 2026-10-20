@@ -200,7 +200,9 @@ const postCartItem = async (item, { rejectWithValue }) => {
     const requestedQty = parseInt(item.Quantity || item.quantity || 1, 10);
 
     const cartItem = {
-      CartId: item.CartId || item.cartId || cartId,
+      // Always dispatch to the canonical cart selected in storage; never let a stale
+      // line item redirect a write into a second/hidden cart.
+      CartId: cartId,
       ProductId: getProductId(item),
       ProductName: getProductName(item),
       ImagePath: getImagePath(item),
@@ -419,15 +421,11 @@ const cartSlice = createSlice({
         state.loading = false;
         const cartData = Array.isArray(action.payload) ? action.payload : [];
 
-        // Preserve the original guard for locally held lines after a Tel-ID remint.
-        const localStorageHasItems = loadCartFromLocalStorage().length > 0;
-        if (cartData.length === 0 && state.cart.length > 0 && localStorageHasItems) {
-          syncCart(state);
-          return;
-        }
-
+        // The DB response is authoritative for membership and quantities. Keep
+        // only the canonical cart id; stale local-only rows must not reappear.
         state.cart = cartData;
-        state.cartId = cartData[0]?.cartId || state.cartId;
+        state.cartId = cartData[0]?.cartId || state.cartId || getOrCreateCartId();
+        try { localStorage.setItem(CART_ID_KEY, state.cartId); } catch { /* storage unavailable */ }
         syncCart(state);
       })
       .addCase(getCartById.rejected, (state, action) => {
