@@ -1,9 +1,13 @@
+// src/Component/Cart.jsx
+//
+// NOTE: despite the file name, this module's default export is the
+// useAddToCart hook (every product card / deal rail imports it from here).
+// The cart PAGE lives in Pages/Cart.jsx and renders Component/CartView.jsx.
+
 import { useCallback, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { addToCart, getOrCreateCartId } from "../Redux/Slice/cartSlice";
-
-const getProductId = (product) =>
-  product?.productId ?? product?.productID ?? product?.ProductId ?? product?.id;
+import { addToCart, getOrCreateCartId, selectCartItems } from "../Redux/Slice/cartSlice";
+import { getCartProductId, getCartProductName, getCartImagePath } from "../utils/cartItems.mjs";
 
 const getErrorMessage = (error) => {
   if (typeof error === "string" && error.trim()) return error;
@@ -13,48 +17,46 @@ const getErrorMessage = (error) => {
   return "Failed to add product to cart";
 };
 
+const readCustomer = () => {
+  try {
+    const raw = localStorage.getItem("customer");
+    if (!raw) return null;
+    // localStorage is patched app-wide: getItem may already return an object.
+    return typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Adds a product to the ONE canonical cart. Every add posts under the same
+ * cart id (getOrCreateCartId), and the slice upserts the returned line into
+ * state.cart — so adding product B never replaces product A, and adding A
+ * twice tops up A's row instead of duplicating it.
+ */
 const useAddToCart = () => {
   const dispatch = useDispatch();
-  const cartItems = useSelector((state) =>
-    Array.isArray(state.cart?.cart) ? state.cart.cart : [],
-  );
+  const cartItems = useSelector(selectCartItems);
   const cartId = useSelector((state) => state.cart?.cartId || null);
   const [loading, setLoading] = useState(false);
 
   const addProductToCart = useCallback(
-    async (product) => {
-      const productId = getProductId(product);
+    async (product, quantity = 1) => {
+      const productId = getCartProductId(product);
       if (productId === undefined || productId === null || productId === "") {
         throw new Error("ProductId is required");
       }
 
       setLoading(true);
-
       try {
-        // Do not use a stale/non-Tel Redux value directly. The slice and all
-        // cart endpoints use this same canonical cart-ID resolver.
-        const activeCartId = getOrCreateCartId(cartId);
-        const customer = (() => {
-          try {
-            const raw = localStorage.getItem("customer");
-            return raw ? JSON.parse(raw) : null;
-          } catch {
-            return null;
-          }
-        })();
-
+        const customer = readCustomer();
         const cartData = {
-          CartId: activeCartId,
+          CartId: getOrCreateCartId(cartId),
           ProductId: String(productId),
-          ProductName: product?.productName ?? product?.ProductName ?? product?.name ?? "",
-          ImagePath:
-            product?.productImage ??
-            product?.imagePath ??
-            product?.ProductImage ??
-            product?.image ??
-            "",
+          ProductName: getCartProductName(product),
+          ImagePath: getCartImagePath(product),
           Price: Number.parseFloat(product?.price ?? product?.Price ?? 0) || 0,
-          Quantity: 1,
+          Quantity: Math.max(1, parseInt(quantity, 10) || 1),
           CustomerId:
             customer?.customerAccountNumber ??
             customer?.CustomerAccountNumber ??
@@ -62,8 +64,6 @@ const useAddToCart = () => {
             null,
         };
 
-        // Duplicate products are intentionally allowed. cartSlice merges the
-        // line and increases its quantity instead of creating a second row.
         await dispatch(addToCart(cartData)).unwrap();
 
         if (typeof window !== "undefined") {
@@ -90,10 +90,10 @@ const useAddToCart = () => {
         setLoading(false);
       }
     },
-    [cartId, dispatch],
+    [cartId, dispatch]
   );
 
-  return { addProductToCart, loading, cartItems };
+  return { addProductToCart, loading, cartItems, cartId };
 };
 
 export default useAddToCart;

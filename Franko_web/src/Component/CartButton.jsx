@@ -1,5 +1,5 @@
-// src/components/AddToCartButton.jsx
-import { useState } from "react";
+// src/Component/CartButton.jsx
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@material-tailwind/react";
 import { ShoppingCartIcon, CheckIcon } from "@heroicons/react/24/outline";
 import { message } from "antd";
@@ -8,21 +8,24 @@ import useAddToCart from "./Cart";
 const CartButton = ({ product, className = "", fullWidth = false }) => {
   const { addProductToCart, loading } = useAddToCart();
   const [justAdded, setJustAdded] = useState(false);
+  const timerRef = useRef(null);
+
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
 
   const handleClick = async () => {
     try {
       await addProductToCart(product);
 
-      // Show success message
       message.success({
-        content: `${product.productName || "Product"} added to cart successfully! 🛒`,
+        content: `${product?.productName || product?.ProductName || "Product"} added to cart successfully! 🛒`,
         duration: 4,
         style: { marginTop: "20vh" },
       });
 
-      // Temporary visual feedback
       setJustAdded(true);
-      setTimeout(() => setJustAdded(false), 2000);
+      timerRef.current = setTimeout(() => setJustAdded(false), 2000);
     } catch (error) {
       message.warning({
         content: error?.message || "Failed to add product to cart",

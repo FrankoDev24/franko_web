@@ -1,13 +1,59 @@
 // src/Redux/Slice/cartSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "./AxiosInstance";
+import {
+  extractCartItems,
+  normalizeCartItem,
+  normalizeCartItems,
+  dedupeCartItems,
+  upsertCartItem,
+  mergeCartItems,
+  setCartItemQuantity,
+  removeCartItem,
+  cartTotals,
+  resolveCartIdValue,
+  getCartProductId,
+} from "../../utils/cartItems.mjs";
+
+/* ============================================================================
+   CART SLICE — one cart, many products.
+
+   THE BUG THIS REWRITE FIXES
+   --------------------------
+   Adding several products left only ONE visible in the cart. The old
+   `getCartById` treated `/Cart/Cart-GetbyID/{cartId}` as if it returned the
+   cart's full line list and REPLACED `state.cart` with the result:
+
+       if (!Array.isArray(response.data)) return response.data;   // 1 record
+       state.cart = Array.isArray(payload) ? payload : [];        // cart := that
+
+   GetbyID looks a cart up BY its id and hands back a single cart record /
+   enveloped payload, so every fetch (cart-page mount, Navbar login sync,
+   sidebar open, checkout mount, and the refetch after every quantity
+   change) collapsed the multi-product cart down to that one record.
+
+   THE MODEL NOW
+   -------------
+   * Exactly ONE canonical cart id per customer session. It is minted once,
+     kept in localStorage ("cartId") and NEVER re-derived from a fetched
+     line (`cartData[0]`), never nulled when the cart empties, and only
+     rotated by clearCart() after an order completes.
+   * Redux + localStorage ("cart") are the source of truth for what the
+     customer has added on this device. Server fetches MERGE into that list
+     (see mergeCartItems) — a fetch can add or refresh lines, it can never
+     silently delete a product. Lines leave only via the explicit
+     delete / update-to-zero / clear actions.
+   * Every line is stored in the canonical shape from cartItems.mjs:
+     { productId, productName, imagePath, price, unitPrice, quantity,
+       total, cartId, customerId } — one row per productId.
+   ========================================================================== */
 
 const CART_KEY = "cart";
 const CART_ID_KEY = "cartId";
 
-// Keep the existing Telecel cart-ID policy and API endpoints.
+// Cart ids are shared with the Telecel Speed Shopping flow, which requires
+// the "Tel" prefix — keep minting ids that satisfy both flows.
 const CART_ID_PREFIX = "Tel";
-const ENFORCE_TEL_PREFIX = true;
 
 const randomSuffix = () => {
   try {
@@ -27,152 +73,65 @@ export const isTelCartId = (cartId) =>
   typeof cartId === "string" && cartId.startsWith(CART_ID_PREFIX);
 
 /* ===========================
-   NORMALIZATION
-=========================== */
-
-const firstValue = (...values) =>
-  values.find((value) => value !== undefined && value !== null && value !== "");
-
-// Product endpoints use productID/productImage; cart endpoints use
-// productId/imagePath. Normalize both into the cart-page fields.
-const getProductId = (item) => firstValue(
-  item?.productId,
-  item?.productID,
-  item?.ProductId,
-  item?.ProductID,
-  item?.id
-);
-
-const getProductName = (item) => firstValue(
-  item?.productName,
-  item?.ProductName,
-  item?.name
-) || "";
-
-const getImagePath = (item) => firstValue(
-  item?.imagePath,
-  item?.ImagePath,
-  item?.productImage,
-  item?.ProductImage,
-  item?.image
-) || "";
-
-const sameProductId = (left, right) =>
-  left !== undefined && left !== null &&
-  right !== undefined && right !== null &&
-  String(left) === String(right);
-
-const computeItemTotal = (unitPrice, quantity) =>
-  parseFloat(unitPrice || 0) * parseInt(quantity || 1, 10);
-
-/**
- * Return the canonical shape that Cart.jsx and TelCartSidebar both render.
- * Missing API metadata falls back to the known product/cart line.
- * Existing price interpretation is retained; this fix does not redefine the
- * backend's price-versus-line-total contract.
- */
-const normalizeItem = (rawItem, knownUnitPrice = null, fallbackItem = {}) => {
-  const item = rawItem || {};
-  const fallback = fallbackItem || {};
-  const quantity = parseInt(item.quantity || item.Quantity || 1, 10);
-
-  let unitPrice;
-
-  if (knownUnitPrice !== null && knownUnitPrice !== undefined && parseFloat(knownUnitPrice) > 0) {
-    unitPrice = parseFloat(knownUnitPrice);
-  } else if (parseFloat(item.unitPrice) > 0) {
-    unitPrice = parseFloat(item.unitPrice);
-  } else if (parseFloat(item.UnitPrice) > 0) {
-    unitPrice = parseFloat(item.UnitPrice);
-  } else {
-    const rawPrice = parseFloat(item.price || item.Price || 0);
-
-    // Preserved from the supplied slice. Reliable unitPrice/knownUnitPrice
-    // fields take precedence, including prices supplied by useAddToCart.
-    if (quantity > 1 && rawPrice > 0) {
-      const possibleUnit = rawPrice / quantity;
-      if (Math.abs(rawPrice - possibleUnit * quantity) < 0.01) {
-        unitPrice = Math.round(possibleUnit * 100) / 100;
-      } else {
-        unitPrice = rawPrice;
-      }
-    } else {
-      unitPrice = rawPrice;
-    }
-  }
-
-  return {
-    productId: getProductId(item) ?? getProductId(fallback),
-    productName: getProductName(item) || getProductName(fallback),
-    imagePath: getImagePath(item) || getImagePath(fallback),
-    price: unitPrice,
-    unitPrice,
-    quantity,
-    total: computeItemTotal(unitPrice, quantity),
-    cartId: item.cartId || item.CartId || fallback.cartId || fallback.CartId,
-    customerId: item.customerId || item.CustomerId ||
-      fallback.customerId || fallback.CustomerId || null,
-  };
-};
-
-const normalizeFromStorage = (item) => {
-  const known = parseFloat(item?.unitPrice) || parseFloat(item?.UnitPrice) ||
-    parseFloat(item?.price) || parseFloat(item?.Price) || 0;
-  return normalizeItem(item, known > 0 ? known : null);
-};
-
-/* ===========================
    LOCAL STORAGE
+   (the app monkey-patches localStorage so getItem may return an already
+   parsed value — every reader below accepts string OR parsed data)
 =========================== */
+
+const readStoredCartId = () => {
+  try {
+    return resolveCartIdValue(localStorage.getItem(CART_ID_KEY));
+  } catch {
+    return null;
+  }
+};
 
 const loadCartFromLocalStorage = () => {
   try {
     const savedCart = localStorage.getItem(CART_KEY);
     if (!savedCart) return [];
     const parsed = typeof savedCart === "string" ? JSON.parse(savedCart) : savedCart;
-    return Array.isArray(parsed) ? parsed.map(normalizeFromStorage) : [];
+    return dedupeCartItems(normalizeCartItems(extractCartItems(parsed)));
   } catch {
     return [];
   }
 };
 
-const saveCartToLocalStorage = (cart) => {
+const persistCart = (cart, cartId) => {
   try {
     localStorage.setItem(CART_KEY, JSON.stringify(cart));
+    if (cartId) localStorage.setItem(CART_ID_KEY, cartId);
   } catch {
-    /* silent */
+    /* storage unavailable — Redux still holds the cart for this session */
   }
 };
 
-const clearStoredCart = () => {
-  try {
-    localStorage.removeItem(CART_KEY);
-    localStorage.removeItem(CART_ID_KEY);
-  } catch {
-    /* localStorage may be unavailable */
-  }
-};
-
-export const getOrCreateCartId = () => {
-  try {
-    let cartId = localStorage.getItem(CART_ID_KEY);
-
-    if (cartId && isTelCartId(cartId)) return cartId;
-    if (cartId && !ENFORCE_TEL_PREFIX) return cartId;
-
-    if (cartId) {
-      console.warn(
-        `[cart] Replacing cart id "${cartId}" with a "Tel"-prefixed id. ` +
-        "Set ENFORCE_TEL_PREFIX = false to keep legacy ids."
-      );
+/**
+ * The one canonical cart id. An explicit candidate (route param, caller
+ * payload, Redux state) wins when supplied; otherwise the stored id is
+ * reused; a new "Tel-…" id is minted only when none exists anywhere.
+ */
+export const getOrCreateCartId = (candidate) => {
+  const explicit = resolveCartIdValue(candidate);
+  if (explicit) {
+    try {
+      localStorage.setItem(CART_ID_KEY, explicit);
+    } catch {
+      /* ignore */
     }
-
-    cartId = generateTelCartId();
-    localStorage.setItem(CART_ID_KEY, cartId);
-    return cartId;
-  } catch {
-    return generateTelCartId();
+    return explicit;
   }
+
+  const stored = readStoredCartId();
+  if (stored) return stored;
+
+  const fresh = generateTelCartId();
+  try {
+    localStorage.setItem(CART_ID_KEY, fresh);
+  } catch {
+    /* ignore */
+  }
+  return fresh;
 };
 
 /* ===========================
@@ -180,114 +139,105 @@ export const getOrCreateCartId = () => {
 =========================== */
 
 const initialCart = loadCartFromLocalStorage();
+const initialTotals = cartTotals(initialCart);
+
 const initialState = {
   cart: initialCart,
-  totalItems: initialCart.reduce((total, item) => total + (item.quantity || 1), 0),
+  totalItems: initialTotals.totalItems,
+  subtotal: initialTotals.subtotal,
   cartId: getOrCreateCartId(),
   loading: false,
   error: null,
 };
 
 /* ===========================
+   REDUCER HELPERS
+=========================== */
+
+const syncCart = (state) => {
+  const totals = cartTotals(state.cart);
+  state.totalItems = totals.totalItems;
+  state.subtotal = totals.subtotal;
+  persistCart(state.cart, state.cartId);
+};
+
+/* ===========================
    ASYNC THUNKS
 =========================== */
 
-// Shared implementation keeps addToCart/createCartItem metadata consistent.
+/**
+ * POST one line to /Cart/Add-To-Cart under the canonical cart id.
+ * The fulfilled line is built from the REQUEST (the product the customer
+ * actually picked) — the endpoint's acknowledgement body is only used to
+ * fill fields the request somehow lacked, never to replace the product.
+ */
 const postCartItem = async (item, { rejectWithValue }) => {
   try {
-    const cartId = getOrCreateCartId();
-    const realUnitPrice = parseFloat(item.Price ?? item.price ?? item.unitPrice ?? item.UnitPrice ?? 0);
-    const requestedQty = parseInt(item.Quantity || item.quantity || 1, 10);
+    const cartId = getOrCreateCartId(item?.CartId ?? item?.cartId);
+    const requested = normalizeCartItem(item, { cartId });
+    if (!requested) throw new Error("ProductId is required");
 
     const cartItem = {
-      // Always dispatch to the canonical cart selected in storage; never let a stale
-      // line item redirect a write into a second/hidden cart.
       CartId: cartId,
-      ProductId: getProductId(item),
-      ProductName: getProductName(item),
-      ImagePath: getImagePath(item),
-      Price: realUnitPrice,
-      Quantity: requestedQty,
-      CustomerId: item.CustomerId || item.customerId || null,
+      ProductId: requested.productId,
+      ProductName: requested.productName,
+      ImagePath: requested.imagePath,
+      Price: requested.price,
+      Quantity: requested.quantity,
+      CustomerId: requested.customerId,
     };
-
-    if (cartItem.ProductId === undefined || cartItem.ProductId === null || cartItem.ProductId === "") {
-      throw new Error("ProductId is required");
-    }
 
     const response = await axiosInstance.post("/", cartItem, {
       params: { endpoint: "/Cart/Add-To-Cart" },
     });
 
-    const responseItem = response.data && typeof response.data === "object" &&
-      !Array.isArray(response.data) ? response.data : {};
-
-    // Do not overwrite API product fields with undefined payload values.
-    // If the add endpoint returns only an acknowledgement, use cartItem's
-    // product name and image as the metadata fallback instead.
-    return normalizeItem({
-      ...responseItem,
-      productId: cartItem.ProductId,
-      quantity: requestedQty,
-      cartId: cartItem.CartId,
-      customerId: cartItem.CustomerId,
-    }, realUnitPrice, cartItem);
+    const serverLines = normalizeCartItems(extractCartItems(response.data));
+    const serverLine = serverLines.find((line) => line.productId === requested.productId);
+    return normalizeCartItem(serverLine || {}, requested) || requested;
   } catch (error) {
     return rejectWithValue(error.response?.data || { message: error.message });
   }
 };
 
 export const addToCart = createAsyncThunk("cart/addToCart", postCartItem);
+// Backwards-compatible alias — same endpoint, same behaviour.
 export const createCartItem = createAsyncThunk("cart/createCartItem", postCartItem);
 
+/**
+ * Fetch the server's record(s) for ONE cart id and MERGE them into the
+ * local cart. Accepts the cart id as a string, a `{ cartId }` payload, or
+ * nothing (canonical stored id). Always fulfils with the full merged line
+ * list — never with the raw single-record response — so `.unwrap()`
+ * callers (cart pages, ProductDescription, checkout) all see every product.
+ */
 export const getCartById = createAsyncThunk(
   "cart/getCartById",
-  async (_, { rejectWithValue, getState }) => {
+  async (arg, { rejectWithValue, getState }) => {
     try {
-      // Preserve the supplied slice's current Telecel-cart lookup policy.
-      const cartId = getOrCreateCartId();
+      const cartId = getOrCreateCartId(resolveCartIdValue(arg) || getState().cart?.cartId);
       const response = await axiosInstance.get("/", {
         params: { endpoint: `/Cart/Cart-GetbyID/${cartId}` },
       });
 
-      if (!Array.isArray(response.data)) return response.data;
+      const serverItems = normalizeCartItems(extractCartItems(response.data), {});
 
-      const stateCart = getState().cart?.cart;
-      const knownItems = new Map();
+      // Read local lines AFTER the request resolves, so a product added
+      // while the fetch was in flight is part of the merge and survives.
+      // Redux state is primary (the slice initialises it from storage and
+      // re-persists on every change, so it is the fresher copy — combining
+      // both lists would count every stored line twice). Storage is only
+      // a fallback for a store that has not been initialised yet.
+      const stateItems = getState().cart?.cart;
+      const localItems =
+        Array.isArray(stateItems) && stateItems.length > 0
+          ? stateItems
+          : loadCartFromLocalStorage();
 
-      // Read the latest Redux state after the request; an add may have completed
-      // while it was in flight. Storage is an extra metadata fallback only:
-      // membership/quantity still come from the fetched cart response.
-      const existingItems = [
-        ...loadCartFromLocalStorage(),
-        ...(Array.isArray(stateCart) ? stateCart : []),
-      ];
-
-      existingItems.forEach((item) => {
-        const id = getProductId(item);
-        if (id === undefined || id === null || id === "") return;
-        const key = String(id);
-        const previous = knownItems.get(key) || {};
-        const knownPrice = parseFloat(item.unitPrice) || parseFloat(item.UnitPrice) ||
-          parseFloat(item.price) || parseFloat(item.Price) || previous.unitPrice || 0;
-
-        knownItems.set(key, {
-          ...previous,
-          ...item,
-          productId: id,
-          productName: getProductName(item) || getProductName(previous),
-          imagePath: getImagePath(item) || getImagePath(previous),
-          unitPrice: knownPrice,
-        });
-      });
-
-      return response.data.map((item) => {
-        const id = getProductId(item);
-        const known = id === undefined || id === null ? undefined : knownItems.get(String(id));
-        return normalizeItem(item, known?.unitPrice || null, { ...known, cartId });
-      });
+      // Fulfils with the full merged line list (an array, as callers using
+      // .unwrap() have always expected) — never the raw GetbyID record.
+      return mergeCartItems(localItems, serverItems);
     } catch (error) {
-      return rejectWithValue(error.message || "Failed to fetch cart");
+      return rejectWithValue(error.response?.data?.message || error.message || "Failed to fetch cart");
     }
   }
 );
@@ -296,16 +246,17 @@ export const updateCartItem = createAsyncThunk(
   "cart/updateCartItem",
   async (params, { rejectWithValue }) => {
     try {
-      const cartId = getOrCreateCartId();
-      const productId = params.ProductId || params.productId;
-      const quantity = params.Quantity || params.quantity;
+      const cartId = getOrCreateCartId(params?.CartId ?? params?.cartId);
+      const productId = resolveCartIdValue(getCartProductId(params)) || params?.ProductId || params?.productId;
+      const quantity = parseInt(params?.Quantity ?? params?.quantity, 10);
       if (!productId) throw new Error("ProductId is required");
+      if (Number.isNaN(quantity)) throw new Error("Quantity is required");
 
       await axiosInstance.post("/", null, {
         params: { endpoint: `/Cart/Cart-Update/${cartId}/${productId}/${quantity}` },
       });
 
-      return { cartId, productId, quantity: parseInt(quantity, 10) };
+      return { cartId, productId: String(productId), quantity };
     } catch (error) {
       return rejectWithValue(error.response?.data || { message: error.message });
     }
@@ -316,46 +267,20 @@ export const deleteCartItem = createAsyncThunk(
   "cart/deleteCartItem",
   async (params, { rejectWithValue }) => {
     try {
-      const cartId = getOrCreateCartId();
-      const productId = params.ProductId || params.productId;
+      const cartId = getOrCreateCartId(params?.CartId ?? params?.cartId);
+      const productId = params?.ProductId ?? params?.productId ?? getCartProductId(params);
       if (!productId) throw new Error("ProductId is required");
 
       await axiosInstance.post("/", null, {
         params: { endpoint: `/Cart/Cart-Delete/${cartId}/${productId}` },
       });
 
-      return { cartId, productId };
+      return { cartId, productId: String(productId) };
     } catch (error) {
       return rejectWithValue(error.response?.data || { message: error.message });
     }
   }
 );
-
-/* ===========================
-   REDUCER HELPERS
-=========================== */
-
-const syncCart = (state) => {
-  state.totalItems = state.cart.reduce((total, item) => total + (item.quantity || 1), 0);
-  saveCartToLocalStorage(state.cart);
-};
-
-const insertAddedItem = (state, incoming) => {
-  const existing = state.cart.find((item) => sameProductId(item.productId, incoming.productId));
-
-  if (existing) {
-    // Repair an existing partial row too, instead of updating only its quantity.
-    existing.productName = incoming.productName || existing.productName;
-    existing.imagePath = incoming.imagePath || existing.imagePath;
-    existing.quantity += incoming.quantity;
-    existing.total = computeItemTotal(existing.unitPrice, existing.quantity);
-  } else {
-    state.cart.push(incoming);
-  }
-
-  state.cartId = incoming.cartId || state.cartId;
-  syncCart(state);
-};
 
 /* ===========================
    SLICE
@@ -365,127 +290,122 @@ const cartSlice = createSlice({
   name: "cart",
   initialState,
   reducers: {
+    /** Local-only add/upsert (offline adds, optimistic UI). */
     addCart: (state, action) => {
-      const knownPrice = parseFloat(
-        action.payload.Price || action.payload.price || action.payload.unitPrice || 0
-      );
-      insertAddedItem(state, normalizeItem(action.payload, knownPrice > 0 ? knownPrice : null));
-    },
-
-    removeFromCart: (state, action) => {
-      state.cart = state.cart.filter((item) =>
-        !sameProductId(item.productId, getProductId(action.payload))
-      );
+      state.cart = upsertCartItem(state.cart, { ...action.payload, cartId: state.cartId });
       syncCart(state);
-      if (state.cart.length === 0) {
-        clearStoredCart();
-        state.cartId = null;
-      }
     },
 
+    /** Accepts a product id, a line object, or a `{ productId }` payload. */
+    removeFromCart: (state, action) => {
+      const productId =
+        typeof action.payload === "object" ? getCartProductId(action.payload) : action.payload;
+      state.cart = removeCartItem(state.cart, productId);
+      syncCart(state);
+    },
+
+    /**
+     * Empty the cart after a completed order. The id ROTATES to a fresh
+     * one instead of being nulled: the ordered cart is abandoned on the
+     * server under the old id, so its lines can never be merged back in,
+     * and the next add starts a genuinely new cart.
+     */
     clearCart: (state) => {
       state.cart = [];
-      state.totalItems = 0;
-      clearStoredCart();
-      state.cartId = null;
+      state.cartId = generateTelCartId();
+      syncCart(state);
     },
 
+    /** Replace the lines outright (explicit caller intent — imports, restores). */
     setCartItems: (state, action) => {
-      state.cart = Array.isArray(action.payload)
-        ? action.payload.map(normalizeFromStorage)
-        : [];
+      state.cart = dedupeCartItems(normalizeCartItems(extractCartItems(action.payload)));
+      syncCart(state);
+    },
+
+    setCartId: (state, action) => {
+      state.cartId = getOrCreateCartId(resolveCartIdValue(action.payload));
       syncCart(state);
     },
   },
 
   extraReducers: (builder) => {
+    const onPending = (state) => {
+      // Only blank-page "loading" when there is nothing to show yet;
+      // background refetches must not hide a cart that is already on screen.
+      if (state.cart.length === 0) state.loading = true;
+      state.error = null;
+    };
+    const onRejected = (state, action) => {
+      state.loading = false;
+      state.error =
+        typeof action.payload === "string"
+          ? action.payload
+          : action.payload?.message || action.error?.message || "Something went wrong";
+    };
+
     builder
-      .addCase(addToCart.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
+      .addCase(addToCart.pending, onPending)
       .addCase(addToCart.fulfilled, (state, action) => {
         state.loading = false;
-        insertAddedItem(state, action.payload);
-      })
-      .addCase(addToCart.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload || action.error.message;
-      })
-
-      .addCase(getCartById.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(getCartById.fulfilled, (state, action) => {
-        state.loading = false;
-        const cartData = Array.isArray(action.payload) ? action.payload : [];
-
-        // The DB response is authoritative for membership and quantities. Keep
-        // only the canonical cart id; stale local-only rows must not reappear.
-        state.cart = cartData;
-        state.cartId = cartData[0]?.cartId || state.cartId || getOrCreateCartId();
-        try { localStorage.setItem(CART_ID_KEY, state.cartId); } catch { /* storage unavailable */ }
+        state.cartId = action.payload.cartId || state.cartId;
+        state.cart = upsertCartItem(state.cart, action.payload);
         syncCart(state);
       })
-      .addCase(getCartById.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload || action.error.message;
-      })
+      .addCase(addToCart.rejected, onRejected)
 
-      .addCase(updateCartItem.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(updateCartItem.fulfilled, (state, action) => {
-        state.loading = false;
-        const { productId, quantity } = action.payload;
-        const item = state.cart.find((line) => sameProductId(line.productId, productId));
-        if (item) {
-          item.quantity = quantity;
-          item.total = computeItemTotal(item.unitPrice, quantity);
-        }
-        syncCart(state);
-      })
-      .addCase(updateCartItem.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload || action.error.message;
-      })
-
-      .addCase(deleteCartItem.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(deleteCartItem.fulfilled, (state, action) => {
-        state.loading = false;
-        state.cart = state.cart.filter((item) =>
-          !sameProductId(item.productId, action.payload.productId)
-        );
-        syncCart(state);
-        if (state.cart.length === 0) {
-          clearStoredCart();
-          state.cartId = null;
-        }
-      })
-      .addCase(deleteCartItem.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload || action.error.message;
-      })
-
-      .addCase(createCartItem.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
+      .addCase(createCartItem.pending, onPending)
       .addCase(createCartItem.fulfilled, (state, action) => {
         state.loading = false;
-        insertAddedItem(state, action.payload);
+        state.cartId = action.payload.cartId || state.cartId;
+        state.cart = upsertCartItem(state.cart, action.payload);
+        syncCart(state);
       })
-      .addCase(createCartItem.rejected, (state, action) => {
+      .addCase(createCartItem.rejected, onRejected)
+
+      .addCase(getCartById.pending, onPending)
+      .addCase(getCartById.fulfilled, (state, action) => {
         state.loading = false;
-        state.error = action.payload || action.error.message;
-      });
+        // MERGED lines from the thunk — never the raw GetbyID record, and
+        // the canonical id is the one we asked about, not cartData[0]'s.
+        state.cartId = resolveCartIdValue(action.meta?.arg) || state.cartId;
+        state.cart = dedupeCartItems(normalizeCartItems(action.payload));
+        syncCart(state);
+      })
+      .addCase(getCartById.rejected, onRejected)
+
+      .addCase(updateCartItem.pending, onPending)
+      .addCase(updateCartItem.fulfilled, (state, action) => {
+        state.loading = false;
+        state.cart = setCartItemQuantity(
+          state.cart,
+          action.payload.productId,
+          action.payload.quantity
+        );
+        syncCart(state);
+      })
+      .addCase(updateCartItem.rejected, onRejected)
+
+      .addCase(deleteCartItem.pending, onPending)
+      .addCase(deleteCartItem.fulfilled, (state, action) => {
+        state.loading = false;
+        state.cart = removeCartItem(state.cart, action.payload.productId);
+        // The cart id stays put when the last line goes — emptying the
+        // cart must not orphan the server cart behind a brand-new id.
+        syncCart(state);
+      })
+      .addCase(deleteCartItem.rejected, onRejected);
   },
 });
 
-export const { clearCart, addCart, removeFromCart, setCartItems } = cartSlice.actions;
+export const { clearCart, addCart, removeFromCart, setCartItems, setCartId } = cartSlice.actions;
+
+/* ===========================
+   SELECTORS
+=========================== */
+
+export const selectCartItems = (state) => (Array.isArray(state.cart?.cart) ? state.cart.cart : []);
+export const selectCartId = (state) => state.cart?.cartId || null;
+export const selectCartTotals = (state) => cartTotals(selectCartItems(state));
+export const selectCartCount = (state) => state.cart?.totalItems || 0;
+
 export default cartSlice.reducer;

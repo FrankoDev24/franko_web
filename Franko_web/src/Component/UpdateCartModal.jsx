@@ -1,47 +1,64 @@
+// src/Component/UpdateCartModal.jsx
 import { useEffect, useState } from "react";
 import { Modal, Button, InputNumber, Spin, Alert } from "antd";
 import { useDispatch, useSelector } from "react-redux";
-import { updateCartItem } from "../Redux/Slice/cartSlice";
+import { updateCartItem, selectCartId } from "../Redux/Slice/cartSlice";
 
-const UpdateCartModal = ({ visible, onClose, productId, currentQuantity, onUpdate }) => {
+/**
+ * Edit one cart line's quantity. The slice applies the new quantity to the
+ * store itself on success, so parents only use `onUpdate` as a notification
+ * hook — no parent-side refetch (and no cart collapse) is needed anymore.
+ */
+const UpdateCartModal = ({ visible, open, onClose, productId, currentQuantity, onUpdate }) => {
   const dispatch = useDispatch();
+  const cartId = useSelector(selectCartId);
   const loading = useSelector((state) => state.cart.loading);
   const error = useSelector((state) => state.cart.error);
-  const [quantity, setQuantity] = useState(currentQuantity);
+  const [quantity, setQuantity] = useState(currentQuantity || 1);
+  const [localError, setLocalError] = useState("");
+  const isOpen = open ?? visible ?? false;
 
-  // Reset quantity when modal is opened
   useEffect(() => {
-    setQuantity(currentQuantity);
-  }, [visible, currentQuantity]);
+    if (isOpen) {
+      setQuantity(currentQuantity || 1);
+      setLocalError("");
+    }
+  }, [isOpen, currentQuantity]);
 
   const handleUpdate = async () => {
-    const cartId = localStorage.getItem("cartId");
-
-    // Validate the cartId and quantity before dispatching
     if (!cartId) {
-      alert("Cart ID not found.");
+      setLocalError("Cart ID not found. Please reopen your cart and try again.");
+      return;
+    }
+    if (!productId) {
+      setLocalError("Product not found.");
+      return;
+    }
+    if (!quantity || quantity <= 0) {
+      setLocalError("Please enter a valid quantity.");
       return;
     }
 
-    if (quantity <= 0) {
-      alert("Please enter a valid quantity."); // Validation alert
-      return;
+    const result = await dispatch(
+      updateCartItem({ CartId: cartId, ProductId: String(productId), Quantity: quantity })
+    );
+
+    if (updateCartItem.fulfilled.match(result)) {
+      onUpdate?.(quantity);
+      onClose?.();
+    } else {
+      setLocalError(
+        typeof result.payload === "string"
+          ? result.payload
+          : result.payload?.message || "Failed to update cart item."
+      );
     }
-
-    // Dispatch the update action and wait for it to complete
-    await dispatch(updateCartItem({ cartId, productId, quantity }));
-
-    // Call the onUpdate function to refresh the cart items after a successful update
-    onUpdate(); // This will refresh the cart items in the parent component
-
-    // Close the modal
-    onClose();
   };
 
   return (
     <Modal
       title="Update Cart Item"
-      visible={visible}
+      open={isOpen}
       onCancel={onClose}
       footer={[
         <Button key="cancel" onClick={onClose}>
@@ -49,7 +66,7 @@ const UpdateCartModal = ({ visible, onClose, productId, currentQuantity, onUpdat
         </Button>,
         <Button key="update" type="primary" onClick={handleUpdate} disabled={loading}>
           Update
-        </Button>
+        </Button>,
       ]}
     >
       {loading ? (
@@ -58,10 +75,10 @@ const UpdateCartModal = ({ visible, onClose, productId, currentQuantity, onUpdat
         </div>
       ) : (
         <>
-          {error && (
+          {(localError || error) && (
             <Alert
               message="Error"
-              description={error}
+              description={localError || (typeof error === "string" ? error : error?.message)}
               type="error"
               showIcon
               className="mb-4"
@@ -70,9 +87,9 @@ const UpdateCartModal = ({ visible, onClose, productId, currentQuantity, onUpdat
           <div>
             <p>Current Quantity: {currentQuantity}</p>
             <InputNumber
-              min={1} // Prevents zero or negative numbers
+              min={1}
               value={quantity}
-              onChange={(value) => setQuantity(value)} // Ensure this updates state correctly
+              onChange={(value) => setQuantity(value)}
               className="w-full"
             />
           </div>

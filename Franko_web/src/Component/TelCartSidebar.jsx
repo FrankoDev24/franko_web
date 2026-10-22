@@ -1,3 +1,4 @@
+// src/Component/TelCartSidebar.jsx
 import {
   createContext,
   useCallback,
@@ -21,16 +22,34 @@ import {
 } from "@heroicons/react/24/outline";
 import { ShoppingCartIcon } from "@heroicons/react/24/solid";
 
-import { updateCartItem, deleteCartItem, getCartById } from "../Redux/Slice/cartSlice";
+import {
+  updateCartItem,
+  deleteCartItem,
+  getCartById,
+  selectCartItems,
+  selectCartId,
+} from "../Redux/Slice/cartSlice";
+import { cartTotals } from "../utils/cartItems.mjs";
 import useCustomer, { persistCustomer, getCustomerId } from "../hooks/useCustomer";
 import AuthModal from "./AuthModal";
 import telecelWhite from "../assets/Telecel White.png";
 import speedLogo from "../assets/speed-logo.png";
 
+/* ============================================================================
+   Telecel cart drawer. It renders the SAME Redux cart as the cart pages
+   (state.cart via cartSlice) — every product line, keyed by productId.
+
+   Like CartView, it owns no cart data: opening the drawer fires ONE
+   merge-fetch for the canonical cart id, and quantity/remove go through
+   the slice thunks, which update the store directly. The previous version
+   rewrote localStorage by hand and refetched after every click; because
+   getCartById replaced the cart with the single record it returned, that
+   refetch is what made all-but-one product disappear from the drawer too.
+   ========================================================================== */
+
 const TEL_CHECKOUT_ROUTE = "/tel-checkout";
 const BACKEND_BASE_URL = "https://testing.frankotrading.com";
 
-// Use the same currency formatting and price field as src/pages/Cart.jsx.
 const formatCurrency = (amount, decimals = 2) => {
   const number = parseFloat(amount) || 0;
   return number.toLocaleString("en-US", {
@@ -40,51 +59,20 @@ const formatCurrency = (amount, decimals = 2) => {
 };
 
 const formatGHS = (amount) => `GH₵${formatCurrency(amount, 2)}`;
-const getUnitPrice = (item) => parseFloat(item?.price) || 0;
-const getItemLineTotal = (item) =>
-  getUnitPrice(item) * (parseInt(item?.quantity, 10) || 1);
 
-// Match Cart.jsx: imagePath is a backend product-image path, not a placeholder URL.
-const getImageUrl = (imagePath) => {
-  if (!imagePath) return "";
-  return `${BACKEND_BASE_URL}/Media/Products_Images/${String(imagePath).split("\\").pop()}`;
-};
-
-/* Keep missing/broken images inside the same 72px product-image box. */
 const CartProductImage = ({ imagePath, productName }) => {
-  const imageUrl = getImageUrl(imagePath);
-  const [failedImageUrl, setFailedImageUrl] = useState(null);
+  const [failed, setFailed] = useState(false);
+  const fileName = imagePath ? String(imagePath).split("\\").pop().split("/").pop() : "";
+  const imageUrl = fileName ? `${BACKEND_BASE_URL}/Media/Products_Images/${fileName}` : "";
 
-  if (!imageUrl || failedImageUrl === imageUrl) {
+  if (!imageUrl || failed) {
     return (
-      <div
-        className="telcart-item-no-image"
-        role="img"
-        aria-label={`No image available for ${productName || "this product"}`}
-      >
+      <div className="telcart-item-no-image" role="img" aria-label={`No image available for ${productName || "this product"}`}>
         <span aria-hidden="true">No Image</span>
       </div>
     );
   }
-
-  return (
-    <img
-      src={imageUrl}
-      alt={productName || "Product"}
-      loading="lazy"
-      onError={() => setFailedImageUrl(imageUrl)}
-    />
-  );
-};
-
-const getSavedTelCartId = (cartId) => {
-  if (String(cartId || "").startsWith("Tel")) return cartId;
-  try {
-    const storedId = localStorage.getItem("cartId");
-    return storedId?.startsWith("Tel") ? storedId : "";
-  } catch {
-    return "";
-  }
+  return <img src={imageUrl} alt={productName || "Product"} loading="lazy" onError={() => setFailed(true)} />;
 };
 
 /* Provider lets any page open the same Telecel cart drawer. */
@@ -135,10 +123,9 @@ const TelCartSidebar = ({
 }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const cartState = useSelector((state) => state.cart || {});
-  const cart = Array.isArray(cartState.cart) ? cartState.cart : [];
-  const cartId = getSavedTelCartId(cartState.cartId || "");
-  const loading = Boolean(cartState.loading);
+  const items = useSelector(selectCartItems);
+  const cartId = useSelector(selectCartId);
+  const loading = useSelector((state) => Boolean(state.cart?.loading));
   const { isLoggedIn, customer: sessionCustomer } = useCustomer();
 
   const [authOpen, setAuthOpen] = useState(false);
@@ -148,10 +135,9 @@ const TelCartSidebar = ({
   const wasLoggedIn = useRef(isLoggedIn);
   const checkoutStartedRef = useRef(false);
   const errorTimeoutRef = useRef(null);
+  const fetchedForRef = useRef(null);
 
-  const items = cart;
-  const totalItems = items.reduce((sum, item) => sum + (parseInt(item.quantity, 10) || 1), 0);
-  const subtotal = items.reduce((sum, item) => sum + getItemLineTotal(item), 0);
+  const totals = useMemo(() => cartTotals(items), [items]);
 
   const flashError = useCallback((message) => {
     setNetworkError({ show: true, message });
@@ -167,11 +153,11 @@ const TelCartSidebar = ({
     if (open) checkoutStartedRef.current = false;
   }, [open]);
 
-  /* Match Cart.jsx: opening the drawer loads the stored Telecel cart. */
+  /* Opening the drawer loads the cart ONCE per cart id (merge-fetch). */
   useEffect(() => {
-    if (!open) return;
-    const storedId = getSavedTelCartId(cartId);
-    if (storedId) dispatch(getCartById(storedId));
+    if (!open || !cartId || fetchedForRef.current === cartId) return;
+    fetchedForRef.current = cartId;
+    dispatch(getCartById(cartId));
   }, [dispatch, open, cartId]);
 
   /* Escape closes the drawer and prevents the page behind it from scrolling. */
@@ -189,67 +175,75 @@ const TelCartSidebar = ({
     };
   }, [open, onClose]);
 
-  const handleQuantityChange = useCallback(async (productId, quantity) => {
-    if (quantity < 1 || !cartId) return;
-    const previousLocalStorage = localStorage.getItem("cart");
-    try {
+  const reconcileAfterError = useCallback(() => {
+    if (cartId) dispatch(getCartById(cartId));
+  }, [cartId, dispatch]);
+
+  const handleQuantityChange = useCallback(
+    async (productId, quantity) => {
+      if (quantity < 1 || !cartId || busyProductId) return;
       setBusyProductId(productId);
-      const optimisticCart = items.map((item) => item.productId === productId
-        ? { ...item, quantity, total: getUnitPrice(item) * quantity }
-        : item);
-      localStorage.setItem("cart", JSON.stringify(optimisticCart));
-      await dispatch(updateCartItem({ CartId: cartId, ProductId: String(productId), Quantity: quantity })).unwrap();
-      await dispatch(getCartById(cartId)).unwrap();
-    } catch (error) {
-      console.error("Error updating quantity:", error);
-      if (previousLocalStorage) localStorage.setItem("cart", previousLocalStorage);
-      flashError("Failed to update cart. Please check your connection and try again.");
-      try { await dispatch(getCartById(cartId)).unwrap(); } catch { /* retain rollback */ }
-    } finally {
-      setBusyProductId(null);
-    }
-  }, [cartId, dispatch, flashError, items]);
+      try {
+        await dispatch(
+          updateCartItem({ CartId: cartId, ProductId: String(productId), Quantity: quantity })
+        ).unwrap();
+      } catch (error) {
+        console.error("Error updating quantity:", error);
+        flashError("Failed to update cart. Please check your connection and try again.");
+        reconcileAfterError();
+      } finally {
+        setBusyProductId(null);
+      }
+    },
+    [cartId, dispatch, flashError, busyProductId, reconcileAfterError]
+  );
 
-  const handleRemoveItem = useCallback(async (productId) => {
-    if (!cartId) return;
-    const previousLocalStorage = localStorage.getItem("cart");
-    try {
+  const handleRemoveItem = useCallback(
+    async (productId) => {
+      if (!cartId || busyProductId) return;
       setBusyProductId(productId);
-      const optimisticCart = items.filter((item) => item.productId !== productId);
-      localStorage.setItem("cart", JSON.stringify(optimisticCart));
-      await dispatch(deleteCartItem({ CartId: cartId, ProductId: String(productId) })).unwrap();
-      await dispatch(getCartById(cartId)).unwrap();
-    } catch (error) {
-      console.error("Error removing item:", error);
-      if (previousLocalStorage) localStorage.setItem("cart", previousLocalStorage);
-      flashError("Failed to remove item. Please check your connection and try again.");
-      try { await dispatch(getCartById(cartId)).unwrap(); } catch { /* retain rollback */ }
-    } finally {
-      setBusyProductId(null);
-    }
-  }, [cartId, dispatch, flashError, items]);
+      try {
+        await dispatch(
+          deleteCartItem({ CartId: cartId, ProductId: String(productId) })
+        ).unwrap();
+      } catch (error) {
+        console.error("Error removing item:", error);
+        flashError("Failed to remove item. Please check your connection and try again.");
+        reconcileAfterError();
+      } finally {
+        setBusyProductId(null);
+      }
+    },
+    [cartId, dispatch, flashError, busyProductId, reconcileAfterError]
+  );
 
-  const completeCheckout = useCallback(({ customerId: overrideCustomerId } = {}) => {
-    if (checkoutStartedRef.current) return;
-    checkoutStartedRef.current = true;
-    setPendingCheckout(false);
+  const completeCheckout = useCallback(
+    ({ customerId: overrideCustomerId } = {}) => {
+      if (checkoutStartedRef.current) return;
+      checkoutStartedRef.current = true;
+      setPendingCheckout(false);
 
-    const lines = items.map((item) => {
-      const unitPrice = getUnitPrice(item);
-      const quantity = parseInt(item.quantity, 10) || 1;
-      return { ...item, price: unitPrice, total: unitPrice * quantity };
-    });
+      const lines = items.map((item) => ({
+        ...item,
+        total: (parseFloat(item.price) || 0) * (parseInt(item.quantity, 10) || 1),
+      }));
 
-    try { localStorage.setItem("selectedCart", JSON.stringify(lines)); } catch { /* Checkout can read Redux */ }
-    onClose?.();
-    navigate(checkoutPath, {
-      state: {
-        cartId,
-        customerId: overrideCustomerId || getCustomerId(sessionCustomer) || null,
-        items: lines,
-      },
-    });
-  }, [cartId, checkoutPath, items, navigate, onClose, sessionCustomer]);
+      try {
+        localStorage.setItem("selectedCart", JSON.stringify(lines));
+      } catch {
+        /* Checkout can read Redux */
+      }
+      onClose?.();
+      navigate(checkoutPath, {
+        state: {
+          cartId,
+          customerId: overrideCustomerId || getCustomerId(sessionCustomer) || null,
+          items: lines,
+        },
+      });
+    },
+    [cartId, checkoutPath, items, navigate, onClose, sessionCustomer]
+  );
 
   const handleCheckout = useCallback(() => {
     if (!items.length || checkoutDisabled) return;
@@ -276,14 +270,18 @@ const TelCartSidebar = ({
     checkoutStartedRef.current = false;
   };
 
-  const handleAuthSuccess = useCallback((authenticatedCustomer) => {
-    const resolved = authenticatedCustomer && typeof authenticatedCustomer === "object"
-      ? authenticatedCustomer
-      : sessionCustomer;
-    if (resolved) persistCustomer(resolved);
-    setAuthOpen(false);
-    completeCheckout({ customerId: getCustomerId(resolved) });
-  }, [completeCheckout, sessionCustomer]);
+  const handleAuthSuccess = useCallback(
+    (authenticatedCustomer) => {
+      const resolved =
+        authenticatedCustomer && typeof authenticatedCustomer === "object"
+          ? authenticatedCustomer
+          : sessionCustomer;
+      if (resolved) persistCustomer(resolved);
+      setAuthOpen(false);
+      completeCheckout({ customerId: getCustomerId(resolved) });
+    },
+    [completeCheckout, sessionCustomer]
+  );
 
   return (
     <>
@@ -321,7 +319,7 @@ const TelCartSidebar = ({
               <h2 className="telcart-title">Your Cart</h2>
               <p className="telcart-cartid" title={cartId || ""}>{cartId || "Tel cart"}</p>
             </div>
-            <span className="telcart-count-badge">{totalItems} {totalItems === 1 ? "item" : "items"}</span>
+            <span className="telcart-count-badge">{totals.totalItems} {totals.totalItems === 1 ? "item" : "items"}</span>
           </div>
         </header>
 
@@ -355,34 +353,28 @@ const TelCartSidebar = ({
             </div>
           ) : (
             <ul className="telcart-list">
-              {items.map((item, index) => {
-                const unitPrice = getUnitPrice(item);
+              {items.map((item) => {
+                const unitPrice = parseFloat(item.price) || 0;
                 const quantity = parseInt(item.quantity, 10) || 1;
-                const productId = item.productId ?? item.productID;
-                const busy = String(busyProductId) === String(productId);
+                const busy = busyProductId === item.productId;
 
                 return (
-                  <li key={productId ?? index} className="telcart-item">
-                    {/* Same product-info layout and fields as Cart.jsx. */}
+                  <li key={item.productId} className="telcart-item">
                     <div className="telcart-item-left">
                       <div className="telcart-item-image">
-                        <CartProductImage
-                          imagePath={item.imagePath}
-                          productName={item.productName}
-                        />
+                        <CartProductImage imagePath={item.imagePath} productName={item.productName} />
                       </div>
                       <div className="telcart-item-main">
                         <h3 className="telcart-item-name">{item.productName}</h3>
-                        <p className="telcart-item-price">{formatGHS(item.price)}</p>
+                        <p className="telcart-item-price">{formatGHS(unitPrice)}</p>
                       </div>
                     </div>
 
-                    {/* Keep the drawer's compact actions below the product info. */}
                     <div className="telcart-item-row">
                       <div className="telcart-qty">
                         <button
                           type="button"
-                          onClick={() => handleQuantityChange(productId, quantity - 1)}
+                          onClick={() => handleQuantityChange(item.productId, quantity - 1)}
                           disabled={quantity <= 1 || busy}
                           aria-label="Decrease quantity"
                         >
@@ -391,7 +383,7 @@ const TelCartSidebar = ({
                         <span>{quantity}</span>
                         <button
                           type="button"
-                          onClick={() => handleQuantityChange(productId, quantity + 1)}
+                          onClick={() => handleQuantityChange(item.productId, quantity + 1)}
                           disabled={busy}
                           aria-label="Increase quantity"
                         >
@@ -402,7 +394,7 @@ const TelCartSidebar = ({
                       <button
                         type="button"
                         className="telcart-remove"
-                        onClick={() => handleRemoveItem(productId)}
+                        onClick={() => handleRemoveItem(item.productId)}
                         disabled={busy}
                         aria-label={`Remove ${item.productName}`}
                       >
@@ -420,8 +412,8 @@ const TelCartSidebar = ({
           <footer className="telcart-footer">
             <div className="telcart-total-card">
               <div className="telcart-total-row">
-                <span>Subtotal ({totalItems} items)</span>
-                <strong>{formatGHS(subtotal)}</strong>
+                <span>Subtotal ({totals.totalItems} items)</span>
+                <strong>{formatGHS(totals.subtotal)}</strong>
               </div>
               <p className="telcart-note">Taxes, discounts &amp; delivery calculated at checkout.</p>
             </div>
@@ -490,8 +482,6 @@ const sidebarStyles = `
   .telcart-notice-error { background: #F6EEEE; color: #8C3D45; }
   .telcart-body { flex: 1; overflow-y: auto; padding: 14px 18px; background: #fcfbfa; }
   .telcart-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; background: #fff; border: 1px solid #e0e0e0; border-radius: 4px; overflow: hidden; }
-
-  /* Product info matches Cart.jsx's mobile layout, which fits a 420px drawer. */
   .telcart-item { display: flex; flex-direction: column; align-items: stretch; gap: 16px; padding: 16px; background: #fff; border-bottom: 1px solid #e0e0e0; transition: background .2s ease; }
   .telcart-item:last-child { border-bottom: 0; }
   .telcart-item:hover { background: #f0fdf4; }
@@ -503,7 +493,6 @@ const sidebarStyles = `
   .telcart-item-main { flex: 1; min-width: 0; }
   .telcart-item-name { margin: 0 0 4px; color: #1a1a1a; font-size: 15px; font-weight: 600; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .telcart-item-price { margin: 0; color: #dc2626; font-size: 15px; font-weight: 900; }
-
   .telcart-item-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .telcart-qty { display: flex; align-items: center; background: #f7f7f7; border: 1px solid #e0e0e0; border-radius: 4px; overflow: hidden; }
   .telcart-qty button { width: 28px; height: 28px; border: 0; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #555; }
@@ -526,12 +515,6 @@ const sidebarStyles = `
   .telcart-total-row { display: flex; align-items: center; justify-content: space-between; font-size: 14px; color: #555; }
   .telcart-total-row strong { font-size: 20px; font-weight: 900; color: #BB1420; }
   .telcart-note { margin: 4px 0 0; font-size: 11px; color: #8a928e; }
-  .telcart-pay-strip { display: flex; align-items: center; gap: 10px; }
-  .telcart-pay-chip { width: 46px; height: 32px; border-radius: 9px; flex-shrink: 0; background: linear-gradient(135deg,#A80F1B 0%,#BB1420 100%); display: flex; align-items: center; justify-content: center; }
-  .telcart-pay-logo { height: 15px; width: auto; object-fit: contain; }
-  .telcart-pay-copy { display: flex; flex-direction: column; line-height: 1.25; }
-  .telcart-pay-copy strong { font-size: 12px; font-weight: 800; color: #2c3330; }
-  .telcart-pay-copy small { font-size: 10px; color: #8a928e; }
   .telcart-note-warning { color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 8px 10px; font-weight: 600; text-align: center; }
   .telcart-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; border: 2px solid transparent; transition: all .2s ease; font-family: inherit; }
   .telcart-btn-block { width: 100%; }
@@ -540,8 +523,6 @@ const sidebarStyles = `
   .telcart-btn:disabled { opacity: .5; cursor: not-allowed; }
   .telcart-btn-ghost { background: #fff; border-color: #e3ded9; color: #5c6661; }
   .telcart-btn-ghost:hover { background: #f7f5f3; border-color: #E4CFD1; }
-
-  /* Keep product images at 72px on small screens, just like Cart.jsx. */
   @media (max-width: 360px) { .telcart-body { padding: 10px; } }
   @media (prefers-reduced-motion: reduce) { .telcart-drawer,.telcart-backdrop { transition: none !important; } }
 `;

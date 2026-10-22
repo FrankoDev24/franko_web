@@ -1,6 +1,7 @@
 // src/Redux/Slice/telCartSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "./AxiosInstance";
+import { extractCartItems } from "../../utils/cartItems.mjs";
 
 /* ============================================================================
    TELECEL SPEED SHOPPING CART  —  deliberately bypasses the standard flow
@@ -377,7 +378,11 @@ export const fetchTelCartFromBackend = createAsyncThunk(
         params: { endpoint: `/Cart/Cart-GetbyID/${cartId}` },
       });
 
-      if (!Array.isArray(response.data)) return [];
+      // Cart-GetbyID returns a single cart record / enveloped payload for
+      // the id, not a bare line array — unwrap every shape (see
+      // utils/cartItems.mjs). The old `Array.isArray` guard silently
+      // emptied this cart the same way it collapsed the standard cart.
+      const rawLines = extractCartItems(response.data);
 
       // Trust unit prices we already know locally (API price can be inflated).
       const known = {};
@@ -387,7 +392,7 @@ export const fetchTelCartFromBackend = createAsyncThunk(
         }
       });
 
-      return response.data.map((raw) => {
+      return rawLines.map((raw) => {
         const pid = raw.productId || raw.ProductId;
         return normalizeTelItem(raw, known[pid] ?? null);
       });
