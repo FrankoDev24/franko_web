@@ -1,3 +1,4 @@
+import { getProductUrl } from "../utils/productSlug";
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -20,7 +21,7 @@ import {
   addToWishlist,
   removeFromWishlist,
 } from "../Redux/Slice/wishlistSlice";
-import { Tooltip } from "@material-tailwind/react";
+import Tooltip from "@material-tailwind/react/components/Tooltip";
 import useAddToCart from "./Cart";
 
 // ==================== NOTIFICATION ====================
@@ -96,7 +97,7 @@ const Deals = () => {
   }, []);
 
   const { addProductToCart, loading: cartLoading } = useAddToCart();
-  const { productsByShowroom, loading } = useSelector((state) => state.products);
+  const { productsByShowroom } = useSelector((state) => state.products);
   const wishlist = useSelector((state) => state.wishlist.items);
 
   const isInWishlist = (id) => (wishlist || []).some((item) => item.id === id);
@@ -535,7 +536,7 @@ const Deals = () => {
           align-items: center;
           justify-content: center;
           padding: 10px;
-       
+
           overflow: hidden;
         }
 
@@ -806,7 +807,7 @@ const Deals = () => {
             <div className="deals-header-title-group">
               <div className="deals-title">Deals of the Week</div>
               <div className="deals-subtitle">
-               
+
               </div>
             </div>
 
@@ -868,21 +869,9 @@ const Deals = () => {
             className="flex gap-3 md:gap-4 overflow-x-auto deals-no-scrollbar scroll-smooth"
             style={{ paddingBottom: 4, paddingLeft: 1, paddingRight: 1 }}
           >
-            {(loading
-              ? [...Array(10)]
-              : productsByShowroom?.[showroomID]
+            {(productsByShowroom?.[showroomID]
             )?.map((product, idx) => {
-              if (loading) {
-                return (
-                  <div key={idx} className="deals-skeleton" style={{ marginBottom: 4 }}>
-                    <div className="deals-skeleton-img" />
-                    <div style={{ padding: "10px 12px" }}>
-                      <div className="deals-skeleton-line" style={{ width: "80%", marginBottom: 8 }} />
-                      <div className="deals-skeleton-line" style={{ width: "50%", height: 8 }} />
-                    </div>
-                  </div>
-                );
-              }
+              if (!product) return null;
 
               const {
                 productID,
@@ -917,9 +906,9 @@ const Deals = () => {
                         alignItems: "center",
                         justifyContent: "center",
                       }}
-                      onClick={() => navigate(`/product/${productID}`)}
+                      onClick={() => navigate(getProductUrl({ productName }))}
                     >
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={getValidImageUrl(productImage)}
                         alt={productName}
                       />
@@ -927,7 +916,7 @@ const Deals = () => {
 
                     <div
                       className="deals-card-overlay"
-                      onClick={() => navigate(`/product/${productID}`)}
+                      onClick={() => navigate(getProductUrl({ productName }))}
                     >
                       <Tooltip content={inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}>
                         <button
@@ -950,7 +939,7 @@ const Deals = () => {
                           className="deals-card-action"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/product/${productID}`);
+                            navigate(getProductUrl({ productName }));
                           }}
                         >
                           <EyeIcon style={{ width: 16, height: 16, color: "var(--deals-green)" }} />
@@ -983,7 +972,7 @@ const Deals = () => {
               );
             })}
 
-            {!loading && (
+            {(
               <Link to={`/showroom/${showroomID}`} className="deals-view-all">
                 <div className="deals-view-all-circle">
                   <ArrowRightIcon style={{ width: 20, height: 20, color: "var(--deals-green)", transition: "color 0.2s" }} />

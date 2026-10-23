@@ -1,3 +1,4 @@
+import { appStorage as localStorage } from "../../utils/secureLocalStorageInit";
 // src/Redux/Slice/cartSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "./AxiosInstance";

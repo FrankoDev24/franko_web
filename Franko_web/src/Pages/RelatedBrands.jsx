@@ -1,8 +1,9 @@
+import { getBrandUrl } from "../utils/productSlug";
 import { useRef, useState, useEffect } from 'react';
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 
-import { debounce } from 'lodash';  // Import debounce from lodash
+import debounce from 'lodash/debounce';  // Import debounce from lodash
 
 const RelatedBrands = ({ filteredBrands, selectedBrandId, navigate }) => {
   const scrollRef = useRef(null);
@@ -74,8 +75,8 @@ const RelatedBrands = ({ filteredBrands, selectedBrandId, navigate }) => {
         >
           {filteredBrands
   .filter(
-    (brand) => 
-      brand.brandName !== 'Combo productsssss' && 
+    (brand) =>
+      brand.brandName !== 'Combo productsssss' &&
       brand.brandName !== 'Combo productsssss'
   )
   .map((brand) => (
@@ -87,7 +88,7 @@ const RelatedBrands = ({ filteredBrands, selectedBrandId, navigate }) => {
           : 'bg-gray-200 text-gray-700'
       } py-3 rounded-full text-sm cursor-pointer break-words text-center`}
       style={{ minWidth: '200px' }}
-      onClick={() => navigate(`/brand/${brand.brandId}`)}
+      onClick={() => navigate(getBrandUrl(brand))}
       role="button"
       aria-label={`Go to ${brand.brandName}`}
     >

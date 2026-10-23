@@ -1,3 +1,4 @@
+import { peekPublicRead } from "../utils/publicReadCache";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -14,8 +15,12 @@ export default function Carousel() {
   const navigate = useNavigate();
   const splideRef = useRef(null);
 
-  const [loading, setLoading] = useState(true);
-  const [ads, setAds] = useState([]);
+  const cachedBanner = peekPublicRead({ endpoint: '/Advertisement/GetAdvertisment', AdsName: 'Banner' });
+  const [loading, setLoading] = useState(() => !cachedBanner);
+  const [ads, setAds] = useState(() => {
+    const rows = Array.isArray(cachedBanner?.data) ? cachedBanner.data : cachedBanner?.data?.data;
+    return Array.isArray(rows) ? rows.slice(1) : [];
+  });
   const [heightRatio, setHeightRatio] = useState(0.0);
 
   useEffect(() => {
@@ -161,6 +166,9 @@ export default function Carousel() {
                 >
                   <img
                     src={imageUrl}
+                    loading={index === 0 ? "eager" : "lazy"}
+                    fetchPriority={index === 0 ? "high" : "auto"}
+                    decoding="async"
                     alt="Franko Trading"
                     className="banner-media shadow-lg"
                     onError={(e) => (e.currentTarget.src = ban)}

@@ -135,7 +135,7 @@ const ProductDetailModal = ({ productID, isModalVisible, onClose }) => {
         <div className="pdm-root">
           <div className="pdm-loading">
             <div className="pdm-spinner" />
-            <p className="pdm-loading-text">Loading product details...</p>
+            <p className="pdm-loading-text"></p>
           </div>
         </div>
       </Modal>

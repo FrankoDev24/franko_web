@@ -1,3 +1,4 @@
+import { getProductUrl } from "../utils/productSlug";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -193,13 +194,13 @@ const ProductCard = memo(function ProductCard({
     <article className="group flex flex-col bg-white border border-[#e6e1dc] rounded-xl overflow-hidden transition hover:border-[#c9d9cf] hover:shadow-sm">
       <div
         className="relative aspect-[4/3] flex items-center justify-center p-2 cursor-pointer"
-        onClick={() => onOpen(id)}
+        onClick={() => onOpen(product)}
         role="link"
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            onOpen(id);
+            onOpen(product);
           }
         }}
         aria-label={`View ${name}`}
@@ -395,7 +396,7 @@ const ShowroomProductsPage = () => {
   const isInitialLoading = loading && !hasLoadedOnce;
   const hasNoResults = hasLoadedOnce && !loading && filteredProducts.length === 0;
   const countLabel = isInitialLoading
-    ? "Loading products…"
+    ? ""
     : `${filteredProducts.length} ${
         filteredProducts.length === 1 ? "product" : "products"
       }`;
@@ -448,7 +449,7 @@ const ShowroomProductsPage = () => {
     setDrawerOpen(false);
   };
 
-  const openProduct = useCallback((id) => navigate(`/product/${id}`), [navigate]);
+  const openProduct = useCallback((product) => navigate(getProductUrl(product)), [navigate]);
 
   const handleAddToCart = useCallback(
     async (product) => {
@@ -660,7 +661,7 @@ const ShowroomProductsPage = () => {
                 </h1>
                 <p className="mt-0.5 text-xs text-[#6d7a74]">
                   {isInitialLoading
-                    ? "Loading products…"
+                    ? ""
                     : `${filteredProducts.length} ${
                         filteredProducts.length === 1 ? "product" : "products"
                       } available`}
@@ -775,7 +776,7 @@ const ShowroomProductsPage = () => {
               <div className="hidden lg:flex items-center justify-between gap-4 mb-4">
                 <p className="text-sm text-[#6d7a74]">
                   {isInitialLoading ? (
-                    "Loading products…"
+                    ""
                   ) : (
                     <>
                       <span className="font-semibold text-[#2c3330]">

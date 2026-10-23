@@ -15,7 +15,7 @@ import {
   XCircleIcon,
   SparklesIcon
 } from "@heroicons/react/24/solid";
-import { Tooltip } from "@material-tailwind/react";
+import Tooltip from "@material-tailwind/react/components/Tooltip";
 
 // ==================== NOTIFICATION COMPONENT ====================
 
@@ -77,7 +77,7 @@ const ProductsPage = () => {
   const [allProducts, setAllProducts] = useState([]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  
+
   const [notification, setNotification] = useState({
     message: '',
     type: 'success',
@@ -637,7 +637,7 @@ const ProductsPage = () => {
                         />
                       </div>
 
-                      <div 
+                      <div
                         className="pp-card-overlay"
                         onClick={() => handleProductClick(productID)}
                       >
@@ -698,12 +698,12 @@ const ProductsPage = () => {
           ) : (
             <div className="pp-empty">
               <div className="pp-empty-icon">🛍️</div>
-              <Empty 
+              <Empty
                 description={
                   <span className="pp-empty-text">
                     No products found. Check back later for amazing deals!
                   </span>
-                } 
+                }
               />
             </div>
           )}

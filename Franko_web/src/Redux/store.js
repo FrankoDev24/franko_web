@@ -1,3 +1,7 @@
+import { clearPublicReads } from "../utils/publicReadCache";
+import { rememberProducts } from "../utils/productMemory.mjs";
+import { sanitizePersistedCatalogue } from "../utils/catalogueShape.mjs";
+import { appStorage as localStorage } from "../utils/secureLocalStorageInit";
 // src/Redux/store.js
 import { configureStore } from "@reduxjs/toolkit";
 import { persistStore, persistReducer } from "redux-persist";
@@ -75,10 +79,7 @@ const rootReducer = combineReducers({
 });
 
 // --- Redux Persist config
-// The app monkey-patches localStorage (see src/utils/secureLocalStorageInit.js)
-// so getItem auto-decrypts and JSON.parses on read. redux-persist expects a raw
-// JSON *string*, so wrap the patched storage with an adapter that revers
-// serializes values back to strings before handing them to the persist layer.
+// Explicit app storage decrypts legacy values; Redux Persist still needs strings.
 const persistStorage = {
   getItem: (key) =>
     new Promise((resolve) => {
@@ -120,6 +121,7 @@ const persistStorage = {
 
 const persistConfig = {
   key: "root",
+  migrate: state => Promise.resolve(sanitizePersistedCatalogue(state)),
   storage: persistStorage,
   whitelist: ["categories", "brands", "showrooms", "advertisment"],
 };
@@ -127,13 +129,24 @@ const persistConfig = {
 // --- Persisted reducer
 const persistedReducer = persistReducer(persistConfig, rootReducer);
 
+// Product cards already contain real catalogue data: retain it for instant detail
+// navigation without waiting for another request or losing it on Home unmount.
+const productMemoryMiddleware = () => next => action => {
+  if (/^(products|brand|brands|Category|showrooms|advertisement|advertisment)\//.test(action.type || '') &&
+      /\/(add|update|delete|post|put)[^/]*\/fulfilled$/i.test(action.type || '')) clearPublicReads();
+  if (action.type?.startsWith("products/") && action.type.endsWith("/fulfilled")) {
+    rememberProducts(action.payload, action.type === "products/fetchProductById/fulfilled");
+  }
+  return next(action);
+};
+
 // --- Configure store
 export const store = configureStore({
   reducer: persistedReducer,
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: false,
-    }).concat(autoLogoutMiddleware),
+    }).concat(productMemoryMiddleware, autoLogoutMiddleware),
 });
 
 // --- Persistor

@@ -1,3 +1,8 @@
+import ProductDetailSkeleton from "../Component/ProductDetailSkeleton";
+import { rememberedProduct, freshProductDetails } from "../utils/productMemory.mjs";
+import { displayProductTag } from "../utils/productPresentation.mjs";
+import { indexedProduct } from "../utils/productRouteIndex.mjs";
+import { appStorage as localStorage } from "../utils/secureLocalStorageInit";
 import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
@@ -10,8 +15,8 @@ import {
   addToCart,
   getOrCreateCartId,
 } from "../Redux/Slice/cartSlice";
-import ProductDetailSkeleton from "../Component/ProductDetailSkeleton";
-import { Tooltip, Drawer } from "@material-tailwind/react";
+import Tooltip from "@material-tailwind/react/components/Tooltip";
+import Drawer from "@material-tailwind/react/components/Drawer";
 import {
   ShoppingCartIcon,
   CheckCircleIcon,
@@ -150,10 +155,10 @@ const mergeCartItemsKeepingAddedItem = (serverItems, preservedItems = []) => {
 const safeLocalStorage = {
   getItem: (key, defaultValue = null) => {
     try {
-      if (typeof window === "undefined" || !window.localStorage) {
+      if (typeof window === "undefined" || !localStorage) {
         return defaultValue;
       }
-      const item = window.localStorage.getItem(key);
+      const item = localStorage.getItem(key);
       if (item === null || item === undefined) return defaultValue;
       if (typeof item === "object") return item;
       if (typeof item === "string") {
@@ -170,8 +175,8 @@ const safeLocalStorage = {
   },
   setItem: (key, value) => {
     try {
-      if (typeof window === "undefined" || !window.localStorage) return false;
-      window.localStorage.setItem(
+      if (typeof window === "undefined" || !localStorage) return false;
+      localStorage.setItem(
         key,
         typeof value === "string" ? value : JSON.stringify(value)
       );
@@ -221,7 +226,7 @@ const ProductDescription = () => {
   const cartSyncRequestRef = useRef(0);
   const hasHydratedReduxCartRef = useRef(false);
 
-  const { currentProduct, products, loading } = useSelector(
+  const { currentProduct: storedProduct, products, productDetailLoading, productDetailError, error: catalogueError } = useSelector(
     (state) => state.products
   );
   const { cart, cartId } = useSelector((state) => state.cart);
@@ -232,7 +237,12 @@ const ProductDescription = () => {
   // Derived: resolve rawParam -> product object -> UUID
   // For slug: lookup via productName slugify. For UUID: direct lookup.
   const resolvedProduct = useMemo(() => {
-    if (!rawParam || !Array.isArray(products) || products.length === 0) return null;
+    if (!rawParam) return null;
+    const available = rememberedProduct(rawParam);
+    if (available) return available;
+    const indexed = indexedProduct(rawParam);
+    if (indexed) return indexed;
+    if (!Array.isArray(products) || products.length === 0) return null;
     if (paramIsUUID) {
       return findProductById(products, rawParam);
     }
@@ -244,8 +254,13 @@ const ProductDescription = () => {
     return String(resolvedProduct.productID || resolvedProduct.Productid || "");
   }, [resolvedProduct]);
 
-  // Current displayed product (from API single-product fetch)
-  const product = currentProduct && currentProduct.length > 0 ? currentProduct[0] : null;
+  // Card data resolves identity immediately, but only successful full detail
+  // responses render the page. Until then the destination shows its skeleton.
+  const product = useMemo(
+    () => freshProductDetails(resolvedProductId || rawParam),
+    [storedProduct, resolvedProductId, rawParam]
+  );
+  const currentProduct = useMemo(() => product ? [product] : [], [product]);
 
   // Canonical slug for the loaded product (for SEO)
   const canonicalSlug = useMemo(() => {
@@ -403,65 +418,33 @@ const ProductDescription = () => {
   }, [rawParam]);
 
   // ==================== PRODUCT DATA - SLUG RESOLUTION ====================
-  // This replaces the old: dispatch(fetchProductById(productID))
-  // New flow:
-  // 1. Ensure catalogue is loaded (fetchProducts) so we can map slug -> UUID
-  // 2. If rawParam is UUID (legacy URL), redirect 1:1 to slug URL (client-side replace)
-  // 3. If rawParam is slug, resolve to UUID via catalogue, then fetchProductById(UUID)
-  // Backend API never changes - UUID stays in DB and is used for the actual fetch.
+  // Local approved slug index / current catalogue -> UUID -> unchanged live API.
+  // Snapshot records supply identity only, never prices or availability.
 
-  // Step 1: Load catalogue if empty
+  const requestedDetailRef = useRef(null);
+  // Known sheet slugs and UUID links start the detail API immediately; no
+  // catalogue waterfall. The catalogue is only needed for newly added slugs.
   useEffect(() => {
-    if (!products || products.length === 0) {
-      dispatch(fetchProducts());
-    }
-  }, [dispatch, products]);
+    if (!paramIsUUID && !resolvedProductId && !products?.length) dispatch(fetchProducts());
+  }, [dispatch, paramIsUUID, resolvedProductId]);
 
-  // Step 2 & 3: Resolve slug/UUID -> UUID -> fetch details
   useEffect(() => {
-    if (!rawParam) return;
-    if (!products || products.length === 0) return; // wait for catalogue
-
-    // LEGACY UUID HANDLING: permanent redirect to slug URL
-    if (paramIsUUID) {
-      const legacyProduct = findProductById(products, rawParam);
-      if (legacyProduct) {
-        const targetSlug = getProductSlug(legacyProduct, products);
-        // Client-side replacement (server should also return 301 - see migration guide)
-        // Use replace so back button skips the UUID URL
-        navigate(`/product/${targetSlug}`, { replace: true });
-        return;
-      } else {
-        // Catalogue doesn't contain this UUID (maybe paginated or new product)
-        // Fall back to direct fetch - UUID still works with existing API
-        // After it loads, the second effect below will redirect to slug
-        dispatch(fetchProductById(rawParam));
-        return;
-      }
+    const id = paramIsUUID ? rawParam : resolvedProductId;
+    if (!id) {
+      requestedDetailRef.current = null;
+      if (products?.length) setSlugResolveError(`Product not found for "${rawParam}"`);
+      return;
     }
-
-    // NEW SLUG HANDLING
-    const matched = findProductBySlug(products, rawParam);
-    if (matched) {
-      const uuid = String(matched.productID || matched.Productid || "");
-      if (uuid) {
-        setSlugResolveError(null);
-        dispatch(fetchProductById(uuid));
-      }
-    } else {
-      // Slug not found in current catalogue slice - might be invalid or catalogue incomplete
-      // We surface a soft error; the skeleton will show until we decide to 404
-      // Don't auto-404 immediately to allow fetchProducts to finish
-      if (products.length > 0) {
-        setSlugResolveError(`Product not found for "${rawParam}"`);
-      }
-    }
-  }, [dispatch, rawParam, paramIsUUID, products, navigate]);
+    setSlugResolveError(null);
+    if (requestedDetailRef.current === id) return;
+    requestedDetailRef.current = id;
+    if (!freshProductDetails(id)) dispatch(fetchProductById(id));
+  }, [dispatch, rawParam, paramIsUUID, resolvedProductId, products?.length]);
 
   // Post-fetch redirect for legacy UUIDs that weren't in catalogue
   // Once fetchProductById returns a product, we can compute its slug and redirect
   useEffect(() => {
-    if (paramIsUUID && product && rawParam) {
+    if (product && rawParam) {
       const expectedSlug = getProductSlug(product, products);
       if (expectedSlug && expectedSlug !== rawParam) {
         navigate(`/product/${expectedSlug}`, { replace: true });
@@ -547,7 +530,7 @@ const ProductDescription = () => {
       loadingDiv.innerHTML = `
         <div class="text-center">
           <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-green-700 mb-4"></div>
-          <div class="text-gray-600" style="font-family: var(--pd-font)">Loading more product details</div>
+          <div class="text-gray-600" style="font-family: var(--pd-font)"></div>
         </div>
       `;
       flixSection.appendChild(loadingDiv);
@@ -927,15 +910,16 @@ const ProductDescription = () => {
 
   // While catalogue is loading or product details are loading, show skeleton
   // This covers: initial load, slug->ID resolution, and direct API fetch
-  if (loading || !product) {
+  if (!product) {
     // If we have determined the slug is invalid after catalogue loaded, show 404-style message
-    if (slugResolveError && products.length > 0 && !loading) {
+    if ((slugResolveError || productDetailError || catalogueError) && !productDetailLoading) {
       return (
         <div className="pd-root max-w-7xl mx-auto px-4 py-12 text-center">
+          <Helmet><meta name="robots" content="noindex" /></Helmet>
           <ExclamationTriangleIcon className="w-12 h-12 mx-auto mb-4" style={{ color: "#dc2626" }} />
           <h1 className="text-2xl font-bold mb-2">Product not found</h1>
           <p className="text-gray-500 mb-6">
-            We couldn't find a product for <code className="bg-gray-100 px-2 py-1 rounded">{rawParam}</code>
+            Please check the product link or try again. <code className="bg-gray-100 px-2 py-1 rounded">{rawParam}</code>
           </p>
           <button
             onClick={() => navigate("/")}
@@ -1868,7 +1852,10 @@ const ProductDescription = () => {
                     style={{ display: idx === selectedImageIndex ? "block" : "none" }}
                   >
                     <Image
-                      src={imgSrc || activeImageUrl}
+                      src={idx === selectedImageIndex ? (imgSrc || activeImageUrl) : undefined}
+                      loading={idx === selectedImageIndex ? "eager" : "lazy"}
+                      fetchPriority={idx === selectedImageIndex ? "high" : "auto"}
+                      decoding="async"
                       className="pd-main-image"
                       alt={`${product.productName} - View ${idx + 1}`}
                       fallback="https://via.placeholder.com/400?text=No+Image"
@@ -1918,6 +1905,14 @@ const ProductDescription = () => {
 
           {/* Product Information Column */}
           <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              {typeof product.brandName === "string" && product.brandName.trim() && (
+                <span className="text-sm font-semibold text-green-800">{product.brandName.trim()}</span>
+              )}
+              {displayProductTag(product.tag) && (
+                <span className="rounded-full bg-green-50 border border-green-200 px-3 py-1 text-xs font-semibold text-green-800">{displayProductTag(product.tag)}</span>
+              )}
+            </div>
             <h1 className="pd-product-title">{product.productName}</h1>
             <div className="pd-price-container">
               <span className="pd-price">GH₵{formatPrice(product.price)}</span>
@@ -2073,7 +2068,7 @@ const ProductDescription = () => {
                     : 0;
                 const imgUrl = getValidImageUrl(viewedProduct.image);
                 // NEW: navigate via slug, not UUID
-                const viewedSlug = viewedProduct.slug || slugify(viewedProduct.name || "");
+                const viewedSlug = slugify(viewedProduct.name || "") || viewedProduct.slug;
                 return (
                   <div
                     key={`viewed-${viewedProduct.id}-${index}`}

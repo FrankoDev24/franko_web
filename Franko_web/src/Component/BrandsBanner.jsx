@@ -1,3 +1,4 @@
+import { getBrandUrl } from "../utils/productSlug";
 import React from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -23,7 +24,7 @@ const BrandsBanner = () => {
   const navigate = useNavigate();
 
   const handleBrandClick = (brandId) => {
-    navigate(`/brand/${brandId}`);
+    navigate(getBrandUrl(brands.find(b => b.id === brandId)));
   };
 
   return (

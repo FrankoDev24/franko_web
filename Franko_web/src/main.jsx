@@ -1,4 +1,3 @@
-import "./utils/secureLocalStorageInit";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
@@ -7,7 +6,7 @@ import { BrowserRouter } from "react-router-dom";
 import { Provider } from "react-redux";
 import { store, persistor } from "./Redux/store.js";
 import { PersistGate } from "redux-persist/integration/react";
-import { ThemeProvider } from "@material-tailwind/react";
+import { ThemeProvider } from "@material-tailwind/react/context/theme";
 import TagManager from "react-gtm-module";
 import { startActivityTracking } from "./utils/activityTracker";
 
@@ -19,7 +18,7 @@ startActivityTracking();
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Provider store={store}>
         <PersistGate loading={null} persistor={persistor}>
           <ThemeProvider>

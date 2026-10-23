@@ -48,7 +48,7 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
   }, [dispatch, orderId, isModalVisible]);
 
   const formatPrice = (amount) => parseFloat(amount || 0).toFixed(2);
-  
+
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -79,16 +79,16 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
             padding: 0;
             box-sizing: border-box;
           }
-          
-          body { 
-            font-family: 'Plus Jakarta Sans', sans-serif; 
+
+          body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
             margin: 0;
             padding: 20px;
             color: #2d3748;
             line-height: 1.6;
             background-color: #ffffff;
           }
-          
+
           .invoice-container {
             max-width: 800px;
             margin: 0 auto;
@@ -97,48 +97,48 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
             border-radius: 8px;
             overflow: hidden;
           }
-          
-          .header { 
+
+          .header {
             background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
             color: white;
             padding: 30px;
             text-align: center;
           }
-          
-          .company-name { 
-            font-size: 32px; 
-            font-weight: bold; 
+
+          .company-name {
+            font-size: 32px;
+            font-weight: bold;
             margin-bottom: 8px;
             text-shadow: 0 2px 4px rgba(0,0,0,0.2);
           }
-          
-          .company-info { 
-            font-size: 14px; 
+
+          .company-info {
+            font-size: 14px;
             opacity: 0.9;
             font-weight: 300;
           }
-          
-          .invoice-title { 
-            font-size: 36px; 
-            font-weight: bold; 
+
+          .invoice-title {
+            font-size: 36px;
+            font-weight: bold;
             margin: 30px 0;
             text-align: center;
             color: #4CAF50;
             text-transform: uppercase;
             letter-spacing: 2px;
           }
-          
+
           .content {
             padding: 30px;
           }
-          
+
           .info-section {
             display: flex;
             justify-content: space-between;
             margin-bottom: 30px;
             gap: 30px;
           }
-          
+
           .invoice-info, .customer-info {
             flex: 1;
             background: #f8f9fa;
@@ -146,48 +146,48 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
             border-radius: 8px;
             border-left: 4px solid #4CAF50;
           }
-          
-          .section-title { 
-            color: #4CAF50; 
-            font-size: 18px; 
-            font-weight: bold; 
+
+          .section-title {
+            color: #4CAF50;
+            font-size: 18px;
+            font-weight: bold;
             margin-bottom: 12px;
             text-transform: uppercase;
             letter-spacing: 1px;
           }
-          
+
           .info-row {
             margin-bottom: 8px;
             display: flex;
             justify-content: space-between;
           }
-          
+
           .info-label {
             font-weight: 600;
             color: #495057;
             min-width: 120px;
           }
-          
+
           .info-value {
             color: #212529;
             font-weight: 500;
           }
-          
-          table { 
-            width: 100%; 
-            border-collapse: collapse; 
+
+          table {
+            width: 100%;
+            border-collapse: collapse;
             margin: 20px 0;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             border-radius: 8px;
             overflow: hidden;
           }
-          
+
           thead {
             background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
           }
-          
-          th { 
-            color: white; 
+
+          th {
+            color: white;
             font-weight: bold;
             padding: 15px 12px;
             text-align: left;
@@ -195,30 +195,30 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
             text-transform: uppercase;
             letter-spacing: 0.5px;
           }
-          
-          td { 
+
+          td {
             padding: 15px 12px;
             border-bottom: 1px solid #e9ecef;
             font-size: 14px;
           }
-          
-          tbody tr:nth-child(even) { 
+
+          tbody tr:nth-child(even) {
             background-color: #f8f9fa;
           }
-          
+
           tbody tr:hover {
             background-color: #e3f2fd;
             transition: background-color 0.2s ease;
           }
-          
+
           .text-right { text-align: right; }
           .text-center { text-align: center; }
-          
+
           .total-section {
             margin-top: 30px;
             text-align: right;
           }
-          
+
           .subtotal-row {
             display: flex;
             justify-content: space-between;
@@ -226,34 +226,34 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
             border-bottom: 1px solid #dee2e6;
             font-size: 14px;
           }
-          
-          .total-row { 
+
+          .total-row {
             display: flex;
             justify-content: space-between;
-            font-weight: bold; 
-            font-size: 20px; 
+            font-weight: bold;
+            font-size: 20px;
             color: #4CAF50;
             padding: 15px 0;
             border-top: 2px solid #4CAF50;
             margin-top: 10px;
           }
-          
-          .footer { 
-            margin-top: 40px; 
-            text-align: center; 
-            color: #6c757d; 
+
+          .footer {
+            margin-top: 40px;
+            text-align: center;
+            color: #6c757d;
             font-size: 12px;
             padding-top: 20px;
             border-top: 1px solid #dee2e6;
           }
-          
+
           .thank-you {
             font-size: 16px;
             color: #4CAF50;
             font-weight: 600;
             margin-bottom: 10px;
           }
-          
+
           .watermark {
             position: fixed;
             top: 50%;
@@ -265,57 +265,57 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
             z-index: -1;
             pointer-events: none;
           }
-          
+
           @media print {
-            body { 
+            body {
               margin: 0;
               padding: 0;
               background: white;
             }
-            
+
             .invoice-container {
               box-shadow: none;
               border-radius: 0;
             }
-            
+
             .header {
               background: #4CAF50 !important;
               -webkit-print-color-adjust: exact;
             }
-            
+
             thead {
               background: #4CAF50 !important;
               -webkit-print-color-adjust: exact;
             }
-            
+
             th {
               color: white !important;
               -webkit-print-color-adjust: exact;
             }
           }
-          
+
           @media (max-width: 768px) {
             .info-section {
               flex-direction: column;
               gap: 15px;
             }
-            
+
             .invoice-info, .customer-info {
               margin-bottom: 0;
             }
-            
+
             table {
               font-size: 12px;
             }
-            
+
             th, td {
               padding: 10px 8px;
             }
-            
+
             .company-name {
               font-size: 24px;
             }
-            
+
             .invoice-title {
               font-size: 28px;
             }
@@ -333,10 +333,10 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
               Website: www.frankotrading.com
             </div>
           </div>
-          
+
           <div class="content">
             <div class="invoice-title">INVOICE</div>
-            
+
             <div class="info-section">
               <div class="invoice-info">
                 <div class="section-title">Invoice Details</div>
@@ -357,7 +357,7 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
                   <span class="info-value" style="color: #28a745; font-weight: 600;">Confirmed</span>
                 </div>
               </div>
-              
+
               <div class="customer-info">
                 <div class="section-title">Bill To</div>
                 <div class="info-row">
@@ -380,7 +380,7 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
                 ` : ''}
               </div>
             </div>
-            
+
             <table>
               <thead>
                 <tr>
@@ -406,7 +406,7 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
                 `).join('')}
               </tbody>
             </table>
-            
+
             <div class="total-section">
               <div class="subtotal-row">
                 <span>Subtotal:</span>
@@ -425,14 +425,14 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
                 <span>₵${formatPrice(totalAmount)}</span>
               </div>
             </div>
-            
+
             <div class="footer">
               <div class="thank-you">Thank you for your business!</div>
               <p>This is a computer-generated invoice and does not require a signature.</p>
               <p>For any queries, please contact us at online@frankotrading.com or +233 123 456 789</p>
-              <p style="margin-top: 10px; font-size: 11px;">Generated on ${currentDate.toLocaleString('en-US', { 
-                year: 'numeric', 
-                month: 'long', 
+              <p style="margin-top: 10px; font-size: 11px;">Generated on ${currentDate.toLocaleString('en-US', {
+                year: 'numeric',
+                month: 'long',
                 day: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit'
@@ -448,7 +448,7 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
   const downloadInvoice = async () => {
     try {
       setIsDownloading(true);
-      
+
       if (!salesOrder || salesOrder.length === 0) {
         message.error('No order data available for invoice generation');
         return;
@@ -462,7 +462,7 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
 
       // Create and open print window
       const printWindow = window.open('', '_blank', 'width=800,height=600');
-      
+
       if (!printWindow) {
         message.error('Please allow pop-ups to download the invoice');
         return;
@@ -476,7 +476,7 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
         setTimeout(() => {
           printWindow.focus();
           printWindow.print();
-          
+
           // Optional: Close the window after printing (uncomment if needed)
           // printWindow.onafterprint = function() {
           //   printWindow.close();
@@ -485,7 +485,7 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
       };
 
       message.success('Invoice opened in new window. Please use your browser\'s print function to save as PDF.');
-      
+
     } catch (error) {
       console.error('Error generating invoice:', error);
       message.error('Failed to generate invoice. Please try again.');
@@ -498,7 +498,7 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
   const downloadInvoiceAsPDF = async () => {
     try {
       setIsDownloading(true);
-      
+
       if (!salesOrder || salesOrder.length === 0) {
         message.error('No order data available for invoice generation');
         return;
@@ -527,7 +527,7 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
         setTimeout(() => {
           iframe.contentWindow.focus();
           iframe.contentWindow.print();
-          
+
           // Clean up
           setTimeout(() => {
             document.body.removeChild(iframe);
@@ -535,9 +535,9 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
         }, 500);
       };
 
-    
-    
-      
+
+
+
     } catch (error) {
       console.error('Error generating invoice:', error);
       message.error('Failed to generate invoice. Please try again.');
@@ -701,7 +701,7 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
                   </div>
                 </div>
               </div>
-              
+
               <div style={{ display: 'flex', gap: '8px' }}>
                 <Button
                   type="primary"
@@ -721,7 +721,7 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
                 >
                   Download Invoice
                 </Button>
-                
+
                 <Tooltip title="Alternative print method">
                   <Button
                     icon={<PrinterOutlined />}
@@ -747,7 +747,7 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
           <div style={{ textAlign: 'center', padding: '50px 20px' }}>
             <Space direction="vertical" align="center" size="middle">
               <Spin size="large" />
-              <Text type="secondary" style={{ fontSize: '13px' }}>Loading order details...</Text>
+              <Text type="secondary" style={{ fontSize: '13px' }}></Text>
             </Space>
           </div>
         ) : error ? (

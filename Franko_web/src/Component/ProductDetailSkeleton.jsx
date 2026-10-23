@@ -2,7 +2,7 @@ import React from "react";
 
 const ProductDetailSkeleton = () => {
   return (
-    <div className="max-w-7xl mx-auto px-4 py-10 animate-pulse space-y-16">
+    <div role="status" aria-label="Please wait" aria-busy="true" className="max-w-7xl mx-auto px-4 py-10 animate-pulse space-y-16">
       {/* Top Section: Image + Info */}
       <div className="grid lg:grid-cols-2 gap-12">
         {/* Product Image */}
@@ -14,13 +14,13 @@ const ProductDetailSkeleton = () => {
         <div className="space-y-6 w-full">
           {/* Product Title */}
           <div className="h-8 bg-gray-300 rounded w-3/4" />
-          
+
           {/* Price Section */}
           <div className="flex items-center gap-4">
             <div className="h-10 w-28 bg-gray-300 rounded-xl" />
             <div className="h-6 w-20 bg-gray-200 rounded" />
           </div>
-          
+
           {/* Stock Status */}
           <div className="h-5 w-32 bg-gray-300 rounded" />
 
@@ -67,7 +67,7 @@ const ProductDetailSkeleton = () => {
         ))}
       </div>
 
-    
+
 
       {/* Recently Viewed Products */}
       <div className="space-y-6">
@@ -125,7 +125,7 @@ const ProductDetailSkeleton = () => {
         </div>
       </div>
 
-    
+
     </div>
   );
 };

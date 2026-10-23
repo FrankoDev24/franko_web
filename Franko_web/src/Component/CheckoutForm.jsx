@@ -1,3 +1,4 @@
+import { appStorage as localStorage } from "../utils/secureLocalStorageInit";
 import { useState, useEffect } from "react";
 import { Form, Input, Select, Modal, InputNumber, Checkbox} from "antd";
 import { EnvironmentOutlined, PhoneOutlined, UserOutlined, AimOutlined, PushpinOutlined, SaveOutlined, DollarOutlined, SearchOutlined } from "@ant-design/icons";
@@ -166,7 +167,7 @@ const CheckoutForm = ({
 
       {/* ── Recipient Name ── */}
       <Form.Item
-        label="Recipient Name" 
+        label="Recipient Name"
         required
       >
         <Input
@@ -179,7 +180,7 @@ const CheckoutForm = ({
 
       {/* ── Recipient Contact ── */}
       <Form.Item
-        label="Recipient Contact" 
+        label="Recipient Contact"
         required
       >
         <Input

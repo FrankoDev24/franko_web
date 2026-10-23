@@ -1,3 +1,4 @@
+import { appStorage as localStorage } from "../../utils/secureLocalStorageInit";
 import axios from "axios";
 
 const LAMBDA_BASE_URL = import.meta.env.VITE_LAMBDA_BASE_URL;

@@ -1,3 +1,4 @@
+import { appStorage as localStorage } from "../utils/secureLocalStorageInit";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Helmet } from "react-helmet";
@@ -581,7 +582,7 @@ const PhoneSpeed = () => {
   const isInitialLoading = loading && !hasLoadedOnce;
   const hasNoResults = hasLoadedOnce && !loading && filteredProducts.length === 0;
   const dealsLabel = isInitialLoading
-    ? "Loading deals…"
+    ? ""
     : `${filteredProducts.length} ${filteredProducts.length === 1 ? "deal" : "deals"}`;
 
   /* ---------- handlers ---------- */
@@ -974,7 +975,7 @@ const PhoneSpeed = () => {
               <div className="hidden lg:flex items-center justify-between gap-4 mb-4">
                 <p className="text-sm text-[#6d7a74]">
                   {isInitialLoading ? (
-                    "Loading deals…"
+                    ""
                   ) : (
                     <>
                       <span className="font-semibold text-[#2c3330]">{filteredProducts.length}</span>{" "}
@@ -1069,7 +1070,7 @@ const PhoneSpeed = () => {
                       ? "No matches for these filters"
                       : phase === "ended"
                       ? "Speed Shopping is closed"
-                      : "Deals are still loading"}
+                      : "Browse our latest deals"}
                   </h2>
                   <p className="text-[#6d7a74] text-sm max-w-md mx-auto mb-6">
                     {filtersActive

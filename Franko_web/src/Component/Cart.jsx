@@ -1,3 +1,4 @@
+import { appStorage as localStorage } from "../utils/secureLocalStorageInit";
 // src/Component/Cart.jsx
 //
 // NOTE: despite the file name, this module's default export is the

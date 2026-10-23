@@ -8,7 +8,7 @@ const NoInternetPage = () => {
   const handleRetry = () => {
     setIsRetrying(true);
     setRetryCount(prev => prev + 1);
-    
+
     // Simulate checking connection
     setTimeout(() => {
       setIsRetrying(false);
@@ -31,7 +31,7 @@ const NoInternetPage = () => {
         <h1 className="text-2xl font-bold text-gray-900 mb-4">
           No Internet Connection
         </h1>
-        
+
         <p className="text-gray-600 mb-8 leading-relaxed">
           It looks like you're not connected to the internet. Please check your connection and try again.
         </p>

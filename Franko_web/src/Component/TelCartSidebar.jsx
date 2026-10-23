@@ -1,3 +1,4 @@
+import { appStorage as localStorage } from "../utils/secureLocalStorageInit";
 // src/Component/TelCartSidebar.jsx
 import {
   createContext,
@@ -340,7 +341,7 @@ const TelCartSidebar = ({
           {loading && items.length === 0 ? (
             <div className="telcart-loading">
               <div className="telcart-spinner" />
-              <p>Loading your cart items…</p>
+              <p></p>
             </div>
           ) : items.length === 0 ? (
             <div className="telcart-empty">

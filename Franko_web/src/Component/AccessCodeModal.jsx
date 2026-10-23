@@ -1,3 +1,4 @@
+import { appStorage as localStorage } from "../utils/secureLocalStorageInit";
 // Component/AccessCodeModal.jsx
 import React, { useState, useEffect } from 'react';
 import { Modal, Input, Button, message } from 'antd';
@@ -18,11 +19,11 @@ const ACCESS_CODE_KEY = 'admin_access_code';
  */
 export const checkAccessCodeValidity = async () => {
   const storedCode = localStorage.getItem(ACCESS_CODE_KEY);
-  
+
   if (!storedCode) {
     return false;
   }
-  
+
   try {
     // Verify stored code against backend
     const response = await axios.post(
@@ -35,7 +36,7 @@ export const checkAccessCodeValidity = async () => {
         timeout: 30000,
       }
     );
-    
+
     return response.data?.success || false;
   } catch {
     // If verification fails, clear the stored code
@@ -81,7 +82,7 @@ const verifyAccessCodeWithBackend = async (accessCode) => {
         timeout: 30000,
       }
     );
-    
+
     return {
       success: response.data?.success || false,
       message: response.data?.message || 'Verification failed',
@@ -90,7 +91,7 @@ const verifyAccessCodeWithBackend = async (accessCode) => {
   } catch (error) {
     const status = error.response?.status;
     const errorData = error.response?.data;
-    
+
     // Handle rate limiting (429)
     if (status === 429) {
       return {
@@ -99,7 +100,7 @@ const verifyAccessCodeWithBackend = async (accessCode) => {
         isRateLimited: true,
       };
     }
-    
+
     // Handle unauthorized (401) - invalid access code
     if (status === 401) {
       return {
@@ -108,7 +109,7 @@ const verifyAccessCodeWithBackend = async (accessCode) => {
         attemptsRemaining: errorData?.attemptsRemaining,
       };
     }
-    
+
     // Handle other errors
     return {
       success: false,
@@ -136,7 +137,7 @@ const AccessCodeModal = ({ visible, onSuccess, onCancel }) => {
       }
 
       const storedCode = getStoredAccessCode();
-      
+
       if (!storedCode) {
         setValidating(false);
         return;
@@ -144,7 +145,7 @@ const AccessCodeModal = ({ visible, onSuccess, onCancel }) => {
 
       // Validate stored code against backend
       const isValid = await checkAccessCodeValidity();
-      
+
       if (isValid) {
         // Stored code is still valid, grant access immediately
         message.success('Access granted!');
@@ -154,7 +155,7 @@ const AccessCodeModal = ({ visible, onSuccess, onCancel }) => {
         clearAccessCode();
         message.info('Access code has changed. Please enter the new code.');
       }
-      
+
       setValidating(false);
     };
 
@@ -173,10 +174,10 @@ const AccessCodeModal = ({ visible, onSuccess, onCancel }) => {
     }
 
     setLoading(true);
-    
+
     try {
       const result = await verifyAccessCodeWithBackend(accessCode.trim());
-      
+
       if (result.success) {
         // Store the verified access code
         storeAccessCode(accessCode.trim());
@@ -192,7 +193,7 @@ const AccessCodeModal = ({ visible, onSuccess, onCancel }) => {
         } else {
           const newAttempts = attempts + 1;
           setAttempts(newAttempts);
-          
+
           if (newAttempts >= 5) {
             message.error('Too many failed attempts. Please contact administrator.');
           } else {
@@ -236,7 +237,7 @@ const AccessCodeModal = ({ visible, onSuccess, onCancel }) => {
           </div>
           <h2 className="text-xl font-bold text-gray-800">Access Code Required</h2>
           <p className="text-gray-500 text-sm mt-2">
-            {validating 
+            {validating
               ? 'Validating your access...'
               : 'This area is restricted. Please enter your access code to continue.'}
           </p>
@@ -263,7 +264,7 @@ const AccessCodeModal = ({ visible, onSuccess, onCancel }) => {
                 className="rounded-lg"
                 autoFocus
               />
-              
+
               {attempts > 0 && attempts < 5 && !isLocked && (
                 <p className="text-red-500 text-sm text-center">
                   {5 - attempts} attempts remaining
@@ -272,7 +273,7 @@ const AccessCodeModal = ({ visible, onSuccess, onCancel }) => {
 
               {(attempts >= 5 || isLocked) && (
                 <p className="text-red-500 text-sm text-center">
-                  {isLocked 
+                  {isLocked
                     ? 'Rate limit exceeded. Please try again in 15 minutes.'
                     : 'Access locked. Please contact administrator.'}
                 </p>

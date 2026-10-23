@@ -1,3 +1,4 @@
+import { publicGet } from "../../utils/publicReadCache";
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axiosInstance from './AxiosInstance';
 
@@ -49,7 +50,7 @@ export const getAdvertisment = createAsyncThunk(
     try {
       if (!AdsName) throw new Error('AdsName is required');
 
-      const res = await axiosInstance.get('/', {
+      const res = await publicGet('/', {
         params: {
           endpoint: '/Advertisement/GetAdvertisment', // backend endpoint
           AdsName,
@@ -70,7 +71,7 @@ export const getHomePageAdvertisment = createAsyncThunk(
   'advertisement/getHomePage',
   async (_, { rejectWithValue }) => {
     try {
-      const res = await axiosInstance.get('/', {
+      const res = await publicGet('/', {
         params: {
           endpoint: '/Advertisement/GetAdvertisment',
           AdsName: 'Home Page',
@@ -91,7 +92,7 @@ export const getBannerPageAdvertisment = createAsyncThunk(
   'advertisement/getBannerPage',
   async (_, { rejectWithValue }) => {
     try {
-      const res = await axiosInstance.get('/', {
+      const res = await publicGet('/', {
         params: {
           endpoint: '/Advertisement/GetAdvertisment',
           AdsName: 'Banner',

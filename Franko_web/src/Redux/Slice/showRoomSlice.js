@@ -1,3 +1,4 @@
+import { publicGet } from "../../utils/publicReadCache";
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axiosInstance from './AxiosInstance'; // Lambda-based Axios instance
 
@@ -10,7 +11,7 @@ export const fetchShowrooms = createAsyncThunk(
   'showrooms/fetchShowrooms',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get('/', {
+      const response = await publicGet('/', {
         params: { endpoint: '/ShowRoom/Get-ShowRoom' },
       });
       return response.data;
@@ -25,7 +26,7 @@ export const fetchHomePageShowrooms = createAsyncThunk(
   'showrooms/fetchHomePageShowrooms',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get('/', {
+      const response = await publicGet('/', {
         params: { endpoint: '/ShowRoom/Get-HomePageShowRoom' },
       });
       return Array.isArray(response.data) ? response.data : [];

@@ -6,3 +6,6 @@ node_modules
 node_modules/
 dist/
 build/
+public/_redirects
+public/seo-index.json
+seo-redirects.nginx.conf

@@ -1,3 +1,4 @@
+import { appStorage as localStorage } from "../utils/secureLocalStorageInit";
 // src/components/MigrationDebugger.jsx
 import { useState } from "react";
 

@@ -913,7 +913,7 @@ const CTP001ProductsPage = () => {
             emptyText: (
               <Empty
                 description={
-                  websiteProducts.length ? "No matches." : "Loading..."
+                  websiteProducts.length ? "No matches." : ""
                 }
               />
             ),

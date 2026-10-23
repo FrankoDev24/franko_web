@@ -1,3 +1,5 @@
+import { appStorage as localStorage } from "../utils/secureLocalStorageInit";
+import { getProductUrl } from "../utils/productSlug";
 import { useEffect, useState } from "react";
 import { message } from "antd";
 import {
@@ -221,7 +223,7 @@ const Account = () => {
         <div className="ac-root">
           <div className="ac-loading">
             <div className="ac-spinner" />
-            <p className="ac-loading-text">Loading your profile…</p>
+            <p className="ac-loading-text"></p>
           </div>
         </div>
       </>
@@ -444,7 +446,7 @@ const Account = () => {
                   {wishlist.map((item, index) => {
                     const imgUrl = getImageUrl(item.productImage);
                     return (
-                      <div key={index} className="ac-wishlist-item" onClick={() => navigate(`/product/${item.productID}`)}>
+                      <div key={index} className="ac-wishlist-item" onClick={() => navigate(getProductUrl(item))}>
                         <div className="ac-wishlist-img-wrap">
                           {imgUrl ? (
                             <img

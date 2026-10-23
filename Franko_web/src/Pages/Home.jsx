@@ -1,16 +1,18 @@
-import { useEffect } from 'react';
+import { productPageModule } from "../utils/productPageModule";
+import DeferredSection from '../Component/DeferredSection';
+import { lazy, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import Carousel from '../Component/Carousel';
 import CategoryComponent from '../Component/CategoryComponent';
-import BestSellers from '../Component/BestSellers';
+const BestSellers = lazy(() => import('../Component/BestSellers'));
 import Deals from '../Component/Deals';
 import InfoBanner from '../Component/InfoBanner';
-import LaptopDeals from '../Component/LaptopDeal';
-import FridgeDeals from '../Component/FridgeDeals';
+const LaptopDeals = lazy(() => import('../Component/LaptopDeal'));
+const FridgeDeals = lazy(() => import('../Component/FridgeDeals'));
 import BrandsBanner from '../Component/BrandsBanner';
-import PhoneDeals from '../Component/PhoneDeals';
-import TeleDeals from '../Component/TeleDeals';
-import NewArrivals from '../Component/NewArrivals';
+const PhoneDeals = lazy(() => import('../Component/PhoneDeals'));
+const TeleDeals = lazy(() => import('../Component/TeleDeals'));
+const NewArrivals = lazy(() => import('../Component/NewArrivals'));
 import Footer from '../Component/Footer';
 
 
@@ -21,9 +23,20 @@ function Home() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
+  useEffect(() => {
+    const warm = () => { productPageModule().catch(() => {}); };
+    if (window.requestIdleCallback) {
+      const id = window.requestIdleCallback(warm, { timeout: 1500 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(warm, 500);
+    return () => clearTimeout(id);
+  }, []);
+
   return (
-    <div>
+    <div onPointerOver={() => { productPageModule().catch(() => {}); }} onFocus={() => { productPageModule().catch(() => {}); }}>
       <Helmet>
+        <link rel="canonical" href="https://www.frankotrading.com/" />
         <title>Franko Trading | Best Phones, Laptops & Electronics Deals in Ghana</title>
         <meta
           name="description"
@@ -60,18 +73,18 @@ function Home() {
       </Helmet>
 
       <Carousel />
-   
+
       <CategoryComponent />
 
       <Deals />
-      <BestSellers />
+      <DeferredSection><BestSellers /></DeferredSection>
       <InfoBanner />
-      <PhoneDeals />
-      <LaptopDeals />
-      <FridgeDeals />
-      <TeleDeals />
+      <DeferredSection><PhoneDeals /></DeferredSection>
+      <DeferredSection><LaptopDeals /></DeferredSection>
+      <DeferredSection><FridgeDeals /></DeferredSection>
+      <DeferredSection><TeleDeals /></DeferredSection>
       <BrandsBanner />
-      <NewArrivals />
+      <DeferredSection><NewArrivals /></DeferredSection>
       <Footer />
     </div>
   );

@@ -1,3 +1,4 @@
+import { peekPublicRead } from "../utils/publicReadCache";
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { getHomePageAdvertisment } from "../Redux/Slice/advertismentSlice";
@@ -8,14 +9,18 @@ const InfoBanner = () => {
   const backendBaseURL = "https://testing.frankotrading.com";
   const targetFileId = "dceed369-a7fe-4058-8e62-5ab61df74514";
 
-  const [homePageAd, setHomePageAd] = useState(null);
+  const [homePageAd, setHomePageAd] = useState(() => {
+    const response = peekPublicRead({ endpoint: '/Advertisement/GetAdvertisment', AdsName: 'Home Page' });
+    const rows = Array.isArray(response?.data) ? response.data : response?.data?.data;
+    return (Array.isArray(rows) ? rows : []).find(ad => ad.fileId === targetFileId) || null;
+  });
 
   useEffect(() => {
     dispatch(getHomePageAdvertisment("Home Page"));
   }, [dispatch]);
 
   useEffect(() => {
-    const matchingAd = advertisments.find((ad) => ad.fileId === targetFileId);
+    const matchingAd = (Array.isArray(advertisments) ? advertisments : []).find((ad) => ad.fileId === targetFileId);
     if (matchingAd) {
       setHomePageAd(matchingAd);
     }

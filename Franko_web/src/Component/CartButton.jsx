@@ -1,6 +1,6 @@
 // src/Component/CartButton.jsx
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@material-tailwind/react";
+import Button from "@material-tailwind/react/components/Button";
 import { ShoppingCartIcon, CheckIcon } from "@heroicons/react/24/outline";
 import { message } from "antd";
 import useAddToCart from "./Cart";

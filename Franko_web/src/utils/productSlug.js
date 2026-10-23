@@ -24,22 +24,12 @@ export const isUUID = (value = "") =>
  * 1. Creating links (ProductCard -> navigate)
  * 2. Resolving links (ProductDescription -> find product)
  * 
- * If you have duplicate names, suffix with first 6 of UUID.
- * Pass allProducts only if you need disambiguation.
+ * Duplicate names must be given distinct descriptive names before publishing.
+ * Never append IDs or depend on the current catalogue to create a URL.
  */
-export const getProductSlug = (product, allProducts = []) => {
+export const getProductSlug = (product) => {
   if (!product) return "";
   const base = slugify(product.productName || product.ProductName || product.name || "");
-  if (!base) return String(product.productID || product.Productid || "").toLowerCase();
-
-  // Only check duplicates if catalogue is provided
-  if (allProducts.length > 1) {
-    const dupes = allProducts.filter(p => slugify(p.productName || p.ProductName || "") === base);
-    if (dupes.length > 1) {
-      const id = String(product.productID || product.Productid || "").slice(0, 6).toLowerCase();
-      return `${base}-${id}`;
-    }
-  }
   return base;
 };
 
@@ -80,3 +70,10 @@ export const getProductUrl = (product, allProducts = []) => {
  * For viewedProducts / cart items that only have { name } or { productName }
  */
 export const getSlugForName = (name = "") => slugify(name);
+
+// Brand IDs remain internal to the API, just like product UUIDs.
+export const getBrandSlug = (brand) => slugify(brand?.brandName || brand?.name || "");
+export const getBrandUrl = (brand) => `/brand/${getBrandSlug(brand)}`;
+export const findBrand = (brands = [], value = "") =>
+  brands.find(b => String(b.brandId).toLowerCase() === value.toLowerCase()) ||
+  brands.find(b => getBrandSlug(b) === slugify(value)) || null;

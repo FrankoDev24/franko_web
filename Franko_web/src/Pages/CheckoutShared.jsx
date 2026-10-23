@@ -1,3 +1,4 @@
+import { appStorage as localStorage } from "../utils/secureLocalStorageInit";
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -599,7 +600,7 @@ function CheckoutView({ flow }) {
         {busy && (
           <div className="co-loading-overlay">
             <div className="co-loading-card">
-              <div className="co-spinner" role="status" aria-label="Loading" />
+              <div className="co-spinner" role="status" aria-label="Please wait" />
               <div className="co-loading-text">Processing your order…</div>
             </div>
           </div>

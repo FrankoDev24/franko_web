@@ -1,3 +1,4 @@
+import { appStorage as localStorage } from "../../utils/secureLocalStorageInit";
 const clearAuthStorage = () => {
   try {
     ["customer", "user", "loginTime", "lastActivityTimestamp"].forEach(

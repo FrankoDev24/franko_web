@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
+import ProductDetailSkeleton from "./Component/ProductDetailSkeleton";
+import { productPageModule } from "./utils/productPageModule";
+import { appStorage as localStorage } from "./utils/secureLocalStorageInit";
+import { lazy, Suspense, useState, useEffect } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logoutCustomer } from "./Redux/Slice/customerSlice";
-import CryptoJS from "crypto-js";
 
 /* ==================== COMPONENTS ==================== */
 import Nav from "./Component/Nav/Navbar";
@@ -10,39 +12,38 @@ import NoInternetPage from "./Component/NoInternet";
 import ScrollToTop from "./Pages/ScrollToTop";
 
 /* ==================== PUBLIC PAGES (CUSTOMER) ==================== */
-import Home from "./Pages/Home";
-import About from "./Pages/About";
-import Contact from "./Pages/Contact";
-import BrandsPage from "./Pages/Brands";
-import ShowroomProductsPage from "./Pages/ShowRooomProducts";
-import Phones from "./Pages/Phones";
-import ProductDescription from "./Pages/ProductDescription";
-import ProductCard from "./Component/ProductCard";
-import Cart from "./Pages/Cart";
-import Laptops from "./Pages/Laptops";
-import Fridge from "./Pages/Fridge";
-import Television from "./Pages/Television";
-import Speakers from "./Pages/Speaker";
-import Accessories from "./Pages/Accessories";
-import Appliances from "./Pages/Appliances";
-import Combo from "./Pages/Combo";
-import Airconditioners from "./Pages/AC";
-import Checkout from "./Pages/Checkout";
-import OrderReceived from "./Pages/OrderReceived";
-import Locations from "./Pages/Locations";
-import Cancellation from "./Pages/OrderCancelled";
-import Account from "./Pages/Account";
-import Products from "./Pages/Products";
-import Terms from "./Pages/Terms";
-import OrderHistory from "./Pages/OrderHistory";
-import Wishlist from "./Pages/Wishlist";
-import OrderSuccess from "./Pages/OrderSucess";
+const Home = lazy(() => import("./Pages/Home"));
+const About = lazy(() => import("./Pages/About"));
+const Contact = lazy(() => import("./Pages/Contact"));
+const BrandsPage = lazy(() => import("./Pages/Brands"));
+const ShowroomProductsPage = lazy(() => import("./Pages/ShowRooomProducts"));
+const Phones = lazy(() => import("./Pages/Phones"));
+const ProductDescription = lazy(productPageModule);
+const Cart = lazy(() => import("./Pages/Cart"));
+const Laptops = lazy(() => import("./Pages/Laptops"));
+const Fridge = lazy(() => import("./Pages/Fridge"));
+const Television = lazy(() => import("./Pages/Television"));
+const Speakers = lazy(() => import("./Pages/Speaker"));
+const Accessories = lazy(() => import("./Pages/Accessories"));
+const Appliances = lazy(() => import("./Pages/Appliances"));
+const Combo = lazy(() => import("./Pages/Combo"));
+const Airconditioners = lazy(() => import("./Pages/AC"));
+const Checkout = lazy(() => import("./Pages/Checkout"));
+const OrderReceived = lazy(() => import("./Pages/OrderReceived"));
+const Locations = lazy(() => import("./Pages/Locations"));
+const Cancellation = lazy(() => import("./Pages/OrderCancelled"));
+const Account = lazy(() => import("./Pages/Account"));
+const Products = lazy(() => import("./Pages/Products"));
+const Terms = lazy(() => import("./Pages/Terms"));
+const OrderHistory = lazy(() => import("./Pages/OrderHistory"));
+const Wishlist = lazy(() => import("./Pages/Wishlist"));
+const OrderSuccess = lazy(() => import("./Pages/OrderSucess"));
 
 /* ==================== AGENT PAGES ==================== */
-import AgentPage from "./Pages/Agents/AgentPage/AgentPage";
-import AgentDashboard from "./Pages/Agents/AgentPage/AgentDashboard";
-import AgentOrders from "./Pages/Agents/AgentPage/AgentOrders";
-import CTP001ProductsPage from "./Pages/Agents/AgentPage/CTP001ProductsPage";
+const AgentPage = lazy(() => import("./Pages/Agents/AgentPage/AgentPage"));
+const AgentDashboard = lazy(() => import("./Pages/Agents/AgentPage/AgentDashboard"));
+const AgentOrders = lazy(() => import("./Pages/Agents/AgentPage/AgentOrders"));
+const CTP001ProductsPage = lazy(() => import("./Pages/Agents/AgentPage/CTP001ProductsPage"));
 
 /* ═══════════════════════════════════════════════════════════════
    ROUTES THAT RENDER WITHOUT THE MAIN NAVBAR
@@ -53,67 +54,6 @@ const shouldHideNavbar = (pathname) =>
   NAVBAR_HIDDEN_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
-
-/* ═══════════════════════════════════════════════════════════════
-   ENCRYPTED LOCALSTORAGE IMPLEMENTATION
-═══════════════════════════════════════════════════════════════ */
-const SECRET_KEY = import.meta.env.VITE_SECRET_KEY || "your-secret-key";
-
-const encrypt = (data) => {
-  try {
-    const str = typeof data === "string" ? data : JSON.stringify(data);
-    return CryptoJS.AES.encrypt(str, SECRET_KEY).toString();
-  } catch (err) {
-    console.error("Encryption error:", err);
-    return data;
-  }
-};
-
-const decrypt = (cipherText) => {
-  try {
-    if (!cipherText || typeof cipherText !== "string") return cipherText;
-    if (!cipherText.startsWith("U2FsdGVkX1")) return cipherText;
-    const bytes = CryptoJS.AES.decrypt(cipherText, SECRET_KEY);
-    const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-    return decrypted;
-  } catch (err) {
-    console.error("Decryption error:", err);
-    return cipherText;
-  }
-};
-
-(function enforceEncryptedLocalStorage() {
-  const originalSet = Storage.prototype.setItem;
-  const originalGet = Storage.prototype.getItem;
-  const originalRemove = Storage.prototype.removeItem;
-
-  Storage.prototype.setItem = function (key, value) {
-    try {
-      if (key === "lastActivityTimestamp" || (typeof value === "string" && value.startsWith("U2FsdGVkX1"))) {
-        originalSet.call(this, key, value);
-      } else {
-        const encrypted = encrypt(value);
-        originalSet.call(this, key, encrypted);
-      }
-    } catch {
-      originalSet.call(this, key, value);
-    }
-  };
-
-  Storage.prototype.getItem = function (key) {
-    try {
-      const encrypted = originalGet.call(this, key);
-      if (!encrypted) return null;
-      if (key === "lastActivityTimestamp") return encrypted;
-      const decrypted = decrypt(encrypted);
-      try { return JSON.parse(decrypted); } catch { return decrypted; }
-    } catch { return null; }
-  };
-
-  Storage.prototype.removeItem = function (key) {
-    originalRemove.call(this, key);
-  };
-})();
 
 /* ═══════════════════════════════════════════════════════════════
    SAFE STORAGE HELPERS
@@ -290,33 +230,34 @@ function App() {
       {!shouldHideNavbar(pathname) && <Nav />}
       <ScrollToTop />
 
+      <Suspense key={pathname} fallback={pathname.startsWith("/product/") ? <ProductDetailSkeleton /> : null}>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
-        <Route path="/phones" element={<Phones ProductCard={ProductCard} />} />
-        <Route path="/computers" element={<Laptops ProductCard={ProductCard} />} />
-        <Route path="/refrigerator" element={<Fridge ProductCard={ProductCard} />} />
-        <Route path="/television" element={<Television ProductCard={ProductCard} />} />
-        <Route path="/speakers" element={<Speakers ProductCard={ProductCard} />} />
-        <Route path="/accessories" element={<Accessories ProductCard={ProductCard} />} />
-        <Route path="/appliances" element={<Appliances ProductCard={ProductCard} />} />
-        <Route path="/washing-machine" element={<Combo ProductCard={ProductCard} />} />
-        <Route path="/air-condition" element={<Airconditioners ProductCard={ProductCard} />} />
+        <Route path="/phones" element={<Phones />} />
+        <Route path="/computers" element={<Laptops />} />
+        <Route path="/refrigerator" element={<Fridge />} />
+        <Route path="/television" element={<Television />} />
+        <Route path="/speakers" element={<Speakers />} />
+        <Route path="/accessories" element={<Accessories />} />
+        <Route path="/appliances" element={<Appliances />} />
+        <Route path="/washing-machine" element={<Combo />} />
+        <Route path="/air-condition" element={<Airconditioners />} />
         <Route path="/cart/:cartId" element={<Cart />} />
 
         {/* ═══════════════════════════════════════════════════
             PRODUCT ROUTE - SLUG MIGRATION
             New canonical path uses product-name slug:
               /product/samsung-galaxy-a56-5g
-            
+
             Legacy UUID path continues to work and is handled
             inside ProductDescription with a client-side redirect
             + server 301 (see SEO_MIGRATION_GUIDE.md).
             Keep the single route below - it matches BOTH
             slugs and UUIDs (UUID = just another string).
         ═══════════════════════════════════════════════════ */}
-        <Route path="/product/:slug" element={<ProductDescription />} />
+        <Route path="/product/:slug" element={<Suspense key={pathname} fallback={<ProductDetailSkeleton />}><ProductDescription /></Suspense>} />
 
         <Route path="showroom/:showRoomID" element={<ShowroomProductsPage />} />
         <Route path="/order-history" element={<OrderHistory />} />
@@ -337,6 +278,7 @@ function App() {
         <Route path="/agent/order-placement" element={<ProtectedRoute allowedRoles={["agent"]}><AgentPage><CTP001ProductsPage /></AgentPage></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
+      </Suspense>
     </>
   );
 }

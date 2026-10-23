@@ -1,3 +1,4 @@
+import { getProductUrl } from "../utils/productSlug";
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -18,7 +19,7 @@ import {
   addToWishlist,
   removeFromWishlist,
 } from "../Redux/Slice/wishlistSlice";
-import { Tooltip } from "@material-tailwind/react";
+import Tooltip from "@material-tailwind/react/components/Tooltip";
 import useAddToCart from "./Cart";
 
 // ==================== NOTIFICATION ====================
@@ -71,7 +72,7 @@ const LaptopDeals = () => {
   const scrollRef = useRef(null);
   const categoryId = "12f11417-4f9e-4e4a-a18d-f9ff0d4c85a6";
 
-  const { productsByCategory = {}, loading } = useSelector((state) => state.products);
+  const { productsByCategory = {} } = useSelector((state) => state.products);
   const { addProductToCart, loading: cartLoading } = useAddToCart();
   const wishlist = useSelector((state) => state.wishlist.items || []);
 
@@ -355,7 +356,7 @@ const LaptopDeals = () => {
           align-items: center;
           justify-content: center;
           padding: 10px;
-         
+
           overflow: hidden;
         }
 
@@ -652,31 +653,9 @@ const LaptopDeals = () => {
             className="flex gap-3 md:gap-4 overflow-x-auto ld-no-scrollbar scroll-smooth"
             style={{ paddingBottom: 4, paddingLeft: 1, paddingRight: 1 }}
           >
-            {(loading
-              ? [...Array(10)]
-              : sortedProducts
+            {(sortedProducts
             ).map((product, idx) => {
-              if (loading || !product) {
-                return (
-                  <div
-                    key={idx}
-                    className="ld-skeleton"
-                    style={{ marginBottom: 4 }}
-                  >
-                    <div className="ld-skeleton-img" />
-                    <div style={{ padding: "10px 12px" }}>
-                      <div
-                        className="ld-skeleton-line"
-                        style={{ width: "80%", marginBottom: 8 }}
-                      />
-                      <div
-                        className="ld-skeleton-line"
-                        style={{ width: "50%", height: 8 }}
-                      />
-                    </div>
-                  </div>
-                );
-              }
+              if (!product) return null;
 
               const {
                 productID,
@@ -718,9 +697,9 @@ const LaptopDeals = () => {
                         alignItems: "center",
                         justifyContent: "center",
                       }}
-                      onClick={() => navigate(`/product/${productID}`)}
+                      onClick={() => navigate(getProductUrl({ productName }))}
                     >
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={getValidImageUrl(productImage)}
                         alt={productName}
                       />
@@ -728,7 +707,7 @@ const LaptopDeals = () => {
 
                     <div
                       className="ld-card-overlay"
-                      onClick={() => navigate(`/product/${productID}`)}
+                      onClick={() => navigate(getProductUrl({ productName }))}
                     >
                       <Tooltip
                         content={
@@ -769,7 +748,7 @@ const LaptopDeals = () => {
                           className="ld-card-action"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/product/${productID}`);
+                            navigate(getProductUrl({ productName }));
                           }}
                         >
                           <EyeIcon
@@ -818,7 +797,7 @@ const LaptopDeals = () => {
               );
             })}
 
-            {!loading && sortedProducts.length > 0 && (
+            {sortedProducts.length > 0 && (
               <Link to="/computers" className="ld-view-all">
                 <div className="ld-view-all-circle">
                   <ArrowRightIcon

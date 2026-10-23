@@ -53,9 +53,9 @@ const withAccessCode = (WrappedComponent) => {
     if (!hasAccess) {
       return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <AccessCodeModal 
-            visible={showAccessModal} 
-            onSuccess={handleAccessSuccess} 
+          <AccessCodeModal
+            visible={showAccessModal}
+            onSuccess={handleAccessSuccess}
           />
         </div>
       );

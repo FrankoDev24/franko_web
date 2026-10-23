@@ -1,3 +1,4 @@
+import { appStorage as localStorage } from "../utils/secureLocalStorageInit";
 // src/hooks/useCustomer.js
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
@@ -64,7 +65,7 @@ export const pickCustomerFromState = (state) => {
 
 export const readCustomerFromStorage = () => {
   try {
-    const raw = window.localStorage.getItem("customer");
+    const raw = localStorage.getItem("customer");
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return isCustomerRecord(parsed) ? parsed : null;
@@ -77,7 +78,7 @@ export const readCustomerFromStorage = () => {
 export const persistCustomer = (customer) => {
   try {
     if (customer && typeof customer === "object") {
-      window.localStorage.setItem("customer", JSON.stringify(customer));
+      localStorage.setItem("customer", JSON.stringify(customer));
     }
   } catch {
     /* storage unavailable — Redux still holds the session */
@@ -86,7 +87,7 @@ export const persistCustomer = (customer) => {
 
 export const clearPersistedCustomer = () => {
   try {
-    window.localStorage.removeItem("customer");
+    localStorage.removeItem("customer");
   } catch {
     /* ignore */
   }

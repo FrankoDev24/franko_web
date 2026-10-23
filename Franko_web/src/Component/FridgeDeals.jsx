@@ -1,3 +1,4 @@
+import { getProductUrl } from "../utils/productSlug";
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -18,7 +19,7 @@ import {
   addToWishlist,
   removeFromWishlist,
 } from "../Redux/Slice/wishlistSlice";
-import { Tooltip } from "@material-tailwind/react";
+import Tooltip from "@material-tailwind/react/components/Tooltip";
 import useAddToCart from "./Cart";
 
 // ==================== NOTIFICATION ====================
@@ -71,7 +72,7 @@ const FridgeDeals = () => {
   const scrollRef = useRef(null);
   const categoryId = "4f5076f8-34b6-42b8-a9c5-a1e92e3d08fb";
 
-  const { productsByCategory = {}, loading } = useSelector(
+  const { productsByCategory = {} } = useSelector(
     (state) => state.products
   );
   const { addProductToCart, loading: cartLoading } = useAddToCart();
@@ -359,7 +360,7 @@ const FridgeDeals = () => {
           align-items: center;
           justify-content: center;
           padding: 10px;
-    
+
           overflow: hidden;
         }
 
@@ -658,29 +659,9 @@ const FridgeDeals = () => {
             className="flex gap-3 md:gap-4 overflow-x-auto fd-no-scrollbar scroll-smooth"
             style={{ paddingBottom: 4, paddingLeft: 1, paddingRight: 1 }}
           >
-            {(loading ? [...Array(10)] : sortedProducts).map(
+            {(sortedProducts).map(
               (product, idx) => {
-                if (loading || !product) {
-                  return (
-                    <div
-                      key={idx}
-                      className="fd-skeleton"
-                      style={{ marginBottom: 4 }}
-                    >
-                      <div className="fd-skeleton-img" />
-                      <div style={{ padding: "10px 12px" }}>
-                        <div
-                          className="fd-skeleton-line"
-                          style={{ width: "80%", marginBottom: 8 }}
-                        />
-                        <div
-                          className="fd-skeleton-line"
-                          style={{ width: "50%", height: 8 }}
-                        />
-                      </div>
-                    </div>
-                  );
-                }
+                if (!product) return null;
 
                 const {
                   productID,
@@ -722,9 +703,9 @@ const FridgeDeals = () => {
                           alignItems: "center",
                           justifyContent: "center",
                         }}
-                        onClick={() => navigate(`/product/${productID}`)}
+                        onClick={() => navigate(getProductUrl({ productName }))}
                       >
-                        <img
+                        <img loading="lazy" decoding="async"
                           src={getValidImageUrl(productImage)}
                           alt={productName}
                         />
@@ -732,7 +713,7 @@ const FridgeDeals = () => {
 
                       <div
                         className="fd-card-overlay"
-                        onClick={() => navigate(`/product/${productID}`)}
+                        onClick={() => navigate(getProductUrl({ productName }))}
                       >
                         <Tooltip
                           content={
@@ -773,7 +754,7 @@ const FridgeDeals = () => {
                             className="fd-card-action"
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/product/${productID}`);
+                              navigate(getProductUrl({ productName }));
                             }}
                           >
                             <EyeIcon
@@ -826,7 +807,7 @@ const FridgeDeals = () => {
             )}
 
             {/* View All card only if 8 or more products */}
-            {!loading && hasEnoughProducts && (
+            {hasEnoughProducts && (
               <Link to="/refrigerator" className="fd-view-all">
                 <div className="fd-view-all-circle">
                   <ArrowRightIcon

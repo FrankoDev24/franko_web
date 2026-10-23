@@ -1,3 +1,4 @@
+import { getProductUrl } from "../utils/productSlug";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -290,13 +291,13 @@ const ProductCard = memo(function ProductCard({
     <article className="group flex flex-col bg-white border border-[#e6e1dc] rounded-xl overflow-hidden transition hover:border-[#c9d9cf] hover:shadow-sm">
       <div
         className="relative aspect-[4/3] flex items-center justify-center p-2 cursor-pointer"
-        onClick={() => onOpen(id)}
+        onClick={() => onOpen(product)}
         role="link"
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            onOpen(id);
+            onOpen(product);
           }
         }}
         aria-label={`View ${name}`}
@@ -515,7 +516,7 @@ const Speed = () => {
   const isInitialLoading = loading && !hasLoadedOnce;
   const hasNoResults = hasLoadedOnce && !loading && filteredProducts.length === 0;
   const dealsLabel = isInitialLoading
-    ? "Loading deals…"
+    ? ""
     : `${filteredProducts.length} ${filteredProducts.length === 1 ? "deal" : "deals"}`;
 
   /* ---------- handlers ---------- */
@@ -561,7 +562,7 @@ const Speed = () => {
   };
 
   const goBrowse = useCallback(() => navigate(BROWSE_ALL_URL), [navigate]);
-  const openProduct = useCallback((id) => navigate(`/product/${id}`), [navigate]);
+  const openProduct = useCallback((product) => navigate(getProductUrl(product)), [navigate]);
 
   // Same flow as Deals: await addProductToCart, then notify.
   // The extra state only drives the per-card cart icon (spinner -> check).
@@ -998,7 +999,7 @@ const Speed = () => {
                   <div className="hidden lg:flex items-center justify-between gap-4 mb-4">
                     <p className="text-sm text-[#6d7a74]">
                       {isInitialLoading ? (
-                        "Loading deals…"
+                        ""
                       ) : (
                         <>
                           <span className="font-semibold text-[#2c3330]">{filteredProducts.length}</span>{" "}
@@ -1098,7 +1099,7 @@ const Speed = () => {
                           ? "No matches for these filters"
                           : phase === "ended"
                           ? "Speed Shopping is closed"
-                          : "Deals are still loading"}
+                          : "Browse our latest deals"}
                       </h2>
                       <p className="text-[#6d7a74] text-sm max-w-md mx-auto mb-6">
                         {filtersActive

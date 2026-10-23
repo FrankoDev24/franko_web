@@ -1,3 +1,4 @@
+import { getProductUrl } from "../utils/productSlug";
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -19,7 +20,7 @@ import {
   addToWishlist,
   removeFromWishlist,
 } from "../Redux/Slice/wishlistSlice";
-import { Tooltip } from "@material-tailwind/react";
+import Tooltip from "@material-tailwind/react/components/Tooltip";
 import useAddToCart from "./Cart";
 
 // ==================== NOTIFICATION ====================
@@ -73,14 +74,14 @@ const BestSellers = () => {
   const tabsRef = useRef(null);
 
   const { homePageShowrooms } = useSelector((state) => state.showrooms);
-  const { productsByShowroom, loading } = useSelector((state) => state.products);
+  const { productsByShowroom } = useSelector((state) => state.products);
   const { addProductToCart, loading: cartLoading } = useAddToCart();
   const wishlist = useSelector((state) => state.wishlist.items || []);
 
   const isInWishlist = (id) =>
     Array.isArray(wishlist) && wishlist.some((item) => item.id === id);
 
-  const [activeShowroom, setActiveShowroom] = useState(null);
+  const [activeShowroom, setActiveShowroom] = useState(() => homePageShowrooms?.[0]?.showRoomID || null);
   const [isHovered, setIsHovered] = useState(false);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
@@ -424,7 +425,7 @@ const BestSellers = () => {
           align-items: center;
           justify-content: center;
           padding: 10px;
- 
+
           overflow: hidden;
         }
 
@@ -745,31 +746,9 @@ const BestSellers = () => {
             className="flex gap-3 md:gap-4 overflow-x-auto bs-no-scrollbar scroll-smooth"
             style={{ paddingBottom: 4, paddingLeft: 1, paddingRight: 1 }}
           >
-            {(loading
-              ? [...Array(8)]
-              : productsByShowroom?.[activeShowroom]
+            {(productsByShowroom?.[activeShowroom]
             )?.map((product, idx) => {
-              if (loading) {
-                return (
-                  <div
-                    key={idx}
-                    className="bs-skeleton"
-                    style={{ marginBottom: 4 }}
-                  >
-                    <div className="bs-skeleton-img" />
-                    <div style={{ padding: "10px 12px" }}>
-                      <div
-                        className="bs-skeleton-line"
-                        style={{ width: "80%", marginBottom: 8 }}
-                      />
-                      <div
-                        className="bs-skeleton-line"
-                        style={{ width: "50%", height: 8 }}
-                      />
-                    </div>
-                  </div>
-                );
-              }
+              if (!product) return null;
 
               const {
                 productID,
@@ -810,9 +789,9 @@ const BestSellers = () => {
                         alignItems: "center",
                         justifyContent: "center",
                       }}
-                      onClick={() => navigate(`/product/${productID}`)}
+                      onClick={() => navigate(getProductUrl({ productName }))}
                     >
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={getValidImageUrl(productImage)}
                         alt={productName}
                       />
@@ -820,7 +799,7 @@ const BestSellers = () => {
 
                     <div
                       className="bs-card-overlay"
-                      onClick={() => navigate(`/product/${productID}`)}
+                      onClick={() => navigate(getProductUrl({ productName }))}
                     >
                       <Tooltip
                         content={
@@ -861,7 +840,7 @@ const BestSellers = () => {
                           className="bs-card-action"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/product/${productID}`);
+                            navigate(getProductUrl({ productName }));
                           }}
                         >
                           <EyeIcon
@@ -912,8 +891,7 @@ const BestSellers = () => {
               );
             })}
 
-            {!loading &&
-              productsByShowroom?.[activeShowroom]?.length > 0 && (
+            {productsByShowroom?.[activeShowroom]?.length > 0 && (
                 <Link
                   to={`/showroom/${activeShowroom}`}
                   className="bs-view-all"

@@ -308,12 +308,12 @@ const formatDateTime = (dateString) => {
               <div class="total-row grand"><span>Total Paid</span><span>GH₵ ${formatPrice(totalAmount)}</span></div>
             </div>
 
-          
+
 
           <div class="footer">
             <div class="thank">Thank you for shopping with Franko Trading! 🎉</div>
             <p>This is a computer-generated invoice • No signature required • Valid as original</p>
-           
+
           </div>
         </div>
       </body>
@@ -508,7 +508,7 @@ const formatDateTime = (dateString) => {
         {loading ? (
           <div style={{ textAlign: "center", padding: 64 }}>
             <Spin size="large" />
-            <div style={{ marginTop: 12, color: "#6b7280", fontSize: 13 }}>Loading order details...</div>
+            <div style={{ marginTop: 12, color: "#6b7280", fontSize: 13 }}></div>
           </div>
         ) : error ? (
           <div style={{ textAlign: "center", padding: 48 }}>

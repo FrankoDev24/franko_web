@@ -1,3 +1,4 @@
+import { getProductUrl } from "../utils/productSlug";
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -5,7 +6,7 @@ import {
   removeFromWishlist,
 } from "../Redux/Slice/wishlistSlice";
 import { fetchProducts } from "../Redux/Slice/productSlice";
-import { Tooltip } from "@material-tailwind/react";
+import Tooltip from "@material-tailwind/react/components/Tooltip";
 import {
   HeartIcon as OutlineHeartIcon,
   HeartIcon as SolidHeartIcon,
@@ -83,7 +84,7 @@ const SkeletonCard = () => (
 const NewArrivals = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { products, loading } = useSelector((state) => state.products);
+  const { products } = useSelector((state) => state.products);
   const wishlist = useSelector((state) => state.wishlist.items || []);
   const { addProductToCart, loading: cartLoading } = useAddToCart();
 
@@ -526,9 +527,9 @@ const NewArrivals = () => {
 
         {/* ==================== GRID ==================== */}
         <div className="na-grid">
-          {(loading ? Array.from({ length: 10 }) : recentProducts).map(
+          {(recentProducts).map(
             (product, index) => {
-              if (loading || !product) return <SkeletonCard key={index} />;
+              if (!product) return null;
 
               const {
                 productID,
@@ -562,9 +563,9 @@ const NewArrivals = () => {
                         alignItems: "center",
                         justifyContent: "center",
                       }}
-                      onClick={() => navigate(`/product/${productID}`)}
+                      onClick={() => navigate(getProductUrl({ productName }))}
                     >
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={getValidImageUrl(productImage)}
                         alt={productName}
                         onError={(e) => {
@@ -576,7 +577,7 @@ const NewArrivals = () => {
 
                     <div
                       className="na-card-overlay"
-                      onClick={() => navigate(`/product/${productID}`)}
+                      onClick={() => navigate(getProductUrl({ productName }))}
                     >
                       <Tooltip
                         content={
@@ -615,7 +616,7 @@ const NewArrivals = () => {
                           className="na-card-action"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/product/${productID}`);
+                            navigate(getProductUrl({ productName }));
                           }}
                         >
                           <EyeIcon

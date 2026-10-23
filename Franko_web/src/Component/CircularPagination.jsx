@@ -1,5 +1,6 @@
 import React from "react";
-import { Button, IconButton } from "@material-tailwind/react";
+import Button from "@material-tailwind/react/components/Button";
+import IconButton from "@material-tailwind/react/components/IconButton";
 import { ArrowRightIcon, ArrowLeftIcon } from "@heroicons/react/24/outline";
 
 export const CircularPagination = ({ currentPage, totalPages, onPageChange }) => {

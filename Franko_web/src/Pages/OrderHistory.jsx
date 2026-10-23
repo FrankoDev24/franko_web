@@ -1,3 +1,4 @@
+import { appStorage as localStorage } from "../utils/secureLocalStorageInit";
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import * as orderSliceActions from "../Redux/Slice/orderSlice";
@@ -899,7 +900,7 @@ const OrderHistoryPage = () => {
         <div className="oh-spinner-ring" />
       </div>
       <h3 className="oh-empty-title" style={{ marginTop: 20 }}>
-        Loading your orders
+
       </h3>
       <p className="oh-empty-desc">Fetching latest order information...</p>
     </div>
@@ -966,7 +967,7 @@ const OrderHistoryPage = () => {
               <h1 className="oh-page-title">Order History</h1>
               <p className="oh-page-subtitle">
                 {showInitialLoader
-                  ? "Loading..."
+                  ? ""
                   : `${transformedOrders.length} ${
                       transformedOrders.length === 1 ? "order" : "orders"
                     } • ${stats.total} total`}
@@ -1145,7 +1146,7 @@ const OrderHistoryPage = () => {
             )}
           </div>
 
-         
+
         </div>
 
         {/* ==================== ORDER LIFECYCLE / TRACKING MODAL (MAINTAINED FROM 1ST UI) ==================== */}
@@ -1238,7 +1239,7 @@ const OrderHistoryPage = () => {
                   })}
                 </div>
               )}
-            
+
             </div>
           )}
         </Modal>

@@ -1,3 +1,4 @@
+import { appStorage as localStorage } from "../../../utils/secureLocalStorageInit";
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchOrdersByCustomer } from "../../../Redux/Slice/orderSlice";
@@ -909,7 +910,7 @@ const AgentOrders = () => {
     <div className="oh-empty-state">
       <Spin size="large" />
       <div className="oh-empty-title" style={{ marginTop: 20 }}>
-        Loading Orders
+
       </div>
       <div className="oh-empty-desc">
         Fetching orders for {rangeLabel.toLowerCase()}...
@@ -983,7 +984,7 @@ const AgentOrders = () => {
               <h1 className="oh-page-title">Order History</h1>
               <p className="oh-page-subtitle">
                 {loading
-                  ? `Loading ${rangeLabel.toLowerCase()}...`
+                  ? ""
                   : `${transformedOrders.length} order${
                       transformedOrders.length !== 1 ? "s" : ""
                     } · ${rangeLabel}`}

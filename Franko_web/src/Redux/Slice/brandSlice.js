@@ -1,3 +1,5 @@
+import { publicGet } from "../../utils/publicReadCache";
+import { catalogueRows } from "../../utils/catalogueShape.mjs";
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "./AxiosInstance";
 
@@ -8,17 +10,25 @@ export const fetchBrands = createAsyncThunk(
   "brand/fetchBrands",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get("/", {
+      const response = await publicGet("/", {
         params: {
           endpoint: "/Brand/Get-Brand",
         },
       });
-      return response.data;
+      const rows = catalogueRows(response.data, "brands");
+      if (!rows) throw new Error("Invalid brands response: expected a list");
+      return rows;
     } catch (error) {
       return rejectWithValue(
         error.response?.data || error.message || "Failed to fetch brands"
       );
     }
+  },
+  {
+    condition: (_, { getState }) => {
+      const state = getState().brands;
+      return !state.loading && (!state.lastFetched || Date.now() - state.lastFetched > 60_000);
+    },
   }
 );
 
@@ -101,6 +111,7 @@ const brandSlice = createSlice({
   name: "brands",
   initialState: {
     brands: [],
+    lastFetched: 0,
     loading: false,
     error: null,
   },
@@ -114,7 +125,8 @@ const brandSlice = createSlice({
       })
       .addCase(fetchBrands.fulfilled, (state, action) => {
         state.loading = false;
-        state.brands = action.payload;
+        state.brands = catalogueRows(action.payload, "brands") || [];
+        state.lastFetched = Date.now();
       })
       .addCase(fetchBrands.rejected, (state, action) => {
         state.loading = false;

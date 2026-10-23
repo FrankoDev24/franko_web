@@ -1,3 +1,4 @@
+import { getProductUrl } from "../utils/productSlug";
 import React, { useState , useEffect} from "react";
 import { useNavigate } from "react-router-dom";
 import { Heart, ShoppingBag, X, Plus, Star, Filter } from "lucide-react";
@@ -18,8 +19,8 @@ const Wishlist = () => {
       ? `https://testing.frankotrading.com/Media/Products_Images/${path.split("\\").pop()}`
       : path || "https://via.placeholder.com/400x400?text=No+Image";
 
-  const handleCardClick = (productID) => {
-    navigate(`/product/${productID}`);
+  const handleCardClick = (product) => {
+    navigate(getProductUrl(product));
   };
 
   const handleRemove = (e, productID) => {
@@ -48,22 +49,22 @@ const Wishlist = () => {
       <div className="relative bg-gradient-to-r from-red-500 via-pink-500 to-red-600 overflow-hidden">
         <div className="absolute inset-0 bg-black/10"></div>
         <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/10 to-transparent"></div>
-        
+
         <div className="relative max-w-7xl mx-auto px-6 py-4 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full mb-6 shadow-lg">
             <Heart className="w-8 h-8 text-white fill-current animate-pulse" />
           </div>
-          
+
           <h1 className="text-2xl md:text-2xl font-bold mb-4 text-white drop-shadow-lg">
             My Wishlist
           </h1>
-          
+
           <p className="text-sm md:text-lg text-white/90 max-w-2xl mx-auto leading-relaxed">
             {wishlist.length === 0
               ? "Curate your perfect collection of dream items"
               : `${wishlist.length} carefully selected item${wishlist.length !== 1 ? "s" : ""} awaiting your attention`}
           </p>
-          
+
           {/* Decorative Elements */}
           <div className="absolute top-8 left-8 w-20 h-20 bg-white/10 rounded-full blur-xl"></div>
           <div className="absolute bottom-8 right-8 w-32 h-32 bg-white/5 rounded-full blur-2xl"></div>
@@ -80,16 +81,16 @@ const Wishlist = () => {
                 <ShoppingBag className="w-12 h-12 text-gray-400" />
               </div>
             </div>
-            
+
             <h3 className="text-3xl font-bold text-gray-800 mb-4">
               Your wishlist awaits
             </h3>
-            
+
             <p className="text-gray-600 max-w-md mx-auto leading-relaxed mb-8">
               Start exploring and add products that catch your eye. Your perfect finds are just a click away.
             </p>
-            
-            <button 
+
+            <button
               onClick={() => navigate('/products')}
               className="inline-flex items-center gap-2 bg-gradient-to-r from-red-500 to-pink-500 text-white px-8 py-3 rounded-full font-semibold hover:from-red-600 hover:to-pink-600 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
             >
@@ -112,7 +113,7 @@ const Wishlist = () => {
                   <p className="text-sm text-gray-500">Ready to purchase</p>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-3">
                 <Filter className="w-4 h-4 text-gray-500" />
                 <select
@@ -133,7 +134,7 @@ const Wishlist = () => {
               {sortedWishlist.map((item, index) => (
                 <div
                   key={item.productID || index}
-                  onClick={() => handleCardClick(item.productID)}
+                  onClick={() => handleCardClick(item)}
                   className="group cursor-pointer bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 hover:border-red-200 relative transform hover:-translate-y-1"
                 >
                   {/* Enhanced Image Container */}
@@ -144,10 +145,10 @@ const Wishlist = () => {
                       className="w-full h-full object-contain p-4 group-hover:scale-110 transition-transform duration-500"
                       loading="lazy"
                     />
-                    
+
                     {/* Gradient Overlay */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    
+
                     {/* Enhanced Remove Button */}
                     <button
                       onClick={(e) => handleRemove(e, item.id || item.productID)}
@@ -169,12 +170,12 @@ const Wishlist = () => {
                     <h3 className="text-gray-800 text-sm font-medium leading-tight line-clamp-2 group-hover:text-red-600 transition-colors duration-200 min-h-[2.5rem]">
                       {item.productName}
                     </h3>
-                    
+
                     <div className="flex items-center justify-between">
                       <div className="text-lg font-bold text-red-500">
                         GH₵ {parseFloat(item.price).toFixed(2)}
                       </div>
-                      
+
                       <div className="flex items-center gap-1">
                         <Star className="w-4 h-4 text-yellow-400 fill-current" />
                         <span className="text-xs text-gray-500">4.5</span>

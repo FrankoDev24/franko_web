@@ -1,3 +1,6 @@
+import PendingPlaceholder from "../Component/PendingPlaceholder";
+import { findBrand, getBrandSlug } from "../utils/productSlug";
+import { getBrandUrl, getProductUrl } from "../utils/productSlug";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -187,13 +190,13 @@ const ProductCard = memo(function ProductCard({
     <article className="group flex flex-col bg-white border border-[#e6e1dc] rounded-xl overflow-hidden transition hover:border-[#c9d9cf] hover:shadow-sm">
       <div
         className="relative aspect-[4/3] flex items-center justify-center p-2 cursor-pointer"
-        onClick={() => onOpen(id)}
+        onClick={() => onOpen(product)}
         role="link"
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            onOpen(id);
+            onOpen(product);
           }
         }}
         aria-label={`View ${name}`}
@@ -275,12 +278,14 @@ const ProductCard = memo(function ProductCard({
 /* ============================ MAIN COMPONENT ============================ */
 
 const Brand = () => {
-  const { brandId } = useParams();
+  const { brandId: brandParam } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
   const { brandProducts = [], loading } = useSelector((s) => s.products);
-  const { brands = [] } = useSelector((s) => s.brands);
+  const { brands = [], loading: brandsLoading, error: brandsError } = useSelector((s) => s.brands);
+  const resolvedBrand = findBrand(brands, brandParam);
+  const brandId = resolvedBrand?.brandId;
   const { addProductToCart, loading: cartLoading } = useAddToCart();
 
   const [recentlyAdded, setRecentlyAdded] = useState(() => new Set());
@@ -325,11 +330,18 @@ const Brand = () => {
     window.scrollTo?.({ top: 0, behavior: "smooth" });
     setHasLoadedOnce(false);
     setPage(1);
-    dispatch(fetchBrands());
+    if (!brandId) return;
     const request = dispatch(fetchProductsByBrand(brandId));
     if (request?.then) request.then(() => setHasLoadedOnce(true));
     else setHasLoadedOnce(true);
   }, [dispatch, brandId]);
+
+  useEffect(() => { dispatch(fetchBrands()); }, [dispatch]);
+  useEffect(() => {
+    if (resolvedBrand && brandParam !== getBrandSlug(resolvedBrand)) {
+      navigate(getBrandUrl(resolvedBrand), { replace: true });
+    }
+  }, [resolvedBrand, brandParam, navigate]);
 
   // Lock scroll + Escape to close while the filter sheet is open.
   useEffect(() => {
@@ -385,7 +397,7 @@ const Brand = () => {
   const isInitialLoading = loading && !hasLoadedOnce;
   const hasNoResults = hasLoadedOnce && !loading && filteredProducts.length === 0;
   const countLabel = isInitialLoading
-    ? "Loading products…"
+    ? ""
     : `${filteredProducts.length} ${
         filteredProducts.length === 1 ? "product" : "products"
       }`;
@@ -431,7 +443,7 @@ const Brand = () => {
     setDrawerOpen(false);
   };
 
-  const openProduct = useCallback((id) => navigate(`/product/${id}`), [navigate]);
+  const openProduct = useCallback((product) => navigate(getProductUrl(product)), [navigate]);
 
   const handleAddToCart = useCallback(
     async (product) => {
@@ -553,7 +565,7 @@ const Brand = () => {
                   key={b.brandId}
                   aria-pressed={isCurrent}
                   onClick={() => {
-                    navigate(`/brand/${b.brandId}`);
+                    navigate(getBrandUrl(b));
                     setDrawerOpen(false);
                   }}
                   className={`px-3 py-2 min-h-[38px] text-xs rounded-full border font-medium transition active:scale-[0.97] ${
@@ -594,7 +606,7 @@ const Brand = () => {
   const description = selectedBrand
     ? `Buy genuine ${brandName} electronics and accessories at Franko Trading. Fast delivery and best prices guaranteed.`
     : "Browse a wide selection of authentic electronics and accessories from top brands.";
-  const pageUrl = `https://www.frankotrading.com/brand/${brandId}`;
+  const pageUrl = `https://www.frankotrading.com/brand/${getBrandSlug(resolvedBrand) || brandParam}`;
 
   const structuredData = {
     "@context": "https://schema.org",
@@ -652,7 +664,7 @@ const Brand = () => {
             priceValidUntil: "2026-12-31",
             itemCondition: "https://schema.org/NewCondition",
             availability: "https://schema.org/InStock",
-            url: `https://www.frankotrading.com/product/${product.productID}`,
+            url: `https://www.frankotrading.com${getProductUrl(product)}`,
             seller: {
               "@type": "Organization",
               name: "Franko Trading Enterprise",
@@ -700,6 +712,8 @@ const Brand = () => {
   };
 
   /* ============================ RENDER ============================ */
+
+  if (!resolvedBrand) return <><Helmet><meta name="robots" content="noindex" /></Helmet><main className="p-8 text-center" role="status">{brandsLoading ? <PendingPlaceholder compact /> : brandsError ? "Unable to load brands. Please retry." : "Brand not found."}</main></>;
 
   return (
     <>
@@ -781,12 +795,12 @@ const Brand = () => {
               <div className="min-w-0">
                 <h1 className="text-lg sm:text-xl lg:text-2xl font-semibold text-[#2c3330] leading-tight truncate">
                   {isInitialLoading
-                    ? "Loading…"
+                    ? ""
                     : selectedBrand?.brandName || "Brand Products"}
                 </h1>
                 <p className="mt-0.5 text-xs text-[#6d7a74]">
                   {isInitialLoading
-                    ? "Loading products…"
+                    ? ""
                     : `${filteredProducts.length} ${
                         filteredProducts.length === 1 ? "product" : "products"
                       } available`}
@@ -902,7 +916,7 @@ const Brand = () => {
               <div className="hidden lg:flex items-center justify-between gap-4 mb-4">
                 <p className="text-sm text-[#6d7a74]">
                   {isInitialLoading ? (
-                    "Loading products…"
+                    ""
                   ) : (
                     <>
                       <span className="font-semibold text-[#2c3330]">

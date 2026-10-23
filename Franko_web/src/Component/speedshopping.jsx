@@ -1,3 +1,4 @@
+import { getProductUrl } from "../utils/productSlug";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -13,7 +14,7 @@ import {
   SparklesIcon,
   XCircleIcon,
 } from "@heroicons/react/24/solid";
-import { Tooltip } from "@material-tailwind/react";
+import Tooltip from "@material-tailwind/react/components/Tooltip";
 
 import { fetchProductByShowroomAndRecord } from "../Redux/Slice/productSlice";
 import {
@@ -841,7 +842,7 @@ const SpeedShoppingPage = () => {
                     <article
                       key={productID}
                       className="shp-card"
-                      onClick={() => navigate(`/product/${productID}`)}
+                      onClick={() => navigate(getProductUrl({ productName }))}
                     >
                       <div className="shp-card-image">
                         {numericStock === 0 && <span className="shp-badge sold">Sold Out</span>}
@@ -878,7 +879,7 @@ const SpeedShoppingPage = () => {
                             <button
                               type="button"
                               className="shp-action-button"
-                              onClick={() => navigate(`/product/${productID}`)}
+                              onClick={() => navigate(getProductUrl({ productName }))}
                               aria-label="View product details"
                             >
                               <EyeIcon style={{ width: 16, height: 16, color: "var(--shp-purple)" }} />

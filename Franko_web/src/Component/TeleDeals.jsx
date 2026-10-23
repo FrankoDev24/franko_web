@@ -1,3 +1,4 @@
+import { getProductUrl } from "../utils/productSlug";
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -18,7 +19,7 @@ import {
   addToWishlist,
   removeFromWishlist,
 } from "../Redux/Slice/wishlistSlice";
-import { Tooltip } from "@material-tailwind/react";
+import Tooltip from "@material-tailwind/react/components/Tooltip";
 import useAddToCart from "./Cart";
 
 // ==================== NOTIFICATION ====================
@@ -71,7 +72,7 @@ const TeleDeals = () => {
   const scrollRef = useRef(null);
   const categoryId = "b51e02c2-540a-484a-9307-392fac7b50ed";
 
-  const { productsByCategory = {}, loading } = useSelector((state) => state.products);
+  const { productsByCategory = {} } = useSelector((state) => state.products);
   const { addProductToCart, loading: cartLoading } = useAddToCart();
   const wishlist = useSelector((state) => state.wishlist.items || []);
 
@@ -651,31 +652,9 @@ const TeleDeals = () => {
             className="flex gap-3 md:gap-4 overflow-x-auto td-no-scrollbar scroll-smooth"
             style={{ paddingBottom: 4, paddingLeft: 1, paddingRight: 1 }}
           >
-            {(loading
-              ? [...Array(10)]
-              : sortedProducts
+            {(sortedProducts
             ).map((product, idx) => {
-              if (loading || !product) {
-                return (
-                  <div
-                    key={idx}
-                    className="td-skeleton"
-                    style={{ marginBottom: 4 }}
-                  >
-                    <div className="td-skeleton-img" />
-                    <div style={{ padding: "10px 12px" }}>
-                      <div
-                        className="td-skeleton-line"
-                        style={{ width: "80%", marginBottom: 8 }}
-                      />
-                      <div
-                        className="td-skeleton-line"
-                        style={{ width: "50%", height: 8 }}
-                      />
-                    </div>
-                  </div>
-                );
-              }
+              if (!product) return null;
 
               const {
                 productID,
@@ -717,9 +696,9 @@ const TeleDeals = () => {
                         alignItems: "center",
                         justifyContent: "center",
                       }}
-                      onClick={() => navigate(`/product/${productID}`)}
+                      onClick={() => navigate(getProductUrl({ productName }))}
                     >
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={getValidImageUrl(productImage)}
                         alt={productName}
                       />
@@ -727,7 +706,7 @@ const TeleDeals = () => {
 
                     <div
                       className="td-card-overlay"
-                      onClick={() => navigate(`/product/${productID}`)}
+                      onClick={() => navigate(getProductUrl({ productName }))}
                     >
                       <Tooltip
                         content={
@@ -768,7 +747,7 @@ const TeleDeals = () => {
                           className="td-card-action"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/product/${productID}`);
+                            navigate(getProductUrl({ productName }));
                           }}
                         >
                           <EyeIcon
@@ -817,7 +796,7 @@ const TeleDeals = () => {
               );
             })}
 
-            {!loading && sortedProducts.length > 0 && (
+            {sortedProducts.length > 0 && (
               <Link to="/television" className="td-view-all">
                 <div className="td-view-all-circle">
                   <ArrowRightIcon

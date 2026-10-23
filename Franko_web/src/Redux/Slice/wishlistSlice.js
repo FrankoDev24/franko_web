@@ -1,3 +1,4 @@
+import { appStorage as localStorage } from "../../utils/secureLocalStorageInit";
 import { createSlice } from '@reduxjs/toolkit';
 
 // Load initial wishlist from localStorage

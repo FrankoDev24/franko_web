@@ -1,3 +1,4 @@
+import { getProductUrl } from "../utils/productSlug";
 import {
   HeartIcon as OutlineHeartIcon,
   HeartIcon as SolidHeartIcon,
@@ -6,7 +7,7 @@ import {
   CheckCircleIcon,
   XCircleIcon
 } from "@heroicons/react/24/solid";
-import { Tooltip } from "@material-tailwind/react";
+import Tooltip from "@material-tailwind/react/components/Tooltip";
 import useAddToCart from "./Cart";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -164,9 +165,9 @@ const ProductCard = ({ currentProducts = [], navigate, loading = false }) => {
 
                     <div
                       className="h-40 md:h-52 w-full flex items-center justify-center cursor-pointer"
-                      onClick={() => navigate(`/product/${productID}`)}
+                      onClick={() => navigate(getProductUrl({ productName }))}
                     >
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={imageUrl}
                         alt={productName}
                         className="h-full object-contain transition-transform duration-300 group-hover:scale-105"
@@ -175,7 +176,7 @@ const ProductCard = ({ currentProducts = [], navigate, loading = false }) => {
 
                    <div
   className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-3 bg-black/40 z-20 transition-all cursor-pointer"
-  onClick={() => navigate(`/product/${product.productID}`)}
+  onClick={() => navigate(getProductUrl(product))}
 >
   {/* Wishlist Icon */}
   <Tooltip content={inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}>
@@ -199,7 +200,7 @@ const ProductCard = ({ currentProducts = [], navigate, loading = false }) => {
     <button
       onClick={(e) => {
         e.stopPropagation();
-        navigate(`/product/${product.productID}`);
+        navigate(getProductUrl(product));
       }}
       className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
     >

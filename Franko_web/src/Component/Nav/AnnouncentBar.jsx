@@ -633,9 +633,9 @@ const AnnouncementBar = () => {
                 zIndex: 2,
               }}
             >
-            
+
               <div style={{ display: "flex", alignItems: "center", gap: "7px", overflow: "hidden", height: "22px", flex: 1, justifyContent: "center" }}>
-              
+
 
                 <div style={{ position: "relative", height: "22px", overflow: "hidden" }}>
                   <div

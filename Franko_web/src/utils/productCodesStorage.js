@@ -1,3 +1,4 @@
+import { appStorage as localStorage } from "./secureLocalStorageInit";
 // storage/productCodesStorage.js
 
 const STORAGE_KEY = 'franko_product_codes';
@@ -8,7 +9,7 @@ const getRawItem = (key) => {
     // Get the raw encrypted value
     const value = Object.getOwnPropertyDescriptor(Storage.prototype, 'getItem')
       ? localStorage.getItem(key)
-      : window.localStorage.getItem(key);
+      : localStorage.getItem(key);
     return value;
   } catch {
     return null;

@@ -353,8 +353,8 @@ function Cancellation() {
           {/* Help Note */}
           <div className={`cn-help-note ${isVisible ? "cn-card-visible" : ""}`} style={{ opacity: isVisible ? 1 : 0, transform: isVisible ? "translateY(0)" : "translateY(12px)", transition: "all 0.5s ease 0.2s" }}>
             <p className="cn-help-note-text">
-              <strong>No charges were made.</strong> If you believe this is an error, 
-              please check your mobile money balance or contact our support team. 
+              <strong>No charges were made.</strong> If you believe this is an error,
+              please check your mobile money balance or contact our support team.
               Your cart items have been saved.
             </p>
           </div>

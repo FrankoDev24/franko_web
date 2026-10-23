@@ -1,3 +1,4 @@
+import { appStorage as localStorage } from "../../../utils/secureLocalStorageInit";
 import React, { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchOrdersByThirdParty } from "../../../Redux/Slice/orderSlice";
@@ -21,7 +22,7 @@ const AgentDashboard = () => {
   const ordersData = useSelector((state) => state.orders);
 
   const orders = useMemo(() => ordersData?.orders || [], [ordersData]);
-  
+
   const [weeklyOrders, setWeeklyOrders] = useState([]);
   const [dailyOrders, setDailyOrders] = useState(0);
   const [monthlyOrders, setMonthlyOrders] = useState([]);
@@ -47,7 +48,7 @@ const AgentDashboard = () => {
     'Multiple Orders': '#004E64',
     'Confirmed': '#52c41a',
     'Processing': '#722ed1',
- 
+
   };
 
   useEffect(() => {
@@ -60,16 +61,16 @@ const AgentDashboard = () => {
 
   useEffect(() => {
     if (orders.length > 0 && dateRange && dateRange.length === 2) {
-      const filtered = orders.filter(order => 
+      const filtered = orders.filter(order =>
         dayjs(order.orderDate).isBetween(dateRange[0], dateRange[1], null, '[]')
       );
       setFilteredOrders(filtered);
-      
+
       const dailyData = calculateDailyOrders(filtered);
       const monthlyData = calculateMonthlyOrders(filtered);
       const cycleData = calculateOrderCycleData(filtered);
       const weeklyCount = calculateWeeklyOrdersCount(filtered);
-      
+
       setDailyOrders(dailyData[dailyData.length - 1]?.totalOrders || 0);
       setWeeklyOrders(calculateWeeklyOrders(filtered));
       setMonthlyOrders(monthlyData);
@@ -157,15 +158,15 @@ const AgentDashboard = () => {
     const today = dayjs();
     const weekStart = today.startOf('week');
     const weekEnd = today.endOf('week');
-    
-    return orders.filter(order => 
+
+    return orders.filter(order =>
       dayjs(order.orderDate).isBetween(weekStart, weekEnd, null, '[]')
     ).length;
   };
 
   const calculateOrderCycleData = (orders) => {
     const cycleCount = {};
-    
+
     orders.forEach(order => {
       const cycle = order.orderCycle || 'Unknown';
       cycleCount[cycle] = (cycleCount[cycle] || 0) + 1;
@@ -180,7 +181,7 @@ const AgentDashboard = () => {
 
   const updateDailyOrders = (dailyData) => {
     if (dailyData.length < 2) return;
-    
+
     const todayOrders = dailyData[dailyData.length - 1]?.totalOrders || 0;
     const yesterdayOrders = dailyData[dailyData.length - 2]?.totalOrders || 0;
     const change =
@@ -431,7 +432,7 @@ const AgentDashboard = () => {
               {orderCycleData.map((cycle, index) => (
                 <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center space-x-3">
-                    <div 
+                    <div
                       className="w-4 h-4 rounded-full"
                       style={{ backgroundColor: getOrderCycleColor(cycle.name) }}
                     />

@@ -1,3 +1,6 @@
+import { publicGet } from "../../utils/publicReadCache";
+import { dedupeRequests, normalizeProductDetails } from "../../utils/productPresentation.mjs";
+import { getCatalogue } from "../../utils/catalogueCache";
 // productSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "./AxiosInstance";
@@ -187,9 +190,7 @@ export const fetchAllProducts = createAsyncThunk(
   "products/fetchAllProducts",
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get("/", {
-        params: { endpoint: "/Product/Product-Get" },
-      });
+      const { data } = await getCatalogue();
 
       if (!Array.isArray(data)) return [];
 
@@ -207,9 +208,7 @@ export const fetchProducts = createAsyncThunk(
   "products/fetchProducts",
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get("/", {
-        params: { endpoint: "/Product/Product-Get" },
-      });
+      const { data } = await getCatalogue();
 
       if (!Array.isArray(data)) return [];
 
@@ -228,9 +227,7 @@ export const fetchProduct = createAsyncThunk(
   "products/fetchProduct",
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get("/", {
-        params: { endpoint: "/Product/Product-Get" },
-      });
+      const { data } = await getCatalogue();
 
       if (!Array.isArray(data)) return [];
 
@@ -250,7 +247,7 @@ export const fetchPaginatedProducts = createAsyncThunk(
   "products/fetchPaginatedProducts",
   async ({ pageNumber, pageSize = 10 }, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get("/", {
+      const { data } = await publicGet("/", {
         params: {
           endpoint: "/Product/Product-Get-Paginated",
           PageNumber: pageNumber,
@@ -272,7 +269,7 @@ export const fetchProductsByCategory = createAsyncThunk(
   "products/fetchProductsByCategory",
   async (categoryId, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get("/", {
+      const { data } = await publicGet("/", {
         params: { endpoint: `/Product/Product-Get-by-Category/${categoryId}` },
       });
 
@@ -289,7 +286,7 @@ export const fetchProductsByBrand = createAsyncThunk(
   "products/fetchProductsByBrand",
   async (brandId, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get("/", {
+      const { data } = await publicGet("/", {
         params: { endpoint: `/Product/Product-Get-by-Brand/${brandId}` },
       });
 
@@ -307,7 +304,7 @@ export const fetchProductsByShowroom = createAsyncThunk(
   "products/fetchProductsByShowroom",
   async (showRoomID, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get("/", {
+      const { data } = await publicGet("/", {
         params: { endpoint: `/Product/Product-Get-by-ShowRoom/${showRoomID}` },
       });
 
@@ -321,16 +318,16 @@ export const fetchProductsByShowroom = createAsyncThunk(
   }
 );
 
+const requestProductDetails = dedupeRequests(productId => publicGet("/", {
+  params: { endpoint: `/Product/Product-Get-by-Product_ID/${productId}` },
+}));
+
 export const fetchProductById = createAsyncThunk(
   "products/fetchProductById",
   async (productId, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get("/", {
-        params: { endpoint: `/Product/Product-Get-by-Product_ID/${productId}` },
-      });
-
-      const merged = mergeCodesWithProducts([data]);
-      return merged[0] || data;
+      const { data } = await requestProductDetails(productId);
+      return mergeCodesWithProducts(normalizeProductDetails(data));
     } catch (error) {
       return rejectWithValue(error.response?.data || "Failed to fetch product by ID");
     }
@@ -341,7 +338,7 @@ export const fetchActiveProducts = createAsyncThunk(
   "products/fetchActiveProducts",
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get("/", {
+      const { data } = await publicGet("/", {
         params: { endpoint: "/Product/Product-Get-Active" },
       });
 
@@ -357,7 +354,7 @@ export const fetchInactiveProducts = createAsyncThunk(
   "products/fetchInactiveProducts",
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get("/", {
+      const { data } = await publicGet("/", {
         params: { endpoint: "/Product/Product-Get-0" },
       });
 
@@ -373,7 +370,7 @@ export const fetchProductByShowroomAndRecord = createAsyncThunk(
   "products/fetchProductByShowroomAndRecord",
   async ({ showRoomCode, recordNumber }, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get("/", {
+      const { data } = await publicGet("/", {
         params: {
           endpoint: "/Product/Product-Get-by-ShowRoom_RecordNumber",
           ShowRommCode: showRoomCode,
@@ -407,6 +404,9 @@ const productSlice = createSlice({
     productsByShowroom: {},
     productsByCategory: {},
     currentProduct: null,
+    productDetailLoading: false,
+    productDetailError: null,
+    productDetailRequestId: null,
     activeProducts: [],
     inactiveProducts: [],
     loading: false,
@@ -616,18 +616,21 @@ const productSlice = createSlice({
         state.error = action.payload || action.error.message;
       })
 
-      // Fetch Product by ID
-      .addCase(fetchProductById.pending, (state) => {
-        state.loading = true;
-        state.error = null;
+      // Detail requests must not be blocked by unrelated catalogue/brand reads.
+      .addCase(fetchProductById.pending, (state, action) => {
+        state.productDetailLoading = true;
+        state.productDetailError = null;
+        state.productDetailRequestId = action.meta.requestId;
       })
       .addCase(fetchProductById.fulfilled, (state, action) => {
-        state.loading = false;
+        if (state.productDetailRequestId !== action.meta.requestId) return;
+        state.productDetailLoading = false;
         state.currentProduct = action.payload;
       })
       .addCase(fetchProductById.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload || action.error.message;
+        if (state.productDetailRequestId !== action.meta.requestId) return;
+        state.productDetailLoading = false;
+        state.productDetailError = action.payload || action.error.message;
       })
 
       // Fetch Paginated Products

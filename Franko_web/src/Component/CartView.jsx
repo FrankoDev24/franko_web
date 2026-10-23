@@ -1,14 +1,13 @@
+import { appStorage as localStorage } from "../utils/secureLocalStorageInit";
 // src/Component/CartView.jsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
-import {
-  Checkbox,
-  Dialog,
-  DialogHeader,
-  DialogBody,
-  DialogFooter,
-} from "@material-tailwind/react";
+import Checkbox from "@material-tailwind/react/components/Checkbox";
+import Dialog from "@material-tailwind/react/components/Dialog";
+import DialogHeader from "@material-tailwind/react/components/Dialog/DialogHeader";
+import DialogBody from "@material-tailwind/react/components/Dialog/DialogBody";
+import DialogFooter from "@material-tailwind/react/components/Dialog/DialogFooter";
 import {
   TrashIcon,
   MinusIcon,
@@ -324,7 +323,7 @@ const CartView = ({ telecel = false, onOpenSidebar = null }) => {
         <div className={`cart-root flex items-center justify-center min-h-screen ${telecel ? "cart-root--telecel" : ""}`} style={{ background: "var(--cart-bg-subtle)" }}>
           <div className="text-center">
             <div className="cart-spinner-large mx-auto mb-4"></div>
-            <p style={{ color: "var(--cart-mid)", fontWeight: 600 }}>Loading your cart items...</p>
+            <p style={{ color: "var(--cart-mid)", fontWeight: 600 }}></p>
           </div>
         </div>
       </>

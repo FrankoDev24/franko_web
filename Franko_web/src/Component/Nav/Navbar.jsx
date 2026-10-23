@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from "react";
-import {
-  Drawer,
-  Dialog,
-  DialogHeader,
-  DialogBody,
-} from "@material-tailwind/react";
+import PendingPlaceholder from "../PendingPlaceholder";
+import { appStorage as localStorage } from "../../utils/secureLocalStorageInit";
+import { getBrandUrl, getProductUrl } from "../../utils/productSlug";
+import { lazy, Suspense, useState, useEffect, useRef } from "react";
+import Drawer from "@material-tailwind/react/components/Drawer";
+import Dialog from "@material-tailwind/react/components/Dialog";
+import DialogHeader from "@material-tailwind/react/components/Dialog/DialogHeader";
+import DialogBody from "@material-tailwind/react/components/Dialog/DialogBody";
 import {
   ShoppingBagIcon,
   UserCircleIcon,
@@ -32,7 +33,7 @@ import {
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { debounce } from "lodash";
+import debounce from "lodash/debounce";
 
 import AnnouncementBar from "./AnnouncentBar";
 import logo from "../../assets/frankoIcon.png";
@@ -47,7 +48,9 @@ import {
   validateSession,
 } from "../../Redux/Slice/customerSlice";
 
-import AuthModal from "../AuthModal";
+const AuthModal = lazy(() => import("../AuthModal"));
+
+const EMPTY_LIST = [];
 
 const backendBaseURL = "https://ct002.frankotrading.com:444";
 
@@ -80,9 +83,10 @@ const Nav = () => {
   const dispatch = useDispatch();
 
   const totalItems = useSelector((s) => s.cart.totalItems);
-  const { categories } = useSelector((s) => s.categories);
-  const { brands } = useSelector((s) => s.brands);
-  const { products = [], loading } = useSelector((s) => s.products);
+  const categories = useSelector((s) => Array.isArray(s.categories?.categories) ? s.categories.categories : EMPTY_LIST);
+  const brands = useSelector((s) => Array.isArray(s.brands?.brands) ? s.brands.brands : EMPTY_LIST);
+  const { loading } = useSelector((s) => s.products);
+  const products = useSelector((s) => Array.isArray(s.products?.products) ? s.products.products : EMPTY_LIST);
   const { currentCustomer, isAuthenticated } = useSelector((s) => s.customer);
 
   /* ── Toggle helpers ── */
@@ -233,12 +237,12 @@ const Nav = () => {
     setInputValue(e.target.value);
     debounceRef.current(e.target.value);
   };
-  const handleProductClick = (id) => {
+  const handleProductClick = (product) => {
     setShowSearchResults(false);
     setInputValue("");
     setSearchQuery("");
     setMobileSearchOpen(false);
-    navigate(`/product/${id}`);
+    navigate(getProductUrl(product));
   };
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -339,7 +343,7 @@ const Nav = () => {
             const imgURL = getImageURL(product.productImage);
             const sz = mobile ? 36 : 40;
             return (
-              <div key={product.productID} onClick={() => handleProductClick(product.productID)} className="nr-item" style={mobile ? { padding: "7px 10px" } : undefined}>
+              <div key={product.productID} onClick={() => handleProductClick(product)} className="nr-item" style={mobile ? { padding: "7px 10px" } : undefined}>
                 {imgURL ? (
                   <img src={imgURL} alt={product.productName} style={{ width: sz, height: sz, objectFit: "cover", borderRadius: 4, border: "1px solid #eee", background: "#f9f9f9" }} onError={(e) => (e.target.style.display = "none")} />
                 ) : (
@@ -530,7 +534,7 @@ const Nav = () => {
                             <div style={{ width: 200, maxHeight: 380, overflowY: "auto", padding: 4, background: "#fafafa" }}>
                               <div style={{ padding: "8px 12px", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#aaa" }}>Brands</div>
                               {brands.filter((b) => b.categoryId === hoveredCategory).map((brand) => (
-                                <div key={brand.brandId} className="nb-item" onClick={() => { navigate(`/brand/${brand.brandId}`); setShowDropdown(false); setHoveredCategory(null); }}>
+                                <div key={brand.brandId} className="nb-item" onClick={() => { navigate(getBrandUrl(brand)); setShowDropdown(false); setHoveredCategory(null); }}>
                                   {brand.brandName}
                                 </div>
                               ))}
@@ -654,7 +658,7 @@ const Nav = () => {
           </div>
         </div>
 
-        {showAuthModal && <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />}
+        {showAuthModal && <Suspense fallback={<PendingPlaceholder compact />}><AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} /></Suspense>}
       </div>
 
       {/* Logout Modal */}
@@ -730,7 +734,7 @@ const Nav = () => {
                     {selectedBrandId === cat.categoryId && (
                       <div className="d-brands">
                         {brands.filter((b) => b.categoryId === cat.categoryId).map((brand) => (
-                          <div key={brand.brandId} onClick={() => closeDrawerAndNavigate(`/brand/${brand.brandId}`)} className="d-brand">
+                          <div key={brand.brandId} onClick={() => closeDrawerAndNavigate(getBrandUrl(brand))} className="d-brand">
                             <span>{brand.brandName}</span>
                             <ChevronRightIcon style={{ width: 11, height: 11, color: "#ccc" }} />
                           </div>
