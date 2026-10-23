@@ -38,22 +38,14 @@ import OrderHistory from "./Pages/OrderHistory";
 import Wishlist from "./Pages/Wishlist";
 import OrderSuccess from "./Pages/OrderSucess";
 
-/* ==================== TELECEL SPEED SHOPPING PAGES ==================== */
-// import TelCart from "./Pages/TelCart";
-// import TelCheckout from "./Pages/TelCheckout";
-
 /* ==================== AGENT PAGES ==================== */
 import AgentPage from "./Pages/Agents/AgentPage/AgentPage";
 import AgentDashboard from "./Pages/Agents/AgentPage/AgentDashboard";
 import AgentOrders from "./Pages/Agents/AgentPage/AgentOrders";
 import CTP001ProductsPage from "./Pages/Agents/AgentPage/CTP001ProductsPage";
-// import Speed from "./Pages/Speed";
-// import PhoneSpeed from "./Pages/PhoneSpeed";
 
 /* ═══════════════════════════════════════════════════════════════
    ROUTES THAT RENDER WITHOUT THE MAIN NAVBAR
-   (Telecel Speed Shopping flow: promo page + its cart + checkout —
-   the Tel pages carry their own header, so the site Nav is hidden)
 ═══════════════════════════════════════════════════════════════ */
 const NAVBAR_HIDDEN_PREFIXES = ["/promo-phones", "/tel-cart", "/tel-checkout"];
 
@@ -81,7 +73,6 @@ const decrypt = (cipherText) => {
   try {
     if (!cipherText || typeof cipherText !== "string") return cipherText;
     if (!cipherText.startsWith("U2FsdGVkX1")) return cipherText;
-
     const bytes = CryptoJS.AES.decrypt(cipherText, SECRET_KEY);
     const decrypted = bytes.toString(CryptoJS.enc.Utf8);
     return decrypted;
@@ -98,7 +89,6 @@ const decrypt = (cipherText) => {
 
   Storage.prototype.setItem = function (key, value) {
     try {
-      // Do not encrypt the activity timestamp for pure speed/performance
       if (key === "lastActivityTimestamp" || (typeof value === "string" && value.startsWith("U2FsdGVkX1"))) {
         originalSet.call(this, key, value);
       } else {
@@ -115,7 +105,6 @@ const decrypt = (cipherText) => {
       const encrypted = originalGet.call(this, key);
       if (!encrypted) return null;
       if (key === "lastActivityTimestamp") return encrypted;
-
       const decrypted = decrypt(encrypted);
       try { return JSON.parse(decrypted); } catch { return decrypted; }
     } catch { return null; }
@@ -228,29 +217,23 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
 const StorageManager = () => {
   useEffect(() => {
     cleanupCorruptedEntries();
-
-    // Tracker for User Activity 
     const updateActivity = () => {
       localStorage.setItem("lastActivityTimestamp", Date.now().toString());
     };
-    updateActivity(); // Initialize on load
-
+    updateActivity();
     let throttleTimer;
     const handleActivity = () => {
       if (throttleTimer) return;
       throttleTimer = setTimeout(() => {
         updateActivity();
         throttleTimer = null;
-      }, 3000); // Record activity at most once every 3 seconds
+      }, 3000);
     };
-
     const activeEvents = ['mousemove', 'keydown', 'scroll', 'click', 'touchstart'];
     activeEvents.forEach(evt => window.addEventListener(evt, handleActivity, { passive: true }));
-
     const cleanupInterval = setInterval(() => {
       cleanupCorruptedEntries();
     }, 10 * 60 * 1000);
-
     const handleBeforeUnload = () => {
       try {
         const customer = safeGetFromStorage("customer");
@@ -263,9 +246,7 @@ const StorageManager = () => {
         }
       } catch (e) { console.error("Cleanup error:", e); }
     };
-
     window.addEventListener("beforeunload", handleBeforeUnload);
-
     return () => {
       activeEvents.forEach(evt => window.removeEventListener(evt, handleActivity));
       if (throttleTimer) clearTimeout(throttleTimer);
@@ -273,12 +254,15 @@ const StorageManager = () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, []);
-
   return null;
 };
 
 /* ═══════════════════════════════════════════════════════════════
    MAIN APP COMPONENT
+   KEY CHANGE: Product route is now slug-based
+   - New URL: /product/samsung-galaxy-a56-5g
+   - Old UUID URLs automatically redirect via ProductDescription
+   - No backend change required
 ═══════════════════════════════════════════════════════════════ */
 function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -287,10 +271,8 @@ function App() {
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
-
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
-
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
@@ -322,25 +304,31 @@ function App() {
         <Route path="/washing-machine" element={<Combo ProductCard={ProductCard} />} />
         <Route path="/air-condition" element={<Airconditioners ProductCard={ProductCard} />} />
         <Route path="/cart/:cartId" element={<Cart />} />
-        <Route path="/product/:productID" element={<ProductDescription />} />
+
+        {/* ═══════════════════════════════════════════════════
+            PRODUCT ROUTE - SLUG MIGRATION
+            New canonical path uses product-name slug:
+              /product/samsung-galaxy-a56-5g
+            
+            Legacy UUID path continues to work and is handled
+            inside ProductDescription with a client-side redirect
+            + server 301 (see SEO_MIGRATION_GUIDE.md).
+            Keep the single route below - it matches BOTH
+            slugs and UUIDs (UUID = just another string).
+        ═══════════════════════════════════════════════════ */}
+        <Route path="/product/:slug" element={<ProductDescription />} />
+
         <Route path="showroom/:showRoomID" element={<ShowroomProductsPage />} />
         <Route path="/order-history" element={<OrderHistory />} />
         <Route path="/wishlist" element={<Wishlist />} />
         <Route path="/brand/:brandId" element={<BrandsPage />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/products" element={<Products />} />
-        {/* <Route path="/speed-shopping" element={<Speed />} /> */}
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/order-received" element={<OrderReceived />} />
         <Route path="/order-success/:orderId" element={<OrderSuccess />} />
         <Route path="/account" element={<Account />} />
         <Route path="/shops" element={<Locations />} />
-        {/* <Route path="/promo-phones" element={<PhoneSpeed />} /> */}
-
-        {/* Telecel Speed Shopping flow (navbar hidden above) */}
-        {/* <Route path="/tel-cart" element={<TelCart />} />
-        <Route path="/tel-checkout" element={<TelCheckout />} /> */}
-
         <Route path="/order-cancelled" element={<Cancellation />} />
 
         <Route path="/agent/*" element={<ProtectedRoute allowedRoles={["agent"]}><AgentPage /></ProtectedRoute>} />

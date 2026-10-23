@@ -32,6 +32,14 @@ import {
 } from "@heroicons/react/24/outline";
 import AuthModal from "../Component/AuthModal";
 import { Helmet } from "react-helmet";
+import {
+  slugify,
+  isUUID,
+  getProductSlug,
+  findProductBySlug,
+  findProductById,
+  getProductUrl,
+} from "../utils/productSlug";
 
 // ==================== UTILITY FUNCTIONS ====================
 
@@ -64,13 +72,11 @@ const getItemLineTotal = (item) => {
 
 const normalizeCartItem = (item) => {
   if (!item || typeof item !== "object") return null;
-
   const price =
     parseFloat(
-      item.price ?? item.Price ?? item.unitPrice ?? item.UnitPrice ?? 0,
+      item.price ?? item.Price ?? item.unitPrice ?? item.UnitPrice ?? 0
     ) || 0;
   const quantity = parseInt(item.quantity ?? item.Quantity ?? 1, 10) || 1;
-
   const productId =
     item.productId ??
     item.ProductId ??
@@ -78,11 +84,9 @@ const normalizeCartItem = (item) => {
     item.ProductID ??
     item.id ??
     item.Id;
-
   if (productId === undefined || productId === null || productId === "") {
     return null;
   }
-
   return {
     productId: String(productId),
     productName:
@@ -113,14 +117,11 @@ const normalizeCartItems = (items) =>
 const upsertCartItem = (items, itemToAdd) => {
   const incoming = normalizeCartItem(itemToAdd);
   if (!incoming) return normalizeCartItems(items);
-
   const current = normalizeCartItems(items);
   const existingIndex = current.findIndex(
-    (item) => String(item.productId) === String(incoming.productId),
+    (item) => String(item.productId) === String(incoming.productId)
   );
-
   if (existingIndex === -1) return [...current, incoming];
-
   const next = [...current];
   const existing = next[existingIndex];
   const quantity = existing.quantity + incoming.quantity;
@@ -135,14 +136,12 @@ const upsertCartItem = (items, itemToAdd) => {
 
 const mergeCartItemsKeepingAddedItem = (serverItems, preservedItems = []) => {
   const merged = normalizeCartItems(serverItems);
-
   normalizeCartItems(preservedItems).forEach((preservedItem) => {
     const alreadyReturnedByServer = merged.some(
-      (item) => String(item.productId) === String(preservedItem.productId),
+      (item) => String(item.productId) === String(preservedItem.productId)
     );
     if (!alreadyReturnedByServer) merged.push(preservedItem);
   });
-
   return merged;
 };
 
@@ -174,7 +173,7 @@ const safeLocalStorage = {
       if (typeof window === "undefined" || !window.localStorage) return false;
       window.localStorage.setItem(
         key,
-        typeof value === "string" ? value : JSON.stringify(value),
+        typeof value === "string" ? value : JSON.stringify(value)
       );
       return true;
     } catch {
@@ -186,7 +185,11 @@ const safeLocalStorage = {
 // ==================== MAIN COMPONENT ====================
 
 const ProductDescription = () => {
-  const { productID } = useParams();
+  // NEW: slug-based routing. Supports both /product/:slug and legacy /product/:productID (UUID)
+  // Raw param can be either a UUID or a human-readable slug like "samsung-galaxy-a56-5g"
+  const params = useParams();
+  const rawParam = params.slug || params.productID || params.productId || "";
+
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -200,15 +203,16 @@ const ProductDescription = () => {
   const [flixMediaError, setFlixMediaError] = useState(false);
   const [cartSyncError, setCartSyncError] = useState(null);
   const [networkStatus, setNetworkStatus] = useState(() =>
-    typeof navigator === "undefined" ? true : navigator.onLine,
+    typeof navigator === "undefined" ? true : navigator.onLine
   );
   const [_pendingCheckout, setPendingCheckout] = useState(false);
   const [viewedProducts, setViewedProducts] = useState([]);
   const [localCart, setLocalCart] = useState(() =>
-    normalizeCartItems(safeLocalStorage.getItem("cart", [])),
+    normalizeCartItems(safeLocalStorage.getItem("cart", []))
   );
   const [cartLoading, setCartLoading] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [slugResolveError, setSlugResolveError] = useState(null);
 
   const productDetailsRef = useRef(null);
   const flixMediaSectionRef = useRef(null);
@@ -218,23 +222,53 @@ const ProductDescription = () => {
   const hasHydratedReduxCartRef = useRef(false);
 
   const { currentProduct, products, loading } = useSelector(
-    (state) => state.products,
+    (state) => state.products
   );
   const { cart, cartId } = useSelector((state) => state.cart);
+
+  // Derived: does rawParam look like a legacy UUID?
+  const paramIsUUID = useMemo(() => isUUID(rawParam), [rawParam]);
+
+  // Derived: resolve rawParam -> product object -> UUID
+  // For slug: lookup via productName slugify. For UUID: direct lookup.
+  const resolvedProduct = useMemo(() => {
+    if (!rawParam || !Array.isArray(products) || products.length === 0) return null;
+    if (paramIsUUID) {
+      return findProductById(products, rawParam);
+    }
+    return findProductBySlug(products, rawParam);
+  }, [rawParam, paramIsUUID, products]);
+
+  const resolvedProductId = useMemo(() => {
+    if (!resolvedProduct) return null;
+    return String(resolvedProduct.productID || resolvedProduct.Productid || "");
+  }, [resolvedProduct]);
+
+  // Current displayed product (from API single-product fetch)
+  const product = currentProduct && currentProduct.length > 0 ? currentProduct[0] : null;
+
+  // Canonical slug for the loaded product (for SEO)
+  const canonicalSlug = useMemo(() => {
+    if (product) return getProductSlug(product, products);
+    if (resolvedProduct) return getProductSlug(resolvedProduct, products);
+    if (!paramIsUUID && rawParam) return slugify(rawParam);
+    return "";
+  }, [product, resolvedProduct, products, paramIsUUID, rawParam]);
+
+  const canonicalUrl = canonicalSlug
+    ? `https://www.frankotrading.com/product/${canonicalSlug}`
+    : "https://www.frankotrading.com/product";
 
   // Build combined list of main productImage + otherImages
   const allProductImages = useMemo(() => {
     if (!currentProduct?.length) return [];
     const prod = currentProduct[0];
-
     const rawImages = [
       prod.productImage,
       ...(Array.isArray(prod.otherImages) ? prod.otherImages : []),
     ].filter((img) => typeof img === "string" && img.trim() !== "");
-
     const resolvedUrls = rawImages.map((img) => getValidImageUrl(img));
     const uniqueUrls = [...new Set(resolvedUrls)];
-
     return uniqueUrls.length > 0
       ? uniqueUrls
       : ["https://via.placeholder.com/150"];
@@ -243,7 +277,7 @@ const ProductDescription = () => {
   // Reset selected image index when navigating to a new product
   useEffect(() => {
     setSelectedImageIndex(0);
-  }, [productID, currentProduct]);
+  }, [rawParam, currentProduct]);
 
   const commitLocalCart = useCallback((items) => {
     const normalizedCart = normalizeCartItems(items);
@@ -274,10 +308,9 @@ const ProductDescription = () => {
       networkStatusRef.current = false;
       setNetworkStatus(false);
       setCartSyncError(
-        "You're offline. Changes will sync when connection is restored.",
+        "You're offline. Changes will sync when connection is restored."
       );
     };
-
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
     return () => {
@@ -293,21 +326,17 @@ const ProductDescription = () => {
       if (!networkStatusRef.current) {
         return { ok: false, reason: "offline", items: localCartRef.current };
       }
-
       getActiveCartId();
       const requestId = ++cartSyncRequestRef.current;
-
       try {
         const result = await dispatch(getCartById()).unwrap();
-
         if (requestId !== cartSyncRequestRef.current) {
           return { ok: true, ignored: true, items: localCartRef.current };
         }
-
         if (!Array.isArray(result)) {
           if (!silent) {
             setCartSyncError(
-              "Your cart could not be refreshed. Please try again.",
+              "Your cart could not be refreshed. Please try again."
             );
           }
           return {
@@ -316,11 +345,10 @@ const ProductDescription = () => {
             items: localCartRef.current,
           };
         }
-
         const serverItems = normalizeCartItems(result);
         const nextCart = mergeCartItemsKeepingAddedItem(
           serverItems,
-          preserveItems,
+          preserveItems
         );
         commitLocalCart(nextCart);
         setCartSyncError(null);
@@ -329,7 +357,7 @@ const ProductDescription = () => {
         console.error("Cart sync failed:", error);
         if (!silent) {
           setCartSyncError(
-            "Your cart is still available on this page. We will retry syncing it when the connection is restored.",
+            "Your cart is still available on this page. We will retry syncing it when the connection is restored."
           );
         }
         return {
@@ -340,7 +368,7 @@ const ProductDescription = () => {
         };
       }
     },
-    [commitLocalCart, dispatch, getActiveCartId],
+    [commitLocalCart, dispatch, getActiveCartId]
   );
 
   useEffect(() => {
@@ -361,34 +389,95 @@ const ProductDescription = () => {
 
   const isValidSamsungProduct = () => {
     if (!currentProduct?.length) return false;
-    const product = currentProduct[0];
+    const p = currentProduct[0];
     return (
-      product.productId3 &&
-      typeof product.productId3 === "string" &&
-      product.productId3.trim().toUpperCase().startsWith("SM")
+      p.productId3 &&
+      typeof p.productId3 === "string" &&
+      p.productId3.trim().toUpperCase().startsWith("SM")
     );
   };
-
   const showFlixMedia = isValidSamsungProduct();
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [productID]);
+  }, [rawParam]);
 
-  // ==================== PRODUCT DATA ====================
+  // ==================== PRODUCT DATA - SLUG RESOLUTION ====================
+  // This replaces the old: dispatch(fetchProductById(productID))
+  // New flow:
+  // 1. Ensure catalogue is loaded (fetchProducts) so we can map slug -> UUID
+  // 2. If rawParam is UUID (legacy URL), redirect 1:1 to slug URL (client-side replace)
+  // 3. If rawParam is slug, resolve to UUID via catalogue, then fetchProductById(UUID)
+  // Backend API never changes - UUID stays in DB and is used for the actual fetch.
 
+  // Step 1: Load catalogue if empty
   useEffect(() => {
-    dispatch(fetchProducts());
-    dispatch(fetchProductById(productID));
-  }, [dispatch, productID]);
+    if (!products || products.length === 0) {
+      dispatch(fetchProducts());
+    }
+  }, [dispatch, products]);
 
+  // Step 2 & 3: Resolve slug/UUID -> UUID -> fetch details
+  useEffect(() => {
+    if (!rawParam) return;
+    if (!products || products.length === 0) return; // wait for catalogue
+
+    // LEGACY UUID HANDLING: permanent redirect to slug URL
+    if (paramIsUUID) {
+      const legacyProduct = findProductById(products, rawParam);
+      if (legacyProduct) {
+        const targetSlug = getProductSlug(legacyProduct, products);
+        // Client-side replacement (server should also return 301 - see migration guide)
+        // Use replace so back button skips the UUID URL
+        navigate(`/product/${targetSlug}`, { replace: true });
+        return;
+      } else {
+        // Catalogue doesn't contain this UUID (maybe paginated or new product)
+        // Fall back to direct fetch - UUID still works with existing API
+        // After it loads, the second effect below will redirect to slug
+        dispatch(fetchProductById(rawParam));
+        return;
+      }
+    }
+
+    // NEW SLUG HANDLING
+    const matched = findProductBySlug(products, rawParam);
+    if (matched) {
+      const uuid = String(matched.productID || matched.Productid || "");
+      if (uuid) {
+        setSlugResolveError(null);
+        dispatch(fetchProductById(uuid));
+      }
+    } else {
+      // Slug not found in current catalogue slice - might be invalid or catalogue incomplete
+      // We surface a soft error; the skeleton will show until we decide to 404
+      // Don't auto-404 immediately to allow fetchProducts to finish
+      if (products.length > 0) {
+        setSlugResolveError(`Product not found for "${rawParam}"`);
+      }
+    }
+  }, [dispatch, rawParam, paramIsUUID, products, navigate]);
+
+  // Post-fetch redirect for legacy UUIDs that weren't in catalogue
+  // Once fetchProductById returns a product, we can compute its slug and redirect
+  useEffect(() => {
+    if (paramIsUUID && product && rawParam) {
+      const expectedSlug = getProductSlug(product, products);
+      if (expectedSlug && expectedSlug !== rawParam) {
+        navigate(`/product/${expectedSlug}`, { replace: true });
+      }
+    }
+  }, [paramIsUUID, product, rawParam, products, navigate]);
+
+  // ==================== RECENTLY VIEWED - now stores slug ====================
   useEffect(() => {
     if (currentProduct?.length > 0) {
       const prod = currentProduct[0];
       const image = getValidImageUrl(prod.productImage);
-
+      const slug = getProductSlug(prod, products);
       const viewedItem = {
         id: prod.productID,
+        slug: slug,
         name: prod.productName,
         price: prod.price,
         oldPrice: prod.oldPrice || 0,
@@ -400,17 +489,14 @@ const ProductDescription = () => {
         quantity: prod.quantity,
         viewedAt: new Date().toISOString(),
       };
-
       const parsed = safeLocalStorage.getItem("viewedProducts", []);
       const existingProducts = Array.isArray(parsed) ? parsed : [];
-      const filtered = existingProducts.filter(
-        (item) => item?.id !== viewedItem.id,
-      );
+      const filtered = existingProducts.filter((item) => item?.id !== viewedItem.id);
       const updated = [viewedItem, ...filtered].slice(0, 4);
       safeLocalStorage.setItem("viewedProducts", updated);
       setViewedProducts(updated);
     }
-  }, [currentProduct]);
+  }, [currentProduct, products]);
 
   useEffect(() => {
     const stored = safeLocalStorage.getItem("viewedProducts", []);
@@ -422,25 +508,20 @@ const ProductDescription = () => {
 
   useEffect(() => {
     if (!showFlixMedia || !currentProduct?.length) return;
-
-    const product = currentProduct[0];
-    const mpn = product.productId3?.trim().toUpperCase();
-
+    const prod = currentProduct[0];
+    const mpn = prod.productId3?.trim().toUpperCase();
     if (!mpn || !mpn.startsWith("SM")) {
       setFlixMediaError(true);
       setFlixMediaLoaded(true);
       return;
     }
-
     setFlixMediaLoaded(false);
     setFlixMediaError(false);
-
     const distributorId = "17909";
     const language = "gh";
-    const productMpn = product.productId3 || "";
-    const productEan = product.productId2 || "";
+    const productMpn = prod.productId3 || "";
+    const productEan = prod.productId2 || "";
     const productBrand = "Samsung";
-
     const cleanupFlixMedia = () => {
       document
         .querySelectorAll('script[src*="flixfacts.com"]')
@@ -450,21 +531,17 @@ const ProductDescription = () => {
         .forEach((s) => s.remove());
       document
         .querySelectorAll(
-          "#flix-inpage, #flix-minisite, .flix-inpage, .flix-minisite",
+          "#flix-inpage, #flix-minisite, .flix-inpage, .flix-minisite"
         )
         .forEach((s) => s.remove());
       if (window.flixJsCallbacks) delete window.flixJsCallbacks;
       if (window.flixJs) delete window.flixJs;
     };
-
     cleanupFlixMedia();
-
     const initFlixMedia = () => {
       const flixSection = flixMediaSectionRef.current;
       if (!flixSection) return;
-
       flixSection.innerHTML = "";
-
       const loadingDiv = document.createElement("div");
       loadingDiv.className = "flex items-center justify-center py-12";
       loadingDiv.innerHTML = `
@@ -474,13 +551,11 @@ const ProductDescription = () => {
         </div>
       `;
       flixSection.appendChild(loadingDiv);
-
       const container = document.createElement("div");
       container.id = "flix-media-isolated-container";
       container.className = "flix-media-isolated w-full overflow-hidden";
       container.style.cssText =
         "position: relative; width: 100%; min-height: 400px; border: none; overflow: hidden;";
-
       const iframe = document.createElement("iframe");
       iframe.id = "flix-media-iframe";
       iframe.style.cssText =
@@ -494,7 +569,6 @@ const ProductDescription = () => {
         setFlixMediaLoaded(true);
         loadingDiv.remove();
       };
-
       iframe.srcdoc = `
         <!DOCTYPE html>
         <html>
@@ -529,14 +603,12 @@ const ProductDescription = () => {
                 script.onerror = function() { window.parent.postMessage({ type: 'FLIX_MEDIA_ERROR' }, '*'); };
                 document.head.appendChild(script);
               })();
-            </script>
+            <\/script>
           </body>
         </html>
       `;
-
       container.appendChild(iframe);
       flixSection.appendChild(container);
-
       const messageHandler = (event) => {
         if (event.data.type === "FLIX_MEDIA_LOADED") setFlixMediaLoaded(true);
         else if (event.data.type === "FLIX_MEDIA_ERROR") {
@@ -545,13 +617,11 @@ const ProductDescription = () => {
         }
       };
       window.addEventListener("message", messageHandler);
-
       return () => {
         window.removeEventListener("message", messageHandler);
         cleanupFlixMedia();
       };
     };
-
     const style = document.createElement("style");
     style.id = "flix-media-containment";
     style.textContent = `
@@ -561,9 +631,7 @@ const ProductDescription = () => {
       #flix-media-iframe { position: relative !important; z-index: 1; }
     `;
     document.head.appendChild(style);
-
     const cleanup = initFlixMedia();
-
     return () => {
       cleanup?.();
       document.getElementById("flix-media-containment")?.remove();
@@ -577,7 +645,7 @@ const ProductDescription = () => {
     const handleScroll = () => {
       if (productDetailsRef.current) {
         setShowStickyCart(
-          productDetailsRef.current.getBoundingClientRect().bottom < 0,
+          productDetailsRef.current.getBoundingClientRect().bottom < 0
         );
       }
     };
@@ -588,8 +656,8 @@ const ProductDescription = () => {
 
   // ==================== STOCK CHECK ====================
 
-  const isOutOfStock = (product) => {
-    if (!product) return false;
+  const isOutOfStock = (productToCheck) => {
+    if (!productToCheck) return false;
     const indicators = [
       "All brands",
       "Products out of stock",
@@ -600,13 +668,12 @@ const ProductDescription = () => {
     const matchesAny = (field) =>
       field &&
       indicators.some((i) => field.toLowerCase().includes(i.toLowerCase()));
-
     return (
-      matchesAny(product.brandName) ||
-      matchesAny(product.categoryName) ||
-      matchesAny(product.showRoomName) ||
-      product.stockStatus?.toLowerCase() === "out of stock" ||
-      (product.quantity !== undefined && product.quantity <= 0)
+      matchesAny(productToCheck.brandName) ||
+      matchesAny(productToCheck.categoryName) ||
+      matchesAny(productToCheck.showRoomName) ||
+      productToCheck.stockStatus?.toLowerCase() === "out of stock" ||
+      (productToCheck.quantity !== undefined && productToCheck.quantity <= 0)
     );
   };
 
@@ -614,46 +681,38 @@ const ProductDescription = () => {
 
   const handleOpenCart = () => {
     setCartSidebarOpen(true);
-
     if (!networkStatusRef.current) return;
-
     if (localCartRef.current.length === 0) setCartLoading(true);
     void refreshCartFromDatabase({ silent: true }).finally(() => {
       setCartLoading(false);
     });
   };
 
-  const handleAddToCartAndOpenSidebar = async (product) => {
-    if (isOutOfStock(product)) return;
-
+  const handleAddToCartAndOpenSidebar = async (productToAdd) => {
+    if (isOutOfStock(productToAdd)) return;
     if (!networkStatusRef.current) {
       setCartSyncError("No internet connection. Please check your network.");
       return;
     }
-
     setIsAddingToCart(true);
     setCartSyncError(null);
-
     try {
       const storedCartId = getActiveCartId();
       const customer = safeLocalStorage.getItem("customer", null);
       const customerId = customer?.customerAccountNumber || null;
-
-      const productId = product.productID || product.productId || product.id;
+      const productId =
+        productToAdd.productID || productToAdd.productId || productToAdd.id;
       if (!productId) throw new Error("Product ID is missing");
-
       const cartItemPayload = {
         CartId: storedCartId,
         ProductId: String(productId),
-        ProductName: product.productName || product.name,
-        ImagePath: product.productImage || product.imagePath,
-        Price: parseFloat(product.price),
+        ProductName: productToAdd.productName || productToAdd.name,
+        ImagePath: productToAdd.productImage || productToAdd.imagePath,
+        Price: parseFloat(productToAdd.price),
         Quantity: 1,
         CustomerId: customerId,
       };
-
       const addResult = await dispatch(addToCart(cartItemPayload)).unwrap();
-
       const addedItem = normalizeCartItem({
         ...cartItemPayload,
         ...(addResult && typeof addResult === "object" ? addResult : {}),
@@ -663,18 +722,16 @@ const ProductDescription = () => {
       setCartSidebarOpen(true);
       setCartLoading(false);
       setIsAddingToCart(false);
-
       const preservedItem = optimisticCart.find(
-        (item) => String(item.productId) === String(productId),
+        (item) => String(item.productId) === String(productId)
       );
-
       void refreshCartFromDatabase({
         preserveItems: preservedItem ? [preservedItem] : [],
         silent: true,
       }).then((result) => {
         if (!result.ok && result.reason !== "offline") {
           setCartSyncError(
-            "Added to cart successfully. We will finish syncing your cart shortly.",
+            "Added to cart successfully. We will finish syncing your cart shortly."
           );
         }
       });
@@ -685,7 +742,7 @@ const ProductDescription = () => {
         setCartSyncError(
           error.message
             ? `Failed to add to cart: ${error.message}`
-            : "Failed to add product to cart. Please try again.",
+            : "Failed to add product to cart. Please try again."
         );
       }
       setCartLoading(false);
@@ -696,18 +753,15 @@ const ProductDescription = () => {
 
   const handleQuantityChange = async (productId, newQuantity) => {
     if (newQuantity < 1) return;
-
     const activeCartId = getActiveCartId();
     if (!activeCartId) {
       setCartSyncError("Cart ID not found. Please refresh the page.");
       return;
     }
-
     const previousLocalCart = [...localCartRef.current];
     const productKey = String(productId);
     setUpdatingQuantity((prev) => ({ ...prev, [productKey]: true }));
     setCartSyncError(null);
-
     try {
       const optimisticCart = previousLocalCart.map((item) =>
         String(item.productId) === productKey
@@ -716,30 +770,27 @@ const ProductDescription = () => {
               quantity: newQuantity,
               total: parseFloat(item.price) * newQuantity,
             }
-          : item,
+          : item
       );
       commitLocalCart(optimisticCart);
-
       await dispatch(
         updateCartItem({
           CartId: activeCartId,
           ProductId: productKey,
           Quantity: newQuantity,
-        }),
+        })
       ).unwrap();
-
       const refreshed = await refreshCartFromDatabase({ silent: true });
       if (!refreshed.ok && refreshed.reason !== "offline") {
         setCartSyncError(
-          "Quantity updated. We will finish syncing your cart shortly.",
+          "Quantity updated. We will finish syncing your cart shortly."
         );
       }
     } catch (error) {
       commitLocalCart(previousLocalCart);
       setCartSyncError(
-        `Failed to update quantity: ${error?.message || "Unknown error"}`,
+        `Failed to update quantity: ${error?.message || "Unknown error"}`
       );
-
       void refreshCartFromDatabase({ silent: true });
     } finally {
       setUpdatingQuantity((prev) => ({ ...prev, [productKey]: false }));
@@ -752,35 +803,31 @@ const ProductDescription = () => {
       setCartSyncError("Cart ID not found. Please refresh the page.");
       return;
     }
-
     const previousLocalCart = [...localCartRef.current];
     const productKey = String(productId);
     setRemovingItem((prev) => ({ ...prev, [productKey]: true }));
     setCartSyncError(null);
-
     try {
       const optimisticCart = previousLocalCart.filter(
-        (item) => String(item.productId) !== productKey,
+        (item) => String(item.productId) !== productKey
       );
       commitLocalCart(optimisticCart);
-
       await dispatch(
         deleteCartItem({
           CartId: activeCartId,
           ProductId: productKey,
-        }),
+        })
       ).unwrap();
-
       const refreshed = await refreshCartFromDatabase({ silent: true });
       if (!refreshed.ok && refreshed.reason !== "offline") {
         setCartSyncError(
-          "Item removed. We will finish syncing your cart shortly.",
+          "Item removed. We will finish syncing your cart shortly."
         );
       }
     } catch (error) {
       commitLocalCart(previousLocalCart);
       setCartSyncError(
-        `Failed to remove item: ${error?.message || "Unknown error"}`,
+        `Failed to remove item: ${error?.message || "Unknown error"}`
       );
       void refreshCartFromDatabase({ silent: true });
     } finally {
@@ -790,14 +837,12 @@ const ProductDescription = () => {
 
   const handleCheckout = () => {
     const storedCustomer = safeLocalStorage.getItem("customer");
-
     if (!storedCustomer) {
       setPendingCheckout(true);
       setCartSidebarOpen(false);
       setTimeout(() => setAuthModalOpen(true), 300);
       return;
     }
-
     window.dataLayer = window.dataLayer || [];
     window.dataLayer.push({
       event: "proceed_to_checkout",
@@ -809,7 +854,6 @@ const ProductDescription = () => {
         quantity: item.quantity,
       })),
     });
-
     safeLocalStorage.setItem("selectedCart", localCart);
     navigate("/checkout");
   };
@@ -833,14 +877,13 @@ const ProductDescription = () => {
   const handlePrevImage = () => {
     if (allProductImages.length <= 1) return;
     setSelectedImageIndex((prev) =>
-      prev === 0 ? allProductImages.length - 1 : prev - 1,
+      prev === 0 ? allProductImages.length - 1 : prev - 1
     );
   };
-
   const handleNextImage = () => {
     if (allProductImages.length <= 1) return;
     setSelectedImageIndex((prev) =>
-      prev === allProductImages.length - 1 ? 0 : prev + 1,
+      prev === allProductImages.length - 1 ? 0 : prev + 1
     );
   };
 
@@ -849,11 +892,10 @@ const ProductDescription = () => {
   const cartTotal = Array.isArray(localCart)
     ? localCart.reduce((acc, item) => acc + getItemLineTotal(item), 0)
     : 0;
-
   const totalCartItems = Array.isArray(localCart)
     ? localCart.reduce(
         (acc, item) => acc + (parseInt(item.quantity, 10) || 0),
-        0,
+        0
       )
     : 0;
 
@@ -861,7 +903,6 @@ const ProductDescription = () => {
     setAuthModalOpen(false);
     setPendingCheckout(false);
   };
-
   const handleAuthSuccess = () => {
     setAuthModalOpen(false);
     if (localCart && localCart.length > 0) {
@@ -880,21 +921,39 @@ const ProductDescription = () => {
     });
     setTimeout(() => navigate("/checkout"), 100);
   };
-
   const handleContinueShopping = () => setCartSidebarOpen(false);
 
-  // ==================== LOADING STATE ====================
+  // ==================== LOADING & NOT FOUND ====================
 
-  if (loading || !currentProduct?.length) {
+  // While catalogue is loading or product details are loading, show skeleton
+  // This covers: initial load, slug->ID resolution, and direct API fetch
+  if (loading || !product) {
+    // If we have determined the slug is invalid after catalogue loaded, show 404-style message
+    if (slugResolveError && products.length > 0 && !loading) {
+      return (
+        <div className="pd-root max-w-7xl mx-auto px-4 py-12 text-center">
+          <ExclamationTriangleIcon className="w-12 h-12 mx-auto mb-4" style={{ color: "#dc2626" }} />
+          <h1 className="text-2xl font-bold mb-2">Product not found</h1>
+          <p className="text-gray-500 mb-6">
+            We couldn't find a product for <code className="bg-gray-100 px-2 py-1 rounded">{rawParam}</code>
+          </p>
+          <button
+            onClick={() => navigate("/")}
+            className="pd-btn pd-btn-primary"
+            style={{ width: "auto", padding: "10px 24px" }}
+          >
+            Back to Home
+          </button>
+        </div>
+      );
+    }
     return <ProductDetailSkeleton />;
   }
 
-  const product = currentProduct[0];
   const outOfStock = isOutOfStock(product);
   const activeImageUrl =
     allProductImages[selectedImageIndex] || allProductImages[0];
   const primaryImageUrl = allProductImages[0];
-
   const descriptionLines = String(product.description || "")
     .split(/\r?\n/)
     .filter((line) => line.trim() !== "")
@@ -903,8 +962,7 @@ const ProductDescription = () => {
         {line}
       </p>
     ));
-
-  const productUrl = window.location.href;
+  const productUrl = canonicalUrl;
   const related = products.slice(-12);
 
   // ==================== RENDER ====================
@@ -928,16 +986,12 @@ const ProductDescription = () => {
           --pd-pink: #e11d48;
           --pd-radius: 4px;
         }
-
         .pd-root, .pd-root * {
           font-family: var(--pd-font);
           -webkit-font-smoothing: antialiased;
           -moz-osx-font-smoothing: grayscale;
           box-sizing: border-box;
         }
-
-        /* ==================== HEADER STYLES ==================== */
-
         .pd-section-header {
           display: flex;
           align-items: center;
@@ -945,14 +999,12 @@ const ProductDescription = () => {
           gap: 16px;
           margin-bottom: 16px;
         }
-
         .pd-title-wrap {
           display: flex;
           align-items: center;
           gap: 10px;
           flex-shrink: 0;
         }
-
         .pd-title-accent {
           width: 4px;
           height: 22px;
@@ -960,11 +1012,9 @@ const ProductDescription = () => {
           background: var(--pd-green);
           flex-shrink: 0;
         }
-
         @media (min-width: 768px) {
           .pd-title-accent { height: 26px; }
         }
-
         .pd-section-title {
           font-size: 17px;
           font-weight: 800;
@@ -974,20 +1024,15 @@ const ProductDescription = () => {
           white-space: nowrap;
           margin: 0;
         }
-
         @media (min-width: 768px) {
           .pd-section-title { font-size: 20px; }
         }
-
         .pd-header-line {
           flex: 1;
           height: 1px;
           background: var(--pd-border);
           min-width: 20px;
         }
-
-        /* ==================== PRODUCT TITLE ==================== */
-
         .pd-product-title {
           font-size: 20px;
           font-weight: 800;
@@ -996,13 +1041,9 @@ const ProductDescription = () => {
           line-height: 1.3;
           margin-bottom: 16px;
         }
-
         @media (min-width: 768px) {
           .pd-product-title { font-size: 24px; }
         }
-
-        /* ==================== PRICE ==================== */
-
         .pd-price-container {
           display: flex;
           align-items: center;
@@ -1013,26 +1054,20 @@ const ProductDescription = () => {
           padding: 12px 16px;
           margin-bottom: 16px;
         }
-
         .pd-price {
           font-size: 22px;
           font-weight: 900;
           color: var(--pd-red);
         }
-
         @media (min-width: 768px) {
           .pd-price { font-size: 26px; }
         }
-
         .pd-old-price {
           font-size: 14px;
           font-weight: 400;
           color: var(--pd-light);
           text-decoration: line-through;
         }
-
-        /* ==================== BADGES ==================== */
-
         .pd-badge {
           display: inline-flex;
           align-items: center;
@@ -1044,22 +1079,10 @@ const ProductDescription = () => {
           text-transform: uppercase;
           letter-spacing: 0.02em;
         }
-
         .pd-badge-tag {
           background: linear-gradient(135deg, var(--pd-green) 0%, var(--pd-green-mid) 100%);
           color: #fff;
         }
-
-        .pd-badge-color {
-          background: var(--pd-bg-subtle);
-          color: var(--pd-mid);
-          border: 1px solid var(--pd-border);
-          text-transform: none;
-          font-weight: 500;
-        }
-
-        /* ==================== STOCK STATUS ==================== */
-
         .pd-stock {
           display: inline-flex;
           align-items: center;
@@ -1070,38 +1093,30 @@ const ProductDescription = () => {
           font-weight: 600;
           border: 1px solid;
         }
-
         .pd-stock-in {
           background: var(--pd-green-lighter);
           color: var(--pd-green);
           border-color: var(--pd-green-light);
         }
-
         .pd-stock-out {
           background: #fef2f2;
           color: var(--pd-red);
           border-color: #fecaca;
         }
-
-        /* ==================== DESCRIPTION ==================== */
-
         .pd-description-header {
           display: flex;
           align-items: center;
           gap: 10px;
           margin-bottom: 12px;
         }
-
         .pd-description-title {
           font-size: 15px;
           font-weight: 700;
           color: var(--pd-dark);
         }
-
         @media (min-width: 768px) {
           .pd-description-title { font-size: 16px; }
         }
-
         .pd-description-box {
           background: #fff;
           border: 1px solid var(--pd-border);
@@ -1110,20 +1125,13 @@ const ProductDescription = () => {
           max-height: 280px;
           overflow-y: auto;
         }
-
         .pd-description-line {
           font-size: 14px;
           color: var(--pd-mid);
           line-height: 1.6;
           margin-bottom: 8px;
         }
-
-        .pd-description-line:last-child {
-          margin-bottom: 0;
-        }
-
-        /* ==================== BUTTONS ==================== */
-
+        .pd-description-line:last-child { margin-bottom: 0; }
         .pd-btn {
           display: inline-flex;
           align-items: center;
@@ -1138,37 +1146,28 @@ const ProductDescription = () => {
           border: 2px solid transparent;
           width: 100%;
         }
-
         .pd-btn-primary {
           background: var(--pd-green);
           color: #fff;
           border-color: var(--pd-green);
         }
-
         .pd-btn-primary:hover:not(:disabled) {
           background: var(--pd-green-mid);
           border-color: var(--pd-green-mid);
           box-shadow: 0 4px 16px rgba(20, 83, 45, 0.2);
         }
-
         .pd-btn-primary:disabled {
           background: var(--pd-border);
           border-color: var(--pd-border);
           color: var(--pd-light);
           cursor: not-allowed;
         }
-
-        /* ==================== GALLERY & OTHER IMAGES ==================== */
-
-        /* Mobile (< 768px): Main image on top, horizontal thumbnails below */
         .pd-gallery-container {
           display: flex;
           flex-direction: column;
           gap: 14px;
           width: 100%;
         }
-
-        /* Medium & Large (>= 768px): Vertical thumbnails on the LEFT, main image on the RIGHT */
         @media (min-width: 768px) {
           .pd-gallery-container {
             flex-direction: row;
@@ -1176,7 +1175,6 @@ const ProductDescription = () => {
             gap: 16px;
           }
         }
-
         .pd-image-container {
           position: relative;
           display: flex;
@@ -1186,24 +1184,16 @@ const ProductDescription = () => {
           flex: 1;
           order: 1;
         }
-
         @media (min-width: 768px) {
-          .pd-image-container {
-            order: 2;
-          }
+          .pd-image-container { order: 2; }
         }
-
         .pd-main-image {
           border-radius: var(--pd-radius);
           box-shadow: 0 4px 20px rgba(0,0,0,0.08);
           max-width: 100%;
           transition: transform 0.3s ease;
         }
-
-        .pd-main-image:hover {
-          transform: scale(1.02);
-        }
-
+        .pd-main-image:hover { transform: scale(1.02); }
         .pd-gallery-nav-btn {
           position: absolute;
           top: 50%;
@@ -1222,21 +1212,13 @@ const ProductDescription = () => {
           transition: all 0.2s ease;
           color: var(--pd-dark);
         }
-
         .pd-gallery-nav-btn:hover {
           background: var(--pd-green);
           border-color: var(--pd-green);
           color: #fff;
         }
-
-        .pd-gallery-nav-prev {
-          left: 12px;
-        }
-
-        .pd-gallery-nav-next {
-          right: 12px;
-        }
-
+        .pd-gallery-nav-prev { left: 12px; }
+        .pd-gallery-nav-next { right: 12px; }
         .pd-gallery-counter {
           position: absolute;
           bottom: 12px;
@@ -1250,8 +1232,6 @@ const ProductDescription = () => {
           z-index: 10;
           letter-spacing: 0.04em;
         }
-
-        /* Mobile thumbnail strip (horizontal below image) */
         .pd-thumbnails-strip {
           display: flex;
           flex-direction: row;
@@ -1263,8 +1243,6 @@ const ProductDescription = () => {
           scrollbar-width: thin;
           order: 2;
         }
-
-        /* Desktop/Tablet thumbnail strip (vertical on the left of main image) */
         @media (min-width: 768px) {
           .pd-thumbnails-strip {
             flex-direction: column;
@@ -1277,7 +1255,6 @@ const ProductDescription = () => {
             order: 1;
           }
         }
-
         .pd-thumbnail-btn {
           width: 70px;
           height: 70px;
@@ -1294,34 +1271,24 @@ const ProductDescription = () => {
           transition: all 0.2s ease;
           opacity: 0.7;
         }
-
         @media (min-width: 768px) {
-          .pd-thumbnail-btn {
-            width: 80px;
-            height: 80px;
-          }
+          .pd-thumbnail-btn { width: 80px; height: 80px; }
         }
-
         .pd-thumbnail-btn:hover {
           opacity: 1;
           border-color: var(--pd-green-accent);
         }
-
         .pd-thumbnail-btn.pd-thumbnail-active {
           opacity: 1;
           border-color: var(--pd-green);
           box-shadow: 0 0 0 2px var(--pd-green-light);
         }
-
         .pd-thumbnail-btn img {
           width: 100%;
           height: 100%;
           object-fit: contain;
           border-radius: 2px;
         }
-
-        /* ==================== CARDS ==================== */
-
         .pd-card {
           border: 1px solid var(--pd-border);
           border-radius: var(--pd-radius);
@@ -1330,12 +1297,10 @@ const ProductDescription = () => {
           transition: all 0.2s ease;
           cursor: pointer;
         }
-
         .pd-card:hover {
           border-color: var(--pd-green-accent);
           box-shadow: 0 4px 16px rgba(20, 83, 45, 0.08);
         }
-
         .pd-card-img {
           position: relative;
           height: 150px;
@@ -1345,22 +1310,16 @@ const ProductDescription = () => {
           padding: 10px;
           overflow: hidden;
         }
-
         @media (min-width: 768px) {
           .pd-card-img { height: 195px; }
         }
-
         .pd-card-img img {
           height: 100%;
           width: 100%;
           object-fit: contain;
           transition: transform 0.3s ease;
         }
-
-        .pd-card:hover .pd-card-img img {
-          transform: scale(1.05);
-        }
-
+        .pd-card:hover .pd-card-img img { transform: scale(1.05); }
         .pd-card-overlay {
           position: absolute;
           inset: 0;
@@ -1371,11 +1330,7 @@ const ProductDescription = () => {
           gap: 8px;
           z-index: 2;
         }
-
-        .pd-card:hover .pd-card-overlay {
-          display: flex;
-        }
-
+        .pd-card:hover .pd-card-overlay { display: flex; }
         .pd-card-action {
           display: flex;
           align-items: center;
@@ -1389,23 +1344,12 @@ const ProductDescription = () => {
           transition: all 0.15s;
           box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
-
         .pd-card-action:hover {
           transform: scale(1.1);
           box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
-
-        .pd-card-action:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-          transform: none;
-        }
-
-        .pd-card-body {
-          padding: 10px 12px;
-          text-align: center;
-        }
-
+        .pd-card-action:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .pd-card-body { padding: 10px 12px; text-align: center; }
         .pd-card-name {
           font-size: 15px;
           font-weight: 600;
@@ -1417,14 +1361,12 @@ const ProductDescription = () => {
           overflow: hidden;
           min-height: 35px;
         }
-
         .pd-card-price {
           font-size: 15px;
           font-weight: 900;
           color: var(--pd-red);
           margin-top: 6px;
         }
-
         .pd-card-old-price {
           font-size: 12px;
           font-weight: 400;
@@ -1432,7 +1374,6 @@ const ProductDescription = () => {
           text-decoration: line-through;
           margin-top: 2px;
         }
-
         .pd-card-badge {
           position: absolute;
           top: 8px;
@@ -1444,34 +1385,17 @@ const ProductDescription = () => {
           letter-spacing: 0.04em;
           text-transform: uppercase;
         }
-
-        .pd-card-badge-sold {
-          left: 8px;
-          background: var(--pd-dark);
-          color: #fff;
-        }
-
-        .pd-card-badge-discount {
-          right: 8px;
-          background: var(--pd-red);
-          color: #fff;
-          font-size: 10px;
-          padding: 3px 7px;
-        }
-
-        /* ==================== SERVICE FEATURES ==================== */
-
+        .pd-card-badge-sold { left: 8px; background: var(--pd-dark); color: #fff; }
+        .pd-card-badge-discount { right: 8px; background: var(--pd-red); color: #fff; font-size: 10px; padding: 3px 7px; }
         .pd-features {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
           gap: 16px;
           margin-top: 32px;
         }
-
         @media (min-width: 640px) {
           .pd-features { grid-template-columns: repeat(4, 1fr); }
         }
-
         .pd-feature {
           display: flex;
           align-items: flex-start;
@@ -1481,32 +1405,13 @@ const ProductDescription = () => {
           border-radius: var(--pd-radius);
           transition: all 0.2s ease;
         }
-
         .pd-feature:hover {
           border-color: var(--pd-green-accent);
           background: var(--pd-green-lighter);
         }
-
-        .pd-feature-icon {
-          width: 20px;
-          height: 20px;
-          flex-shrink: 0;
-        }
-
-        .pd-feature-title {
-          font-size: 13px;
-          font-weight: 700;
-          color: var(--pd-dark);
-          margin-bottom: 2px;
-        }
-
-        .pd-feature-subtitle {
-          font-size: 11px;
-          color: var(--pd-light);
-        }
-
-        /* ==================== STICKY BAR ==================== */
-
+        .pd-feature-icon { width: 20px; height: 20px; flex-shrink: 0; }
+        .pd-feature-title { font-size: 13px; font-weight: 700; color: var(--pd-dark); margin-bottom: 2px; }
+        .pd-feature-subtitle { font-size: 11px; color: var(--pd-light); }
         .pd-sticky-bar {
           position: fixed;
           top: 0;
@@ -1518,12 +1423,7 @@ const ProductDescription = () => {
           box-shadow: 0 2px 10px rgba(0,0,0,0.08);
           transition: all 0.3s ease;
         }
-
-        .pd-sticky-bar.pd-hidden {
-          transform: translateY(-100%);
-          opacity: 0;
-        }
-
+        .pd-sticky-bar.pd-hidden { transform: translateY(-100%); opacity: 0; }
         .pd-sticky-inner {
           max-width: 1280px;
           margin: 0 auto;
@@ -1533,19 +1433,10 @@ const ProductDescription = () => {
           justify-content: space-between;
           gap: 16px;
         }
-
         @media (min-width: 768px) {
           .pd-sticky-inner { padding: 12px 24px; }
         }
-
-        .pd-sticky-product {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          flex: 1;
-          min-width: 0;
-        }
-
+        .pd-sticky-product { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
         .pd-sticky-img {
           width: 48px;
           height: 48px;
@@ -1554,11 +1445,7 @@ const ProductDescription = () => {
           object-fit: contain;
           flex-shrink: 0;
         }
-
-        .pd-sticky-info {
-          min-width: 0;
-        }
-
+        .pd-sticky-info { min-width: 0; }
         .pd-sticky-name {
           font-size: 13px;
           font-weight: 600;
@@ -1568,27 +1455,9 @@ const ProductDescription = () => {
           text-overflow: ellipsis;
           margin-bottom: 2px;
         }
-
-        .pd-sticky-price {
-          font-size: 16px;
-          font-weight: 900;
-          color: var(--pd-red);
-        }
-
-        .pd-sticky-old-price {
-          font-size: 12px;
-          color: var(--pd-light);
-          text-decoration: line-through;
-          margin-left: 8px;
-        }
-
-        .pd-sticky-actions {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-shrink: 0;
-        }
-
+        .pd-sticky-price { font-size: 16px; font-weight: 900; color: var(--pd-red); }
+        .pd-sticky-old-price { font-size: 12px; color: var(--pd-light); text-decoration: line-through; margin-left: 8px; }
+        .pd-sticky-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
         .pd-sticky-btn {
           display: inline-flex;
           align-items: center;
@@ -1602,22 +1471,9 @@ const ProductDescription = () => {
           transition: all 0.2s ease;
           border: none;
         }
-
-        .pd-sticky-btn-cart {
-          background: var(--pd-green);
-          color: #fff;
-        }
-
-        .pd-sticky-btn-cart:hover:not(:disabled) {
-          background: var(--pd-green-mid);
-        }
-
-        .pd-sticky-btn-cart:disabled {
-          background: var(--pd-border);
-          color: var(--pd-light);
-          cursor: not-allowed;
-        }
-
+        .pd-sticky-btn-cart { background: var(--pd-green); color: #fff; }
+        .pd-sticky-btn-cart:hover:not(:disabled) { background: var(--pd-green-mid); }
+        .pd-sticky-btn-cart:disabled { background: var(--pd-border); color: var(--pd-light); cursor: not-allowed; }
         .pd-sticky-cart-icon {
           position: relative;
           width: 40px;
@@ -1630,11 +1486,7 @@ const ProductDescription = () => {
           cursor: pointer;
           transition: all 0.2s ease;
         }
-
-        .pd-sticky-cart-icon:hover {
-          background: var(--pd-green-light);
-        }
-
+        .pd-sticky-cart-icon:hover { background: var(--pd-green-light); }
         .pd-sticky-cart-badge {
           position: absolute;
           top: -4px;
@@ -1650,9 +1502,6 @@ const ProductDescription = () => {
           align-items: center;
           justify-content: center;
         }
-
-        /* ==================== CART SIDEBAR ==================== */
-
         .pd-cart-header {
           display: flex;
           align-items: center;
@@ -1661,25 +1510,8 @@ const ProductDescription = () => {
           border-bottom: 1px solid var(--pd-border);
           background: #fff;
         }
-
-        .pd-cart-title {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 16px;
-          font-weight: 800;
-          color: var(--pd-dark);
-        }
-
-        .pd-cart-count {
-          background: var(--pd-green-light);
-          color: var(--pd-green);
-          padding: 2px 8px;
-          border-radius: 100px;
-          font-size: 11px;
-          font-weight: 700;
-        }
-
+        .pd-cart-title { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 800; color: var(--pd-dark); }
+        .pd-cart-count { background: var(--pd-green-light); color: var(--pd-green); padding: 2px 8px; border-radius: 100px; font-size: 11px; font-weight: 700; }
         .pd-cart-close {
           width: 32px;
           height: 32px;
@@ -1692,11 +1524,7 @@ const ProductDescription = () => {
           justify-content: center;
           transition: all 0.2s ease;
         }
-
-        .pd-cart-close:hover {
-          background: var(--pd-border);
-        }
-
+        .pd-cart-close:hover { background: var(--pd-border); }
         .pd-cart-empty {
           display: flex;
           flex-direction: column;
@@ -1706,26 +1534,9 @@ const ProductDescription = () => {
           padding: 32px;
           text-align: center;
         }
-
-        .pd-cart-empty-icon {
-          width: 64px;
-          height: 64px;
-          color: var(--pd-border);
-          margin-bottom: 16px;
-        }
-
-        .pd-cart-empty-title {
-          font-size: 16px;
-          font-weight: 700;
-          color: var(--pd-mid);
-          margin-bottom: 4px;
-        }
-
-        .pd-cart-empty-text {
-          font-size: 13px;
-          color: var(--pd-light);
-        }
-
+        .pd-cart-empty-icon { width: 64px; height: 64px; color: var(--pd-border); margin-bottom: 16px; }
+        .pd-cart-empty-title { font-size: 16px; font-weight: 700; color: var(--pd-mid); margin-bottom: 4px; }
+        .pd-cart-empty-text { font-size: 13px; color: var(--pd-light); }
         .pd-cart-item {
           position: relative;
           background: #fff;
@@ -1734,30 +1545,10 @@ const ProductDescription = () => {
           padding: 12px;
           transition: all 0.2s ease;
         }
-
-        .pd-cart-item:hover {
-          border-color: var(--pd-green-accent);
-        }
-
-        .pd-cart-item-inner {
-          display: flex;
-          gap: 12px;
-        }
-
-        .pd-cart-item-img {
-          width: 60px;
-          height: 60px;
-          background: var(--pd-bg-subtle);
-          border-radius: var(--pd-radius);
-          overflow: hidden;
-          flex-shrink: 0;
-        }
-
-        .pd-cart-item-info {
-          flex: 1;
-          min-width: 0;
-        }
-
+        .pd-cart-item:hover { border-color: var(--pd-green-accent); }
+        .pd-cart-item-inner { display: flex; gap: 12px; }
+        .pd-cart-item-img { width: 60px; height: 60px; background: var(--pd-bg-subtle); border-radius: var(--pd-radius); overflow: hidden; flex-shrink: 0; }
+        .pd-cart-item-info { flex: 1; min-width: 0; }
         .pd-cart-item-name {
           font-size: 13px;
           font-weight: 600;
@@ -1768,28 +1559,9 @@ const ProductDescription = () => {
           overflow: hidden;
           margin-bottom: 4px;
         }
-
-        .pd-cart-item-price {
-          font-size: 14px;
-          font-weight: 900;
-          color: var(--pd-red);
-        }
-
-        .pd-cart-item-actions {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-top: 8px;
-        }
-
-        .pd-qty-control {
-          display: flex;
-          align-items: center;
-          background: var(--pd-bg-subtle);
-          border: 1px solid var(--pd-border);
-          border-radius: var(--pd-radius);
-        }
-
+        .pd-cart-item-price { font-size: 14px; font-weight: 900; color: var(--pd-red); }
+        .pd-cart-item-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+        .pd-qty-control { display: flex; align-items: center; background: var(--pd-bg-subtle); border: 1px solid var(--pd-border); border-radius: var(--pd-radius); }
         .pd-qty-btn {
           width: 28px;
           height: 28px;
@@ -1801,30 +1573,10 @@ const ProductDescription = () => {
           justify-content: center;
           transition: all 0.15s ease;
         }
-
-        .pd-qty-btn:hover:not(:disabled) {
-          background: var(--pd-green-light);
-        }
-
-        .pd-qty-btn:disabled {
-          opacity: 0.4;
-          cursor: not-allowed;
-        }
-
-        .pd-qty-value {
-          width: 32px;
-          text-align: center;
-          font-size: 12px;
-          font-weight: 700;
-          color: var(--pd-dark);
-        }
-
-        .pd-cart-item-total {
-          font-size: 14px;
-          font-weight: 800;
-          color: var(--pd-dark);
-        }
-
+        .pd-qty-btn:hover:not(:disabled) { background: var(--pd-green-light); }
+        .pd-qty-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .pd-qty-value { width: 32px; text-align: center; font-size: 12px; font-weight: 700; color: var(--pd-dark); }
+        .pd-cart-item-total { font-size: 14px; font-weight: 800; color: var(--pd-dark); }
         .pd-cart-item-remove {
           width: 28px;
           height: 28px;
@@ -1838,43 +1590,12 @@ const ProductDescription = () => {
           transition: all 0.15s ease;
           margin-left: 8px;
         }
-
-        .pd-cart-item-remove:hover {
-          background: #fecaca;
-        }
-
-        .pd-cart-footer {
-          border-top: 1px solid var(--pd-border);
-          background: #fff;
-          padding: 16px;
-        }
-
-        .pd-cart-total-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 12px;
-        }
-
-        .pd-cart-total-label {
-          font-size: 14px;
-          font-weight: 600;
-          color: var(--pd-mid);
-        }
-
-        .pd-cart-total-value {
-          font-size: 20px;
-          font-weight: 900;
-          color: var(--pd-red);
-        }
-
-        .pd-cart-note {
-          font-size: 11px;
-          color: var(--pd-light);
-          text-align: center;
-          margin-bottom: 12px;
-        }
-
+        .pd-cart-item-remove:hover { background: #fecaca; }
+        .pd-cart-footer { border-top: 1px solid var(--pd-border); background: #fff; padding: 16px; }
+        .pd-cart-total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .pd-cart-total-label { font-size: 14px; font-weight: 600; color: var(--pd-mid); }
+        .pd-cart-total-value { font-size: 20px; font-weight: 900; color: var(--pd-red); }
+        .pd-cart-note { font-size: 11px; color: var(--pd-light); text-align: center; margin-bottom: 12px; }
         .pd-cart-checkout {
           width: 100%;
           padding: 14px;
@@ -1888,11 +1609,7 @@ const ProductDescription = () => {
           transition: all 0.2s ease;
           margin-bottom: 8px;
         }
-
-        .pd-cart-checkout:hover {
-          background: var(--pd-green-mid);
-        }
-
+        .pd-cart-checkout:hover { background: var(--pd-green-mid); }
         .pd-cart-continue {
           width: 100%;
           padding: 12px;
@@ -1905,14 +1622,7 @@ const ProductDescription = () => {
           cursor: pointer;
           transition: all 0.2s ease;
         }
-
-        .pd-cart-continue:hover {
-          background: var(--pd-bg-subtle);
-          border-color: var(--pd-green-accent);
-        }
-
-        /* ==================== ALERT ==================== */
-
+        .pd-cart-continue:hover { background: var(--pd-bg-subtle); border-color: var(--pd-green-accent); }
         .pd-alert {
           display: flex;
           align-items: center;
@@ -1922,72 +1632,19 @@ const ProductDescription = () => {
           border-left: 4px solid;
           margin-bottom: 16px;
         }
-
-        .pd-alert-warning {
-          background: #fffbeb;
-          border-left-color: #f59e0b;
-        }
-
-        .pd-alert-success {
-          background: var(--pd-green-lighter);
-          border-left-color: var(--pd-green-accent);
-        }
-
-        .pd-alert-text {
-          font-size: 13px;
-          font-weight: 500;
-        }
-
-        .pd-alert-warning .pd-alert-text {
-          color: #92400e;
-        }
-
-        .pd-alert-success .pd-alert-text {
-          color: var(--pd-green);
-        }
-
-        /* ==================== GRID ==================== */
-
-        .pd-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 12px;
-        }
-
-        @media (min-width: 640px) {
-          .pd-grid { grid-template-columns: repeat(3, 1fr); }
-        }
-
-        @media (min-width: 1024px) {
-          .pd-grid { grid-template-columns: repeat(4, 1fr); gap: 16px; }
-        }
-
-        /* ==================== RELATED PRODUCTS GRID ==================== */
-
-        .pd-grid-related {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 12px;
-        }
-
-        @media (min-width: 640px) {
-          .pd-grid-related { grid-template-columns: repeat(3, 1fr); }
-        }
-
-        @media (min-width: 768px) {
-          .pd-grid-related { grid-template-columns: repeat(4, 1fr); }
-        }
-
-        @media (min-width: 1024px) {
-          .pd-grid-related { grid-template-columns: repeat(5, 1fr); gap: 16px; }
-        }
-
-        @media (min-width: 1280px) {
-          .pd-grid-related { grid-template-columns: repeat(6, 1fr); }
-        }
-
-        /* ==================== MOBILE BOTTOM BAR ==================== */
-
+        .pd-alert-warning { background: #fffbeb; border-left-color: #f59e0b; }
+        .pd-alert-success { background: var(--pd-green-lighter); border-left-color: var(--pd-green-accent); }
+        .pd-alert-text { font-size: 13px; font-weight: 500; }
+        .pd-alert-warning .pd-alert-text { color: #92400e; }
+        .pd-alert-success .pd-alert-text { color: var(--pd-green); }
+        .pd-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        @media (min-width: 640px) { .pd-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 1024px) { .pd-grid { grid-template-columns: repeat(4, 1fr); gap: 16px; } }
+        .pd-grid-related { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        @media (min-width: 640px) { .pd-grid-related { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 768px) { .pd-grid-related { grid-template-columns: repeat(4, 1fr); } }
+        @media (min-width: 1024px) { .pd-grid-related { grid-template-columns: repeat(5, 1fr); gap: 16px; } }
+        @media (min-width: 1280px) { .pd-grid-related { grid-template-columns: repeat(6, 1fr); } }
         .pd-mobile-bar {
           position: fixed;
           bottom: 0;
@@ -1999,13 +1656,7 @@ const ProductDescription = () => {
           box-shadow: 0 -2px 10px rgba(0,0,0,0.08);
           z-index: 40;
         }
-
-        @media (min-width: 768px) {
-          .pd-mobile-bar { display: none; }
-        }
-
-        /* ==================== LOADING SPINNER ==================== */
-
+        @media (min-width: 768px) { .pd-mobile-bar { display: none; } }
         .pd-spinner {
           width: 20px;
           height: 20px;
@@ -2014,42 +1665,30 @@ const ProductDescription = () => {
           border-radius: 50%;
           animation: pd-spin 0.8s linear infinite;
         }
-
-        @keyframes pd-spin {
-          to { transform: rotate(360deg); }
-        }
+        @keyframes pd-spin { to { transform: rotate(360deg); } }
       `}</style>
 
       <div className="pd-root max-w-7xl mx-auto px-4 py-2">
         <Helmet>
-          <title>{`${product?.productName || "Product"} - Best Price in Ghana`}</title>
+          <title>{`${product?.productName || "Product"} - Best Price in Ghana | Franko Trading`}</title>
           <meta
             name="description"
-            content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}. High-quality and best prices available.`}
+            content={`Buy ${product?.productName || "this product"} for GH₵${formatPrice(product?.price) || "0.00"} at Franko Trading Ghana. Best prices, fast delivery nationwide.`}
           />
-          <meta
-            property="og:title"
-            content={product?.productName || "Product"}
-          />
+          <meta property="og:title" content={product?.productName || "Product"} />
           <meta
             property="og:description"
-            content={`Buy ${product?.productName || "this product"} for ₵${formatPrice?.(product?.price) || "0.00"}.`}
+            content={`Buy ${product?.productName || "this product"} for GH₵${formatPrice(product?.price) || "0.00"} at Franko Trading.`}
           />
-          <meta
-            property="og:image"
-            content={primaryImageUrl || "default-image-url.jpg"}
-          />
-          <meta
-            property="og:url"
-            content={productUrl || "https://www.frankotrading.com"}
-          />
+          <meta property="og:image" content={primaryImageUrl || "default-image-url.jpg"} />
+          <meta property="og:url" content={productUrl} />
+          <meta property="og:type" content="product" />
           <meta name="twitter:card" content="summary_large_image" />
-          <link
-            rel="canonical"
-            href={`https://www.frankotrading.com/product/${product?.productID || "defaultID"}`}
-          />
+          {/* Canonical now points to slug URL - core SEO change */}
+          <link rel="canonical" href={canonicalUrl} />
         </Helmet>
 
+        {/* JSON-LD with slug URL */}
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org/",
@@ -2066,12 +1705,12 @@ const ProductDescription = () => {
               "@type": "Offer",
               priceCurrency: "GHS",
               price: product.price,
-              priceValidUntil: "2025-12-31",
+              priceValidUntil: "2026-12-31",
               itemCondition: "https://schema.org/NewCondition",
               availability: outOfStock
                 ? "https://schema.org/OutOfStock"
                 : "https://schema.org/InStock",
-              url: `https://www.frankotrading.com/product/${product.productID}`,
+              url: canonicalUrl,
               seller: {
                 "@type": "Organization",
                 name: "Franko Trading",
@@ -2142,7 +1781,6 @@ const ProductDescription = () => {
                 </div>
               </div>
             </div>
-
             <div className="pd-sticky-actions">
               <button
                 className="pd-sticky-btn pd-sticky-btn-cart"
@@ -2166,21 +1804,16 @@ const ProductDescription = () => {
                   </>
                 )}
               </button>
-
               <div
                 className="pd-sticky-cart-icon"
                 onClick={handleOpenCart}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ")
-                    handleOpenCart();
+                  if (event.key === "Enter" || event.key === " ") handleOpenCart();
                 }}
               >
-                <ShoppingCartIcon
-                  className="w-5 h-5"
-                  style={{ color: "var(--pd-mid)" }}
-                />
+                <ShoppingCartIcon className="w-5 h-5" style={{ color: "var(--pd-mid)" }} />
                 {totalCartItems > 0 && (
                   <span className="pd-sticky-cart-badge">{totalCartItems}</span>
                 )}
@@ -2189,7 +1822,6 @@ const ProductDescription = () => {
           </div>
         </div>
 
-        {/* Network / Cart Error Alert */}
         {cartSyncError && (
           <div
             className={`pd-alert ${
@@ -2229,29 +1861,22 @@ const ProductDescription = () => {
                   <ChevronLeftIcon className="w-5 h-5" />
                 </button>
               )}
-
               <Image.PreviewGroup>
                 {allProductImages.map((imgSrc, idx) => (
                   <div
                     key={`preview-${idx}`}
-                    style={{
-                      display: idx === selectedImageIndex ? "block" : "none",
-                    }}
+                    style={{ display: idx === selectedImageIndex ? "block" : "none" }}
                   >
                     <Image
                       src={imgSrc || activeImageUrl}
                       className="pd-main-image"
                       alt={`${product.productName} - View ${idx + 1}`}
                       fallback="https://via.placeholder.com/400?text=No+Image"
-                      style={{
-                        maxWidth: "100%",
-                        borderRadius: "var(--pd-radius)",
-                      }}
+                      style={{ maxWidth: "100%", borderRadius: "var(--pd-radius)" }}
                     />
                   </div>
                 ))}
               </Image.PreviewGroup>
-
               {allProductImages.length > 1 && (
                 <>
                   <button
@@ -2268,8 +1893,6 @@ const ProductDescription = () => {
                 </>
               )}
             </div>
-
-            {/* Thumbnail Strip (Left side on md/lg, Bottom on mobile) */}
             {allProductImages.length > 1 && (
               <div className="pd-thumbnails-strip">
                 {allProductImages.map((imgSrc, index) => (
@@ -2277,9 +1900,7 @@ const ProductDescription = () => {
                     key={`thumb-${index}`}
                     type="button"
                     onClick={() => setSelectedImageIndex(index)}
-                    className={`pd-thumbnail-btn ${
-                      selectedImageIndex === index ? "pd-thumbnail-active" : ""
-                    }`}
+                    className={`pd-thumbnail-btn ${selectedImageIndex === index ? "pd-thumbnail-active" : ""}`}
                     aria-label={`View product image ${index + 1}`}
                   >
                     <img
@@ -2298,21 +1919,13 @@ const ProductDescription = () => {
           {/* Product Information Column */}
           <div className="space-y-4">
             <h1 className="pd-product-title">{product.productName}</h1>
-
             <div className="pd-price-container">
               <span className="pd-price">GH₵{formatPrice(product.price)}</span>
               {product.oldPrice > 0 && (
-                <span className="pd-old-price">
-                  GH₵{formatPrice(product.oldPrice)}
-                </span>
+                <span className="pd-old-price">GH₵{formatPrice(product.oldPrice)}</span>
               )}
             </div>
-
-            <div
-              className={`pd-stock ${
-                outOfStock ? "pd-stock-out" : "pd-stock-in"
-              }`}
-            >
+            <div className={`pd-stock ${outOfStock ? "pd-stock-out" : "pd-stock-in"}`}>
               {outOfStock ? (
                 <>
                   <ExclamationTriangleIcon className="w-4 h-4" />
@@ -2325,7 +1938,6 @@ const ProductDescription = () => {
                 </>
               )}
             </div>
-
             <div className="mt-4">
               <div className="pd-description-header">
                 <div className="pd-title-accent" style={{ height: "20px" }} />
@@ -2333,8 +1945,6 @@ const ProductDescription = () => {
               </div>
               <div className="pd-description-box">{descriptionLines}</div>
             </div>
-
-            {/* Desktop Add to Cart */}
             <div className="pt-4 hidden md:block">
               <button
                 className="pd-btn pd-btn-primary"
@@ -2359,8 +1969,6 @@ const ProductDescription = () => {
                 )}
               </button>
             </div>
-
-            {/* Mobile Add to Cart */}
             <div className="pd-mobile-bar">
               <button
                 className="pd-btn pd-btn-primary"
@@ -2388,21 +1996,15 @@ const ProductDescription = () => {
           </div>
         </div>
 
-        {/* ==================== FLIX MEDIA SECTION ==================== */}
+        {/* FLIX MEDIA SECTION */}
         {showFlixMedia && (
           <div
             id="flix-media-section"
             ref={flixMediaSectionRef}
             className="mt-8 bg-white border border-gray-200 overflow-hidden p-6"
-            style={{
-              borderRadius: "var(--pd-radius)",
-              contain: "layout style paint",
-            }}
+            style={{ borderRadius: "var(--pd-radius)", contain: "layout style paint" }}
           >
-            <div
-              className="pd-section-header"
-              style={{ marginBottom: "24px" }}
-            >
+            <div className="pd-section-header" style={{ marginBottom: "24px" }}>
               <div className="pd-title-wrap">
                 <div className="pd-title-accent" />
                 <h2 className="pd-section-title">More Product Details</h2>
@@ -2410,58 +2012,35 @@ const ProductDescription = () => {
               <div className="pd-header-line" />
             </div>
             {flixMediaError && (
-              <div
-                className="text-center py-8"
-                style={{ color: "var(--pd-light)" }}
-              >
+              <div className="text-center py-8" style={{ color: "var(--pd-light)" }}>
                 <p>Unable to load additional product details at this time.</p>
               </div>
             )}
           </div>
         )}
 
-        {/* ==================== SERVICE FEATURES ==================== */}
+        {/* SERVICE FEATURES */}
         <div className="pd-features">
           {[
             {
               title: "Fast Shipping",
               subtitle: "All over Ghana",
-              icon: (
-                <TruckIcon
-                  className="pd-feature-icon"
-                  style={{ color: "var(--pd-green)" }}
-                />
-              ),
+              icon: <TruckIcon className="pd-feature-icon" style={{ color: "var(--pd-green)" }} />,
             },
             {
               title: "Quality Assurance",
               subtitle: "Certified products",
-              icon: (
-                <ShieldCheckIcon
-                  className="pd-feature-icon"
-                  style={{ color: "var(--pd-green-accent)" }}
-                />
-              ),
+              icon: <ShieldCheckIcon className="pd-feature-icon" style={{ color: "var(--pd-green-accent)" }} />,
             },
             {
               title: "Customer Support",
               subtitle: "Dedicated support team",
-              icon: (
-                <PhoneIcon
-                  className="pd-feature-icon"
-                  style={{ color: "var(--pd-green-mid)" }}
-                />
-              ),
+              icon: <PhoneIcon className="pd-feature-icon" style={{ color: "var(--pd-green-mid)" }} />,
             },
             {
               title: "Secure Payment",
               subtitle: "Safe Payment Processing",
-              icon: (
-                <CreditCardIcon
-                  className="pd-feature-icon"
-                  style={{ color: "var(--pd-green)" }}
-                />
-              ),
+              icon: <CreditCardIcon className="pd-feature-icon" style={{ color: "var(--pd-green)" }} />,
             },
           ].map((item, idx) => (
             <div key={idx} className="pd-feature">
@@ -2474,7 +2053,7 @@ const ProductDescription = () => {
           ))}
         </div>
 
-        {/* ==================== RECENTLY VIEWED PRODUCTS ==================== */}
+        {/* RECENTLY VIEWED */}
         {viewedProducts.length > 0 && (
           <section className="mt-16">
             <div className="pd-section-header">
@@ -2490,14 +2069,11 @@ const ProductDescription = () => {
                 const productOutOfStock = isOutOfStock(viewedProduct);
                 const discount =
                   viewedProduct.oldPrice > 0
-                    ? Math.round(
-                        ((viewedProduct.oldPrice - viewedProduct.price) /
-                          viewedProduct.oldPrice) *
-                          100,
-                      )
+                    ? Math.round(((viewedProduct.oldPrice - viewedProduct.price) / viewedProduct.oldPrice) * 100)
                     : 0;
                 const imgUrl = getValidImageUrl(viewedProduct.image);
-
+                // NEW: navigate via slug, not UUID
+                const viewedSlug = viewedProduct.slug || slugify(viewedProduct.name || "");
                 return (
                   <div
                     key={`viewed-${viewedProduct.id}-${index}`}
@@ -2505,101 +2081,53 @@ const ProductDescription = () => {
                     style={{ opacity: productOutOfStock ? 0.75 : 1 }}
                   >
                     <div className="pd-card-img">
-                      {productOutOfStock && (
-                        <span className="pd-card-badge pd-card-badge-sold">
-                          Sold Out
-                        </span>
-                      )}
+                      {productOutOfStock && <span className="pd-card-badge pd-card-badge-sold">Sold Out</span>}
                       {discount > 0 && !productOutOfStock && (
-                        <span className="pd-card-badge pd-card-badge-discount">
-                          -{discount}%
-                        </span>
+                        <span className="pd-card-badge pd-card-badge-discount">-{discount}%</span>
                       )}
                       <div
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                        onClick={() =>
-                          navigate(`/product/${viewedProduct.id}`)
-                        }
+                        style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
+                        onClick={() => navigate(`/product/${viewedSlug}`)}
                       >
                         <img
                           src={imgUrl}
                           alt={viewedProduct.name}
-                          onError={(e) => {
-                            e.target.src = "https://via.placeholder.com/150";
-                          }}
+                          onError={(e) => { e.target.src = "https://via.placeholder.com/150"; }}
                         />
                       </div>
-                      <div
-                        className="pd-card-overlay"
-                        onClick={() =>
-                          navigate(`/product/${viewedProduct.id}`)
-                        }
-                      >
+                      <div className="pd-card-overlay" onClick={() => navigate(`/product/${viewedSlug}`)}>
                         <Tooltip content="Add to Wishlist" placement="top">
-                          <button
-                            className="pd-card-action"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <SolidHeartIcon
-                              className="w-4 h-4"
-                              style={{ color: "var(--pd-mid)" }}
-                            />
+                          <button className="pd-card-action" onClick={(e) => e.stopPropagation()}>
+                            <SolidHeartIcon className="w-4 h-4" style={{ color: "var(--pd-mid)" }} />
                           </button>
                         </Tooltip>
                         <Tooltip content="View Details" placement="top">
                           <button
                             className="pd-card-action"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/product/${viewedProduct.id}`);
-                            }}
+                            onClick={(e) => { e.stopPropagation(); navigate(`/product/${viewedSlug}`); }}
                           >
-                            <EyeIcon
-                              className="w-4 h-4"
-                              style={{ color: "var(--pd-green)" }}
-                            />
+                            <EyeIcon className="w-4 h-4" style={{ color: "var(--pd-green)" }} />
                           </button>
                         </Tooltip>
-                        <Tooltip
-                          content={
-                            productOutOfStock ? "Out of Stock" : "Add to Cart"
-                          }
-                          placement="top"
-                        >
+                        <Tooltip content={productOutOfStock ? "Out of Stock" : "Add to Cart"} placement="top">
                           <button
                             className="pd-card-action"
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (!productOutOfStock)
-                                handleAddToCartAndOpenSidebar(viewedProduct);
+                              if (!productOutOfStock) handleAddToCartAndOpenSidebar(viewedProduct);
                             }}
                             disabled={productOutOfStock}
                           >
-                            <ShoppingCartIcon
-                              className="w-4 h-4"
-                              style={{ color: "var(--pd-green-mid)" }}
-                            />
+                            <ShoppingCartIcon className="w-4 h-4" style={{ color: "var(--pd-green-mid)" }} />
                           </button>
                         </Tooltip>
                       </div>
                     </div>
                     <div className="pd-card-body">
-                      <h3 className="pd-card-name">
-                        {viewedProduct.name || "Unnamed Product"}
-                      </h3>
-                      <div className="pd-card-price">
-                        GH₵{formatPrice(viewedProduct.price)}
-                      </div>
+                      <h3 className="pd-card-name">{viewedProduct.name || "Unnamed Product"}</h3>
+                      <div className="pd-card-price">GH₵{formatPrice(viewedProduct.price)}</div>
                       {viewedProduct.oldPrice > 0 && (
-                        <div className="pd-card-old-price">
-                          GH₵{formatPrice(viewedProduct.oldPrice)}
-                        </div>
+                        <div className="pd-card-old-price">GH₵{formatPrice(viewedProduct.oldPrice)}</div>
                       )}
                     </div>
                   </div>
@@ -2609,7 +2137,7 @@ const ProductDescription = () => {
           </section>
         )}
 
-        {/* ==================== YOU MAY ALSO LIKE (RELATED PRODUCTS) ==================== */}
+        {/* YOU MAY ALSO LIKE */}
         {related.length > 0 && (
           <section className="mt-10 mb-24 md:mb-1">
             <div className="pd-section-header">
@@ -2622,18 +2150,14 @@ const ProductDescription = () => {
             <div className="pd-grid-related">
               {related.slice(0, 12).map((relatedProduct, index) => {
                 if (!relatedProduct || !relatedProduct.productID) return null;
-
                 const productOutOfStock = isOutOfStock(relatedProduct);
                 const discount =
                   relatedProduct.oldPrice > 0
-                    ? Math.round(
-                        ((relatedProduct.oldPrice - relatedProduct.price) /
-                          relatedProduct.oldPrice) *
-                          100,
-                      )
+                    ? Math.round(((relatedProduct.oldPrice - relatedProduct.price) / relatedProduct.oldPrice) * 100)
                     : 0;
                 const imgUrl = getValidImageUrl(relatedProduct.productImage);
-
+                // NEW: slug-based navigation
+                const relatedSlug = getProductSlug(relatedProduct, products);
                 return (
                   <div
                     key={`related-${relatedProduct.productID}-${index}`}
@@ -2641,104 +2165,53 @@ const ProductDescription = () => {
                     style={{ opacity: productOutOfStock ? 0.75 : 1 }}
                   >
                     <div className="pd-card-img">
-                      {productOutOfStock && (
-                        <span className="pd-card-badge pd-card-badge-sold">
-                          Sold Out
-                        </span>
-                      )}
+                      {productOutOfStock && <span className="pd-card-badge pd-card-badge-sold">Sold Out</span>}
                       {discount > 0 && !productOutOfStock && (
-                        <span className="pd-card-badge pd-card-badge-discount">
-                          -{discount}%
-                        </span>
+                        <span className="pd-card-badge pd-card-badge-discount">-{discount}%</span>
                       )}
                       <div
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                        onClick={() =>
-                          navigate(`/product/${relatedProduct.productID}`)
-                        }
+                        style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
+                        onClick={() => navigate(`/product/${relatedSlug}`)}
                       >
                         <img
                           src={imgUrl}
                           alt={relatedProduct.productName}
-                          onError={(e) => {
-                            e.target.src = "https://via.placeholder.com/150";
-                          }}
+                          onError={(e) => { e.target.src = "https://via.placeholder.com/150"; }}
                         />
                       </div>
-                      <div
-                        className="pd-card-overlay"
-                        onClick={() =>
-                          navigate(`/product/${relatedProduct.productID}`)
-                        }
-                      >
+                      <div className="pd-card-overlay" onClick={() => navigate(`/product/${relatedSlug}`)}>
                         <Tooltip content="Add to Wishlist" placement="top">
-                          <button
-                            className="pd-card-action"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                            }}
-                          >
-                            <SolidHeartIcon
-                              className="w-4 h-4"
-                              style={{ color: "var(--pd-mid)" }}
-                            />
+                          <button className="pd-card-action" onClick={(e) => e.stopPropagation()}>
+                            <SolidHeartIcon className="w-4 h-4" style={{ color: "var(--pd-mid)" }} />
                           </button>
                         </Tooltip>
                         <Tooltip content="View Details" placement="top">
                           <button
                             className="pd-card-action"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/product/${relatedProduct.productID}`);
-                            }}
+                            onClick={(e) => { e.stopPropagation(); navigate(`/product/${relatedSlug}`); }}
                           >
-                            <EyeIcon
-                              className="w-4 h-4"
-                              style={{ color: "var(--pd-green)" }}
-                            />
+                            <EyeIcon className="w-4 h-4" style={{ color: "var(--pd-green)" }} />
                           </button>
                         </Tooltip>
-                        <Tooltip
-                          content={
-                            productOutOfStock ? "Out of Stock" : "Add to Cart"
-                          }
-                          placement="top"
-                        >
+                        <Tooltip content={productOutOfStock ? "Out of Stock" : "Add to Cart"} placement="top">
                           <button
                             className="pd-card-action"
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (!productOutOfStock) {
-                                handleAddToCartAndOpenSidebar(relatedProduct);
-                              }
+                              if (!productOutOfStock) handleAddToCartAndOpenSidebar(relatedProduct);
                             }}
                             disabled={productOutOfStock}
                           >
-                            <ShoppingCartIcon
-                              className="w-4 h-4"
-                              style={{ color: "var(--pd-green-mid)" }}
-                            />
+                            <ShoppingCartIcon className="w-4 h-4" style={{ color: "var(--pd-green-mid)" }} />
                           </button>
                         </Tooltip>
                       </div>
                     </div>
                     <div className="pd-card-body">
-                      <h3 className="pd-card-name">
-                        {relatedProduct.productName || "Unnamed Product"}
-                      </h3>
-                      <div className="pd-card-price">
-                        GH₵{formatPrice(relatedProduct.price)}
-                      </div>
+                      <h3 className="pd-card-name">{relatedProduct.productName || "Unnamed Product"}</h3>
+                      <div className="pd-card-price">GH₵{formatPrice(relatedProduct.price)}</div>
                       {relatedProduct.oldPrice > 0 && (
-                        <div className="pd-card-old-price">
-                          GH₵{formatPrice(relatedProduct.oldPrice)}
-                        </div>
+                        <div className="pd-card-old-price">GH₵{formatPrice(relatedProduct.oldPrice)}</div>
                       )}
                     </div>
                   </div>
@@ -2748,24 +2221,12 @@ const ProductDescription = () => {
           </section>
         )}
 
-        {/* ==================== CART SIDEBAR ==================== */}
-        <Drawer
-          placement="right"
-          open={cartSidebarOpen}
-          onClose={() => setCartSidebarOpen(false)}
-          className="p-0"
-          size={400}
-        >
-          <div
-            className="flex flex-col h-full"
-            style={{ fontFamily: "var(--pd-font)" }}
-          >
+        {/* CART SIDEBAR */}
+        <Drawer placement="right" open={cartSidebarOpen} onClose={() => setCartSidebarOpen(false)} className="p-0" size={400}>
+          <div className="flex flex-col h-full" style={{ fontFamily: "var(--pd-font)" }}>
             <div className="pd-cart-header">
               <div className="pd-cart-title">
-                <ShoppingCartIcon
-                  className="w-5 h-5"
-                  style={{ color: "var(--pd-green)" }}
-                />
+                <ShoppingCartIcon className="w-5 h-5" style={{ color: "var(--pd-green)" }} />
                 <span>Shopping Cart</span>
                 {localCart.length > 0 && (
                   <span className="pd-cart-count">
@@ -2773,44 +2234,30 @@ const ProductDescription = () => {
                   </span>
                 )}
               </div>
-              <button
-                className="pd-cart-close"
-                onClick={() => setCartSidebarOpen(false)}
-              >
-                <XMarkIcon
-                  className="w-4 h-4"
-                  style={{ color: "var(--pd-mid)" }}
-                />
+              <button className="pd-cart-close" onClick={() => setCartSidebarOpen(false)}>
+                <XMarkIcon className="w-4 h-4" style={{ color: "var(--pd-mid)" }} />
               </button>
             </div>
-
             <div className="flex-1 overflow-y-auto">
               {cartLoading ? (
                 <div className="pd-cart-empty">
                   <div style={{ position: "relative" }}>
                     <div
                       className="w-16 h-16 border-4 rounded-full animate-spin mb-4"
-                      style={{
-                        borderColor: "var(--pd-green-light)",
-                        borderTopColor: "var(--pd-green)",
-                      }}
+                      style={{ borderColor: "var(--pd-green-light)", borderTopColor: "var(--pd-green)" }}
                     />
                     <ArrowPathIcon
                       className="w-6 h-6 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 animate-pulse"
                       style={{ color: "var(--pd-green)" }}
                     />
                   </div>
-                  <p style={{ color: "var(--pd-mid)", fontWeight: 600 }}>
-                    Updating your cart...
-                  </p>
+                  <p style={{ color: "var(--pd-mid)", fontWeight: 600 }}>Updating your cart...</p>
                 </div>
               ) : !Array.isArray(localCart) || localCart.length === 0 ? (
                 <div className="pd-cart-empty">
                   <ShoppingCartIcon className="pd-cart-empty-icon" />
                   <h3 className="pd-cart-empty-title">Your cart is empty</h3>
-                  <p className="pd-cart-empty-text">
-                    Start shopping to fill it up!
-                  </p>
+                  <p className="pd-cart-empty-text">Start shopping to fill it up!</p>
                 </div>
               ) : (
                 <div className="p-4 space-y-4">
@@ -2819,83 +2266,43 @@ const ProductDescription = () => {
                     const isUpdating = updatingQuantity[itemKey];
                     const isRemoving = removingItem[itemKey];
                     const lineTotal = getItemLineTotal(item);
-
                     return (
                       <div
                         key={`${item.productId}-${index}`}
                         className="pd-cart-item"
-                        style={{
-                          opacity: isUpdating || isRemoving ? 0.5 : 1,
-                          pointerEvents:
-                            isUpdating || isRemoving ? "none" : "auto",
-                        }}
+                        style={{ opacity: isUpdating || isRemoving ? 0.5 : 1, pointerEvents: isUpdating || isRemoving ? "none" : "auto" }}
                       >
                         <div className="pd-cart-item-inner">
-                          <div className="pd-cart-item-img">
-                            {renderImage(item.imagePath)}
-                          </div>
+                          <div className="pd-cart-item-img">{renderImage(item.imagePath)}</div>
                           <div className="pd-cart-item-info">
-                            <h4 className="pd-cart-item-name">
-                              {item.productName || "Product Name"}
-                            </h4>
-                            <p className="pd-cart-item-price">
-                              GH₵{formatPrice(item.price || 0)}
-                            </p>
+                            <h4 className="pd-cart-item-name">{item.productName || "Product Name"}</h4>
+                            <p className="pd-cart-item-price">GH₵{formatPrice(item.price || 0)}</p>
                             <div className="pd-cart-item-actions">
                               <div className="pd-qty-control">
                                 <button
                                   className="pd-qty-btn"
-                                  onClick={() =>
-                                    handleQuantityChange(
-                                      item.productId,
-                                      (item.quantity || 1) - 1,
-                                    )
-                                  }
-                                  disabled={
-                                    isUpdating ||
-                                    isRemoving ||
-                                    (item.quantity || 1) <= 1
-                                  }
+                                  onClick={() => handleQuantityChange(item.productId, (item.quantity || 1) - 1)}
+                                  disabled={isUpdating || isRemoving || (item.quantity || 1) <= 1}
                                 >
                                   <MinusIcon className="w-3 h-3" />
                                 </button>
-                                <span className="pd-qty-value">
-                                  {item.quantity || 1}
-                                </span>
+                                <span className="pd-qty-value">{item.quantity || 1}</span>
                                 <button
                                   className="pd-qty-btn"
-                                  onClick={() =>
-                                    handleQuantityChange(
-                                      item.productId,
-                                      (item.quantity || 1) + 1,
-                                    )
-                                  }
+                                  onClick={() => handleQuantityChange(item.productId, (item.quantity || 1) + 1)}
                                   disabled={isUpdating || isRemoving}
                                 >
                                   <PlusIcon className="w-3 h-3" />
                                 </button>
                               </div>
-
-                              <div
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                }}
-                              >
-                                <span className="pd-cart-item-total">
-                                  GH₵{formatPrice(lineTotal)}
-                                </span>
+                              <div style={{ display: "flex", alignItems: "center" }}>
+                                <span className="pd-cart-item-total">GH₵{formatPrice(lineTotal)}</span>
                                 <button
                                   className="pd-cart-item-remove"
-                                  onClick={() =>
-                                    handleRemoveItem(item.productId)
-                                  }
+                                  onClick={() => handleRemoveItem(item.productId)}
                                   disabled={isUpdating || isRemoving}
                                 >
-                                  <TrashIcon
-                                    className="w-3 h-3"
-                                    style={{ color: "var(--pd-red)" }}
-                                  />
+                                  <TrashIcon className="w-3 h-3" style={{ color: "var(--pd-red)" }} />
                                 </button>
                               </div>
                             </div>
@@ -2907,43 +2314,26 @@ const ProductDescription = () => {
                 </div>
               )}
             </div>
-
-            {Array.isArray(localCart) &&
-              localCart.length > 0 &&
-              !cartLoading && (
-                <div className="pd-cart-footer">
-                  <div className="pd-cart-total-row">
-                    <span className="pd-cart-total-label">Total:</span>
-                    <span className="pd-cart-total-value">
-                      GH₵{formatPrice(cartTotal)}
-                    </span>
-                  </div>
-                  <p className="pd-cart-note">
-                    * Taxes & shipping calculated at checkout
-                  </p>
-                  <Divider style={{ margin: "12px 0" }} />
-                  <button
-                    className="pd-cart-checkout"
-                    onClick={handleCheckout}
-                  >
-                    Proceed to Checkout
-                  </button>
-                  <button
-                    className="pd-cart-continue"
-                    onClick={handleContinueShopping}
-                  >
-                    Continue Shopping
-                  </button>
+            {Array.isArray(localCart) && localCart.length > 0 && !cartLoading && (
+              <div className="pd-cart-footer">
+                <div className="pd-cart-total-row">
+                  <span className="pd-cart-total-label">Total:</span>
+                  <span className="pd-cart-total-value">GH₵{formatPrice(cartTotal)}</span>
                 </div>
-              )}
+                <p className="pd-cart-note">* Taxes & shipping calculated at checkout</p>
+                <Divider style={{ margin: "12px 0" }} />
+                <button className="pd-cart-checkout" onClick={handleCheckout}>
+                  Proceed to Checkout
+                </button>
+                <button className="pd-cart-continue" onClick={handleContinueShopping}>
+                  Continue Shopping
+                </button>
+              </div>
+            )}
           </div>
         </Drawer>
 
-        <AuthModal
-          open={authModalOpen}
-          onClose={handleAuthModalClose}
-          onSuccess={handleAuthSuccess}
-        />
+        <AuthModal open={authModalOpen} onClose={handleAuthModalClose} onSuccess={handleAuthSuccess} />
       </div>
     </>
   );
