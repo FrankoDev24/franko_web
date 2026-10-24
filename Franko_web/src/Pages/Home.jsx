@@ -51,7 +51,7 @@ function Home() {
         <meta property="og:title" content="Franko Trading | Home" />
         <meta
           property="og:description"
-          content="Discover unbeatable deals on mobile phones, laptops, and tech accessories at Franko Trading. Quality products, great prices, and fast delivery across Ghana."
+          content="Discover unbeatable deals on mobile phones, laptops, and electronic accessories at Franko Trading. Quality products, great prices, and fast delivery across Ghana."
         />
         <meta
           property="og:image"
