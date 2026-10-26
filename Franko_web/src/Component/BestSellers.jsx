@@ -747,7 +747,7 @@ const BestSellers = () => {
             style={{ paddingBottom: 4, paddingLeft: 1, paddingRight: 1 }}
           >
             {(productsByShowroom?.[activeShowroom]
-            )?.map((product, idx) => {
+            )?.map((product) => {
               if (!product) return null;
 
               const {

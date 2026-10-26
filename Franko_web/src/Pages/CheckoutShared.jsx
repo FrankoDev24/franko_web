@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Input, Radio, Divider, message, Modal } from 'antd';
 import { validateCart, checkOutOrder, updateOrderDelivery, saveCheckoutDetails, saveAddressDetails, FRIENDLY_PRICE_UPDATE_MSG } from '../Redux/Slice/orderSlice';
-import { validateAccount, debitCustomer, checkTransactionStatus, resetPaymentState, verifyTransactionResult } from '../Redux/Slice/paymentSlice';
+import { validateAccount, debitCustomer, checkTransactionStatus, resetPaymentState } from '../Redux/Slice/paymentSlice';
 import { clearCart, getCartById } from '../Redux/Slice/cartSlice';
 import CheckoutForm from '../Component/CheckoutForm';
 import AuthModal from '../Component/AuthModal';
@@ -57,7 +57,6 @@ export default function CheckoutShared({ telecel = false }) {
   const location = useLocation();
   const cartState = useSelector(s => s.cart || {});
   const customerState = useSelector(s => s.customer ?? s.customerReducer ?? s.customers ?? {});
-  const account = useSelector(s => s.payment || {});
   const customer = customerState.currentCustomer ?? customerState.customer ?? customerState.customerDetails ?? customerState.data ?? customerState.user ?? customerState.profile ?? customerState;
   const loggedIn = Boolean(customerId(customer));
   const stored = readJSON('checkoutDetails', {});
@@ -66,8 +65,6 @@ export default function CheckoutShared({ telecel = false }) {
   // Registered Customer Defaults
   const accountPhone = customer?.contactNumber || customer?.ContactNumber || customer?.phone || customer?.telephone || customer?.phoneNumber || savedCustomer?.contactNumber || savedCustomer?.ContactNumber || savedCustomer?.phone || '';
   const accountName = customerNameOf(customer) || `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim() || customerNameOf(savedCustomer);
-  const accountId = customerId(customer) || customerId(savedCustomer);
-
   const [items, setItems] = useState(() => telecel ? (location.state?.items?.length ? location.state.items : readJSON('telCheckoutCart', {})?.items || cartState.cart || []) : (cartState.cart?.length ? cartState.cart : readJSON('cart', []) || []));
   const [recipient, setRecipient] = useState(stored.recipientName || accountName || '');
   const [phone, setPhone] = useState(stored.recipientContactNumber || accountPhone || '');
@@ -91,6 +88,15 @@ export default function CheckoutShared({ telecel = false }) {
   const [auth, setAuth] = useState(false);
   const [error, setError] = useState('');
   const [subscriberName, setSubscriberName] = useState('');
+
+  // Derived booleans needed by effects below — declare them BEFORE the
+  // effects that reference them to avoid "Cannot access 'X' before
+  // initialization" TDZ errors.
+  const isAgent = String(customer?.accountType || '').toLowerCase() === 'agent';
+  const isMoMoSelected = method === 'Mobile Money';
+  // LOCK RULE: regular customers → locked only on Mobile Money.
+  //            agents → never locked (any payment method is editable).
+  const fieldsLocked = isMoMoSelected && loggedIn && !isAgent;
 
   const active = useRef(false);
   const finished = useRef(false);
@@ -135,52 +141,91 @@ export default function CheckoutShared({ telecel = false }) {
   }, [cartId, dispatch, items.length]);
 
   // ═══════════════════════════════════════════════════════════════════
-  // Mobile Money Selection Rule:
-  // "when the user has selected mobile money as the payment method,
-  // and if the customer has changed the delivery address already,
-  // auto return it back to the default delivery address,
-  // contact number and the recipient name. The user cannot change them."
+  // RULE: Delivery form values are dispatched EXACTLY as typed by the
+  // customer/agent for every payment method EXCEPT Mobile Money.
+  //
+  // For non-MoMo methods (Cash on Delivery, Pick Up, Paid Already):
+  //   - Whatever the user (customer OR agent) types into the recipient
+  //     name, phone, and delivery address fields is what gets sent to
+  //     the backend. We never silently swap it for the registered name.
+  //   - The "Different recipient?" toggle simply clears/refills the
+  //     fields so the user can quickly switch between "ship to me" and
+  //     "ship to someone else" — once they start typing, their input
+  //     is preserved across payment-method changes unless they switch
+  //     to Mobile Money.
+  //
+  // For Mobile Money:
+  //   - The MoMo number MUST match the registered contact (used for the
+  //     debit prompt), so recipient name, phone, and delivery address
+  //     are forcibly reset to the registered defaults and all inputs
+  //     are disabled until the user selects a different method.
   // ═══════════════════════════════════════════════════════════════════
-  useEffect(() => {
-    if (method === 'Mobile Money' && loggedIn) {
-      if (different) {
-        setDifferent(false);
-        try { localStorage.setItem('checkoutDifferentRecipient', 'false'); } catch { /* best effort */ }
-      }
-      setRecipient(accountName);
-      setPhone(accountPhone);
 
-      // Auto return delivery address back to default delivery address
-      if (defaultDeliveryAddressRef.current && delivery.address !== defaultDeliveryAddressRef.current) {
-        setDelivery(prev => ({ ...prev, address: defaultDeliveryAddressRef.current }));
-        try {
-          const savedDel = readJSON('deliveryInfo', {});
-          localStorage.setItem('deliveryInfo', JSON.stringify({ ...savedDel, address: defaultDeliveryAddressRef.current }));
-        } catch { /* best effort */ }
-      }
-    }
-  }, [method, loggedIn, different, accountName, accountPhone]);
-
+  // One-time hydration: when an account becomes known (login finishes
+  // after mount, e.g. after AuthModal signup), pre-fill the form with
+  // the account defaults ONLY if the fields are still empty. We never
+  // overwrite something the user has already typed.
+  const hydratedRef = useRef(false);
   useEffect(() => {
-    if (loggedIn && !different && method !== 'Mobile Money') {
-      setRecipient(accountName);
-      setPhone(accountPhone);
+    if (hydratedRef.current) return;
+    if (!loggedIn || method === 'Mobile Money') return;
+    let filled = false;
+    if (!recipient && accountName) { setRecipient(accountName); filled = true; }
+    if (!phone && accountPhone)     { setPhone(accountPhone);     filled = true; }
+    if (!delivery.address && defaultDeliveryAddressRef.current) {
+      setDelivery(prev => ({ ...prev, address: defaultDeliveryAddressRef.current }));
+      filled = true;
     }
-  }, [loggedIn, different, accountId, accountName, accountPhone, method]);
+    if (filled) hydratedRef.current = true;
+  }, [loggedIn, method, recipient, phone, delivery.address, accountName, accountPhone]);
+
+  // Mobile Money lock effect: the moment (or as long as) MoMo is the
+  // selected method for a regular (non-agent) customer, force recipient,
+  // phone, and delivery address back to the registered defaults. Agents
+  // are excluded — they can always edit freely. Runs on changes to
+  // method, logged-in state, account details, OR delivery address (so a
+  // previously edited address is snapped back to default the moment the
+  // user switches methods).
+  useEffect(() => {
+    if (method !== 'Mobile Money' || !loggedIn || isAgent) return;
+    if (different) {
+      setDifferent(false);
+      try { localStorage.setItem('checkoutDifferentRecipient', 'false'); } catch { /* best effort */ }
+    }
+    setRecipient(accountName);
+    setPhone(accountPhone);
+    if (defaultDeliveryAddressRef.current && delivery.address !== defaultDeliveryAddressRef.current) {
+      setDelivery(prev => ({ ...prev, address: defaultDeliveryAddressRef.current }));
+      try {
+        const savedDel = readJSON('deliveryInfo', {});
+        localStorage.setItem('deliveryInfo', JSON.stringify({ ...savedDel, address: defaultDeliveryAddressRef.current }));
+      } catch { /* best effort */ }
+    }
+  }, [method, loggedIn, isAgent, accountName, accountPhone, delivery.address]);
 
   const toggleRecipient = () => {
     if (busy || stage !== 'form') return;
-    if (method === 'Mobile Money') {
+    if (fieldsLocked) {
       message.warning('When paying with Mobile Money, recipient details are locked to your registered Franko account.');
       return;
     }
     const next = !different;
-    try { localStorage.removeItem('deliveryInfo'); } catch { /* best effort */ }
-    setRecipient(next ? '' : accountName);
-    setPhone(next ? '' : accountPhone);
-    setDelivery({ address: '', fee: 0, feeDisplay: '' });
     setError('');
-    setDifferent(next);
+    if (next) {
+      // User wants to ship to someone else: clear the fields so they
+      // can type the new recipient's details. We do NOT prefill with
+      // the registered name — they want something different.
+      setRecipient('');
+      setPhone('');
+      setDifferent(next);
+    } else {
+      // User is going back to shipping to themselves: prefill with
+      // the registered account details for convenience, but once they
+      // start editing, nothing will overwrite their input.
+      setRecipient(accountName);
+      setPhone(accountPhone);
+      setDifferent(next);
+    }
   };
 
   const cancel = (reason = 'Payment was cancelled.') => {
@@ -313,16 +358,27 @@ export default function CheckoutShared({ telecel = false }) {
   // 2. If Mobile Money: validates registered number prefix and account name.
   // 3. If requirement not met: shows error, closes popup, sends NO prompt.
   // 4. If met: sends debit prompt directly (ignoring OTP), awaits approval.
+  //
+  // IMPORTANT: name/contact/address used in the order payload are taken
+  // DIRECTLY from the form state. For non-MoMo methods we do NOT fall
+  // back to accountName / accountPhone — whatever the user typed is
+  // exactly what gets dispatched. For MoMo the fields are forcibly
+  // locked to the registered values by the effect above, so using
+  // state is already correct.
   // ═══════════════════════════════════════════════════════════════════
   const begin = async override => {
     if (submitting.current || finished.current) return;
     const c = override && customerId(override) ? override : customer;
     if (!customerId(c)) { setAuth(true); return; }
 
-    const name = String(recipient || accountName || '').trim();
-    const contact = String(phone || accountPhone || '').trim();
+    // Read exactly what's in the form. Trim but DO NOT fall back to
+    // registered account defaults — that would leak the registered
+    // name/phone into a "different recipient" COD/agent order.
+    const name = String(recipient || '').trim();
+    const contact = String(phone || '').trim();
+    const addressText = String(delivery?.address || '').trim();
 
-    if (!items.length || !cartId || !name || /^guest\b/i.test(name) || !contact || !delivery?.address?.trim() || !method) {
+    if (!items.length || !cartId || !name || /^guest\b/i.test(name) || !contact || !addressText || !method) {
       setError('Check your cart, recipient name, phone, delivery address and payment method.');
       return;
     }
@@ -337,7 +393,7 @@ export default function CheckoutShared({ telecel = false }) {
       contact, accountType: c.accountType, subtotal,
       recipientName: name, recipientContactNumber: contact,
       orderNote: note, orderDate: new Date().toISOString(),
-      address: delivery.address, paymentService: telecel ? NETWORKS.vodafone : 'N/A',
+      address: addressText, paymentService: telecel ? NETWORKS.vodafone : 'N/A',
     });
     const current = { orderId, checkout, address, posting: false, created: false, paid: false };
     currentRef.current = current;
@@ -404,9 +460,9 @@ export default function CheckoutShared({ telecel = false }) {
           msisdn: msisdn(momoNumber),
           network: detected.service,
         })).unwrap();
-      } catch (valErr) {
+      } catch {
         setStage('form');
-        const invalidMsg = 'The momo number is invalid so you should contact the customer service for further assistance.';
+        const invalidMsg = 'The momo number is invalid kindly contact the customer service for further assistance.';
         setError(invalidMsg);
         Modal.error({
           title: 'Mobile Money Validation Failed',
@@ -487,14 +543,18 @@ export default function CheckoutShared({ telecel = false }) {
 
   const handleAuthSuccess = c => {
     setAuth(false);
-    if (!different && customerId(c)) {
-      setRecipient(customerNameOf(c));
-      setPhone(c.contactNumber || c.ContactNumber || '');
+    // After signup/signin, pre-fill with account defaults ONLY if the
+    // fields are blank and the user hasn't opted for a different
+    // recipient. If they typed something already (e.g. during a guest
+    // session), leave it alone — what they typed is what they want.
+    if (customerId(c)) {
+      const newName = customerNameOf(c);
+      const newPhone = c.contactNumber || c.ContactNumber || '';
+      if (!recipient && newName) setRecipient(newName);
+      if (!phone && newPhone) setPhone(newPhone);
     }
     message.info('Signed in. Review the order and proceed.');
   };
-
-  const isMoMoSelected = method === 'Mobile Money';
 
   const flow = {
     items, customer, loggedIn, different, toggleRecipient, recipient, setRecipient,
@@ -502,8 +562,7 @@ export default function CheckoutShared({ telecel = false }) {
     subtotal, shipping, serviceCharge, amount, error, stage, setStage, busy,
     begin, number: momoNumber, network, detectedNetworkInfo, subscriberName,
     checkAgain, cancel, auth, setAuth, handleAuthSuccess, currentRef,
-    isAgent: String(customer?.accountType || '').toLowerCase() === 'agent',
-    isMoMoSelected, telecel,
+    isAgent, fieldsLocked, isMoMoSelected, telecel,
   };
 
   return <CheckoutView flow={flow} />;
@@ -528,7 +587,8 @@ function CheckoutView({ flow }) {
     phone, setPhone, note, setNote, delivery, setDelivery, method, setMethod,
     subtotal, shipping, serviceCharge, amount, error, stage, busy, begin,
     number, network, detectedNetworkInfo, subscriberName, checkAgain, cancel,
-    auth, setAuth, handleAuthSuccess, currentRef, isAgent, isMoMoSelected, telecel,
+    auth, setAuth, handleAuthSuccess, currentRef, isAgent, fieldsLocked,
+    telecel,
   } = flow;
 
   const freeDelivery = Number(delivery.fee) === 0 && String(delivery.feeDisplay || '').toLowerCase().includes('free');
@@ -560,7 +620,7 @@ function CheckoutView({ flow }) {
         {busy && (
           <div className="co-loading-overlay">
             <div className="co-loading-card">
-              <div className="co-spinner" role="status" aria-label="Loading" />
+              <div className="co-spinner" role="status" aria-label="Processing your order" />
               <div className="co-loading-text">Processing your order…</div>
             </div>
           </div>
@@ -611,18 +671,12 @@ function CheckoutView({ flow }) {
                       </div>
                     )}
 
-                    {/* Lock Banner when Mobile Money is selected */}
-                    {isMoMoSelected && loggedIn && (
-                      <div className="co-lock-banner">
-                        <LockClosedIcon style={{ width: 18, height: 18, color: '#14532d', flexShrink: 0 }} />
-                        <p>
-                          <strong>Mobile Money selected:</strong> Recipient name, contact number, and delivery address are locked to your registered Franko account ({number || 'Registered account'}).
-                        </p>
-                      </div>
-                    )}
+                    {/* Lock Banner ONLY when a regular customer is paying with
+                        Mobile Money. Agents never see this; COD customers can
+                        edit freely even though the form is prefilled. */}
 
                     <div
-                      className={`co-toggle-wrap ${isMoMoSelected ? 'co-toggle-disabled' : ''}`}
+                      className={`co-toggle-wrap ${fieldsLocked ? 'co-toggle-disabled' : ''}`}
                       role="switch"
                       aria-checked={different}
                       tabIndex={0}
@@ -630,30 +684,30 @@ function CheckoutView({ flow }) {
                       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRecipient(); } }}
                     >
                       <div className="co-toggle-left">
-                        {isMoMoSelected ? <LockClosedIcon style={{ width: 16, height: 16, color: '#14532d' }} /> : <UserIcon style={{ width: 16, height: 16, color: '#888' }} />}
-                        <span>Different recipient? {isMoMoSelected && '(Locked for MoMo)'}</span>
+                        {fieldsLocked ? <LockClosedIcon style={{ width: 16, height: 16, color: '#14532d' }} /> : <UserIcon style={{ width: 16, height: 16, color: '#888' }} />}
+                        <span>Different recipient? {fieldsLocked && '(Locked for MoMo)'}</span>
                       </div>
                       <div className={`co-toggle-track ${different ? 'co-toggle-track-on' : 'co-toggle-track-off'}`}>
                         <div className={`co-toggle-knob ${different ? 'co-toggle-knob-on' : ''}`} />
                       </div>
                     </div>
 
-                    {different && !isMoMoSelected && (
+                    {different && !fieldsLocked && (
                       <div className="co-warning-banner">
                         <ExclamationTriangleIcon style={{ width: 16, height: 16, color: '#d97706' }} />
                         <p>Enter the recipient's name and contact number below.</p>
                       </div>
                     )}
 
-                    <div style={isMoMoSelected ? { pointerEvents: 'none', opacity: 0.88 } : {}}>
+                    <div style={fieldsLocked ? { pointerEvents: 'none', opacity: 0.88 } : {}}>
                       <CheckoutForm
                         key={different ? "different-recipient" : "account-recipient"}
                         customerName={recipient}
-                        setCustomerName={isMoMoSelected ? () => {} : setRecipient}
+                        setCustomerName={fieldsLocked ? () => {} : setRecipient}
                         customerNumber={phone}
-                        setCustomerNumber={isMoMoSelected ? () => {} : setPhone}
+                        setCustomerNumber={fieldsLocked ? () => {} : setPhone}
                         deliveryInfo={delivery}
-                        setDeliveryInfo={isMoMoSelected ? () => {} : setDelivery}
+                        setDeliveryInfo={fieldsLocked ? () => {} : setDelivery}
                         orderNote={note}
                         setOrderNote={setNote}
                         locations={locations}

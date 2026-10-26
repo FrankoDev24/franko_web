@@ -357,15 +357,8 @@ const OrderHistoryPage = () => {
       if (!orderId || prefetchedOrdersRef.current.has(orderId)) return;
       prefetchedOrdersRef.current.add(orderId);
 
-      const salesOrderAction =
-        orderSliceActions.fetchSalesOrderById ||
-        orderSliceActions.getSalesOrderById ||
-        orderSliceActions.fetchSalesOrder;
-
-      const deliveryAction =
-        orderSliceActions.fetchOrderDeliveryAddress ||
-        orderSliceActions.getOrderDeliveryAddress ||
-        orderSliceActions.fetchDeliveryAddress;
+      const salesOrderAction = orderSliceActions.fetchSalesOrderById;
+      const deliveryAction = orderSliceActions.fetchOrderDeliveryAddress;
 
       if (typeof salesOrderAction === "function") {
         dispatch(salesOrderAction(orderId));

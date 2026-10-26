@@ -528,7 +528,7 @@ const NewArrivals = () => {
         {/* ==================== GRID ==================== */}
         <div className="na-grid">
           {(recentProducts).map(
-            (product, index) => {
+            (product) => {
               if (!product) return null;
 
               const {

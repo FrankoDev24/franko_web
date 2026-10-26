@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { Spin } from 'antd';
 import AccessCodeModal, { checkAccessCodeValidity } from './AccessCodeModal';
 
-// eslint-disable-next-line no-unused-vars
 const withAccessCode = (WrappedComponent) => {
   return function WithAccessCodeComponent(props) {
     const [showAccessModal, setShowAccessModal] = useState(false);

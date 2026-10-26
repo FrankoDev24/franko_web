@@ -480,7 +480,7 @@ const formatDateTime = (dateString) => {
           <div style={{ padding: "14px 18px", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ width: 36, height: 36, borderRadius: 10, overflow: "hidden", background: "#fff", border: "1px solid #f0fdf4", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <img src={COMPANY_INFO.logoPath} alt="Franko" style={{ width: "100%", height: "100%", objectFit: "contain" }} onError={(e) => { e.target.style.display='none'; e.target.parentElement.innerHTML='<div style=\"width:100%;height:100%;background:linear-gradient(135deg,#14532d,#16a34a);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;\">F</div>' }} />
+                <img src={COMPANY_INFO.logoPath} alt="Franko" style={{ width: "100%", height: "100%", objectFit: "contain" }} onError={(e) => { e.target.style.display='none'; e.target.parentElement.innerHTML='<div style="width:100%;height:100%;background:linear-gradient(135deg,#14532d,#16a34a);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;">F</div>' }} />
               </div>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

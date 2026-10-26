@@ -43,7 +43,6 @@ import {
   getProductSlug,
   findProductBySlug,
   findProductById,
-  getProductUrl,
 } from "../utils/productSlug";
 
 // ==================== UTILITY FUNCTIONS ====================
@@ -586,7 +585,7 @@ const ProductDescription = () => {
                 script.onerror = function() { window.parent.postMessage({ type: 'FLIX_MEDIA_ERROR' }, '*'); };
                 document.head.appendChild(script);
               })();
-            <\/script>
+            </script>
           </body>
         </html>
       `;

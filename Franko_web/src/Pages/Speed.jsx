@@ -280,7 +280,6 @@ const ProductCard = memo(function ProductCard({
   onAdd,
   onOpen,
 }) {
-  const id = product.productID || product.id;
   const price = Number(product.price) || 0;
   const oldPrice = Number(product.oldPrice) || 0;
   const soldOut = Number(product.stock) === 0;

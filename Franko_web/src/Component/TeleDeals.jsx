@@ -653,7 +653,7 @@ const TeleDeals = () => {
             style={{ paddingBottom: 4, paddingLeft: 1, paddingRight: 1 }}
           >
             {(sortedProducts
-            ).map((product, idx) => {
+            ).map((product) => {
               if (!product) return null;
 
               const {

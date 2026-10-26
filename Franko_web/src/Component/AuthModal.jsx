@@ -80,7 +80,6 @@ const Notification = ({ message, type, isVisible, onClose }) => {
 
 // ─── Field ───────────────────────────────────
 const Field = ({
-  // eslint-disable-next-line no-unused-vars
   icon: Icon,
   label,
   type = "text",
@@ -972,7 +971,6 @@ const AuthModal = ({
           {notice ? <div className="am-notice">{notice}</div> : null}
 
           <nav className="am-tabs" role="tablist">
-            {/* eslint-disable-next-line no-unused-vars */}
             {tabs.map(({ key, label, Icon }) => (
               <button
                 key={key}

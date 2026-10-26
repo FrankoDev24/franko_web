@@ -35,14 +35,6 @@ import useCustomer, { persistCustomer, getCustomerId } from "../hooks/useCustome
    CartView — the ONE cart page body, shared by Pages/Cart.jsx (standard,
    green, /cart/:cartId -> /checkout) and Pages/TelCart.jsx (Telecel Speed
    Shopping, red, /tel-cart -> /tel-checkout).
-
-   It renders EVERY line in state.cart.cart (one row per productId, keyed by
-   productId). It owns no cart data of its own: no localStorage mirroring, no
-   optimistic rewrites, no refetch-after-every-click. The slice is the single
-   source of truth, fetches MERGE instead of replacing (see cartItems.mjs),
-   and quantity/delete thunks update the same store the page renders — so a
-   product the customer added can never vanish because GetbyID returned a
-   single record for the cart id.
    ========================================================================== */
 
 const BACKEND_BASE_URL = "https://testing.frankotrading.com";
@@ -57,6 +49,24 @@ const formatCurrency = (amount, decimals = 2) => {
 };
 
 const formatGHS = (amount) => `GH₵${formatCurrency(amount, 2)}`;
+
+/* Reusable full-page spinner (also used from Checkout). */
+export function FullPageSpinner({ telecel = false, message = "Loading…" }) {
+  return (
+    <>
+      <style>{cartStyles}</style>
+      <div
+        className={`cart-root flex items-center justify-center min-h-screen ${telecel ? "cart-root--telecel" : ""}`}
+        style={{ background: "var(--cart-bg-subtle)" }}
+      >
+        <div className="text-center">
+          <div className="cart-spinner-large mx-auto mb-4" aria-label="Loading" role="status"></div>
+          <p style={{ color: "var(--cart-mid)", fontWeight: 600, margin: 0 }}>{message}</p>
+        </div>
+      </div>
+    </>
+  );
+}
 
 const CartProductImage = ({ imagePath, productName }) => {
   const [failed, setFailed] = useState(false);
@@ -127,18 +137,21 @@ const CartView = ({ telecel = false, onOpenSidebar = null }) => {
   }, []);
 
   useEffect(() => {
-    if (!cartId || fetchedForRef.current === cartId) return;
+    // No cart id yet → wait (don't flash empty state). When id arrives
+    // we'll fetch; fetchedForRef guards against duplicate dispatches.
+    if (!cartId) return;
+    if (fetchedForRef.current === cartId) return;
     fetchedForRef.current = cartId;
     dispatch(getCartById(cartId));
   }, [dispatch, cartId]);
 
   const handleRetryFetch = useCallback(() => {
     if (!cartId) return;
-    fetchedForRef.current = cartId;
+    fetchedForRef.current = null; // allow refetch for the same id
     dispatch(getCartById(cartId));
   }, [dispatch, cartId]);
 
-  /* ------- Selection: prune ids that no longer exist, never blanket-clear ------- */
+  /* ------- Selection: prune ids that no longer exist ------- */
   useEffect(() => {
     setSelectedItems((prev) => {
       const pruned = prev.filter((id) => cart.some((item) => item.productId === id));
@@ -250,8 +263,6 @@ const CartView = ({ telecel = false, onOpenSidebar = null }) => {
   /* ---------------- Quantity / delete (slice applies them locally) ---------------- */
 
   const reconcileAfterError = useCallback(() => {
-    // A failed server write triggers ONE merge-fetch to reconcile — safe
-    // now, because merging can refresh lines but never drops local ones.
     if (cartId) dispatch(getCartById(cartId));
   }, [cartId, dispatch]);
 
@@ -310,24 +321,28 @@ const CartView = ({ telecel = false, onOpenSidebar = null }) => {
       setCopiedCartId(true);
       setTimeout(() => setCopiedCartId(false), 1600);
     } catch {
-      /* clipboard blocked — the id is visible anyway */
+      /* clipboard blocked */
     }
   };
 
-  /* ---------------- Loading / error (only when nothing to show) ---------------- */
+  /* ---------------- Loading / error / empty ----------------
+   *
+   * Show the spinner, not a blank/empty flash, whenever:
+   *   - we don't yet know the cart id (waiting for route/slice), or
+   *   - Redux is loading and we have nothing in memory, or
+   *   - we've dispatched the initial fetch for a cart id and nothing
+   *     has come back yet.
+   * Show the error card only when the fetch failed AND nothing is in
+   * memory (so a slow network after navigation never replaces the
+   * spinner with an error prematurely).
+   */
 
-  if (loading && cart.length === 0) {
-    return (
-      <>
-        <style>{cartStyles}</style>
-        <div className={`cart-root flex items-center justify-center min-h-screen ${telecel ? "cart-root--telecel" : ""}`} style={{ background: "var(--cart-bg-subtle)" }}>
-          <div className="text-center">
-            <div className="cart-spinner-large mx-auto mb-4"></div>
-            <p style={{ color: "var(--cart-mid)", fontWeight: 600 }}></p>
-          </div>
-        </div>
-      </>
-    );
+  const initialLoadDone = fetchedForRef.current === cartId && Boolean(cartId);
+  const isInitialLoading =
+    !cartId || (loading && cart.length === 0) || (!initialLoadDone && cart.length === 0 && !error);
+
+  if (isInitialLoading) {
+    return <FullPageSpinner telecel={telecel} message="Loading your cart…" />;
   }
 
   if (error && cart.length === 0) {
@@ -350,7 +365,7 @@ const CartView = ({ telecel = false, onOpenSidebar = null }) => {
     );
   }
 
-  /* ---------------- Main render: EVERY cart line, keyed by productId ---------------- */
+  /* ---------------- Main render ---------------- */
 
   return (
     <>
@@ -514,7 +529,6 @@ const CartView = ({ telecel = false, onOpenSidebar = null }) => {
                   </div>
                 </div>
 
-                {/* Order summary — desktop */}
                 <div className="hidden lg:block w-96">
                   <div className="cart-summary">
                     <div className="cart-summary-header">
@@ -565,7 +579,6 @@ const CartView = ({ telecel = false, onOpenSidebar = null }) => {
           </div>
         )}
 
-        {/* Batch delete confirmation */}
         <Dialog open={batchDeleteOpen} handler={setBatchDeleteOpen} className="cart-dialog">
           <DialogHeader className="cart-dialog-header">
             <div className="flex items-center gap-2">
@@ -582,7 +595,6 @@ const CartView = ({ telecel = false, onOpenSidebar = null }) => {
           </DialogFooter>
         </Dialog>
 
-        {/* Single delete confirmation */}
         <Dialog
           open={deleteModal.open}
           handler={() => setDeleteModal({ open: false, productId: null, productName: "" })}
