@@ -10,9 +10,9 @@ import AuthModal from '../Component/AuthModal';
 import locations from '../Component/Locations';
 import {
   ShoppingBagIcon, LockClosedIcon, UserIcon, ExclamationTriangleIcon,
-  PhoneIcon, ShieldCheckIcon, CheckCircleIcon, MapPinIcon
+  PhoneIcon, ShieldCheckIcon, BriefcaseIcon
 } from '@heroicons/react/24/outline';
-import { CheckCircleIcon as CheckCircleSolid, XCircleIcon as XCircleSolid } from '@heroicons/react/24/solid';
+import { CheckCircleIcon as CheckCircleSolid } from '@heroicons/react/24/solid';
 import frankoLogo from '../assets/frankoIcon.png';
 import mtnLogo from '../assets/momo.png';
 import vodafoneLogo from '../assets/voda.png';
@@ -29,25 +29,30 @@ const customerId = c => c?.customerAccountNumber ?? c?.CustomerAccountNumber ?? 
 const customerNameOf = c => `${c?.firstName || ''} ${c?.lastName || ''}`.trim();
 const msisdn = n => String(n).replace(/\D/g, '').replace(/^0/, '233').replace(/^2330/, '233');
 
+/* A "guest" value is never a real recipient name or a real address. */
+const isGuestValue = v => !v || /^\s*guest\b/i.test(String(v)) || /^\s*n\/?a\s*$/i.test(String(v));
+
 const NETWORKS = { mtn: 'MTN', vodafone: 'VODAFONE', airteltigo: 'AIRTELTIGO' };
 
 const checkoutStyles = `
 :root{--co-green:#14532d;--co-green-mid:#166534;--co-green-600:#16a34a;--co-green-light:#dcfce7;--co-green-lighter:#f0fdf4;--co-dark:#1a1a1a;--co-mid:#555;--co-light:#888;--co-border:#e0e0e0;--co-bg:#f7f7f7;--co-red:#dc2626;--co-radius:6px;--co-radius-xl:14px}
 .co-root,.co-root *{box-sizing:border-box;font-family:'Plus Jakarta Sans',sans-serif;-webkit-font-smoothing:antialiased}.co-root{min-height:100vh;background:#fff;color:var(--co-dark)}
-.co-tel{--co-green:#BB1420;--co-green-mid:#A80F1B;--co-green-lighter:#FDF0F0;--co-green-light:#F6E3E5}.co-tel .co-page-header{background:#BB1420;color:white;padding:18px;border-radius:8px}.co-tel .co-page-count{color:#ffeaea}.co-tel .co-page-header-accent{background:#FFD400}
+.co-tel{--co-green:#BB1420;--co-green-mid:#A80F1B;--co-green-600:#BB1420;--co-green-lighter:#FDF0F0;--co-green-light:#F6E3E5}.co-tel .co-page-header{background:#BB1420;color:white;padding:18px;border-radius:8px}.co-tel .co-page-count{color:#ffeaea}.co-tel .co-page-header-accent{background:#FFD400}
 .co-container{max-width:1780px;margin:0 auto;padding:24px 16px 100px}@media(min-width:1024px){.co-container{padding:32px 40px}}
 .co-page-header{display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--co-border)}.co-page-header-accent{width:4px;height:28px;border-radius:2px;background:var(--co-green)}.co-page-title{font-size:24px;font-weight:800;letter-spacing:-.02em;margin:0}.co-page-count{font-size:13px;color:var(--co-light);margin:4px 0 0}.co-page-header-line{display:none;flex:1;height:1px;background:var(--co-border)}@media(min-width:768px){.co-page-header-line{display:block}}
-.co-layout{display:flex;flex-direction:column;gap:20px}@media(min-width:1024px){.co-layout{flex-direction:row;gap:24px}}.co-sidebar{flex-shrink:0}@media(min-width:1024px){.co-sidebar{width:380px}}.co-main{flex:1;min-width:0}
+.co-layout{display:flex;flex-direction:column;gap:20px}@media(min-width:1024px){.co-layout{flex-direction:row;gap:24px}}.co-sidebar{flex-shrink:0}@media(min-width:1024px){.co-sidebar{width:420px}}.co-main{flex:1;min-width:0}
 .co-card{background:#fff;border:1px solid var(--co-border);border-radius:var(--co-radius);overflow:hidden}.co-card-header{padding:16px 20px;border-bottom:1px solid #f0f0f0}.co-card-title{font-size:16px;font-weight:800;margin:0}.co-card-body{padding:16px 20px}.co-section-accent{display:flex;gap:4px;margin-top:8px}.co-section-accent-bar{height:2px;width:32px;background:var(--co-green-600)}.co-section-accent-line{height:2px;flex:1;background:#f0f0f0}
-.co-auth-banner,.co-warning-banner,.co-lock-banner{display:flex;gap:12px;padding:12px 14px;border-radius:var(--co-radius);margin-bottom:16px}.co-auth-banner{background:#f0fdf4;border:1px solid #bbf7d0}.co-lock-banner{background:#f0fdf4;border:1.5px solid #86efac;align-items:center}.co-lock-banner p{font-size:12px;font-weight:700;color:#14532d;margin:0;line-height:1.4}.co-auth-banner-icon{width:36px;height:36px;border-radius:8px;background:#fff;border:1px solid #bbf7d0;display:grid;place-items:center;flex-shrink:0}.co-auth-banner-copy{flex:1}.co-auth-banner-title{font-size:13px;font-weight:800;color:var(--co-green);margin:0 0 3px}.co-auth-banner-desc{font-size:12px;color:#166534;margin:0;line-height:1.45}.co-auth-banner-btn{margin-top:8px;border:0;background:var(--co-green);color:#fff;border-radius:var(--co-radius);padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer}
-.co-toggle-wrap{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--co-bg);border:1px solid var(--co-border);border-radius:var(--co-radius);cursor:pointer;margin-bottom:16px}.co-toggle-disabled{opacity:0.6;cursor:not-allowed!important}.co-toggle-left{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--co-mid)}.co-toggle-track{width:40px;height:22px;border-radius:11px;padding:2px;transition:background .2s}.co-toggle-track-off{background:#d1d5db}.co-toggle-track-on{background:var(--co-green-600)}.co-toggle-knob{width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0002;transition:transform .2s}.co-toggle-knob-on{transform:translateX(18px)}.co-warning-banner{background:#fffbeb;border:1px solid #fde68a;align-items:flex-start}.co-warning-banner p{font-size:12px;font-weight:600;color:#92400e;margin:0;line-height:1.5}
+.co-auth-banner,.co-warning-banner,.co-lock-banner,.co-agent-banner{display:flex;gap:12px;padding:12px 14px;border-radius:10px;margin-bottom:16px}.co-auth-banner{background:#f0fdf4;border:1px solid #bbf7d0}.co-lock-banner{background:var(--co-green-lighter);border:1.5px solid var(--co-green-light);align-items:flex-start}.co-lock-banner p{font-size:12px;font-weight:600;color:var(--co-green);margin:0;line-height:1.5}.co-lock-banner strong{font-weight:900}
+.co-agent-banner{background:#eff6ff;border:1.5px solid #bfdbfe;align-items:flex-start}.co-agent-banner p{font-size:12px;font-weight:600;color:#1e40af;margin:0;line-height:1.5}.co-agent-banner strong{font-weight:900}
+.co-auth-banner-icon{width:36px;height:36px;border-radius:8px;background:#fff;border:1px solid #bbf7d0;display:grid;place-items:center;flex-shrink:0}.co-auth-banner-copy{flex:1}.co-auth-banner-title{font-size:13px;font-weight:800;color:var(--co-green);margin:0 0 3px}.co-auth-banner-desc{font-size:12px;color:#166534;margin:0;line-height:1.45}.co-auth-banner-btn{margin-top:8px;border:0;background:var(--co-green);color:#fff;border-radius:var(--co-radius);padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer}
+.co-toggle-wrap{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--co-bg);border:1px solid var(--co-border);border-radius:10px;cursor:pointer;margin-bottom:16px}.co-toggle-left{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--co-mid)}.co-toggle-track{width:40px;height:22px;border-radius:11px;padding:2px;transition:background .2s;flex-shrink:0}.co-toggle-track-off{background:#d1d5db}.co-toggle-track-on{background:var(--co-green-600)}.co-toggle-knob{width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0002;transition:transform .2s}.co-toggle-knob-on{transform:translateX(18px)}.co-warning-banner{background:#fffbeb;border:1px solid #fde68a;align-items:flex-start}.co-warning-banner p{font-size:12px;font-weight:600;color:#92400e;margin:0;line-height:1.5}
 .co-items-list{max-height:380px;overflow-y:auto;padding-right:4px}.co-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #f5f5f5}.co-item:last-child{border-bottom:0}.co-item-left{display:flex;gap:12px;flex:1;min-width:0}.co-item-img,.co-item-img-placeholder{width:56px;height:56px;border-radius:var(--co-radius);object-fit:cover;border:1px solid #f0f0f0;flex-shrink:0}.co-item-img-placeholder{display:flex;align-items:center;justify-content:center;background:var(--co-bg);font-size:10px;color:var(--co-light)}.co-item-info{flex:1;min-width:0}.co-item-name{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0 0 2px}.co-item-unit{font-size:12px;color:var(--co-light);margin:0}.co-item-qty{display:inline-flex;margin-top:4px;padding:2px 8px;border-radius:100px;background:var(--co-green-lighter);font-size:11px;font-weight:700;color:var(--co-green)}.co-item-price{font-size:14px;font-weight:900;flex-shrink:0}
 .co-totals{padding-top:16px;border-top:1px solid var(--co-border)}.co-total-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;font-size:14px}.co-total-row-label{color:var(--co-mid)}.co-total-row-value{font-weight:700}.co-total-row-free{font-weight:700;color:var(--co-green-600)}.co-total-row-warning{font-weight:600;color:#d97706}.co-service-charge{display:flex;justify-content:space-between;padding:8px 12px;background:#eff6ff;border-radius:var(--co-radius);margin:8px 0}.co-service-charge span{font-size:13px;font-weight:600;color:#1e40af}.co-grand-total{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:linear-gradient(135deg,#fef2f2,#fff7ed);border-radius:var(--co-radius);margin-top:8px;border:1px solid #fecaca}.co-grand-total-label,.co-grand-total-value{font-weight:900;color:var(--co-red)}.co-grand-total-value{font-size:18px}.co-charge-note{font-size:11px;color:var(--co-light);text-align:center;font-style:italic;margin-top:6px}
-.co-payment-section{margin-top:20px}.co-payment-title{font-size:14px;font-weight:800;margin:0 0 12px}.co-payment-options{display:flex;flex-direction:column;gap:8px}.co-payment-option{display:flex;align-items:center;gap:12px;padding:12px 16px;border:2px solid var(--co-border);border-radius:var(--co-radius);cursor:pointer;background:#fff}.co-payment-option-active{border-color:var(--co-green-600)!important;background:var(--co-green-lighter)!important}.co-payment-option-text{font-size:14px;font-weight:600;color:var(--co-mid)}
-.co-btn-primary,.co-btn-danger,.co-btn-secondary{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:var(--co-radius);font-weight:700;cursor:pointer;transition:.15s;font-family:inherit}.co-btn-primary{padding:14px;background:var(--co-green);color:#fff;border:0;font-size:15px}.co-btn-primary:hover{background:var(--co-green-mid)}.co-btn-primary:disabled{background:#d1d5db;cursor:not-allowed}.co-btn-danger{padding:12px;background:#fff;color:var(--co-red);border:1px solid #fecaca;font-size:14px}.co-btn-danger:hover{background:#fef2f2}.co-btn-secondary{padding:9px 12px;background:#fff;color:var(--co-dark);border:1px solid var(--co-border);font-size:12px}.co-btn-secondary:hover{background:var(--co-bg)}.co-sticky-bottom{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--co-border);padding:12px 16px;z-index:40;box-shadow:0 -2px 12px #0001;display:block}@media(min-width:1024px){.co-sticky-bottom{display:none}}.co-desktop-btn{display:none;margin-top:20px}@media(min-width:1024px){.co-desktop-btn{display:block}}
+.co-payment-section{margin-top:20px}.co-payment-title{font-size:14px;font-weight:800;margin:0 0 12px}.co-payment-options{display:flex;flex-direction:column;gap:8px}.co-payment-option{display:flex;align-items:center;gap:12px;padding:12px 16px;border:2px solid var(--co-border);border-radius:10px;cursor:pointer;background:#fff}.co-payment-option-active{border-color:var(--co-green-600)!important;background:var(--co-green-lighter)!important}.co-payment-option-text{font-size:14px;font-weight:600;color:var(--co-mid)}
+.co-btn-primary,.co-btn-danger,.co-btn-secondary{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:10px;font-weight:700;cursor:pointer;transition:.15s;font-family:inherit}.co-btn-primary{padding:14px;background:var(--co-green);color:#fff;border:0;font-size:15px}.co-btn-primary:hover{background:var(--co-green-mid)}.co-btn-primary:disabled{background:#d1d5db;cursor:not-allowed}.co-btn-danger{padding:12px;background:#fff;color:var(--co-red);border:1px solid #fecaca;font-size:14px}.co-btn-danger:hover{background:#fef2f2}.co-btn-secondary{padding:9px 12px;background:#fff;color:var(--co-dark);border:1px solid var(--co-border);font-size:12px}.co-btn-secondary:hover{background:var(--co-bg)}.co-sticky-bottom{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--co-border);padding:12px 16px;z-index:40;box-shadow:0 -2px 12px #0001;display:block}@media(min-width:1024px){.co-sticky-bottom{display:none}}.co-desktop-btn{display:none;margin-top:20px}@media(min-width:1024px){.co-desktop-btn{display:block}}
 .co-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:60px 24px;min-height:400px}.co-empty-icon{width:72px;height:72px;border-radius:50%;background:var(--co-bg);display:grid;place-items:center;margin-bottom:16px;border:1px solid var(--co-border)}.co-empty-title{font-size:22px;font-weight:800;margin-bottom:8px}.co-empty-desc{font-size:14px;color:var(--co-light);margin-bottom:24px}
 .co-loading-overlay{position:fixed;inset:0;background:#0008;backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:10000}.co-loading-card{background:#fff;border-radius:var(--co-radius-xl);padding:32px;display:flex;flex-direction:column;align-items:center;gap:16px;box-shadow:0 20px 60px #0003}.co-spinner{width:40px;height:40px;border:4px solid var(--co-green-light);border-top-color:var(--co-green-600);border-radius:50%;animation:co-spin .8s linear infinite}@keyframes co-spin{to{transform:rotate(360deg)}}.co-loading-text{font-size:15px;font-weight:700;color:var(--co-mid)}
-.pm-modal-wrap{display:flex;flex-direction:column;max-height:calc(100vh - 32px)}.pm-header-compact{background:linear-gradient(135deg,#0d3d20,#14532d 50%,#166534);padding:16px 20px;display:flex;align-items:center;justify-content:space-between}.co-tel .pm-header-compact{background:linear-gradient(135deg,#8f0c16,#BB1420 55%,#A80F1B)}.pm-header-left{display:flex;align-items:center;gap:10px}.pm-logo-small{height:28px;object-fit:contain;filter:brightness(0) invert(1)}.pm-company-small{font-size:10px;font-weight:700;color:#ffffff80;text-transform:uppercase;margin:0}.pm-ref-small{font-size:10px;color:#ffffff99;margin:3px 0 0}.pm-header-right{text-align:right}.pm-amount-label-small{font-size:9px;font-weight:700;color:#ffffff80;text-transform:uppercase;margin:0}.pm-amount-value-small{font-size:24px;font-weight:900;color:#fff;margin:0}.pm-body{padding:16px;display:flex;flex-direction:column;gap:12px;background:#fff;overflow-y:auto}.pm-field{border:1.5px solid #e5e7eb;border-radius:10px;overflow:hidden}.pm-field-header{display:flex;align-items:center;gap:8px;padding:9px 12px;background:#f9fafb;border-bottom:1px solid #f0f0f0}.pm-field-step-num{width:20px;height:20px;background:var(--co-green);color:#fff;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:900}.pm-field-label{font-size:12px;font-weight:800}.pm-field-body{padding:12px}.pm-validation{font-size:11px;font-weight:600;margin-top:6px;display:flex;align-items:center;gap:4px;color:#d97706}.pm-account-status{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;font-size:12px;font-weight:700}.pm-account-valid{background:#f0fdf4;border:1px solid #bbf7d0;color:var(--co-green)}.pm-account-checking{background:#fffbeb;border:1px solid #fde68a;color:#d97706}.pm-account-invalid{background:#fef2f2;border:1px solid #fecaca;color:var(--co-red)}.pm-account-icon{width:18px;height:18px;flex-shrink:0}.pm-networks{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.pm-network-tile{display:flex;flex-direction:column;align-items:center;text-align:center;padding:10px 6px;border:2px solid #e5e7eb;border-radius:8px;cursor:pointer;background:#fff;min-height:56px}.pm-network-logo{width:36px;height:36px;object-fit:contain;border-radius:6px}.pm-network-info{flex:1}.pm-network-name{font-size:13px;font-weight:800;margin:0}.pm-network-sub{font-size:10px;color:var(--co-light);margin:2px 0 0}.pm-pay-btn{width:100%;padding:14px;background:linear-gradient(135deg,#14532d,#166534);color:#fff;border:0;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;min-height:50px}.co-tel .pm-pay-btn{background:linear-gradient(135deg,#8f0c16,#BB1420)}.pm-pay-btn:disabled{background:#9ca3af;cursor:not-allowed}.pm-security{display:flex;align-items:center;justify-content:center;gap:5px;font-size:10px;font-weight:600;color:#6b7280;padding:7px;background:#f9fafb;border-radius:6px}.pm-info-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px}.pm-info-title{font-size:11px;font-weight:800;color:var(--co-green);margin:0 0 6px}.pm-info-list{font-size:11px;color:#16a34a;margin:0;padding-left:18px;display:grid;gap:4px}
+.pm-modal-wrap{display:flex;flex-direction:column;max-height:calc(100vh - 32px)}.pm-header-compact{background:linear-gradient(135deg,#0d3d20,#14532d 50%,#166534);padding:16px 20px;display:flex;align-items:center;justify-content:space-between}.co-tel .pm-header-compact{background:linear-gradient(135deg,#8f0c16,#BB1420 55%,#A80F1B)}.pm-header-left{display:flex;align-items:center;gap:10px}.pm-logo-small{height:28px;object-fit:contain;filter:brightness(0) invert(1)}.pm-company-small{font-size:10px;font-weight:700;color:#ffffff80;text-transform:uppercase;margin:0}.pm-ref-small{font-size:10px;color:#ffffff99;margin:3px 0 0}.pm-header-right{text-align:right}.pm-amount-label-small{font-size:9px;font-weight:700;color:#ffffff80;text-transform:uppercase;margin:0}.pm-amount-value-small{font-size:24px;font-weight:900;color:#fff;margin:0}.pm-body{padding:16px;display:flex;flex-direction:column;gap:12px;background:#fff;overflow-y:auto}.pm-field{border:1.5px solid #e5e7eb;border-radius:10px;overflow:hidden}.pm-field-header{display:flex;align-items:center;gap:8px;padding:9px 12px;background:#f9fafb;border-bottom:1px solid #f0f0f0}.pm-field-step-num{width:20px;height:20px;background:var(--co-green);color:#fff;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:900}.pm-field-label{font-size:12px;font-weight:800}.pm-field-body{padding:12px}.pm-account-status{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;font-size:12px;font-weight:700}.pm-account-checking{background:#fffbeb;border:1px solid #fde68a;color:#d97706}.pm-networks{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.pm-network-tile{display:flex;flex-direction:column;align-items:center;text-align:center;padding:10px 6px;border:2px solid #e5e7eb;border-radius:8px;background:#fff;min-height:56px}.pm-network-logo{width:36px;height:36px;object-fit:contain;border-radius:6px}.pm-network-name{font-size:13px;font-weight:800;margin:0}.pm-network-sub{font-size:10px;color:var(--co-light);margin:2px 0 0}.pm-security{display:flex;align-items:center;justify-content:center;gap:5px;font-size:10px;font-weight:600;color:#6b7280;padding:7px;background:#f9fafb;border-radius:6px}
 .pm-pending-anim{position:relative;width:78px;height:78px}.pm-pending-ring-outer,.pm-pending-ring-spin{position:absolute;inset:0;border-radius:50%}.pm-pending-ring-outer{border:3px solid #dcfce7}.pm-pending-ring-spin{border:3px solid transparent;border-top-color:var(--co-green-600);animation:co-spin 1s linear infinite}.pm-pending-ring-inner{position:absolute;inset:9px;border:2px solid #f0fdf4;border-radius:50%;display:grid;place-items:center;background:#dcfce7}.co-guide-steps-wrap{background:#fff;border:1px solid #f0f0f0;border-radius:var(--co-radius);overflow:hidden}.co-guide-steps-header{padding:10px 14px;border-bottom:1px solid #f5f5f5}.co-guide-steps-body{padding:14px;max-height:280px;overflow:auto}.co-guide-step{display:flex;gap:12px;align-items:flex-start;margin-bottom:10px}.co-guide-step-num{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:900;flex-shrink:0}.co-guide-step-text{font-size:13px;color:var(--co-mid);margin:3px 0 0;line-height:1.4}
 `;
 
@@ -62,41 +67,90 @@ export default function CheckoutShared({ telecel = false }) {
   const stored = readJSON('checkoutDetails', {});
   const savedCustomer = readJSON('customer', {});
 
-  // Registered Customer Defaults
+  // ═════════════════════════════════════════════════════════════════
+  // ACCOUNT TYPE — resolved BEFORE any state initializer so the very
+  // first render already knows whether this is an agent session.
+  // ═════════════════════════════════════════════════════════════════
+  const accountType = String(customer?.accountType ?? savedCustomer?.accountType ?? '').toLowerCase();
+  const isAgent = accountType === 'agent';
+
+  // ── Registered account defaults (customers only) ─────────────────
   const accountPhone = customer?.contactNumber || customer?.ContactNumber || customer?.phone || customer?.telephone || customer?.phoneNumber || savedCustomer?.contactNumber || savedCustomer?.ContactNumber || savedCustomer?.phone || '';
-  const accountName = customerNameOf(customer) || `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim() || customerNameOf(savedCustomer);
-  const [items, setItems] = useState(() => telecel ? (location.state?.items?.length ? location.state.items : readJSON('telCheckoutCart', {})?.items || cartState.cart || []) : (cartState.cart?.length ? cartState.cart : readJSON('cart', []) || []));
-  const [recipient, setRecipient] = useState(stored.recipientName || accountName || '');
-  const [phone, setPhone] = useState(stored.recipientContactNumber || accountPhone || '');
-  const [different, setDifferent] = useState(() => readJSON('checkoutDifferentRecipient', false) === true || readJSON('checkoutDifferentRecipient', false) === 'true');
+  const accountName = customerNameOf(customer) || customerNameOf(savedCustomer);
+
+  const [items, setItems] = useState(() => telecel
+    ? (location.state?.items?.length ? location.state.items : readJSON('telCheckoutCart', {})?.items || cartState.cart || [])
+    : (cartState.cart?.length ? cartState.cart : readJSON('cart', []) || []));
+
+  // ═════════════════════════════════════════════════════════════════
+  // AGENT RULE
+  // An agent is always ordering on behalf of a walk-in customer, so we
+  // NEVER pre-populate the recipient name, the recipient contact or
+  // the delivery address with the agent's own account details (nor
+  // with anything left over from a previous order). Every agent order
+  // starts from a blank recipient block.
+  //
+  // CUSTOMER RULE (unchanged)
+  // Regular customers keep the existing convenience behaviour: their
+  // registered name/phone and last-used address are pre-filled.
+  // ═════════════════════════════════════════════════════════════════
+  const [recipient, setRecipient] = useState(() => {
+    if (isAgent) return '';
+    const v = stored.recipientName || accountName || '';
+    return isGuestValue(v) ? '' : v;
+  });
+  const [phone, setPhone] = useState(() => {
+    if (isAgent) return '';
+    return stored.recipientContactNumber || accountPhone || '';
+  });
+  const [different, setDifferent] = useState(() => {
+    if (isAgent) return false; // toggle is not shown for agents
+    const raw = readJSON('checkoutDifferentRecipient', false);
+    return raw === true || raw === 'true';
+  });
   const [note, setNote] = useState(stored.orderNote || '');
 
-  // Track default delivery address
-  const initialAddress = readJSON('orderAddressDetails', {})?.address || readJSON('deliveryInfo', {})?.address || customer?.address || savedCustomer?.address || '';
-  const [delivery, setDelivery] = useState(() => ({ address: initialAddress, fee: 0, feeDisplay: '' }));
-  const defaultDeliveryAddressRef = useRef(initialAddress);
+  // Address hydration:
+  //  · agents  → always blank
+  //  · guests  → always blank (never restore a guest address)
+  //  · signed-in customers → restore profile / last-used address
+  const initialDelivery = useMemo(() => {
+    if (isAgent || !loggedIn) return { address: '', fee: 0, feeDisplay: '' };
+    const savedDel = readJSON('deliveryInfo', {}) || {};
+    const candidate = readJSON('orderAddressDetails', {})?.address || savedDel.address || customer?.address || savedCustomer?.address || '';
+    if (isGuestValue(candidate)) return { address: '', fee: 0, feeDisplay: '' };
+    return {
+      address: String(candidate),
+      fee: Number(savedDel.fee) || 0,
+      feeDisplay: savedDel.feeDisplay || '',
+      isManual: Boolean(savedDel.isManual),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAgent, loggedIn]);
+
+  const [delivery, setDelivery] = useState(initialDelivery);
+  const defaultDeliveryAddressRef = useRef(initialDelivery.address);
 
   useEffect(() => {
-    if (!defaultDeliveryAddressRef.current && (customer?.address || savedCustomer?.address || delivery.address)) {
-      defaultDeliveryAddressRef.current = customer?.address || savedCustomer?.address || delivery.address;
+    if (isAgent || !loggedIn) return; // agents have no default address
+    const fallback = customer?.address || savedCustomer?.address || delivery.address;
+    if (!defaultDeliveryAddressRef.current && fallback && !isGuestValue(fallback)) {
+      defaultDeliveryAddressRef.current = fallback;
     }
-  }, [customer, savedCustomer, delivery.address]);
+  }, [isAgent, loggedIn, customer, savedCustomer, delivery.address]);
 
   const [method, setMethod] = useState(telecel ? 'Mobile Money' : '');
-  const [stage, setStage] = useState('form'); // form, payment (validating/ready), pending, review, posting, support
+  const [stage, setStage] = useState('form'); // form | payment | pending | review | posting | support
   const [busy, setBusy] = useState(false);
   const [auth, setAuth] = useState(false);
   const [error, setError] = useState('');
   const [subscriberName, setSubscriberName] = useState('');
 
-  // Derived booleans needed by effects below — declare them BEFORE the
-  // effects that reference them to avoid "Cannot access 'X' before
-  // initialization" TDZ errors.
-  const isAgent = String(customer?.accountType || '').toLowerCase() === 'agent';
   const isMoMoSelected = method === 'Mobile Money';
-  // LOCK RULE: regular customers → locked only on Mobile Money.
-  //            agents → never locked (any payment method is editable).
-  const fieldsLocked = isMoMoSelected && loggedIn && !isAgent;
+
+  // MOBILE MONEY LOCK: only the CONTACT NUMBER is locked, and never for
+  // agents (agents don't pay by MoMo through this screen at all).
+  const contactLocked = isMoMoSelected && loggedIn && !isAgent;
 
   const active = useRef(false);
   const finished = useRef(false);
@@ -112,15 +166,8 @@ export default function CheckoutShared({ telecel = false }) {
   const serviceCharge = Math.min(20, (subtotal + shipping) * .01);
   const amount = subtotal;
 
-  // ═══════════════════════════════════════════════════════════════════
-  // MoMo Number is STRICTLY the customer's registration contact number
-  // Auto-detect and select network based on prefix
-  // ═══════════════════════════════════════════════════════════════════
-  const momoNumber = accountPhone;
-  const detectedNetworkInfo = useMemo(() => {
-    return detectMoMoNetwork(momoNumber);
-  }, [momoNumber]);
-
+  const momoNumber = isAgent ? '' : accountPhone;
+  const detectedNetworkInfo = useMemo(() => (isAgent ? null : detectMoMoNetwork(momoNumber)), [isAgent, momoNumber]);
   const network = telecel ? 'vodafone' : detectedNetworkInfo?.network || '';
 
   useEffect(() => {
@@ -140,91 +187,74 @@ export default function CheckoutShared({ telecel = false }) {
     if (cartId && !items.length) dispatch(getCartById(cartId));
   }, [cartId, dispatch, items.length]);
 
-  // ═══════════════════════════════════════════════════════════════════
-  // RULE: Delivery form values are dispatched EXACTLY as typed by the
-  // customer/agent for every payment method EXCEPT Mobile Money.
-  //
-  // For non-MoMo methods (Cash on Delivery, Pick Up, Paid Already):
-  //   - Whatever the user (customer OR agent) types into the recipient
-  //     name, phone, and delivery address fields is what gets sent to
-  //     the backend. We never silently swap it for the registered name.
-  //   - The "Different recipient?" toggle simply clears/refills the
-  //     fields so the user can quickly switch between "ship to me" and
-  //     "ship to someone else" — once they start typing, their input
-  //     is preserved across payment-method changes unless they switch
-  //     to Mobile Money.
-  //
-  // For Mobile Money:
-  //   - The MoMo number MUST match the registered contact (used for the
-  //     debit prompt), so recipient name, phone, and delivery address
-  //     are forcibly reset to the registered defaults and all inputs
-  //     are disabled until the user selects a different method.
-  // ═══════════════════════════════════════════════════════════════════
-
-  // One-time hydration: when an account becomes known (login finishes
-  // after mount, e.g. after AuthModal signup), pre-fill the form with
-  // the account defaults ONLY if the fields are still empty. We never
-  // overwrite something the user has already typed.
+  // ── Late sign-in hydration — CUSTOMERS ONLY ──────────────────────
+  // Fills blank fields with the account defaults when the profile
+  // resolves after mount. Skipped entirely for agents.
   const hydratedRef = useRef(false);
   useEffect(() => {
-    if (hydratedRef.current) return;
-    if (!loggedIn || method === 'Mobile Money') return;
+    if (hydratedRef.current || !loggedIn || isAgent) return;
     let filled = false;
-    if (!recipient && accountName) { setRecipient(accountName); filled = true; }
-    if (!phone && accountPhone)     { setPhone(accountPhone);     filled = true; }
+    if (!recipient && accountName && !different) { setRecipient(accountName); filled = true; }
+    if (!phone && accountPhone) { setPhone(accountPhone); filled = true; }
     if (!delivery.address && defaultDeliveryAddressRef.current) {
       setDelivery(prev => ({ ...prev, address: defaultDeliveryAddressRef.current }));
       filled = true;
     }
     if (filled) hydratedRef.current = true;
-  }, [loggedIn, method, recipient, phone, delivery.address, accountName, accountPhone]);
+  }, [loggedIn, isAgent, different, recipient, phone, delivery.address, accountName, accountPhone]);
 
-  // Mobile Money lock effect: the moment (or as long as) MoMo is the
-  // selected method for a regular (non-agent) customer, force recipient,
-  // phone, and delivery address back to the registered defaults. Agents
-  // are excluded — they can always edit freely. Runs on changes to
-  // method, logged-in state, account details, OR delivery address (so a
-  // previously edited address is snapped back to default the moment the
-  // user switches methods).
+  // ── Agent safety net ─────────────────────────────────────────────
+  // If the profile resolves to an AGENT after the first render (e.g. the
+  // session hydrates late, or an agent signs in mid-session), wipe any
+  // value that was auto-filled from the account. Anything the agent has
+  // already typed is left untouched.
+  const agentResetRef = useRef(false);
   useEffect(() => {
-    if (method !== 'Mobile Money' || !loggedIn || isAgent) return;
+    if (!isAgent || agentResetRef.current) return;
+    agentResetRef.current = true;
+
     if (different) {
       setDifferent(false);
       try { localStorage.setItem('checkoutDifferentRecipient', 'false'); } catch { /* best effort */ }
     }
-    setRecipient(accountName);
-    setPhone(accountPhone);
-    if (defaultDeliveryAddressRef.current && delivery.address !== defaultDeliveryAddressRef.current) {
-      setDelivery(prev => ({ ...prev, address: defaultDeliveryAddressRef.current }));
-      try {
-        const savedDel = readJSON('deliveryInfo', {});
-        localStorage.setItem('deliveryInfo', JSON.stringify({ ...savedDel, address: defaultDeliveryAddressRef.current }));
-      } catch { /* best effort */ }
+    if (recipient && (recipient === accountName || isGuestValue(recipient))) setRecipient('');
+    if (phone && phone === accountPhone) setPhone('');
+    if (delivery.address && delivery.address === defaultDeliveryAddressRef.current) {
+      setDelivery({ address: '', fee: 0, feeDisplay: '' });
     }
-  }, [method, loggedIn, isAgent, accountName, accountPhone, delivery.address]);
+    defaultDeliveryAddressRef.current = '';
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAgent]);
+
+  // Mobile Money: keep ONLY the phone pinned to the registered line.
+  useEffect(() => {
+    if (!contactLocked) return;
+    if (phone !== accountPhone) setPhone(accountPhone);
+  }, [contactLocked, phone, accountPhone]);
+
+  // Never let a "Guest" placeholder survive into the order.
+  useEffect(() => {
+    if (isGuestValue(recipient) && recipient) setRecipient('');
+  }, [recipient]);
 
   const toggleRecipient = () => {
-    if (busy || stage !== 'form') return;
-    if (fieldsLocked) {
-      message.warning('When paying with Mobile Money, recipient details are locked to your registered Franko account.');
-      return;
-    }
+    if (busy || stage !== 'form' || isAgent) return; // agents have no toggle
     const next = !different;
     setError('');
+    setDifferent(next);
+    try { localStorage.setItem('checkoutDifferentRecipient', String(next)); } catch { /* best effort */ }
+
     if (next) {
-      // User wants to ship to someone else: clear the fields so they
-      // can type the new recipient's details. We do NOT prefill with
-      // the registered name — they want something different.
       setRecipient('');
-      setPhone('');
-      setDifferent(next);
+      if (contactLocked) {
+        setPhone(accountPhone);
+        message.info('You can enter a different recipient name. The contact number stays your registered MoMo line because the payment prompt is sent there.');
+      } else {
+        setPhone('');
+      }
     } else {
-      // User is going back to shipping to themselves: prefill with
-      // the registered account details for convenience, but once they
-      // start editing, nothing will overwrite their input.
       setRecipient(accountName);
       setPhone(accountPhone);
-      setDifferent(next);
     }
   };
 
@@ -232,15 +262,10 @@ export default function CheckoutShared({ telecel = false }) {
     if (finished.current) return;
     finished.current = true;
     clearTimeout(pollTimer.current);
-    // Navigate away immediately; cleanup runs after so we don't block the transition.
     navigate('/order-cancelled', { replace: true, state: { reason, orderId: currentRef.current?.orderId } });
     removeDraft();
   };
 
-  // ═══════════════════════════════════════════════════════════════════
-  // Step 10: Auto-navigate to Order Success / Order Received
-  //          INSTANTLY when confirmed — no delay, no flash.
-  // ═══════════════════════════════════════════════════════════════════
   const cleanSuccess = (current, paid) => {
     const destination = completedOrderRoute({
       orderId: current.orderId,
@@ -252,9 +277,6 @@ export default function CheckoutShared({ telecel = false }) {
 
     const savedCust = readJSON('customer') || (customerId(customer) ? customer : null);
 
-    // 1) NAVIGATE FIRST — tell the router to transition immediately.
-    //    This updates router state synchronously so the next React render
-    //    mounts the destination page instead of Checkout.
     navigate(destination, {
       replace: true,
       state: {
@@ -265,17 +287,17 @@ export default function CheckoutShared({ telecel = false }) {
       },
     });
 
-    // 2) Cleanup AFTER navigation is requested. All of this is synchronous
-    //    and finishes before React commits the next frame, so the new page
-    //    mounts with a clean cart and fresh localStorage. Nothing here
-    //    blocks the navigation — it was already dispatched above.
     dispatch(clearCart());
     try {
       ['cart', 'cartId', ...(telecel ? ['telCheckoutCart', 'selectedCart'] : [])]
         .forEach(k => localStorage.removeItem(k));
+      // Agents must never leave a recipient/address behind for the next order.
+      if (isAgent) ['deliveryInfo', 'recentDeliveryAddresses'].forEach(k => localStorage.removeItem(k));
       if (savedCust) localStorage.setItem('customer', JSON.stringify(savedCust));
-      localStorage.setItem('checkoutDetails', JSON.stringify(current.checkout));
-      localStorage.setItem('orderAddressDetails', JSON.stringify(current.address));
+      if (!isAgent) {
+        localStorage.setItem('checkoutDetails', JSON.stringify(current.checkout));
+        localStorage.setItem('orderAddressDetails', JSON.stringify(current.address));
+      }
     } catch { /* storage is best effort */ }
 
     removeDraft();
@@ -284,7 +306,7 @@ export default function CheckoutShared({ telecel = false }) {
   const postOrder = async (current, paid) => {
     if (finished.current || current.posting) return;
     current.posting = true;
-    current.paid = paid; // read by the "posting" modal copy
+    current.paid = paid;
     setStage('posting');
     try {
       assertOrderDetails(current.checkout, current.address);
@@ -304,7 +326,6 @@ export default function CheckoutShared({ telecel = false }) {
     }
   };
 
-  // Poll status every 4 seconds and auto-navigate immediately upon success
   const poll = current => {
     if (finished.current || !active.current) return;
     pollTimer.current = setTimeout(async () => {
@@ -314,14 +335,8 @@ export default function CheckoutShared({ telecel = false }) {
         const response = await dispatch(checkTransactionStatus({ refNo: current.orderId })).unwrap();
         if (finished.current || !active.current) return;
         const result = paymentOutcome(response);
-        if (result === 'success') {
-          await postOrder(current, true);
-          return;
-        }
-        if (result === 'failed') {
-          cancel(response?.responseMessage || 'Payment declined.');
-          return;
-        }
+        if (result === 'success') { await postOrder(current, true); return; }
+        if (result === 'failed') { cancel(response?.responseMessage || 'Payment declined.'); return; }
       } catch { /* transient network errors do not cancel */ }
       finally { requestActive.current = false; }
       if (Date.now() < pollDeadline.current) poll(current);
@@ -336,50 +351,34 @@ export default function CheckoutShared({ telecel = false }) {
     try {
       const response = await dispatch(checkTransactionStatus({ refNo: current.orderId })).unwrap();
       const result = paymentOutcome(response);
-      if (result === 'success') {
-        await postOrder(current, true);
-      } else if (result === 'failed') {
-        cancel(response?.responseMessage || 'Payment declined.');
-      } else {
-        setError('Still waiting for payment confirmation. Please approve on your phone and check again.');
-      }
+      if (result === 'success') await postOrder(current, true);
+      else if (result === 'failed') cancel(response?.responseMessage || 'Payment declined.');
+      else setError('Still waiting for payment confirmation. Please approve on your phone and check again.');
     } catch {
       setError('Cannot check payment right now. Please try again; do not pay twice.');
     } finally {
-      // If we've already finished (navigated away), don't reset busy — that
-      // would flash the form under the overlay during the transition.
       if (active.current && !finished.current) setBusy(false);
     }
   };
 
-  // ═══════════════════════════════════════════════════════════════════
-  // CHECKOUT PROCESS:
-  // 1. Validates cart.
-  // 2. If Mobile Money: validates registered number prefix and account name.
-  // 3. If requirement not met: shows error, closes popup, sends NO prompt.
-  // 4. If met: sends debit prompt directly (ignoring OTP), awaits approval.
-  //
-  // IMPORTANT: name/contact/address used in the order payload are taken
-  // DIRECTLY from the form state. For non-MoMo methods we do NOT fall
-  // back to accountName / accountPhone — whatever the user typed is
-  // exactly what gets dispatched. For MoMo the fields are forcibly
-  // locked to the registered values by the effect above, so using
-  // state is already correct.
-  // ═══════════════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════════════
+  // CHECKOUT — the recipient name, contact and address are dispatched
+  // EXACTLY as typed. For agents that is always the walk-in customer's
+  // details; nothing is ever substituted with the agent's own account.
+  // ═════════════════════════════════════════════════════════════════
   const begin = async override => {
     if (submitting.current || finished.current) return;
     const c = override && customerId(override) ? override : customer;
     if (!customerId(c)) { setAuth(true); return; }
 
-    // Read exactly what's in the form. Trim but DO NOT fall back to
-    // registered account defaults — that would leak the registered
-    // name/phone into a "different recipient" COD/agent order.
     const name = String(recipient || '').trim();
-    const contact = String(phone || '').trim();
+    const contact = String(contactLocked ? accountPhone : phone || '').trim();
     const addressText = String(delivery?.address || '').trim();
 
-    if (!items.length || !cartId || !name || /^guest\b/i.test(name) || !contact || !addressText || !method) {
-      setError('Check your cart, recipient name, phone, delivery address and payment method.');
+    if (!items.length || !cartId || !name || isGuestValue(name) || !contact || !addressText || isGuestValue(addressText) || !method) {
+      setError(isAgent
+        ? "Enter your customer's name, contact number, delivery address and select a payment method."
+        : 'Check your cart, recipient name, contact number, delivery address and payment method.');
       return;
     }
 
@@ -415,36 +414,21 @@ export default function CheckoutShared({ telecel = false }) {
 
       if (!active.current) return;
 
-      // Offline methods and agents post order directly
       if ((!telecel && String(c.accountType || '').toLowerCase() === 'agent') || method !== 'Mobile Money') {
         await postOrder(current, false);
         return;
       }
 
-      // ─────────────────────────────────────────────────────────────────
-      // MOBILE MONEY EXECUTION:
-      // Prefix check:
-      // MTN: 024, 025, 053, 054, 055, 059
-      // Telecel: 020, 050
-      // AirtelTigo: 026, 027, 056, 057
-      // ─────────────────────────────────────────────────────────────────
       const detected = telecel ? { network: 'vodafone', service: 'VODAFONE', name: 'Telecel Cash' } : detectedNetworkInfo;
 
       if (!detected || !momoNumber) {
-        // Requirement NOT met: DO NOT send prompt, alert customer, close pop-up
         setStage('form');
         const invalidMsg = 'The momo number is invalid so you should contact the customer service for further assistance.';
         setError(invalidMsg);
-        Modal.error({
-          title: 'Invalid Mobile Money Number',
-          content: invalidMsg,
-          okText: 'Close',
-          centered: true,
-        });
+        Modal.error({ title: 'Invalid Mobile Money Number', content: invalidMsg, okText: 'Close', centered: true });
         return;
       }
 
-      // Open pop-up in validating state
       setStage('payment');
       current.checkout = {
         ...current.checkout,
@@ -453,23 +437,14 @@ export default function CheckoutShared({ telecel = false }) {
       };
       dispatch(saveCheckoutDetails(current.checkout));
 
-      // Validate account with network provider before sending prompt
       let valResult;
       try {
-        valResult = await dispatch(validateAccount({
-          msisdn: msisdn(momoNumber),
-          network: detected.service,
-        })).unwrap();
+        valResult = await dispatch(validateAccount({ msisdn: msisdn(momoNumber), network: detected.service })).unwrap();
       } catch {
         setStage('form');
         const invalidMsg = 'The momo number is invalid kindly contact the customer service for further assistance.';
         setError(invalidMsg);
-        Modal.error({
-          title: 'Mobile Money Validation Failed',
-          content: invalidMsg,
-          okText: 'Close',
-          centered: true,
-        });
+        Modal.error({ title: 'Mobile Money Validation Failed', content: invalidMsg, okText: 'Close', centered: true });
         return;
       }
 
@@ -477,47 +452,29 @@ export default function CheckoutShared({ telecel = false }) {
       const returnedName = valResult?.name || valResult?.subscriberName || valResult?.accountName || '';
 
       if (!isValidCode) {
-        // Requirement NOT met: DO NOT send prompt, alert customer, close pop-up
         setStage('form');
         const invalidMsg = 'The momo number is invalid so you should contact the customer service for further assistance.';
         setError(invalidMsg);
-        Modal.error({
-          title: 'Invalid Mobile Money Account',
-          content: invalidMsg,
-          okText: 'Close',
-          centered: true,
-        });
+        Modal.error({ title: 'Invalid Mobile Money Account', content: invalidMsg, okText: 'Close', centered: true });
         return;
       }
 
       setSubscriberName(returnedName);
 
-      // ─────────────────────────────────────────────────────────────────
-      // REQUIREMENT MET:
-      // Send prompt directly to customer handset (skipping OTP modal)
-      // ─────────────────────────────────────────────────────────────────
       const narration = items.map(i => i.productName || i.ProductName || 'Item').join(', ').slice(0, 120);
       message.loading({ content: `Account verified: ${returnedName || momoNumber}. Sending MoMo prompt to your phone…`, key: 'momo-init', duration: 3 });
 
       const debitRes = await dispatch(debitCustomer({
-        refNo: current.orderId,
-        msisdn: msisdn(momoNumber),
-        amount,
-        network: detected.service,
-        narration,
+        refNo: current.orderId, msisdn: msisdn(momoNumber), amount,
+        network: detected.service, narration,
       })).unwrap();
 
       if (!active.current || finished.current) return;
 
       const outcome = paymentOutcome(debitRes);
-      if (outcome === 'success') {
-        // ── IMMEDIATE SUCCESS: skip the "Check Your Phone" screen entirely
-        //    and go straight to creating the order. Eliminates a flash of
-        //    the pending UI before the posting/redirect sequence.
-        await postOrder(current, true);
-      } else if (outcome === 'failed') {
-        cancel(debitRes?.responseMessage || 'Payment declined.');
-      } else {
+      if (outcome === 'success') await postOrder(current, true);
+      else if (outcome === 'failed') cancel(debitRes?.responseMessage || 'Payment declined.');
+      else {
         setStage('pending');
         pollDeadline.current = Date.now() + 65000;
         poll(current);
@@ -533,21 +490,15 @@ export default function CheckoutShared({ telecel = false }) {
       setStage('form');
     } finally {
       submitting.current = false;
-      // If we've already finished (navigated away), leave busy=true so the
-      // loading overlay stays mounted until Checkout unmounts. Dropping it
-      // early causes a single-frame flash of the modal behind the overlay
-      // before the destination page paints.
       if (active.current && !finished.current) setBusy(false);
     }
   };
 
   const handleAuthSuccess = c => {
     setAuth(false);
-    // After signup/signin, pre-fill with account defaults ONLY if the
-    // fields are blank and the user hasn't opted for a different
-    // recipient. If they typed something already (e.g. during a guest
-    // session), leave it alone — what they typed is what they want.
-    if (customerId(c)) {
+    // Agents never get their own details copied into the recipient block.
+    const signedInAsAgent = String(c?.accountType || '').toLowerCase() === 'agent';
+    if (customerId(c) && !signedInAsAgent) {
       const newName = customerNameOf(c);
       const newPhone = c.contactNumber || c.ContactNumber || '';
       if (!recipient && newName) setRecipient(newName);
@@ -562,16 +513,16 @@ export default function CheckoutShared({ telecel = false }) {
     subtotal, shipping, serviceCharge, amount, error, stage, setStage, busy,
     begin, number: momoNumber, network, detectedNetworkInfo, subscriberName,
     checkAgain, cancel, auth, setAuth, handleAuthSuccess, currentRef,
-    isAgent, fieldsLocked, isMoMoSelected, telecel,
+    isAgent, isMoMoSelected, contactLocked, accountPhone, telecel,
   };
 
   return <CheckoutView flow={flow} />;
 }
 
 const netTiles = [
-  { value: 'mtn', logo: mtnLogo, name: 'MTN MoMo', sub: '*170#', bg: '#fffbeb', border: '#fbbf24', color: '#d97706', prefixes: '024, 025, 053, 054, 055, 059' },
-  { value: 'vodafone', logo: vodafoneLogo, name: 'Telecel Cash', sub: '*110#', bg: '#fff1f2', border: '#fda4af', color: '#e11d48', prefixes: '020, 050' },
-  { value: 'airteltigo', logo: airteltigoLogo, name: 'AT Money', sub: '*110#', bg: '#eff6ff', border: '#93c5fd', color: '#2563eb', prefixes: '026, 027, 056, 057' },
+  { value: 'mtn', logo: mtnLogo, name: 'MTN MoMo', sub: '*170#', bg: '#fffbeb', border: '#fbbf24', color: '#d97706' },
+  { value: 'vodafone', logo: vodafoneLogo, name: 'Telecel Cash', sub: '*110#', bg: '#fff1f2', border: '#fda4af', color: '#e11d48' },
+  { value: 'airteltigo', logo: airteltigoLogo, name: 'AT Money', sub: '*110#', bg: '#eff6ff', border: '#93c5fd', color: '#2563eb' },
 ];
 
 const money = n => `GH₵${(Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -587,8 +538,8 @@ function CheckoutView({ flow }) {
     phone, setPhone, note, setNote, delivery, setDelivery, method, setMethod,
     subtotal, shipping, serviceCharge, amount, error, stage, busy, begin,
     number, network, detectedNetworkInfo, subscriberName, checkAgain, cancel,
-    auth, setAuth, handleAuthSuccess, currentRef, isAgent, fieldsLocked,
-    telecel,
+    auth, setAuth, handleAuthSuccess, currentRef, isAgent, contactLocked,
+    accountPhone, telecel,
   } = flow;
 
   const freeDelivery = Number(delivery.fee) === 0 && String(delivery.feeDisplay || '').toLowerCase().includes('free');
@@ -630,7 +581,7 @@ function CheckoutView({ flow }) {
           <div className="co-page-header">
             <div className="co-page-header-accent" />
             <div>
-              <h1 className="co-page-title">{telecel ? "Speed Shopping Checkout" : "Checkout"}</h1>
+              <h1 className="co-page-title">{telecel ? 'Speed Shopping Checkout' : isAgent ? 'Agent Checkout' : 'Checkout'}</h1>
               <p className="co-page-count">{items.length} item{items.length === 1 ? '' : 's'} in cart</p>
             </div>
             <div className="co-page-header-line" />
@@ -652,11 +603,11 @@ function CheckoutView({ flow }) {
             </div>
           ) : (
             <div className="co-layout">
-              {/* SIDEBAR: BILLING & DELIVERY */}
+              {/* SIDEBAR: RECIPIENT & DELIVERY */}
               <div className="co-sidebar">
                 <div className="co-card">
                   <div className="co-card-header">
-                    <h3 className="co-card-title">Billing Information</h3>
+                    <h3 className="co-card-title">{isAgent ? "Customer's Delivery Details" : 'Delivery Details'}</h3>
                     <div className="co-section-accent"><div className="co-section-accent-bar" /><div className="co-section-accent-line" /></div>
                   </div>
                   <div className="co-card-body">
@@ -671,51 +622,71 @@ function CheckoutView({ flow }) {
                       </div>
                     )}
 
-                    {/* Lock Banner ONLY when a regular customer is paying with
-                        Mobile Money. Agents never see this; COD customers can
-                        edit freely even though the form is prefilled. */}
-
-                    <div
-                      className={`co-toggle-wrap ${fieldsLocked ? 'co-toggle-disabled' : ''}`}
-                      role="switch"
-                      aria-checked={different}
-                      tabIndex={0}
-                      onClick={toggleRecipient}
-                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRecipient(); } }}
-                    >
-                      <div className="co-toggle-left">
-                        {fieldsLocked ? <LockClosedIcon style={{ width: 16, height: 16, color: '#14532d' }} /> : <UserIcon style={{ width: 16, height: 16, color: '#888' }} />}
-                        <span>Different recipient? {fieldsLocked && '(Locked for MoMo)'}</span>
-                      </div>
-                      <div className={`co-toggle-track ${different ? 'co-toggle-track-on' : 'co-toggle-track-off'}`}>
-                        <div className={`co-toggle-knob ${different ? 'co-toggle-knob-on' : ''}`} />
-                      </div>
-                    </div>
-
-                    {different && !fieldsLocked && (
-                      <div className="co-warning-banner">
-                        <ExclamationTriangleIcon style={{ width: 16, height: 16, color: '#d97706' }} />
-                        <p>Enter the recipient's name and contact number below.</p>
+                    {/* AGENT: explain why nothing is pre-filled */}
+                    {isAgent && (
+                      <div >
+                       
                       </div>
                     )}
 
-                    <div style={fieldsLocked ? { pointerEvents: 'none', opacity: 0.88 } : {}}>
-                      <CheckoutForm
-                        key={different ? "different-recipient" : "account-recipient"}
-                        customerName={recipient}
-                        setCustomerName={fieldsLocked ? () => {} : setRecipient}
-                        customerNumber={phone}
-                        setCustomerNumber={fieldsLocked ? () => {} : setPhone}
-                        deliveryInfo={delivery}
-                        setDeliveryInfo={fieldsLocked ? () => {} : setDelivery}
-                        orderNote={note}
-                        setOrderNote={setNote}
-                        locations={locations}
-                        customerAccountType={customer?.accountType}
-                        firstName={customer?.firstName || 'Guest'}
-                        isDifferentRecipient={different}
-                      />
-                    </div>
+                    {/* CUSTOMER + Mobile Money: only the contact number is locked */}
+                    {contactLocked && (
+                      <div>
+                       
+                      </div>
+                    )}
+
+                    {/* Toggle is for customers only — an agent order is always for someone else */}
+                    {!isAgent && (
+                      <>
+                        <div
+                          className="co-toggle-wrap"
+                          role="switch"
+                          aria-checked={different}
+                          tabIndex={0}
+                          onClick={toggleRecipient}
+                          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRecipient(); } }}
+                        >
+                          <div className="co-toggle-left">
+                            <UserIcon style={{ width: 16, height: 16, color: '#888' }} />
+                            <span>Someone else is receiving this order?</span>
+                          </div>
+                          <div className={`co-toggle-track ${different ? 'co-toggle-track-on' : 'co-toggle-track-off'}`}>
+                            <div className={`co-toggle-knob ${different ? 'co-toggle-knob-on' : ''}`} />
+                          </div>
+                        </div>
+
+                        {different && (
+                          <div className="co-warning-banner">
+                            <ExclamationTriangleIcon style={{ width: 16, height: 16, color: '#d97706', flexShrink: 0 }} />
+                            <p>
+                              Enter the recipient’s name{contactLocked ? '' : ' and contact number'} below.
+                              {contactLocked && ' The contact number remains your registered MoMo number for payment.'}
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    <CheckoutForm
+                      customerName={recipient}
+                      setCustomerName={setRecipient}
+                      customerNumber={phone}
+                      setCustomerNumber={setPhone}
+                      deliveryInfo={delivery}
+                      setDeliveryInfo={setDelivery}
+                      orderNote={note}
+                      setOrderNote={setNote}
+                      locations={locations}
+                      customerAccountType={customer?.accountType}
+                      isDifferentRecipient={different}
+                      /* lock only the contact number, never the name/address */
+                      lockContact={contactLocked}
+                      contactHint={contactLocked ? 'Locked — the Mobile Money prompt is sent to this number.' : ''}
+                      /* guests never see or store a saved address */
+                      isGuest={!loggedIn}
+                      onRequireSignIn={() => setAuth(true)}
+                    />
                   </div>
                 </div>
               </div>
@@ -756,15 +727,10 @@ function CheckoutView({ flow }) {
                       </div>
                       <div className="co-total-row">
                         <span className="co-total-row-label">Shipping Fee</span>
-                        {freeDelivery ? (
-                          <span className="co-total-row-free">FREE DELIVERY</span>
-                        ) : naDelivery ? (
-                          <span className="co-total-row-warning">{isAgent ? 'Agent delivery' : 'Delivery charges apply'}</span>
-                        ) : shipping > 0 ? (
-                          <span className="co-total-row-value">{money(shipping)}</span>
-                        ) : (
-                          <span className="co-total-row-warning">Select location</span>
-                        )}
+                        {freeDelivery ? <span className="co-total-row-free">FREE DELIVERY</span>
+                          : naDelivery ? <span className="co-total-row-warning">{isAgent ? 'Agent delivery' : 'Delivery charges apply'}</span>
+                          : shipping > 0 ? <span className="co-total-row-value">{money(shipping)}</span>
+                          : <span className="co-total-row-warning">Select location</span>}
                       </div>
                       {method === 'Mobile Money' && (
                         <div className="co-service-charge">
@@ -797,7 +763,7 @@ function CheckoutView({ flow }) {
                             <label className={`co-payment-option ${method === 'Mobile Money' ? 'co-payment-option-active' : ''}`}>
                               <Radio value="Mobile Money" />
                               <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span className="co-payment-option-text">{telecel ? "Telecel Cash" : "Mobile Money (MTN, Telecel, AT)"}</span>
+                                <span className="co-payment-option-text">{telecel ? 'Telecel Cash' : 'Mobile Money (MTN, Telecel, AT)'}</span>
                                 {detectedNetworkInfo && (
                                   <span style={{ fontSize: 11, background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: 100, fontWeight: 700 }}>
                                     {detectedNetworkInfo.name}
@@ -839,10 +805,12 @@ function CheckoutView({ flow }) {
         )}
 
         <Modal open={missing} centered onCancel={() => setMissing(false)} title="Complete Required Fields" footer={<button className="co-btn-primary" onClick={() => setMissing(false)}>Got It</button>}>
-          Please provide your recipient name, contact number, delivery address and payment method.
+          {isAgent
+            ? "Please provide your customer's name, contact number, delivery address and a payment method."
+            : 'Please provide the recipient name, contact number, delivery address and payment method.'}
         </Modal>
 
-        {/* ── MOBILE MONEY VALIDATION & PROMPT INITIALIZATION MODAL ── */}
+        {/* ── MOBILE MONEY VALIDATION & PROMPT INITIALIZATION ── */}
         <Modal
           open={stage === 'payment'}
           centered
@@ -869,32 +837,20 @@ function CheckoutView({ flow }) {
             </div>
 
             <div className="pm-body">
-              {/* Locked Number Field */}
               <div className="pm-field">
                 <div className="pm-field-header" style={{ justifyContent: 'space-between' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span className="pm-field-step-num">1</span>
                     <span className="pm-field-label">Registered MoMo Number</span>
                   </div>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: '#166534', background: '#dcfce7', padding: '2px 8px', borderRadius: 4 }}>
-                    Locked to account
-                  </span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#166534', background: '#dcfce7', padding: '2px 8px', borderRadius: 4 }}>Locked to account</span>
                 </div>
                 <div className="pm-field-body">
-                  <Input
-                    value={number}
-                    disabled
-                    prefix={<LockClosedIcon style={{ width: 16, height: 16, color: '#14532d' }} />}
-                    size="large"
-                    style={{ fontWeight: 800, color: '#111827', background: '#f9fafb' }}
-                  />
-                  <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>
-                    * Mobile Money number is fixed to your registered Franko account.
-                  </div>
+                  <Input value={number} disabled prefix={<LockClosedIcon style={{ width: 16, height: 16, color: '#14532d' }} />} size="large" style={{ fontWeight: 800, color: '#111827', background: '#f9fafb' }} />
+                  <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>* The payment prompt is always sent to your registered Franko number.</div>
                 </div>
               </div>
 
-              {/* Auto-Selected Network Field */}
               <div className="pm-field">
                 <div className="pm-field-header" style={{ justifyContent: 'space-between' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -912,18 +868,9 @@ function CheckoutView({ flow }) {
                     {netTiles.map(n => {
                       const isSelected = network === n.value;
                       return (
-                        <div
-                          key={n.value}
-                          className="pm-network-tile"
-                          style={{
-                            background: isSelected ? n.bg : '#fafafa',
-                            borderColor: isSelected ? n.border : '#e5e7eb',
-                            opacity: isSelected ? 1 : 0.45,
-                            cursor: 'default',
-                          }}
-                        >
+                        <div key={n.value} className="pm-network-tile" style={{ background: isSelected ? n.bg : '#fafafa', borderColor: isSelected ? n.border : '#e5e7eb', opacity: isSelected ? 1 : 0.45 }}>
                           <img src={n.logo} alt={n.name} className="pm-network-logo" />
-                          <div className="pm-network-info">
+                          <div>
                             <p className="pm-network-name">{n.name}</p>
                             <p className="pm-network-sub">{isSelected ? 'Auto-selected' : n.sub}</p>
                           </div>
@@ -935,14 +882,9 @@ function CheckoutView({ flow }) {
                 </div>
               </div>
 
-              {/* Account Validation Status */}
               <div className="pm-account-status pm-account-checking">
                 <div className="co-spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
-                <div>
-                  {subscriberName
-                    ? `Account Verified · ${subscriberName}`
-                    : `Validating account and subscriber name with ${currentNetwork?.name || 'network'}…`}
-                </div>
+                <div>{subscriberName ? `Account Verified · ${subscriberName}` : `Validating account with ${currentNetwork?.name || 'network'}…`}</div>
               </div>
 
               <div className="pm-security">
@@ -953,27 +895,14 @@ function CheckoutView({ flow }) {
           </div>
         </Modal>
 
-        {/* ── AWAITING PROMPT APPROVAL MODAL ── */}
-        <Modal
-          open={['pending', 'posting', 'review', 'support'].includes(stage)}
-          centered
-          width={520}
-          footer={null}
-          closable={false}
-          maskClosable={false}
-        >
+        {/* ── AWAITING PROMPT APPROVAL ── */}
+        <Modal open={['pending', 'posting', 'review', 'support'].includes(stage)} centered width={520} footer={null} closable={false} maskClosable={false}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, textAlign: 'center' }}>
             {stage === 'posting' ? (
               <>
                 <CheckCircleSolid style={{ width: 50, height: 50, color: '#16a34a', margin: 'auto' }} />
-                <h3 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: '#14532d' }}>
-                  {postingPaid ? 'Payment Confirmed!' : 'Order Placed!'}
-                </h3>
-                <p style={{ color: '#4b5563', margin: 0 }}>
-                  {postingPaid
-                    ? 'Creating your order and redirecting to confirmation…'
-                    : 'Finalizing your order and redirecting…'}
-                </p>
+                <h3 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: '#14532d' }}>{postingPaid ? 'Payment Confirmed!' : 'Order Placed!'}</h3>
+                <p style={{ color: '#4b5563', margin: 0 }}>{postingPaid ? 'Creating your order and redirecting to confirmation…' : 'Finalizing your order and redirecting…'}</p>
               </>
             ) : stage === 'support' ? (
               <>
@@ -986,13 +915,9 @@ function CheckoutView({ flow }) {
                 <div className="pm-pending-anim" style={{ margin: 'auto' }}>
                   <div className="pm-pending-ring-outer" />
                   <div className="pm-pending-ring-spin" />
-                  <div className="pm-pending-ring-inner">
-                    <PhoneIcon style={{ width: 28, height: 28, color: '#16a34a' }} />
-                  </div>
+                  <div className="pm-pending-ring-inner"><PhoneIcon style={{ width: 28, height: 28, color: '#16a34a' }} /></div>
                 </div>
-                <h3 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>
-                  {stage === 'review' ? 'Approve Your MoMo Payment' : 'Check Your Phone'}
-                </h3>
+                <h3 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>{stage === 'review' ? 'Approve Your MoMo Payment' : 'Check Your Phone'}</h3>
                 <p style={{ fontSize: 14, color: '#374151', margin: 0 }}>
                   We have sent an authorization prompt to <strong>{number}</strong> ({currentNetwork?.name || 'Mobile Money'}).
                 </p>
@@ -1000,7 +925,7 @@ function CheckoutView({ flow }) {
                   Reference: <strong>{orderId}</strong> · Amount: <strong>{money(amount)}</strong>
                 </p>
                 <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#166534', fontWeight: 600 }}>
-                  Please enter your MoMo PIN on your phone to complete payment. We will automatically confirm your order as soon as you approve.
+                  Enter your MoMo PIN on your phone to complete payment. We will confirm your order automatically as soon as you approve.
                 </div>
 
                 {stage === 'review' && (
@@ -1016,12 +941,8 @@ function CheckoutView({ flow }) {
                         ))}
                       </div>
                     </div>
-                    <button className="co-btn-primary" onClick={checkAgain} disabled={busy}>
-                      I've Approved — Confirm Payment
-                    </button>
-                    <button className="co-btn-danger" onClick={() => cancel('Customer cancelled before confirmation')} disabled={busy}>
-                      Cancel Order
-                    </button>
+                    <button className="co-btn-primary" onClick={checkAgain} disabled={busy}>I've Approved — Confirm Payment</button>
+                    <button className="co-btn-danger" onClick={() => cancel('Customer cancelled before confirmation')} disabled={busy}>Cancel Order</button>
                   </>
                 )}
               </>
@@ -1035,7 +956,6 @@ function CheckoutView({ flow }) {
           onSuccess={handleAuthSuccess}
           currentCustomer={customer}
           initialMode="signup"
-          allowGuest={false}
           autoLoginAfterSignup
           notice="Create an account or sign in before placing your order."
         />

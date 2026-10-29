@@ -25,7 +25,13 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
-import { User, UserPlus, UserCheck } from "lucide-react";
+import { User, UserPlus } from "lucide-react";
+
+// ─── Auth modes: STRICTLY sign in + register ─────────────
+const MODES = ["login", "signup"];
+
+const resolveInitialMode = (initialMode) =>
+  MODES.includes(initialMode) ? initialMode : "login";
 
 // ─── Password rules ──────────────────────────
 const PASSWORD_RULES = [
@@ -46,6 +52,9 @@ const getStrength = (password) => {
 };
 
 const isStrongPassword = (p) => PASSWORD_RULES.every((r) => r.test(p));
+
+// Names that must never be registered (they break order validation downstream)
+const isReservedName = (v) => /^\s*(guest|n\/?a|test|customer)\s*$/i.test(String(v || ""));
 
 // ─── Toast ───────────────────────────────────
 const Notification = ({ message, type, isVisible, onClose }) => {
@@ -89,6 +98,9 @@ const Field = ({
   onChange,
   isPassword,
   onKeyDown,
+  autoComplete,
+  inputMode,
+  maxLength,
 }) => {
   const [show, setShow] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -109,7 +121,9 @@ const Field = ({
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           className="am-field__input"
-          autoComplete={isPassword ? "current-password" : "off"}
+          inputMode={inputMode}
+          maxLength={maxLength}
+          autoComplete={autoComplete || (isPassword ? "current-password" : "off")}
         />
         {isPassword && (
           <button
@@ -117,6 +131,7 @@ const Field = ({
             onClick={() => setShow((s) => !s)}
             className="am-field__toggle"
             tabIndex={-1}
+            aria-label={show ? "Hide password" : "Show password"}
           >
             {show ? <EyeSlashIcon /> : <EyeIcon />}
           </button>
@@ -298,6 +313,7 @@ const ForceChangePasswordModal = ({ customer, onSuccess }) => {
               value={form.oldPassword}
               onChange={handle}
               isPassword
+              autoComplete="current-password"
             />
 
             <Field
@@ -308,6 +324,7 @@ const ForceChangePasswordModal = ({ customer, onSuccess }) => {
               value={form.newPassword}
               onChange={handle}
               isPassword
+              autoComplete="new-password"
             />
 
             <StrengthMeter password={form.newPassword} />
@@ -320,6 +337,7 @@ const ForceChangePasswordModal = ({ customer, onSuccess }) => {
               value={form.confirmPassword}
               onChange={handle}
               isPassword
+              autoComplete="new-password"
             />
 
             <button className="am-btn am-btn--primary" onClick={submit} disabled={loading}>
@@ -407,6 +425,7 @@ const ChangePasswordPanel = ({ customer, showNotification, onClose }) => {
           value={form.oldPassword}
           onChange={handle}
           isPassword
+          autoComplete="current-password"
         />
         <Field
           icon={LockClosedIcon}
@@ -416,6 +435,7 @@ const ChangePasswordPanel = ({ customer, showNotification, onClose }) => {
           value={form.newPassword}
           onChange={handle}
           isPassword
+          autoComplete="new-password"
         />
         <StrengthMeter password={form.newPassword} />
         <Field
@@ -426,6 +446,7 @@ const ChangePasswordPanel = ({ customer, showNotification, onClose }) => {
           value={form.confirmPassword}
           onChange={handle}
           isPassword
+          autoComplete="new-password"
         />
         <button className="am-btn am-btn--primary" onClick={submit} disabled={loading}>
           {loading ? (
@@ -443,28 +464,21 @@ const ChangePasswordPanel = ({ customer, showNotification, onClose }) => {
   );
 };
 
-const resolveInitialMode = (initialMode, allowGuest) => {
-  const allowed = allowGuest ? ["login", "signup", "guest"] : ["login", "signup"];
-  if (allowed.includes(initialMode)) return initialMode;
-  return allowGuest ? "login" : "signup";
-};
-
-// ─── Main AuthModal ──────────────────────────
+// ─── Main AuthModal (Sign In + Register ONLY) ─
 const AuthModal = ({
   open,
   onClose,
   onSuccess,
   currentCustomer,
   initialMode = "login",
-  allowGuest = true,
+  // eslint-disable-next-line no-unused-vars
+  allowGuest, // DEPRECATED — guest checkout has been removed. Accepted for backwards compatibility only.
   autoLoginAfterSignup = false,
   notice = "",
 }) => {
   const dispatch = useDispatch();
 
-  const [authMode, setAuthMode] = useState(() =>
-    resolveInitialMode(initialMode, allowGuest)
-  );
+  const [authMode, setAuthMode] = useState(() => resolveInitialMode(initialMode));
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [forcePasswordChange, setForcePasswordChange] = useState(false);
@@ -498,10 +512,6 @@ const AuthModal = ({
     password: "",
   });
 
-  const [guestData, setGuestData] = useState({
-    contactNumber: "",
-  });
-
   const hideNotif = useCallback(() => {
     setNotification((prev) => ({ ...prev, isVisible: false }));
   }, []);
@@ -515,11 +525,12 @@ const AuthModal = ({
 
   const normalizePhone = (value = "") => value.replace(/\D/g, "");
 
+  // Fresh account number whenever the register tab opens
   useEffect(() => {
     if (open && authMode === "signup") {
       setSignupData((prev) => ({
         ...prev,
-        customerAccountNumber: uuidv4(),
+        customerAccountNumber: prev.customerAccountNumber || uuidv4(),
       }));
     }
   }, [open, authMode]);
@@ -539,10 +550,11 @@ const AuthModal = ({
     };
   }, [open]);
 
+  // Reset everything on close
   useEffect(() => {
     if (!open) {
       hideNotif();
-      setAuthMode(resolveInitialMode(initialMode, allowGuest));
+      setAuthMode(resolveInitialMode(initialMode));
       setShowChangePassword(false);
       setLoading(false);
       setForcePasswordChange(false);
@@ -566,21 +578,18 @@ const AuthModal = ({
         contactNumber: "",
         password: "",
       });
-
-      setGuestData({
-        contactNumber: "",
-      });
     }
-  }, [open, hideNotif, initialMode, allowGuest]);
+  }, [open, hideNotif, initialMode]);
 
   useEffect(() => {
     if (!open) return;
-    setAuthMode(resolveInitialMode(initialMode, allowGuest));
-  }, [open, initialMode, allowGuest]);
+    setAuthMode(resolveInitialMode(initialMode));
+  }, [open, initialMode]);
 
+  // Safety net: any legacy value (e.g. "guest") falls back to sign in
   useEffect(() => {
-    if (!allowGuest && authMode === "guest") setAuthMode("signup");
-  }, [allowGuest, authMode]);
+    if (!MODES.includes(authMode)) setAuthMode("login");
+  }, [authMode]);
 
   useEffect(() => {
     hideNotif();
@@ -589,12 +598,18 @@ const AuthModal = ({
     setSuccessRedirect({ show: false, title: "", message: "" });
   }, [authMode, hideNotif]);
 
+  /* ── Validation ───────────────────────────── */
   const validateSignup = () => {
     const { firstName, lastName, contactNumber, password } = signupData;
     const phone = normalizePhone(contactNumber);
 
     if (!firstName.trim()) {
       showNotif("First name is required.", "error");
+      return false;
+    }
+
+    if (isReservedName(firstName) || isReservedName(lastName)) {
+      showNotif("Please enter your real name — placeholder names are not accepted.", "error");
       return false;
     }
 
@@ -642,22 +657,7 @@ const AuthModal = ({
     return true;
   };
 
-  const validateGuest = () => {
-    const phone = normalizePhone(guestData.contactNumber);
-
-    if (!phone) {
-      showNotif("Contact number is required.", "error");
-      return false;
-    }
-
-    if (phone.length !== 10) {
-      showNotif("Contact number must be 10 digits.", "error");
-      return false;
-    }
-
-    return true;
-  };
-
+  /* ── Register ─────────────────────────────── */
   const handleSignup = async () => {
     if (!validateSignup()) return;
 
@@ -668,13 +668,18 @@ const AuthModal = ({
 
       const payload = {
         ...signupData,
+        customerAccountNumber: signupData.customerAccountNumber || uuidv4(),
+        firstName: signupData.firstName.trim(),
+        lastName: signupData.lastName.trim(),
+        address: signupData.address.trim(),
+        email: signupData.email.trim(),
         contactNumber: normalizePhone(signupData.contactNumber),
       };
 
       const result = await dispatch(createCustomer(payload)).unwrap();
 
       if (result?.ResponseCode === "2") {
-        showNotif((result.ResponseMessage || "Account already exists.") + " Please login.", "error");
+        showNotif((result.ResponseMessage || "Account already exists.") + " Please sign in.", "error");
 
         setTimeout(() => {
           setLoginData((prev) => ({
@@ -712,7 +717,7 @@ const AuthModal = ({
           }
 
           dispatch(setCurrentCustomer(loginResult));
-          showNotif("Account created. Continuing your order…", "success");
+          showNotif("Account created. Continuing…", "success");
           setTimeout(() => {
             if (onSuccess) onSuccess(loginResult);
             else onClose();
@@ -757,84 +762,7 @@ const AuthModal = ({
     }
   };
 
-  const handleGuest = async () => {
-    if (!allowGuest) {
-      setAuthMode("signup");
-      return;
-    }
-    if (!validateGuest()) return;
-
-    setLoading(true);
-    const phone = normalizePhone(guestData.contactNumber);
-
-    try {
-      dispatch(logoutCustomer());
-
-      const guestPayload = {
-        customerAccountNumber: uuidv4(),
-        firstName: "Guest",
-        lastName: phone.slice(-4),
-        contactNumber: phone,
-        address: "Guest Address",
-        password: phone,
-        accountType: "customer",
-        email: `guest${phone}@franko.com`,
-        accountStatus: "1",
-        isGuest: true,
-        createdAt: new Date().toISOString(),
-      };
-
-      const result = await dispatch(createCustomer(guestPayload)).unwrap();
-
-      if (result?.ResponseCode === "2") {
-        showNotif((result.ResponseMessage || "Number already registered.") + " Please login.", "error");
-
-        setTimeout(() => {
-          setLoginData({
-            contactNumber: phone,
-            password: phone,
-          });
-          setAuthMode("login");
-        }, 1800);
-
-        return;
-      }
-
-      if (result?.ResponseCode && result.ResponseCode !== "1") {
-        showNotif(result.ResponseMessage || "Failed to create guest account.", "error");
-        return;
-      }
-
-      setSuccessRedirect({
-        show: true,
-        title: "Guest account ready!",
-        message: "Redirecting to sign in…",
-      });
-
-      setLoginData({
-        contactNumber: phone,
-        password: phone,
-      });
-
-      setGuestData({ contactNumber: "" });
-
-      setTimeout(() => {
-        setSuccessRedirect({ show: false, title: "", message: "" });
-        setAuthMode("login");
-        showNotif("Guest account created. Please sign in.", "success");
-      }, 2200);
-    } catch (err) {
-      showNotif(
-        typeof err === "object"
-          ? err?.message || "Failed to create guest account."
-          : err || "Failed to create guest account.",
-        "error"
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  /* ── Sign in ──────────────────────────────── */
   const handleLogin = async () => {
     if (!validateLogin()) return;
 
@@ -864,11 +792,8 @@ const AuthModal = ({
       showNotif("Welcome back!", "success");
 
       setTimeout(() => {
-        if (onSuccess) {
-          onSuccess(result);
-        } else {
-          onClose();
-        }
+        if (onSuccess) onSuccess(result);
+        else onClose();
       }, 1000);
     } catch (err) {
       const message =
@@ -907,8 +832,7 @@ const AuthModal = ({
   const handleKey = (e) => {
     if (e.key !== "Enter" || loading) return;
     if (authMode === "login") handleLogin();
-    if (authMode === "signup") handleSignup();
-    if (authMode === "guest" && allowGuest) handleGuest();
+    else if (authMode === "signup") handleSignup();
   };
 
   if (!open) return null;
@@ -916,17 +840,17 @@ const AuthModal = ({
   const tabs = [
     { key: "login", label: "Sign In", Icon: User },
     { key: "signup", label: "Register", Icon: UserPlus },
-    ...(allowGuest ? [{ key: "guest", label: "Guest", Icon: UserCheck }] : []),
   ];
 
   const headings = {
     login: { title: "Welcome back", sub: "Sign in to continue shopping" },
     signup: {
-      title: "Create account",
+      title: "Create your account",
       sub: notice ? "Register before placing your order" : "Join Franko Trading today",
     },
-    guest: { title: "Quick checkout", sub: "Continue as a guest" },
   };
+
+  const activeIndex = authMode === "signup" ? 1 : 0;
 
   return (
     <>
@@ -939,7 +863,7 @@ const AuthModal = ({
           onSuccess={(updatedCustomer) => {
             setForcePasswordChange(false);
             setPendingCustomer(null);
-            showNotif("Password updated! You're now logged in.", "success");
+            showNotif("Password updated! You're now signed in.", "success");
 
             setTimeout(() => {
               if (onSuccess) onSuccess(updatedCustomer || pendingCustomer);
@@ -953,6 +877,9 @@ const AuthModal = ({
         <div className="am-backdrop" />
         <div
           className="am-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label={headings[authMode].title}
           onClick={(e) => e.stopPropagation()}
           onKeyDown={handleKey}
         >
@@ -970,10 +897,17 @@ const AuthModal = ({
 
           {notice ? <div className="am-notice">{notice}</div> : null}
 
-          <nav className="am-tabs" role="tablist">
+          {/* ── Two-tab segmented control: Sign In / Register ── */}
+          <nav className="am-tabs" role="tablist" aria-label="Authentication mode">
+            <span
+              className="am-tabs__indicator"
+              style={{ transform: `translateX(${activeIndex * 100}%)` }}
+              aria-hidden="true"
+            />
             {tabs.map(({ key, label, Icon }) => (
               <button
                 key={key}
+                type="button"
                 role="tab"
                 aria-selected={authMode === key}
                 onClick={() => setAuthMode(key)}
@@ -1020,6 +954,7 @@ const AuthModal = ({
                   </div>
                 )}
 
+                {/* ══════════ SIGN IN ══════════ */}
                 {authMode === "login" && (
                   <div className="am-form-fields">
                     <Field
@@ -1027,6 +962,9 @@ const AuthModal = ({
                       label="Phone Number"
                       placeholder="Enter 10-digit number"
                       name="contactNumber"
+                      inputMode="numeric"
+                      maxLength={15}
+                      autoComplete="tel"
                       value={loginData.contactNumber}
                       onChange={(e) =>
                         setLoginData((prev) => ({
@@ -1042,6 +980,7 @@ const AuthModal = ({
                       placeholder="Enter your password"
                       name="password"
                       value={loginData.password}
+                      autoComplete="current-password"
                       onChange={(e) =>
                         setLoginData((prev) => ({
                           ...prev,
@@ -1072,14 +1011,6 @@ const AuthModal = ({
                       <button className="am-link" onClick={() => setAuthMode("signup")}>
                         Register
                       </button>
-                      {allowGuest && (
-                        <>
-                          <span className="am-dot">·</span>
-                          <button className="am-link" onClick={() => setAuthMode("guest")}>
-                            Guest
-                          </button>
-                        </>
-                      )}
                     </div>
 
                     {currentCustomer && (
@@ -1098,6 +1029,7 @@ const AuthModal = ({
                   </div>
                 )}
 
+                {/* ══════════ REGISTER ══════════ */}
                 {authMode === "signup" && (
                   <div className="am-form-fields">
                     <div className="am-field-row">
@@ -1106,6 +1038,7 @@ const AuthModal = ({
                         label="First Name"
                         placeholder="First name"
                         name="firstName"
+                        autoComplete="given-name"
                         value={signupData.firstName}
                         onChange={(e) =>
                           setSignupData((prev) => ({
@@ -1120,6 +1053,7 @@ const AuthModal = ({
                         label="Last Name"
                         placeholder="Last name"
                         name="lastName"
+                        autoComplete="family-name"
                         value={signupData.lastName}
                         onChange={(e) =>
                           setSignupData((prev) => ({
@@ -1135,6 +1069,9 @@ const AuthModal = ({
                       label="Phone Number"
                       placeholder="10-digit number"
                       name="contactNumber"
+                      inputMode="numeric"
+                      maxLength={15}
+                      autoComplete="tel"
                       value={signupData.contactNumber}
                       onChange={(e) =>
                         setSignupData((prev) => ({
@@ -1150,6 +1087,7 @@ const AuthModal = ({
                       label="Email (optional)"
                       placeholder="your@email.com"
                       name="email"
+                      autoComplete="email"
                       value={signupData.email}
                       onChange={(e) =>
                         setSignupData((prev) => ({
@@ -1164,6 +1102,7 @@ const AuthModal = ({
                       label="Address"
                       placeholder="Your address"
                       name="address"
+                      autoComplete="street-address"
                       value={signupData.address}
                       onChange={(e) =>
                         setSignupData((prev) => ({
@@ -1178,6 +1117,7 @@ const AuthModal = ({
                       label="Password"
                       placeholder="Create a strong password"
                       name="password"
+                      autoComplete="new-password"
                       value={signupData.password}
                       onChange={(e) =>
                         setSignupData((prev) => ({
@@ -1208,61 +1148,6 @@ const AuthModal = ({
 
                     <div className="am-footer-links">
                       <span>Already have an account?</span>
-                      <button className="am-link" onClick={() => setAuthMode("login")}>
-                        Sign in
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {allowGuest && authMode === "guest" && (
-                  <div className="am-form-fields">
-                    <div className="am-guest-info">
-                      <UserCheck className="am-guest-info__icon" />
-                      <div>
-                        <p className="am-guest-info__title">Quick Guest Access</p>
-                        <p className="am-guest-info__desc">
-                          Enter your phone number to create a temporary account.
-                          You will be redirected to sign in with your contact numer
-                        </p>
-                      </div>
-                    </div>
-
-                    <Field
-                      icon={PhoneIcon}
-                      label="Phone Number"
-                      placeholder="Enter 10-digit number"
-                      name="contactNumber"
-                      value={guestData.contactNumber}
-                      onChange={(e) =>
-                        setGuestData((prev) => ({
-                          ...prev,
-                          [e.target.name]: e.target.value,
-                        }))
-                      }
-                    />
-
-                    <button
-                      className="am-btn am-btn--primary"
-                      onClick={handleGuest}
-                      disabled={loading || successRedirect.show}
-                    >
-                      {loading ? (
-                        <>
-                          <ArrowPathIcon className="am-spin" /> Setting up…
-                        </>
-                      ) : (
-                        <>
-                          Create Guest Account <ArrowRightIcon />
-                        </>
-                      )}
-                    </button>
-
-                    <div className="am-footer-links">
-                      <button className="am-link" onClick={() => setAuthMode("signup")}>
-                        Register instead
-                      </button>
-                      <span className="am-dot">·</span>
                       <button className="am-link" onClick={() => setAuthMode("login")}>
                         Sign in
                       </button>
@@ -1413,46 +1298,49 @@ const STYLES = `
     font-family: var(--am-font);
   }
 
+  /* ── Two-tab segmented control ── */
   .am-tabs {
-    display: flex;
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
     margin: 20px 28px 0;
     background: var(--am-bg-secondary);
+    border: 1px solid var(--am-border);
     border-radius: 10px;
     padding: 4px;
     gap: 2px;
+    isolation: isolate;
+  }
+
+  .am-tabs__indicator {
+    position: absolute;
+    top: 4px; bottom: 4px; left: 4px;
+    width: calc(50% - 4px);
+    background: var(--am-bg);
+    border-radius: 7px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.09), 0 1px 2px rgba(0,0,0,.06);
+    transition: transform .26s cubic-bezier(.4,0,.2,1);
+    z-index: -1;
   }
 
   .am-tab {
-    flex: 1;
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-    padding: 10px 8px;
-    font-size: 13px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    padding: 11px 8px;
+    font-size: 13px; font-weight: 700;
     color: var(--am-text-tertiary);
     border: none; background: transparent;
     cursor: pointer; border-radius: 7px;
-    transition: all var(--am-transition);
+    transition: color var(--am-transition);
     font-family: var(--am-font);
     white-space: nowrap;
-    position: relative;
   }
 
   .am-tab__icon { width: 15px; height: 15px; flex-shrink: 0; }
-  .am-tab__label { font-size: 12.5px; }
+  .am-tab__label { font-size: 13px; }
+  .am-tab:hover:not(.am-tab--active) { color: var(--am-text-secondary); }
+  .am-tab--active { color: var(--am-primary); }
 
-  .am-tab:hover:not(.am-tab--active) {
-    color: var(--am-text-secondary);
-    background: rgba(255,255,255,.5);
-  }
-
-  .am-tab--active {
-    background: var(--am-bg);
-    color: var(--am-primary);
-    box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
-  }
-
-  .am-content {
-    padding: 20px 28px 28px;
-  }
+  .am-content { padding: 20px 28px 28px; }
 
   .am-content__inner {
     display: flex; flex-direction: column; gap: 0;
@@ -1464,9 +1352,7 @@ const STYLES = `
     to { opacity: 1; transform: translateY(0) }
   }
 
-  .am-form-fields {
-    display: flex; flex-direction: column; gap: 14px;
-  }
+  .am-form-fields { display: flex; flex-direction: column; gap: 14px; }
 
   .am-field-row {
     display: grid;
@@ -1474,9 +1360,7 @@ const STYLES = `
     gap: 12px;
   }
 
-  .am-field {
-    display: flex; flex-direction: column; gap: 5px;
-  }
+  .am-field { display: flex; flex-direction: column; gap: 5px; }
 
   .am-field__label {
     font-size: 12.5px; font-weight: 600;
@@ -1511,7 +1395,6 @@ const STYLES = `
   }
 
   .am-field__icon svg { width: 17px; height: 17px; }
-
   .am-field--focused .am-field__icon { color: var(--am-accent); }
 
   .am-field__input {
@@ -1525,10 +1408,7 @@ const STYLES = `
     min-width: 0;
   }
 
-  .am-field__input::placeholder {
-    color: var(--am-text-tertiary);
-    font-weight: 400;
-  }
+  .am-field__input::placeholder { color: var(--am-text-tertiary); font-weight: 400; }
 
   .am-field__toggle {
     width: 42px; min-width: 42px; height: 100%;
@@ -1542,18 +1422,14 @@ const STYLES = `
   .am-field__toggle svg { width: 17px; height: 17px; }
   .am-field__toggle:hover { color: var(--am-text); }
 
-  .am-strength {
-    padding: 2px 0 4px;
-  }
+  .am-strength { padding: 2px 0 4px; }
 
   .am-strength__header {
     display: flex; align-items: center; gap: 10px;
     margin-bottom: 8px;
   }
 
-  .am-strength__bars {
-    display: flex; gap: 3px; flex: 1;
-  }
+  .am-strength__bars { display: flex; gap: 3px; flex: 1; }
 
   .am-strength__bar {
     flex: 1; height: 4px;
@@ -1567,9 +1443,7 @@ const STYLES = `
     white-space: nowrap;
   }
 
-  .am-strength__rules {
-    display: flex; flex-wrap: wrap; gap: 6px 12px;
-  }
+  .am-strength__rules { display: flex; flex-wrap: wrap; gap: 6px 12px; }
 
   .am-strength__rule {
     display: flex; align-items: center; gap: 5px;
@@ -1623,9 +1497,7 @@ const STYLES = `
     box-shadow: 0 1px 4px rgba(20,83,45,.25);
   }
 
-  .am-btn--primary:disabled {
-    opacity: .6; cursor: not-allowed; transform: none;
-  }
+  .am-btn--primary:disabled { opacity: .6; cursor: not-allowed; transform: none; }
 
   .am-footer-links {
     display: flex; align-items: center; justify-content: center;
@@ -1635,22 +1507,16 @@ const STYLES = `
     padding-top: 2px;
   }
 
-  .am-dot { color: var(--am-text-tertiary); }
-
   .am-link {
-    color: var(--am-primary); font-weight: 600;
+    color: var(--am-primary); font-weight: 700;
     border: none; background: none;
     cursor: pointer; font-size: 13px;
     font-family: var(--am-font);
     padding: 0;
     transition: all var(--am-transition);
-    text-decoration: none;
   }
 
-  .am-link:hover {
-    color: var(--am-primary-hover);
-    text-decoration: underline;
-  }
+  .am-link:hover { color: var(--am-primary-hover); text-decoration: underline; }
 
   .am-link-btn {
     display: flex; align-items: center; justify-content: center; gap: 6px;
@@ -1674,16 +1540,10 @@ const STYLES = `
     background: rgba(34,197,94,.04);
   }
 
-  .am-divider {
-    display: flex; align-items: center; gap: 12px;
-    margin: 4px 0;
-  }
+  .am-divider { display: flex; align-items: center; gap: 12px; margin: 4px 0; }
 
   .am-divider > span:first-child,
-  .am-divider > span:last-child {
-    flex: 1; height: 1px;
-    background: var(--am-border);
-  }
+  .am-divider > span:last-child { flex: 1; height: 1px; background: var(--am-border); }
 
   .am-divider__text {
     font-size: 10.5px; font-weight: 600;
@@ -1741,57 +1601,19 @@ const STYLES = `
   .am-banner__sub { font-size: 12px; margin: 0; font-family: var(--am-font); }
   .am-banner__spin { width: 18px; height: 18px; flex-shrink: 0; }
 
-  .am-banner--success {
-    background: var(--am-accent-light);
-    border: 1px solid #bbf7d0;
-  }
-
+  .am-banner--success { background: var(--am-accent-light); border: 1px solid #bbf7d0; }
   .am-banner--success .am-banner__icon { color: var(--am-primary); }
   .am-banner--success .am-banner__title { color: var(--am-primary); }
   .am-banner--success .am-banner__sub { color: #166534; }
   .am-banner--success .am-banner__spin { color: var(--am-primary); }
 
-  .am-banner--warning {
-    background: #fffbeb;
-    border: 1px solid #fde68a;
-  }
-
+  .am-banner--warning { background: #fffbeb; border: 1px solid #fde68a; }
   .am-banner--warning .am-banner__icon { color: #d97706; }
   .am-banner--warning .am-banner__title { color: #92400e; }
   .am-banner--warning .am-banner__sub { color: #b45309; }
   .am-banner--warning .am-banner__spin { color: #d97706; }
 
-  .am-guest-info {
-    display: flex; align-items: flex-start; gap: 12px;
-    background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
-    border: 1px solid #bbf7d0;
-    border-radius: var(--am-radius-sm);
-    padding: 16px;
-  }
-
-  .am-guest-info__icon {
-    width: 22px; height: 22px; min-width: 22px;
-    color: var(--am-primary);
-    margin-top: 1px;
-  }
-
-  .am-guest-info__title {
-    font-size: 13px; font-weight: 700;
-    color: var(--am-primary);
-    margin: 0 0 4px;
-    font-family: var(--am-font);
-  }
-
-  .am-guest-info__desc {
-    font-size: 12.5px; color: #166534;
-    margin: 0; line-height: 1.5;
-    font-family: var(--am-font);
-  }
-
-  .am-spin {
-    width: 18px; height: 18px;
-    animation: amSpin .7s linear infinite;
-  }
+  .am-spin { width: 18px; height: 18px; animation: amSpin .7s linear infinite; }
 
   @keyframes amSpin { to { transform: rotate(360deg) } }
 
@@ -1869,10 +1691,7 @@ const STYLES = `
     animation: amStrip 2.5s ease infinite alternate;
   }
 
-  @keyframes amStrip {
-    from { background-position: 0% }
-    to { background-position: 100% }
-  }
+  @keyframes amStrip { from { background-position: 0% } to { background-position: 100% } }
 
   .am-force-header { padding: 28px 28px 20px; text-align: center; }
 
@@ -1935,27 +1754,15 @@ const STYLES = `
     .am-subheading { font-size: 13px; }
     .am-notice { margin: 12px 20px 0; }
 
-    .am-tabs {
-      margin: 16px 20px 0;
-      border-radius: var(--am-radius-sm);
-      padding: 3px;
-    }
-
-    .am-tab {
-      padding: 10px 6px;
-      gap: 4px;
-    }
-
-    .am-tab__icon { width: 14px; height: 14px; }
-    .am-tab__label { font-size: 12px; }
+    .am-tabs { margin: 16px 20px 0; border-radius: var(--am-radius-sm); padding: 4px; }
+    .am-tab { padding: 11px 6px; gap: 6px; }
+    .am-tab__icon { width: 15px; height: 15px; }
+    .am-tab__label { font-size: 13px; }
 
     .am-content { padding: 16px 20px 32px; }
     .am-form-fields { gap: 12px; }
 
-    .am-field-row {
-      grid-template-columns: 1fr;
-      gap: 12px;
-    }
+    .am-field-row { grid-template-columns: 1fr; gap: 12px; }
 
     .am-field__label { font-size: 12px; }
     .am-field__inner { height: 50px; }
@@ -1975,32 +1782,18 @@ const STYLES = `
     .am-strength__rules { gap: 4px 10px; }
     .am-strength__rule { font-size: 10.5px; }
 
-    .am-guest-info { padding: 14px; }
-    .am-guest-info__title { font-size: 13.5px; }
-    .am-guest-info__desc { font-size: 12.5px; }
-
     .am-banner { padding: 12px 14px; }
 
-    .am-toast-wrap {
-      top: auto; bottom: 20px;
-      width: calc(100% - 24px);
-    }
+    .am-toast-wrap { top: auto; bottom: 20px; width: calc(100% - 24px); }
 
     @keyframes amToastIn {
       from { opacity: 0; transform: translateX(-50%) translateY(14px) scale(.96) }
       to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1) }
     }
 
-    .am-force-overlay {
-      align-items: flex-end;
-      padding: 0;
-    }
+    .am-force-overlay { align-items: flex-end; padding: 0; }
 
-    .am-force-card {
-      border-radius: 20px 20px 0 0;
-      max-width: 100%;
-      max-height: 96vh;
-    }
+    .am-force-card { border-radius: 20px 20px 0 0; max-width: 100%; max-height: 96vh; }
 
     .am-force-header { padding: 24px 20px 16px; }
     .am-force-title { font-size: 18px; }
@@ -2015,8 +1808,8 @@ const STYLES = `
     .am-notice { margin: 10px 16px 0; }
 
     .am-tabs { margin: 14px 16px 0; }
-    .am-tab { padding: 9px 4px; }
-    .am-tab__label { font-size: 11px; }
+    .am-tab { padding: 10px 4px; }
+    .am-tab__label { font-size: 12px; }
 
     .am-content { padding: 14px 16px 28px; }
     .am-form-fields { gap: 10px; }
@@ -2032,7 +1825,7 @@ const STYLES = `
     .am-heading { font-size: 17px; }
     .am-subheading { font-size: 12px; }
     .am-tabs { margin: 10px 20px 0; }
-    .am-tab { padding: 8px 6px; }
+    .am-tab { padding: 9px 6px; }
     .am-content { padding: 12px 20px 24px; }
     .am-form-fields { gap: 8px; }
     .am-field__label { display: none; }
@@ -2042,8 +1835,11 @@ const STYLES = `
 
   @media (min-width: 641px) {
     .am-modal { border-radius: 16px; }
-    .am-field__inner:hover:not(:focus-within) {
-      border-color: #d1d5db;
-    }
+    .am-field__inner:hover:not(:focus-within) { border-color: #d1d5db; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .am-tabs__indicator, .am-btn, .am-field__inner { transition: none !important; }
+    .am-modal, .am-content__inner, .am-toast-wrap, .am-force-card { animation: none !important; }
   }
 `;
