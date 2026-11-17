@@ -1,5 +1,100 @@
 [
   {
+    "productID": "5f14a1dd-77d5-47ed-8075-12b2bf39642a",
+    "productName": "Itel A300+ (128GB + 4GB)",
+    "status": 1
+  },
+  {
+    "productID": "cef842b4-2625-46b1-96d2-36c913e96aa6",
+    "productName": "Itel A300+ (64GB + 4GB)",
+    "status": 1
+  },
+  {
+    "productID": "3c69581b-a733-41ef-b197-b09348957b18",
+    "productName": "Oraimo Bluetooth Speaker (Obs-680)",
+    "status": 1
+  },
+  {
+    "productID": "a01c0a91-9b72-4f49-be15-97e4b24b1b0a",
+    "productName": "Oraimo Hair Clipper 2 (Opc-cl30)",
+    "status": 1
+  },
+  {
+    "productID": "f3270b23-4e60-49ba-8ecd-a9d2a29a07af",
+    "productName": "Franko Standing Fan (Fa55sf16)",
+    "status": 1
+  },
+  {
+    "productID": "92fd8101-cf70-4117-bb25-826b95547cfa",
+    "productName": "Itel City 200s (128GB + 4GB)",
+    "status": 1
+  },
+  {
+    "productID": "ac452729-187f-4f33-9f95-0a9ddd0a1913",
+    "productName": "Samsung Tab S12 Ultra (256GB + 12GB)",
+    "status": 1
+  },
+  {
+    "productID": "fde79c30-2dc3-4feb-85d9-685011579247",
+    "productName": "Samsung TAB S12+ (256GB + 12GB)",
+    "status": 1
+  },
+  {
+    "productID": "d2424257-fb0f-4aec-befb-e7762334b910",
+    "productName": "Itel A300c (64GB + 3GB)",
+    "status": 1
+  },
+  {
+    "productID": "bd03c8de-11fc-4740-a4cc-184bfe69b8a5",
+    "productName": "Itel A200 (128GB + 4GB)",
+    "status": 1
+  },
+  {
+    "productID": "f525c379-a94b-4018-a8d7-53ae30ea7eb1",
+    "productName": "Tecno Pop 20 (64GB + 3GB)",
+    "status": 1
+  },
+  {
+    "productID": "c7bb17ff-2956-4ef9-b3b5-bcea75e57428",
+    "productName": "Itel Vista Tab Go (64+4gb) 8\"",
+    "status": 1
+  },
+  {
+    "productID": "d4e6e193-1c80-4746-a198-b3e09a865f08",
+    "productName": "HP Ryzen 5 7th Gen 15-Fc0196 Nia (8gb/512ssd)",
+    "status": 1
+  },
+  {
+    "productID": "e4a372d4-8c5d-4e79-898f-68c59bce51df",
+    "productName": "HP Ryzen 3 15-Fc1002nq (8/512ssd)",
+    "status": 1
+  },
+  {
+    "productID": "e3d0caec-d790-4db3-92d1-b1071879960b",
+    "productName": "Skyworth Tv 32 (Google) Qled+",
+    "status": 1
+  },
+  {
+    "productID": "5b67809a-1a82-4542-93a8-ddcff43e217c",
+    "productName": "RIVERSONG SMART WATCH MOTIVE 7E (SW75)",
+    "status": 1
+  },
+  {
+    "productID": "db215c93-1df8-4542-bc89-c4eb39f48c26",
+    "productName": "RIVERSONG POWERBANK HORIZON 30PRO (PB138)",
+    "status": 1
+  },
+  {
+    "productID": "1d5c1a37-54aa-4e05-a995-9c0d7299f8be",
+    "productName": "RIVERSONG HEADSET RHYTHM L9 (EA278)",
+    "status": 1
+  },
+  {
+    "productID": "76e7ea79-0a0f-40dc-aff9-da9c74aa8c75",
+    "productName": "Franko Tv 32\"Smart (F32e3e)",
+    "status": 1
+  },
+  {
     "productID": "ccc873de-e13c-45f7-9e39-a14b312b697d",
     "productName": "Skyworth Tv 85 (Google Tv,4k,Qled+)",
     "status": 1
@@ -25,11 +120,6 @@
     "status": 1
   },
   {
-    "productID": "92252e91-82b2-4659-9e38-c14832aa1fce",
-    "productName": "Asano Dispenser (5x24)",
-    "status": 1
-  },
-  {
     "productID": "156273d4-b811-4482-bb30-7d157075e40f",
     "productName": "Asano Water Dispenser (5x14)",
     "status": 1
@@ -40,28 +130,13 @@
     "status": 1
   },
   {
-    "productID": "7a97c70e-0f0b-4114-a411-c9987305c5db",
-    "productName": "Asano Water Dispenser (5x23)",
-    "status": 1
-  },
-  {
     "productID": "3282eb89-d553-4f7e-a6a1-f28a82880350",
     "productName": "Asano Water Dispenser (5x88)",
     "status": 1
   },
   {
-    "productID": "4b64fdae-9cb2-4e5e-9633-cd5151aee996",
-    "productName": "Asano Wall Mounted Fan (As-F14)",
-    "status": 1
-  },
-  {
     "productID": "e33bf958-ad0c-4759-99bd-806f702e99cb",
     "productName": "Asano Standing Fan (As-F11)",
-    "status": 1
-  },
-  {
-    "productID": "c9f327e0-8f45-49a0-ab5d-8d73edcfa860",
-    "productName": "Asano Standing Fan (As-F9)",
     "status": 1
   },
   {
@@ -91,7 +166,7 @@
   },
   {
     "productID": "ca5a013c-533e-4398-8b47-2bab4c3605f5",
-    "productName": "Samsung A08 (128GB + 4GB) - Plus Free Voucher",
+    "productName": "Samsung A08 (128GB + 4GB)",
     "status": 1
   },
   {
@@ -106,17 +181,17 @@
   },
   {
     "productID": "ded6ad6e-a298-4ae6-9786-5b778ffaeda0",
-    "productName": "Samsung Galaxy A18 (256GB+8GB) - Plus Free Voucher",
+    "productName": "Samsung Galaxy A18 (256GB+8GB)",
     "status": 1
   },
   {
     "productID": "6a0107dd-0d4d-4e15-87e2-ca49f983529f",
-    "productName": "Samsung Galaxy A18 (128GB+4GB) - With Adapter, Phone Cover Plus Free Discount Coupon",
+    "productName": "Samsung Galaxy A18 (128GB+4GB)",
     "status": 1
   },
   {
     "productID": "1ea07fd3-5276-4b6c-ac40-03c678760c63",
-    "productName": "iPhone 17 (25GB)",
+    "productName": "iPhone 17 (256GB)",
     "status": 1
   },
   {
@@ -145,13 +220,8 @@
     "status": 1
   },
   {
-    "productID": "191bd64f-49a5-4c90-bfcc-e9ee00bcae0e",
-    "productName": "Samsung Galaxy A27 (128GB+6GB) -Plus Free Mega  Voucher & Adapter",
-    "status": 1
-  },
-  {
     "productID": "cc783be3-e65c-4d78-bc47-f7837d5c11ea",
-    "productName": "Samsung Galaxy A57 (128GB+8GB) - Plus Free Mega  Voucher & Adapter",
+    "productName": "Samsung Galaxy A57 (128GB+8GB)",
     "status": 1
   },
   {
@@ -221,12 +291,12 @@
   },
   {
     "productID": "b672c5da-8e03-4c23-a575-f60d98321e68",
-    "productName": "Tecno Spark 50C (128GB + 4GB) - Plus Free Voucher",
+    "productName": "Tecno Spark 50C (128GB + 4GB)",
     "status": 1
   },
   {
     "productID": "b3beff77-87f0-434f-8600-44de84f5371f",
-    "productName": "Samsung A08 (64GB + 4GB) - With Adapter, Phone Cover Plus Free Discount Coupon",
+    "productName": "Samsung A08 (64GB + 4GB)",
     "status": 1
   },
   {
@@ -246,7 +316,7 @@
   },
   {
     "productID": "53c55fc0-2e8f-4e84-8cab-59b1fa681701",
-    "productName": "Samsung A07s (128GB + 4GB) - Plus Free Voucher",
+    "productName": "Samsung A07s (128GB + 4GB)",
     "status": 1
   },
   {
@@ -261,7 +331,7 @@
   },
   {
     "productID": "3c734243-4ece-45b6-b63e-c8d33791b68a",
-    "productName": "Samsung S26 Fe  (128GB + 8GB) - With Adapter Plus Free Discount Coupon",
+    "productName": "Samsung S26 Fe  (128GB + 8GB)",
     "status": 1
   },
   {
@@ -291,22 +361,22 @@
   },
   {
     "productID": "6bc8863d-0bbe-4721-9884-268d9c6232e2",
-    "productName": "Franko Kids 18 Pro Tablet (128GB + 8GB) 10\" With Free Protective Case",
-    "status": 1
-  },
-  {
-    "productID": "9442f3c9-db60-4661-af91-93a2c6678ca8",
-    "productName": "Franko Kids 15 Pro Tablet (128GB + 8GB) 10\" With Free Protective Case",
+    "productName": "Franko Kids 18 Pro Tablet (128GB + 8GB) 10\"",
     "status": 1
   },
   {
     "productID": "ff9de595-7bad-43b0-98cb-79bb19443fe7",
-    "productName": "Franko Kids 9s Ultra Tablet (128GB + 8GB) 8\" With Free Protective Case",
+    "productName": "Franko Kids 9s Ultra Tablet (128GB + 8GB) 8\"",
+    "status": 1
+  },
+  {
+    "productID": "9442f3c9-db60-4661-af91-93a2c6678ca8",
+    "productName": "Franko Kids 15 Pro Tablet (128GB + 8GB) 10\"",
     "status": 1
   },
   {
     "productID": "4f3d7d07-1f94-4f3b-aafd-8d1a0c9150b8",
-    "productName": "Samsung A07s (64GB + 4GB) - With Adapter, Phone Cover Plus Free Discount Coupon",
+    "productName": "Samsung A07s (64GB + 4GB)",
     "status": 1
   },
   {
@@ -317,26 +387,6 @@
   {
     "productID": "db905405-6c5b-4ced-a1d5-f8591d260020",
     "productName": "Huawei 4G Router Cpe 3i",
-    "status": 1
-  },
-  {
-    "productID": "1ab8daf7-a91e-49df-865d-2250b5123748",
-    "productName": "Combo 2 With Franko Gas Stove(F50c3g1e), Franko Ac 1.5hp(Shb-01), Skyworth 55\" Tv, Franko Microwave(F25msa4), Franko 2 in 1 Blender(F1011bl),Oraimo Smart Iron &Itel smart Fan Plus Free Delivery",
-    "status": 1
-  },
-  {
-    "productID": "0ce9ec4e-31d5-4cdb-bb31-749419106d3a",
-    "productName": "Combo 7 With Skyworth 32” Tv, Franko Speaker 906 (3.1), Franko Table Top Fridge (F90rt) & Franko Microwave Oven (F23M5A4) 23L Plus Free Delivery",
-    "status": 1
-  },
-  {
-    "productID": "6d6275b3-f51f-4bff-a5fe-abb9613c803d",
-    "productName": "Combo 3 With Franko Air condition 2.0HP (SHB-02), Skyworth 43\"  (Google Tv) QLed+, Franko Soundbar Speaker (f480s) Tcl, Franko Microwave Oven With Grill (F23MGA5) 23L, Asano Electric Juicer (As-3028),Franko 2 in 1 blender Blender & Oriamo Hand-Held Iron Free Delivery",
-    "status": 1
-  },
-  {
-    "productID": "d81aedab-f3f8-4e6b-a13a-d69b7d267ab0",
-    "productName": "Combo 5 With Skyworth 32” Tv, Franko Gas Stove With Oven (F50C4G0E) 4 Burner, Franko Table Top Fridge (F90rt), Franko Microwave Oven (F23M5A4) 23L, \tOriamo Hand-Held Iron Plus Free Delivery",
     "status": 1
   },
   {
@@ -351,22 +401,12 @@
   },
   {
     "productID": "8df6f715-4aa5-4b7d-8a57-765082a9af14",
-    "productName": "HP Omnibook | Ultra 7 | 8GB RAM | 512GB SSD | 15-Fd1310tu | 15.6\" Display-Infinix Xwatch 3GT Plus Free Franko Bag",
-    "status": 1
-  },
-  {
-    "productID": "c176f36a-74ec-4b9f-8ba1-d6fdf1221464",
-    "productName": "Combo 4 With Skyworth 32” Tv, Franko Soundbar Speaker (F360s) Tcl, Asano Table Top Fridge (As-D90) 17kg 83 Litres, Itel Microwave Oven (Imwo-M001h) 20l, Oriamo Hand-Held Iron & Franko 2 In 1 Blender (F2068bl) Plus Free Delivery",
+    "productName": "HP Omnibook | Ultra 7 | 8GB RAM | 512GB SSD | 15-Fd1310tu | 15.6\" Display-",
     "status": 1
   },
   {
     "productID": "b16b7250-273e-4f10-9f98-e5e93dfb3c9b",
     "productName": "Combo 9 With Franko Table Top Fridge (F90rt), Franko Speaker FK 1201 (5.1), Itel Microwave Oven (Imwo-M001h) 20l, Asano Slow Juicer (As-601) & Itel Smart Fan (If12-M002)",
-    "status": 1
-  },
-  {
-    "productID": "f951ab96-f4b1-4e71-aea0-1ef0923492ec",
-    "productName": "Combo 8 With  Franko Gas Stove With Oven (F50C4G0E) 4 Burner, Franko Air condition 1.5HP & Franko Table Top Fridge (F90rt) Plus Free Delivery",
     "status": 1
   },
   {
@@ -415,6 +455,11 @@
     "status": 1
   },
   {
+    "productID": "d7b37f3d-c307-40f8-9a04-f540c60776c3",
+    "productName": "Franko Ac (1.5hp) Tcl-Fr-12fsa",
+    "status": 1
+  },
+  {
     "productID": "3dfb8afc-617b-4b9d-90e9-88ae9e70a099",
     "productName": "Itel Chest Freezer (Frz418l)",
     "status": 1
@@ -422,6 +467,11 @@
   {
     "productID": "b939d2c8-64f5-41b9-bd6d-a731648dc34a",
     "productName": "Franko Ac (2.5hp) Tcl-F24as",
+    "status": 1
+  },
+  {
+    "productID": "89dd5ee7-a70c-4376-b849-61fd9ef4caec",
+    "productName": "Franko Ac (2.0hp) Tcl-Fr-18fsa",
     "status": 1
   },
   {
@@ -471,12 +521,12 @@
   },
   {
     "productID": "4af2a580-ed6e-47ab-bbe6-6880eabf9550",
-    "productName": "Samsung Fold 8 Ultra (256GB + 12GB) - With Adapter, Phone Cover Plus Free Discount Coupon",
+    "productName": "Samsung Fold 8 Ultra (256GB + 12GB)",
     "status": 1
   },
   {
     "productID": "02907571-9200-4367-9e6c-11f06269f2f6",
-    "productName": "Samsung Fold 8 (256GB + 12GB) - With Adapter, Phone Cover Plus Free Discount Coupon",
+    "productName": "Samsung Fold 8 (256GB + 12GB)",
     "status": 1
   },
   {
@@ -496,22 +546,12 @@
   },
   {
     "productID": "40204290-1d43-4b96-a61e-48a69696585d",
-    "productName": "Samsung A27 (256GB + 8GB) 5G - Plus Free Mega  Voucher & Adapter",
+    "productName": "Samsung A27 (256GB + 8GB) 5G",
     "status": 1
   },
   {
     "productID": "791781df-0366-46c7-a1f7-fe8379c7e2bc",
     "productName": "Franko Microwave Oven (F25MSA4) 25L",
-    "status": 1
-  },
-  {
-    "productID": "298ef699-ff1f-44fc-a179-ab07b007c41f",
-    "productName": "Franko Soundbar Speaker (f480s) Tcl",
-    "status": 1
-  },
-  {
-    "productID": "5c302757-ab8e-4dfb-9179-6f24e03b00b4",
-    "productName": "HP Cel | 128GB SSD | 4GB RAM | 14-Dq6011dx | 14\" Display",
     "status": 1
   },
   {
@@ -551,7 +591,7 @@
   },
   {
     "productID": "16e81c35-139f-428a-a3f1-c2b20dc03a4d",
-    "productName": "HP Amd | Ryzen 7 | 16GB RAM | 1TB SSD | 15-Fc0048nq | 15.6\" Display-Infinix Xwatch 3GT Plus Free Franko Bag",
+    "productName": "HP Amd | Ryzen 7 | 16GB RAM | 1TB SSD | 15-Fc0048nq | 15.6\" Display",
     "status": 1
   },
   {
@@ -571,7 +611,7 @@
   },
   {
     "productID": "b9586729-4b42-44a2-b6e9-db5a70138886",
-    "productName": "Asus Cel | 4GB RAM | 128GB SSD | E410k | 14\" Display-Plus Infinix Xwatch 3GT",
+    "productName": "Asus Cel | 4GB RAM | 128GB SSD | E410k | 14\" Display-",
     "status": 1
   },
   {
@@ -582,11 +622,6 @@
   {
     "productID": "409da03b-8757-4252-94ee-e7a0922919ae",
     "productName": "Tecno Camon Slim (256GB + 8GB)",
-    "status": 1
-  },
-  {
-    "productID": "25253a7d-b3ac-414f-a578-bd452e01bedc",
-    "productName": "Oraimo Smart Iron (OEI-801A)",
     "status": 1
   },
   {
@@ -610,11 +645,6 @@
     "status": 1
   },
   {
-    "productID": "94c65cd7-151b-4a42-afa9-d7d211000e13",
-    "productName": "HP i3 | 4GB RAM | 1TB HDD | 15-Dw1197nia 15\" - Plus Free Redmi Earbuds",
-    "status": 1
-  },
-  {
     "productID": "3a19075b-fe4a-403b-8c59-bd8d339e8458",
     "productName": "HP Omnibook | 5 Flip | Core 5 | 8GB RAM | 512GB SSD | 14-FP0013dx",
     "status": 1
@@ -626,7 +656,17 @@
   },
   {
     "productID": "a9f50b8b-1464-48bc-8f4d-a3173b9bb89b",
-    "productName": "Dell Vostro | i3 | 8GB RAM | 512GB SSD | 3520-Plus Redmi Earbuds",
+    "productName": "Dell Vostro | i3 | 8GB RAM | 512GB SSD | 3520",
+    "status": 1
+  },
+  {
+    "productID": "34985c6e-be40-406b-a50e-43ed556ccada",
+    "productName": "Itel Power 80 (128GB+4GB)",
+    "status": 1
+  },
+  {
+    "productID": "45a1f9ff-d09a-406e-b0ad-0e06a0da375b",
+    "productName": "Itel A200 (64Gb+3GB)",
     "status": 1
   },
   {
@@ -637,6 +677,11 @@
   {
     "productID": "56daa0a4-bf08-4dfe-ae04-cfad2fe0d457",
     "productName": "Tecno T102",
+    "status": 1
+  },
+  {
+    "productID": "f60ea1e6-5dd7-46e2-bc92-113607ee0572",
+    "productName": "Tecno  S302",
     "status": 1
   },
   {
@@ -691,7 +736,7 @@
   },
   {
     "productID": "de9a3124-eaa1-4345-ab41-09439d2d5f88",
-    "productName": "HP Ryzen 5 | 16GB RAM | 512GB SSD | 15\" Display | 255 G10 15\" 7th -Plus Infinix Xwatch 3GT",
+    "productName": "HP Ryzen 5 | 16GB RAM | 512GB SSD | 15\" Display | 255 G10 15\" 7th",
     "status": 1
   },
   {
@@ -706,12 +751,12 @@
   },
   {
     "productID": "70ac1a90-1b58-4545-8a40-46a07efee0fa",
-    "productName": "Samsung Galaxy A57 (256GB + 8GB) -  Plus Free Mega  Voucher & Adapter",
+    "productName": "Samsung Galaxy A57 (256GB + 8GB)",
     "status": 1
   },
   {
     "productID": "70f6d659-d5ab-4e7e-b2fe-c4ebfa16375b",
-    "productName": "Samsung Galaxy A37 (256GB + 8GB) -  Plus Free Mega  Voucher & Adapter",
+    "productName": "Samsung Galaxy A37 (256GB + 8GB)",
     "status": 1
   },
   {
@@ -750,11 +795,6 @@
     "status": 1
   },
   {
-    "productID": "2edcdd89-4483-4716-baef-663415f1bf16",
-    "productName": "Franko Fridge/ Tv Guard",
-    "status": 1
-  },
-  {
     "productID": "979348b8-7164-4be4-8d60-a45098b98758",
     "productName": "Franko Fridge/Tv Guard (With USB Charger)",
     "status": 1
@@ -771,12 +811,12 @@
   },
   {
     "productID": "b8a6481b-c20d-4d0b-9044-deecea6450a9",
-    "productName": "Samsung Galaxy S26+ (512GB + 12GB) - Plus Free Voucher",
+    "productName": "Samsung Galaxy S26+ (512GB + 12GB)",
     "status": 1
   },
   {
     "productID": "433b4300-09ad-4a0a-8c6c-71a4954ec18f",
-    "productName": "Samsung Galaxy Tab A11 (64GB + 4GB) - Plus Cover with Free Discount Voucher",
+    "productName": "Samsung Galaxy Tab A11 (64GB + 4GB)",
     "status": 1
   },
   {
@@ -786,7 +826,7 @@
   },
   {
     "productID": "aa07cbd7-c69d-49f5-b16b-ab60ec21f576",
-    "productName": "Tecno Camon 50 (256GB + 8GB) - Plus Free Voucher",
+    "productName": "Tecno Camon 50 (256GB + 8GB)",
     "status": 1
   },
   {
@@ -801,17 +841,22 @@
   },
   {
     "productID": "ddd6a859-d712-4750-8a10-7e18db00cba8",
-    "productName": "Samsung Galaxy S26+ (256GB + 12GB) -  Plus Free Voucher",
+    "productName": "Samsung Galaxy S26+ (256GB + 12GB)",
+    "status": 1
+  },
+  {
+    "productID": "78fd5bb7-a73a-4d3c-b670-7ec786a447d2",
+    "productName": "Samsung Galaxy S26 Ultra (512GB+12GB) - Plus Free Voucher",
     "status": 1
   },
   {
     "productID": "4fa507d6-a43f-45dd-8912-5aa834bda671",
-    "productName": "Samsung Galaxy S26 Ultra (1TB + 16GB) - Plus Free Voucher",
+    "productName": "Samsung Galaxy S26 Ultra (1TB + 16GB)",
     "status": 1
   },
   {
     "productID": "965cadd3-533a-4090-ac36-4ec6d0fb33e1",
-    "productName": "Samsung Galaxy S26 Ultra (256GB+12GB) -  Free Voucher",
+    "productName": "Samsung Galaxy S26 Ultra (256GB+12GB)",
     "status": 1
   },
   {
@@ -822,11 +867,6 @@
   {
     "productID": "a307c896-6329-476a-b994-9acb78646841",
     "productName": "Dell i5 | 1334u | 8GB RAM | 512GB SSD | Dc 15250",
-    "status": 1
-  },
-  {
-    "productID": "1178dea2-375b-4ec2-b87d-2476218e34ea",
-    "productName": "HP i3 | 8GB RAM | 256GB SSD | 15-Fd0133wm",
     "status": 1
   },
   {
@@ -875,13 +915,13 @@
     "status": 1
   },
   {
-    "productID": "cc452820-ab34-4f64-b826-a6441d2025d9",
-    "productName": "Oraimo Headset (OHP-317)",
+    "productID": "fd1665b3-b846-4981-a636-2ccc9d90f36a",
+    "productName": "Samsung Galaxy Tab A11+ (128GB + 6GB)",
     "status": 1
   },
   {
-    "productID": "fd1665b3-b846-4981-a636-2ccc9d90f36a",
-    "productName": "Samsung Galaxy Tab A11+ (128GB + 6GB) - Plus  Free Discount Voucher",
+    "productID": "ca87c0c7-593e-4e71-8e9a-d18fee18078f",
+    "productName": "Huawei Nova 14 (256GB + 12GB)",
     "status": 1
   },
   {
@@ -912,6 +952,11 @@
   {
     "productID": "bb67200e-f94f-4792-8436-f37171ab7c55",
     "productName": "Skyworth 43\" (Google Tv) QLed+",
+    "status": 1
+  },
+  {
+    "productID": "6f679c6a-56fe-4fa9-9551-ca1afb0a8dc1",
+    "productName": "Itel A100C (64GB + 2GB)",
     "status": 1
   },
   {
@@ -1050,18 +1095,18 @@
     "status": 1
   },
   {
-    "productID": "8f53c850-2a72-48c3-965a-956ae4b408b8",
-    "productName": "Franko Microwave Oven (F20MSA4) 20L",
-    "status": 1
-  },
-  {
     "productID": "51c705ec-6d8e-4859-8c15-06342e3e1d43",
-    "productName": "Samsung Galaxy Z Fold 7 (12GB + 256GB) - Plus Free Voucher",
+    "productName": "Samsung Galaxy Z Fold 7 (12GB + 256GB)",
     "status": 1
   },
   {
-    "productID": "4f2da2eb-efbb-4939-8ddc-9276e4085bcd",
-    "productName": "Huawei Nova Y63 (128GB + 6GB)",
+    "productID": "fa9dac26-a5a2-415f-9bb6-a639903aa058",
+    "productName": "Samsung Galaxy Flip 7 (12GB + 512GB)",
+    "status": 1
+  },
+  {
+    "productID": "ef398ee7-9bcf-48a4-b965-3a3865f3583d",
+    "productName": "Samsung Galaxy Flip 7 (12GB + 512GB) - Plus Free Voucher",
     "status": 1
   },
   {
@@ -1105,11 +1150,6 @@
     "status": 1
   },
   {
-    "productID": "ecbeee17-cee5-49e2-8034-c8307bd86bdc",
-    "productName": "Skyworth 55\" Google Tv",
-    "status": 1
-  },
-  {
     "productID": "466524c1-a12a-4207-92e3-8ea76979ea97",
     "productName": "Acer | Aspire 3 | i3 | 8GB RAM | 512SSD | 15.6\" Display - A325-53",
     "status": 1
@@ -1131,17 +1171,12 @@
   },
   {
     "productID": "9923ed30-cbda-4c49-a1d3-4751e7140405",
-    "productName": "Lenovo | Flex 5 | i7 | 8GB RAM | 512GB SSD | 16” Touchscreen | x360-16iau7 - Free Kora Smart Watch (Neo)",
+    "productName": "Lenovo | Flex 5 | i7 | 8GB RAM | 512GB SSD | 16” Touchscreen | x360-16iau7",
     "status": 1
   },
   {
     "productID": "8f0fb4f1-b1e9-47d4-9467-cd4e79a3c233",
     "productName": "Itel A100C (64GB+3GB)",
-    "status": 1
-  },
-  {
-    "productID": "8cc18ca2-8f6f-4d66-819f-07ae47dc13bd",
-    "productName": "Lenovo Ideapad | i3 | Slim 3 | 8GB RAM | 256GB SSD | 15iAN8",
     "status": 1
   },
   {
@@ -1170,11 +1205,6 @@
     "status": 1
   },
   {
-    "productID": "6bc071fe-b116-433c-a0f7-d16d4c7fc5e7",
-    "productName": "Lenovo Yoga 7 | 16GB RAM | 1TB SSD | 14' Display | Amd Ryzen-14APQ\"",
-    "status": 1
-  },
-  {
     "productID": "3f17e199-0b75-416d-bc87-ca4ed49e1601",
     "productName": "Nokia 110 Classic Feature Phone",
     "status": 1
@@ -1187,11 +1217,6 @@
   {
     "productID": "83395427-5cff-4f06-a5fe-fc6cf5eac066",
     "productName": "Mi Earbud 2",
-    "status": 1
-  },
-  {
-    "productID": "18e62b51-a47f-4441-ae56-1420c6db1fe0",
-    "productName": "Tonemac Wireless Speaker B5",
     "status": 1
   },
   {
@@ -1255,6 +1280,11 @@
     "status": 1
   },
   {
+    "productID": "2a9870de-8bbd-48c6-9735-2be6d30e8752",
+    "productName": "Asano Double Door Fridge (As-230) 38kg",
+    "status": 1
+  },
+  {
     "productID": "0446f695-2f20-4aeb-aeb7-4c4bfa1ad50a",
     "productName": "Ezviz Camera Cb2",
     "status": 1
@@ -1286,7 +1316,7 @@
   },
   {
     "productID": "7cdb3e4d-03f4-44df-a550-25231693f638",
-    "productName": "Samsung A17 (256GB + 8GB) - Plus Free Voucher",
+    "productName": "Samsung A17 (256GB + 8GB)",
     "status": 1
   },
   {
@@ -1327,6 +1357,11 @@
   {
     "productID": "254b4b99-3d01-4fb8-b23b-88a16f5bcd0b",
     "productName": "Asano Chest Freezer (As-320) 44kg",
+    "status": 1
+  },
+  {
+    "productID": "0cda362d-f47c-45c9-abee-b51c55e78f95",
+    "productName": "Samsung S24+ (512GB + 12GB)",
     "status": 1
   },
   {
@@ -1391,7 +1426,7 @@
   },
   {
     "productID": "ce7b5da9-c102-4318-b183-8b3db2f0e599",
-    "productName": "HP Envy | Core 5 | 14-Es1013 | 8GB RAM | 512SSD | 14\" Touchscreen -Infinix Xwatch 3GT Plus Free Franko Bag",
+    "productName": "HP Envy | Core 5 | 14-Es1013 | 8GB RAM | 512SSD | 14\" Touchscreen",
     "status": 1
   },
   {
@@ -1470,6 +1505,11 @@
     "status": 1
   },
   {
+    "productID": "21152ca3-53ee-4fea-bb25-05fa47f76bfe",
+    "productName": "Samsung S24+ (512GB + 12GB) - Plus Free Voucher",
+    "status": 1
+  },
+  {
     "productID": "f7ac256f-f27b-4554-bf68-d962de85d8a5",
     "productName": "Samsung Galaxy Watch 7  40mm Wifi/GPS",
     "status": 1
@@ -1510,11 +1550,6 @@
     "status": 1
   },
   {
-    "productID": "e3bb06fa-2bf6-46ac-87f9-3a3d4b0e9d98",
-    "productName": "Huawei Band 9  Yellow Fluoroelastomer strap",
-    "status": 1
-  },
-  {
     "productID": "035beaa4-4b7e-44c7-9c4b-47885ad7a485",
     "productName": "Tcl mobile wifi (mw42v)",
     "status": 1
@@ -1547,6 +1582,11 @@
   {
     "productID": "283258d6-c221-46df-8876-6a04a0ba0cd6",
     "productName": "Metal Pendrive 16gb Usb",
+    "status": 1
+  },
+  {
+    "productID": "e3bb06fa-2bf6-46ac-87f9-3a3d4b0e9d98",
+    "productName": "Huawei Band 9  Yellow Fluoroelastomer strap",
     "status": 1
   },
   {
@@ -1721,12 +1761,12 @@
   },
   {
     "productID": "a5806263-87bf-4b5e-9064-e07d16ddf0c1",
-    "productName": "HP Envy | i7 | 16GB | 1TB SSD  16\" Display | Nvidea GeForce RTX Touchscreen Gaming Laptop | 16-H1053Dx -  Free Kora Smart Watch (Neo)",
+    "productName": "HP Envy | i7 | 16GB | 1TB SSD  16\" Display | Nvidea GeForce RTX Touchscreen Gaming Laptop | 16-H1053Dx",
     "status": 1
   },
   {
     "productID": "39df3786-6240-4853-8cf3-428604c626ff",
-    "productName": "HP Ryzen Victus Nvidea | i5 | 512ssd | 8gb | 15.6\" Display | 15-Fb1013dx -  Free Kora Smart Watch (Neo) &  Franko Bag",
+    "productName": "HP Ryzen Victus Nvidea | i5 | 512ssd | 8gb | 15.6\" Display | 15-Fb1013dx",
     "status": 1
   },
   {
@@ -1741,7 +1781,7 @@
   },
   {
     "productID": "c78033d4-4967-49a6-8b18-35f9c84ea4e8",
-    "productName": "HP | i3 | 8GB RAM | 256GB SSD | 15.6' Display | 15s-Fq5340TU- Free Infinix smart watch & Redmi Earbuds",
+    "productName": "HP | i3 | 8GB RAM | 256GB SSD | 15.6' Display | 15s-Fq5340TU",
     "status": 1
   },
   {

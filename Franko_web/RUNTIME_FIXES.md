@@ -33,4 +33,7 @@ Deploy the corrected dist folder and perform a full page reload: an already-open
 page retains old prototype patches until its JavaScript context is replaced. No
 manual clearing of all browser storage is required. Test an existing browser
 profile, login, cart, wishlist, category menus, chat, and direct agent routes. The
-356 product / 371 total sitemap URLs and redirect rules are unchanged.
+356 product / 371 total sitemap URLs and redirect rules were unchanged at that
+time. Note (2026-11-13): the sitemap has since been rebuilt from the 2026-11-12
+product export — see `seo/README.md` for the current 365 product / 380 URL /
+364 redirect counts. This runtime-fix note is historical.

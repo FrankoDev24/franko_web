@@ -28,8 +28,10 @@ npm run build
 ```
 
 Default builds now use the authorized spreadsheet snapshot described in
-`seo/README.md` (356 products; four conflicting records and one invalid UUID are
-withheld). Run `SEO_SOURCE=live npm run build` for the original live-source mode.
+`seo/README.md` — the 2026-11-12 export: 365 products, 380 sitemap URLs, 364
+UUID redirects. No records collide; one row with a malformed UUID is published
+as a sitemap-only name URL with no invented redirect. Run
+`SEO_SOURCE=live npm run build` for the original live-source mode.
 
 In live-source mode, the postbuild step fetches complete products and brands using existing
 `VITE_LAMBDA_BASE_URL`, `VITE_LAMBDA_HEADER_NAME`, `VITE_LAMBDA_HEADER_VALUE` settings.

@@ -32,21 +32,29 @@ test('ambiguous name-only URLs block migration rather than silently selecting a 
   assert.throws(() => seoArtifacts([product], [brand, { ...brand, brandId: 'other' }]), /Duplicate brand slug/);
 });
 
-test('approved spreadsheet sitemap includes every validated unique record exactly once', async () => {
+test('approved spreadsheet sitemap includes EVERY product record exactly once', async () => {
   const { readFileSync } = await import('node:fs');
   const load = name => JSON.parse(readFileSync(new URL(`../../seo/data/${name}.json`, import.meta.url), 'utf8'));
   const products = load('products');
+  const sitemapOnly = load('product-sitemap-only');
   const conflicts = load('product-conflicts');
   const invalid = load('product-invalid');
-  assert.equal(products.length, 356);
-  assert.equal(products.length + conflicts.flatMap(c => c.products).length + invalid.length, 361);
-  const { sitemap, redirects } = seoArtifacts(products, []);
-  assert.equal((sitemap.match(/<loc>/g) || []).length, 371);
-  assert.equal(redirects.length, 356);
-  for (const product of products) {
+  assert.equal(products.length, 364);
+  assert.equal(sitemapOnly.length, 1);
+  assert.equal(invalid.length, 1);
+  assert.equal(conflicts.length, 0);
+  // Every one of the 365 sheet rows is accounted for.
+  assert.equal(products.length + sitemapOnly.length + conflicts.flatMap(c => c.products).length, 365);
+  const { sitemap, redirects, index } = seoArtifacts([...products, ...sitemapOnly], []);
+  assert.equal((sitemap.match(/<loc>/g) || []).length, 380); // 15 static + 365 products
+  assert.equal(redirects.length, 364);                        // no invented redirect for a bad UUID
+  assert.equal(Object.keys(index.products).length, 364);
+  for (const product of [...products, ...sitemapOnly]) {
     assert.ok(sitemap.includes(`https://www.frankotrading.com${getProductUrl(product)}</loc>`));
-    assert.ok(!sitemap.includes(product.productID));
+    if (product.productID) assert.ok(!sitemap.includes(product.productID));
   }
   for (const conflict of conflicts) assert.ok(!sitemap.includes(`/product/${conflict.slug}</loc>`));
-  assert.ok(!sitemap.includes('itel-5600-new</loc>'));
+  // Malformed sheet UUID still gets its real name URL, but never a UUID redirect.
+  assert.ok(sitemap.includes('/product/itel-5600-new</loc>'));
+  assert.ok(!redirects.some(([from]) => from.includes('f4f29be2')));
 });

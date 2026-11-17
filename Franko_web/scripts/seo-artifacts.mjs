@@ -17,13 +17,16 @@ export function seoArtifacts(products, brands, previous = {}) {
     for (const item of items) {
       const id = String(idOf(item) || '');
       const slug = slugOf(item);
-      if (!id || !slug) throw new Error(`Missing ID or name in ${kind} catalogue`);
+      // sitemapOnly rows come from a sheet record with a malformed UUID. Their
+      // name-only URL is real, but no UUID redirect may be invented for them.
+      if (!slug || (!id && !item.sitemapOnly)) throw new Error(`Missing ID or name in ${kind} catalogue`);
       if (seen.has(slug) && seen.get(slug) !== id) {
         throw new Error(`Duplicate ${kind} slug "${slug}". Give variants distinct descriptive names before deployment; IDs will not be appended.`);
       }
       seen.set(slug, id);
       const path = `/${kind}/${slug}`;
       paths.push(path);
+      if (item.sitemapOnly) continue;
       redirects.set(`/${kind}/${id}`, path);
       const oldSlug = previous[`${kind}s`]?.[id];
       if (oldSlug && oldSlug !== slug) redirects.set(`/${kind}/${oldSlug}`, path);

@@ -27,6 +27,12 @@ if (process.env.SEO_STATIC_ONLY === '1') {
   // Checked-in snapshot of the spreadsheet supplied by the site owner. Builds
   // must retain these entries even when the live backend is unavailable.
   products = JSON.parse(readFileSync(`${root}seo/data/products.json`, 'utf8'));
+  // Sheet rows with a malformed UUID still get their name-only URL in the sitemap,
+  // but are kept out of the runtime route index (which requires a valid ID).
+  const extrasPath = `${root}seo/data/product-sitemap-only.json`;
+  if (existsSync(extrasPath)) {
+    products = [...products, ...JSON.parse(readFileSync(extrasPath, 'utf8'))];
+  }
   brands = process.env.SEO_BRANDS_FILE
     ? JSON.parse(readFileSync(process.env.SEO_BRANDS_FILE, 'utf8')) : [];
   console.warn('Using approved spreadsheet product snapshot; no brand data was supplied in that sheet.');

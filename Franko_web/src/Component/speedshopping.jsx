@@ -137,7 +137,7 @@ const SpeedShoppingPage = () => {
     visible: false,
   });
 
-  const { addProductToCart, loading: cartLoading } = useAddToCart();
+  const { addProductToCart, loading: cartLoading, cartItems } = useAddToCart();
 
   const { productsByShowroom, loading } = useSelector((state) => state.products);
   const wishlist = useSelector((state) => state.wishlist.items || []);
@@ -201,10 +201,20 @@ const SpeedShoppingPage = () => {
 
   const handleAddToCart = async (product) => {
     try {
+      // Check if already in cart to prevent duplicate additions from non-cart pages
+      const existingItem = cartItems?.find(
+        (item) =>
+          String(item.ProductId) === String(product.productID || product.id || product.productId)
+      );
+
+      if (existingItem) {
+        throw new Error("Item already in cart. Please update quantity from the Cart Page.");
+      }
+
       await addProductToCart(product);
       showNotification("Added to cart successfully");
-    } catch {
-      showNotification("Unable to add product to cart", "error");
+    } catch (error) {
+      showNotification(error?.message || "Unable to add product to cart", "error");
     }
   };
 

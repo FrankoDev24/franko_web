@@ -1,0 +1,10 @@
+[
+  {
+    "productName": "itel 5600 new",
+    "status": 1,
+    "sitemapOnly": true,
+    "row": "156",
+    "sheetProductID": null,
+    "reason": "Malformed UUID in the sheet; name-only URL published without a legacy redirect"
+  }
+]
