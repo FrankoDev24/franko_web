@@ -35,6 +35,10 @@ import Cancellation from "./Pages/OrderCancelled";
 const Account = lazy(() => import("./Pages/Account"));
 const Products = lazy(() => import("./Pages/Products"));
 import Terms from "./Pages/Terms";
+import PhoneSpeed from "./Pages/PhoneSpeed";
+import Speed from "./Pages/Speed";
+
+
 const OrderHistory = lazy(() => import("./Pages/OrderHistory"));
 const Wishlist = lazy(() => import("./Pages/Wishlist"));
 const OrderSuccess = lazy(() => import("./Pages/OrderSucess"));
@@ -48,7 +52,7 @@ const CTP001ProductsPage = lazy(() => import("./Pages/Agents/AgentPage/CTP001Pro
 /* ═══════════════════════════════════════════════════════════════
    ROUTES THAT RENDER WITHOUT THE MAIN NAVBAR
 ═══════════════════════════════════════════════════════════════ */
-const NAVBAR_HIDDEN_PREFIXES = ["/promo-phones", "/tel-cart", "/tel-checkout"];
+const NAVBAR_HIDDEN_PREFIXES = ["/telecel-blackfriday", "/tel-cart", "/tel-checkout"];
 
 const shouldHideNavbar = (pathname) =>
   NAVBAR_HIDDEN_PREFIXES.some(
@@ -286,6 +290,9 @@ function App() {
         <Route path="/order-received" element={<OrderReceived />} />
         <Route path="/order-success/:orderId" element={<OrderSuccess />} />
         <Route path="/account" element={<Account />} />
+        <Route path="/blackfriday" element={<Speed />} />
+        <Route path="/telecel-blackfriday" element={<PhoneSpeed />} />
+
         <Route path="/shops" element={<Locations />} />
         <Route path="/order-cancelled" element={<Cancellation />} />
 
