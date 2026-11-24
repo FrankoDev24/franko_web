@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { gsap } from "gsap";
 import { useGSAP } from "@gsap/react";
 
@@ -27,6 +28,11 @@ const PROMO_END = Date.parse("2026-11-28T00:00:00Z");
 
 const SLIDE_SECONDS = 4.5;
 
+const CALL_NUMBERS = [
+  { display: "030 222 5651", href: "tel:+233302225651" },
+  { display: "024 642 2338", href: "tel:+233246422338" },
+];
+
 /* Copy variants */
 const SLIDES = [
   {
@@ -47,16 +53,13 @@ const SLIDES = [
   },
   {
     id: "super-sale",
-
     full: [
-   
       { t: "BLACK FRIDAY" },
       { t: " · DISCOUNT UP TO ", hl: true },
       { count: 40, hl: true },
       { t: "% OFF", hl: true },
     ],
     short: [
-  
       { t: "BLACK FRIDAY · UP TO ", hl: true },
       { count: 40, hl: true },
       { t: "% OFF", hl: true },
@@ -69,8 +72,6 @@ const SLIDES = [
   },
   {
     id: "limited-time",
-
-
     full: [
       { t: "BIG SAVINGS. ", hl: true },
       { t: "LIMITED TIME ONLY" },
@@ -86,7 +87,6 @@ const SLIDES = [
   },
   {
     id: "delivery",
-
     full: [
       { t: "FREE DELIVERY ", hl: true },
       { t: "within Accra & Kumasi" },
@@ -97,7 +97,7 @@ const SLIDES = [
       { t: " · ACCRA & KUMASI · ONLINE ORDERS" },
     ],
     tiny: [
-       { t: "FREE DELIVERY", hl: true },
+      { t: "FREE DELIVERY", hl: true },
       { t: "· ACCRA & KUMASI. ONLINE ORDERS" },
     ],
   },
@@ -109,7 +109,7 @@ const SLIDES = [
       { t: "across all Franko branches" },
     ],
     short: [
-       { t: "BLACK FRIDAY DEALS ", hl: true },
+      { t: "BLACK FRIDAY DEALS ", hl: true },
       { t: "across all Franko branches" },
     ],
     tiny: [
@@ -233,6 +233,12 @@ const ICONS = {
   ),
   phone: (
     <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+  ),
+  close: (
+    <>
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </>
   ),
 };
 
@@ -409,9 +415,117 @@ const Countdown = () => {
   );
 };
 
+/* ─────────────────────────── call modal ─────────────────────────── */
+
+const CallModal = ({ open, onClose }) => {
+  const backdropRef = useRef(null);
+  const panelRef = useRef(null);
+  const closeBtnRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    closeBtnRef.current?.focus();
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
+  useGSAP(
+    () => {
+      if (!open || prefersReduced()) return;
+      gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.2, ease: "power2.out" });
+      gsap.fromTo(
+        panelRef.current,
+        { y: 18, scale: 0.94, opacity: 0 },
+        { y: 0, scale: 1, opacity: 1, duration: 0.28, ease: "back.out(1.7)" }
+      );
+    },
+    { dependencies: [open] }
+  );
+
+  if (!open || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      ref={backdropRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="fk-call-modal-title"
+      onClick={onClose}
+      className="fk-root fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs"
+    >
+      <div
+        ref={panelRef}
+        onClick={(e) => e.stopPropagation()}
+        className="fk-bg relative w-full max-w-xs overflow-hidden rounded-2xl border border-white/15 p-5 text-white shadow-2xl"
+      >
+        <span
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 h-[3px]"
+          style={{ background: "linear-gradient(90deg,#FFD400,#FF9F0F,#E50914)" }}
+        />
+
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#FFD400] text-[#080808] shadow">
+              <Icon name="phone" size={16} strokeWidth={2.5} />
+            </span>
+            <div>
+              <h2 id="fk-call-modal-title" className="text-sm font-black uppercase tracking-wider text-white">
+                Call Franko
+              </h2>
+              <p className="text-xs text-white/70">Choose a line to call</p>
+            </div>
+          </div>
+
+          <button
+            ref={closeBtnRef}
+            type="button"
+            onClick={onClose}
+            aria-label="Close call options"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFD400]"
+          >
+            <Icon name="close" size={16} strokeWidth={2.4} />
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-2.5">
+          {CALL_NUMBERS.map((num, idx) => (
+            <a
+              key={num.href}
+              href={num.href}
+              onClick={onClose}
+              aria-label={`Call Franko on ${num.display}`}
+              className="group flex items-center justify-between rounded-xl bg-white px-4 py-3 text-[#080808] shadow-md transition-transform duration-150 active:scale-[0.98] hover:bg-[#FFD400] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFD400]"
+            >
+              <span className="flex items-center gap-3">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#080808] text-[#FFD400] transition-transform duration-150 group-hover:scale-105">
+                  <Icon name="phone" size={16} strokeWidth={2.4} />
+                </span>
+                <span className="flex flex-col text-left">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#080808]/60">
+                    Line {idx + 1}
+                  </span>
+                  <span className="text-base font-black tabular-nums tracking-tight">{num.display}</span>
+                </span>
+              </span>
+              <span className="rounded-full bg-[#E50914] px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-white">
+                Call
+              </span>
+            </a>
+          ))}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
 /* ─────────────────────────── contact ─────────────────────────── */
 
-const Contact = () => (
+const Contact = ({ onOpenCallModal }) => (
   <>
     <MobileDivider />
     <Divider />
@@ -420,14 +534,37 @@ const Contact = () => (
         Need help?
       </span>
 
-      <a
-        href="tel:+233302225651"
-        aria-label="Call Franko on 030 222 5651"
-        className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-full bg-white text-[#080808] shadow-md transition-transform duration-200 hover:-translate-y-px hover:scale-105 active:scale-95 sm:h-8 sm:w-auto sm:gap-1.5 sm:px-3 sm:text-[13px] sm:font-black lg:h-[30px] lg:w-[30px] lg:rounded-full lg:sm:h-8 xl:w-auto xl:px-3.5 xl:text-sm"
+      {/* Mobile / < xl: icon button that opens the number selection modal */}
+      <button
+        type="button"
+        onClick={onOpenCallModal}
+        aria-label="Call Franko — choose a phone number"
+        className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-full bg-white text-[#080808] shadow-md transition-transform duration-200 hover:-translate-y-px hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFD400] sm:h-8 sm:w-auto sm:gap-1.5 sm:px-3 sm:text-[13px] sm:font-black lg:h-[30px] lg:w-[30px] lg:rounded-full lg:sm:h-8 xl:hidden"
       >
         <Icon name="phone" size={14} strokeWidth={2.6} />
-        <span className="hidden tabular-nums xl:inline">030 222 5651</span>
-      </a>
+      </button>
+
+      {/* Desktop (≥ xl): both numbers displayed & individually clickable */}
+      <div className="hidden h-8 items-center whitespace-nowrap rounded-full bg-white px-3.5 text-sm font-black text-[#080808] shadow-md transition-transform duration-200 hover:-translate-y-px hover:scale-105 active:scale-95 xl:inline-flex">
+        <a
+          href={CALL_NUMBERS[0].href}
+          aria-label={`Call Franko on ${CALL_NUMBERS[0].display}`}
+          className="inline-flex h-full items-center gap-1.5 tabular-nums transition-colors hover:text-[#E50914] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFD400]"
+        >
+          <Icon name="phone" size={14} strokeWidth={2.6} />
+          <span>{CALL_NUMBERS[0].display}</span>
+        </a>
+        <span className="mx-1.5 text-[#080808]/35" aria-hidden="true">
+          /
+        </span>
+        <a
+          href={CALL_NUMBERS[1].href}
+          aria-label={`Call Franko on ${CALL_NUMBERS[1].display}`}
+          className="inline-flex h-full items-center tabular-nums transition-colors hover:text-[#E50914] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFD400]"
+        >
+          {CALL_NUMBERS[1].display}
+        </a>
+      </div>
 
       <a
         href="https://wa.me/233503607980"
@@ -470,6 +607,7 @@ const AnnouncementBar = () => {
   const slides = phase === "ended" ? SLIDES.filter((s) => s.id === "delivery") : SLIDES;
 
   const [slideId, setSlideId] = useState(SLIDES[0].id);
+  const [callModalOpen, setCallModalOpen] = useState(false);
   const slide = slides.find((s) => s.id === slideId) ?? slides[0];
   const canRotate = slides.length > 1;
 
@@ -511,6 +649,10 @@ const AnnouncementBar = () => {
     if (v) tweenRef.current?.pause();
     else tweenRef.current?.resume();
   }, []);
+
+  useEffect(() => {
+    setPaused(callModalOpen);
+  }, [callModalOpen, setPaused]);
 
   useEffect(
     () => () => {
@@ -613,105 +755,109 @@ const AnnouncementBar = () => {
   );
 
   const onPointerEnter = (e) => e.pointerType === "mouse" && setPaused(true);
-  const onPointerLeave = (e) => e.pointerType === "mouse" && setPaused(false);
+  const onPointerLeave = (e) => e.pointerType === "mouse" && !callModalOpen && setPaused(false);
   const onTouchStart = () => {
     clearTimeout(resumeTimer.current);
     setPaused(true);
   };
   const onTouchEnd = () => {
-    resumeTimer.current = setTimeout(() => setPaused(false), 2500);
+    if (!callModalOpen) resumeTimer.current = setTimeout(() => setPaused(false), 2500);
   };
 
   return (
-    <div
-      ref={rootRef}
-      className="fk-root relative w-full overflow-hidden text-white"
-      role="region"
-      aria-label="Franko promotions"
-      onPointerEnter={onPointerEnter}
-      onPointerLeave={onPointerLeave}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-      onFocus={() => setPaused(true)}
-      onBlur={() => setPaused(false)}
-    >
-      <style>{CSS}</style>
+    <>
+      <div
+        ref={rootRef}
+        className="fk-root relative w-full overflow-hidden text-white"
+        role="region"
+        aria-label="Franko promotions"
+        onPointerEnter={onPointerEnter}
+        onPointerLeave={onPointerLeave}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        onFocus={() => setPaused(true)}
+        onBlur={() => !callModalOpen && setPaused(false)}
+      >
+        <style>{CSS}</style>
 
-      <div className="fk-bg relative">
-        <span
-          data-shine
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-        />
+        <div className="fk-bg relative">
+          <span
+            data-shine
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+          />
 
-        <div className="relative z-[1] mx-auto flex max-w-[1920px] flex-col lg:h-11 lg:flex-row lg:items-center lg:px-2">
-          {/* ═══ PROMO ═══ */}
-          <div className="flex h-8 min-w-0 items-center justify-center gap-2 px-1.5 lg:h-full lg:flex-1 lg:justify-start lg:px-0">
-            <div className="flex h-full min-w-0 items-center overflow-hidden">
-              <div key={slide.id} ref={stageRef} className="flex min-w-0 items-center gap-1.5 md:gap-2">
-                {slide.icon && (
-                  <span data-icon className="shrink-0 text-[#FFD400]">
-                    <Icon name={slide.icon} size={16} />
-                  </span>
-                )}
+          <div className="relative z-[1] mx-auto flex max-w-[1920px] flex-col lg:h-11 lg:flex-row lg:items-center lg:px-2">
+            {/* ═══ PROMO ═══ */}
+            <div className="flex h-8 min-w-0 items-center justify-center gap-2 px-1.5 lg:h-full lg:flex-1 lg:justify-start lg:px-0">
+              <div className="flex h-full min-w-0 items-center overflow-hidden">
+                <div key={slide.id} ref={stageRef} className="flex min-w-0 items-center gap-1.5 md:gap-2">
+                  {slide.icon && (
+                    <span data-icon className="shrink-0 text-[#FFD400]">
+                      <Icon name={slide.icon} size={16} />
+                    </span>
+                  )}
 
-                <span className="fk-text min-w-0 truncate text-[clamp(12px,3.75vw,15px)] font-black leading-none md:text-base lg:text-[14.5px] xl:text-[15.5px] 2xl:text-[15.5px]">
-                  <span className="sr-only">{plainText(slide.full)}</span>
-                  <span aria-hidden="true" className="md:hidden">
-                    <Chars parts={slide.tiny ?? slide.short ?? slide.full} />
+                  <span className="fk-text min-w-0 truncate text-[clamp(12px,3.75vw,15px)] font-black leading-none md:text-base lg:text-[14.5px] xl:text-[15.5px] 2xl:text-[15.5px]">
+                    <span className="sr-only">{plainText(slide.full)}</span>
+                    <span aria-hidden="true" className="md:hidden">
+                      <Chars parts={slide.tiny ?? slide.short ?? slide.full} />
+                    </span>
+                    <span aria-hidden="true" className="hidden md:inline lg:hidden 2xl:inline">
+                      <Chars parts={slide.full} />
+                    </span>
+                    <span aria-hidden="true" className="hidden lg:inline 2xl:hidden">
+                      <Chars parts={slide.short ?? slide.full} />
+                    </span>
                   </span>
-                  <span aria-hidden="true" className="hidden md:inline lg:hidden 2xl:inline">
-                    <Chars parts={slide.full} />
-                  </span>
-                  <span aria-hidden="true" className="hidden lg:inline 2xl:hidden">
-                    <Chars parts={slide.short ?? slide.full} />
-                  </span>
-                </span>
+                </div>
               </div>
+
+              {canRotate && (
+                <div className="hidden shrink-0 items-center md:flex lg:hidden 2xl:flex">
+                  {slides.map((s, i) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => goTo(s.id)}
+                      aria-label={`Show message ${i + 1} of ${slides.length}`}
+                      aria-current={s.id === slide.id ? "true" : undefined}
+                      className="flex h-6 items-center rounded px-[3px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                    >
+                      <span
+                        className="block h-2 rounded-full transition-[width,background-color] duration-300"
+                        style={{
+                          width: s.id === slide.id ? 18 : 8,
+                          backgroundColor: s.id === slide.id ? "#FFD400" : "rgba(255,255,255,0.45)",
+                        }}
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {canRotate && (
-              <div className="hidden shrink-0 items-center md:flex lg:hidden 2xl:flex">
-                {slides.map((s, i) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => goTo(s.id)}
-                    aria-label={`Show message ${i + 1} of ${slides.length}`}
-                    aria-current={s.id === slide.id ? "true" : undefined}
-                    className="flex h-6 items-center rounded px-[3px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                  >
-                    <span
-                      className="block h-2 rounded-full transition-[width,background-color] duration-300"
-                      style={{
-                        width: s.id === slide.id ? 18 : 8,
-                        backgroundColor: s.id === slide.id ? "#FFD400" : "rgba(255,255,255,0.45)",
-                      }}
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* ═══ BOTTOM ROW (mobile) / INLINE ROW (desktop) ═══
+                Countdown → Contact on every breakpoint. */}
+            <div className="flex h-[34px] items-center gap-1 border-t border-white/15 bg-black/15 px-1.5 lg:contents lg:h-auto lg:border-0 lg:bg-transparent lg:gap-0 lg:px-0">
+              <Countdown />
+              <Contact onOpenCallModal={() => setCallModalOpen(true)} />
+            </div>
           </div>
 
-          {/* ═══ BOTTOM ROW (mobile) / INLINE ROW (desktop) ═══
-              Countdown → Contact on every breakpoint. */}
-          <div className="flex h-[34px] items-center gap-1 border-t border-white/15 bg-black/15 px-1.5 lg:contents lg:h-auto lg:border-0 lg:bg-transparent lg:gap-0 lg:px-0">
-            <Countdown />
-            <Contact />
-          </div>
+          {canRotate && (
+            <span
+              ref={progressRef}
+              aria-hidden="true"
+              className="absolute bottom-0 left-0 h-[3px] w-full origin-left"
+              style={{ transform: "scaleX(0)", background: "linear-gradient(90deg,#FFD400,#FF9F0F,#E50914)" }}
+            />
+          )}
         </div>
-
-        {canRotate && (
-          <span
-            ref={progressRef}
-            aria-hidden="true"
-            className="absolute bottom-0 left-0 h-[3px] w-full origin-left"
-            style={{ transform: "scaleX(0)", background: "linear-gradient(90deg,#FFD400,#FF9F0F,#E50914)" }}
-          />
-        )}
       </div>
-    </div>
+
+      <CallModal open={callModalOpen} onClose={() => setCallModalOpen(false)} />
+    </>
   );
 };
 
