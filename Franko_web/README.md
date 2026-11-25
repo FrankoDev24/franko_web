@@ -1,12 +1,36 @@
-# React + Vite
+# Franko Trading Enterprise — Storefront App (`Franko_web`)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend application package for **[frankotrading.com](https://www.frankotrading.com)** (React 19, Vite 6, Redux Toolkit, Tailwind CSS 3).
 
-Currently, two official plugins are available:
+For the full project overview, system architecture, engineering deep dives, and deployment instructions, see the [root `README.md`](../README.md).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Quick Commands
 
-## Expanding the ESLint configuration
+```bash
+# Install exact lockfile dependencies
+npm ci
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+# Local development (optionally create an untracked .env from .env.example)
+npm run dev
+
+# Production build (never reads .env files; uses platform/CI process.env)
+# Automatically runs generate-sitemap.js + verify-no-env.mjs in postbuild
+npm run build
+
+# Regenerate sitemap.xml, _redirects, seo-index.json & seo-redirects.nginx.conf
+npm run generate:sitemap
+
+# Verify no .env files exist in public/ or dist/
+npm run verify:no-env
+
+# Run unit tests (node:test)
+npm test
+```
+
+## Key Documentation
+
+- [`../README.md`](../README.md) — Architecture, engineering highlights, and `.env`-free deployment guide
+- [`./.env.example`](./.env.example) — Reference list of `VITE_*` and `SEO_*` environment variables
+- [`./seo/README.md`](./seo/README.md) — Product snapshot import & sitemap refresh workflow
+- [`./SITEMAP_UPDATE_2026-11-25.md`](./SITEMAP_UPDATE_2026-11-25.md) — Latest 397-URL catalog sitemap update log
+- [`./SEO_MIGRATION.md`](./SEO_MIGRATION.md) — Name-only slug routing & 301 redirect architecture

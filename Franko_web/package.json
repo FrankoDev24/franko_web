@@ -8,8 +8,10 @@
         "dev": "vite",
         "build": "vite build",
         "preview": "vite preview",
-        "postbuild": "node generate-sitemap.js",
-        "generate:sitemap": "node generate-sitemap.js"
+        "postbuild": "node generate-sitemap.js && node scripts/verify-no-env.mjs",
+        "generate:sitemap": "node generate-sitemap.js",
+        "verify:no-env": "node scripts/verify-no-env.mjs",
+        "test": "node --test src/utils/*.test.mjs"
     },
     "dependencies": {
         "@emotion/react": "^11.14.0",

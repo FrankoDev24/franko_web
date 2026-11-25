@@ -1,5 +1,130 @@
 [
   {
+    "productID": "10432410-df7e-4cdf-9d67-5ecc16018fde",
+    "productName": "Asano Fridge (As-A408) Side By Side (68kg)",
+    "status": 1
+  },
+  {
+    "productID": "6216aa1b-77b4-41bf-8366-8ba4a511d13c",
+    "productName": "Asano Fridge - Quad Door (As-476) 476l",
+    "status": 1
+  },
+  {
+    "productID": "0f245016-16df-48df-a8de-1b261ac64936",
+    "productName": "Tecno MegaPad 2 (256GB+6GB) & Protective Case",
+    "status": 1
+  },
+  {
+    "productID": "d6916ddd-3752-4c2f-976a-9801bc8ea30f",
+    "productName": "Tecno MegaPad 2 (128GB+6GB) & Protective Case",
+    "status": 1
+  },
+  {
+    "productID": "8c2d2e9f-72c3-4141-b4bf-9906699474cc",
+    "productName": "Itel 6133",
+    "status": 1
+  },
+  {
+    "productID": "ef1e8a3c-076d-4c1b-ad18-5cc8c7dc8d1a",
+    "productName": "Itel Data Cable (L24S)",
+    "status": 1
+  },
+  {
+    "productID": "093b7392-8743-4301-8976-8a3f80f1e09a",
+    "productName": "Itel BudsFits 5",
+    "status": 1
+  },
+  {
+    "productID": "161214c9-6d78-4eec-982a-c080239c34b8",
+    "productName": "Skyworth 55\" Tv (Google Tv, 4k, Qled+) 55Q6600k",
+    "status": 1
+  },
+  {
+    "productID": "16b90387-1043-4ec4-8cec-758fdb86c79f",
+    "productName": "Skyworth Tv 60\" (Google Tv, 4k, Qled+) Q6800h",
+    "status": 1
+  },
+  {
+    "productID": "3f4fc09c-4e83-4216-aa74-62b33f965c4c",
+    "productName": "Asus Core i5 (16/512ssd) B3402fb With Bag, Mouse and Stylus Pen",
+    "status": 1
+  },
+  {
+    "productID": "1b6c6295-3a5a-4680-ad73-72d0ca744844",
+    "productName": "HP Ultra 5 (24/1tb Ssd) 15-Fd1003nq",
+    "status": 1
+  },
+  {
+    "productID": "d2e9ef32-6a0d-4702-9616-7e74a10f707b",
+    "productName": "Lenovo Cel (8/256ssd) V15 G2 Ijl",
+    "status": 1
+  },
+  {
+    "productID": "e0736000-e1a5-450d-a8dc-ae504d2eca21",
+    "productName": "HP i3 N305 (8/256 Ssd) 15-Fd0130wm Touchscreen",
+    "status": 1
+  },
+  {
+    "productID": "ad13c40e-7c7b-4dde-8094-90ac461577c6",
+    "productName": "HP Omen i7 (16/512 Ssd) 16-Wf0020nia Nvd",
+    "status": 1
+  },
+  {
+    "productID": "2b0d295c-b9c6-4181-a130-bd8fc3133ab1",
+    "productName": "HP Amd Ryzen 5 (8/1tb Ssd) 15-Fc0025wm Touchscreen",
+    "status": 1
+  },
+  {
+    "productID": "d0aef6de-1121-4bd5-893e-c1292716c4e4",
+    "productName": "HP Victus i5 (8/512ssd) 15-Fa2013dx",
+    "status": 1
+  },
+  {
+    "productID": "f2a7a4fb-8721-4c23-9d45-3b8e8c11923a",
+    "productName": "HP i5 Victus (16/512 Ssd) 15-Fa2082wm Nvd Gaming Laptop",
+    "status": 1
+  },
+  {
+    "productID": "2c56182b-e524-4150-b6c0-0bff2420087e",
+    "productName": "HP i7 Victus (16/512 Ssd) 15-Fa2104tx Nvd Gaming Laptop",
+    "status": 1
+  },
+  {
+    "productID": "9b23c103-7c12-48d3-8711-63539269c83b",
+    "productName": "Omniq Desktop Tablet Holder",
+    "status": 1
+  },
+  {
+    "productID": "83536418-2cf7-4ccd-adc0-7be8e628e583",
+    "productName": "HP i7 Victus (24/1tb Ssd) 15-Fq2309tx Nvd",
+    "status": 1
+  },
+  {
+    "productID": "6a3de531-7591-4b99-aed2-7b3dc5ea14ae",
+    "productName": "Lenovo i5 Ideapad | Slim 5 | 16GB RAM | 1TB SSD | 14irh10 | 14\" Display",
+    "status": 1
+  },
+  {
+    "productID": "1709bf87-5e2e-4584-87ed-b677b523b0f5",
+    "productName": "Infinix Xpad 30 Tablet (X1102d) (128GB + 4GB) - Plus Free Protective Case",
+    "status": 1
+  },
+  {
+    "productID": "76d0e9a4-5961-4d23-9cd6-73ad7e004ef4",
+    "productName": "Franko Ac (2.5hp) Tcl-F24as",
+    "status": 1
+  },
+  {
+    "productID": "bd762b6d-7802-461e-b0ae-c25763daf4ee",
+    "productName": "Franko Ac (2.0hp) Tcl -F18as",
+    "status": 1
+  },
+  {
+    "productID": "4f5f27d6-d695-4c1c-9b3b-6f109bf7be68",
+    "productName": "Oraimo Data Cable (Ocd-1525cc)",
+    "status": 1
+  },
+  {
     "productID": "5f14a1dd-77d5-47ed-8075-12b2bf39642a",
     "productName": "Itel A300+ (128GB + 4GB)",
     "status": 1
@@ -96,7 +221,7 @@
   },
   {
     "productID": "ccc873de-e13c-45f7-9e39-a14b312b697d",
-    "productName": "Skyworth Tv 85 (Google Tv,4k,Qled+)",
+    "productName": "Skyworth Tv 85 (Google Tv, 4K, Qled+)",
     "status": 1
   },
   {
@@ -190,18 +315,8 @@
     "status": 1
   },
   {
-    "productID": "1ea07fd3-5276-4b6c-ac40-03c678760c63",
-    "productName": "iPhone 17 (256GB)",
-    "status": 1
-  },
-  {
     "productID": "d9c45f3b-90e0-4c29-8dd7-57f788cea46d",
     "productName": "iPhone 16 Plus (256GB)",
-    "status": 1
-  },
-  {
-    "productID": "7b8aacec-11b2-488b-82e6-159e792f4a2a",
-    "productName": "iPhone 16 Pro Max (256GB) E.Sim",
     "status": 1
   },
   {
@@ -211,7 +326,7 @@
   },
   {
     "productID": "0ba7e992-81ad-4428-afd0-4778074d1017",
-    "productName": "Iphone 18 Pro Max (512GB) E.Sim",
+    "productName": "iPhone 18 Pro Max (512GB) E.Sim",
     "status": 1
   },
   {
@@ -285,6 +400,11 @@
     "status": 1
   },
   {
+    "productID": "0c9e1132-804a-42e3-a53e-cba1f623cfd5",
+    "productName": "Lagenio A10 (64GB+4GB)",
+    "status": 1
+  },
+  {
     "productID": "ffdcf5de-21de-4829-921b-3ecde7c196e3",
     "productName": "Alcatel 1023 (A32ae)",
     "status": 1
@@ -350,11 +470,6 @@
     "status": 1
   },
   {
-    "productID": "b6c4a1c7-4bb7-4fc1-8e2d-ae7eb300c343",
-    "productName": "Franko Twin Tub Washing Machine 10kg (F1065tbw)",
-    "status": 1
-  },
-  {
     "productID": "37ebb4a7-82d4-41e5-8c46-fc58f909cf7d",
     "productName": "Franko Twin Tub Washing Machine 6kg (F635tbw)",
     "status": 1
@@ -377,11 +492,6 @@
   {
     "productID": "4f3d7d07-1f94-4f3b-aafd-8d1a0c9150b8",
     "productName": "Samsung A07s (64GB + 4GB)",
-    "status": 1
-  },
-  {
-    "productID": "5e5d0a27-41d4-49b3-9827-bc2ee2210fdc",
-    "productName": "Huawei 4G Mobile Wifi 5",
     "status": 1
   },
   {
@@ -455,23 +565,13 @@
     "status": 1
   },
   {
-    "productID": "d7b37f3d-c307-40f8-9a04-f540c60776c3",
-    "productName": "Franko Ac (1.5hp) Tcl-Fr-12fsa",
-    "status": 1
-  },
-  {
     "productID": "3dfb8afc-617b-4b9d-90e9-88ae9e70a099",
     "productName": "Itel Chest Freezer (Frz418l)",
     "status": 1
   },
   {
     "productID": "b939d2c8-64f5-41b9-bd6d-a731648dc34a",
-    "productName": "Franko Ac (2.5hp) Tcl-F24as",
-    "status": 1
-  },
-  {
-    "productID": "89dd5ee7-a70c-4376-b849-61fd9ef4caec",
-    "productName": "Franko Ac (2.0hp) Tcl-Fr-18fsa",
+    "productName": "Franko Ac (1.5hp) Tcl -F12as",
     "status": 1
   },
   {
@@ -645,11 +745,6 @@
     "status": 1
   },
   {
-    "productID": "3a19075b-fe4a-403b-8c59-bd8d339e8458",
-    "productName": "HP Omnibook | 5 Flip | Core 5 | 8GB RAM | 512GB SSD | 14-FP0013dx",
-    "status": 1
-  },
-  {
     "productID": "6205a38a-0eb3-41e7-84c8-836dca4e458c",
     "productName": "Itel 2167 (Type C)",
     "status": 1
@@ -735,11 +830,6 @@
     "status": 1
   },
   {
-    "productID": "de9a3124-eaa1-4345-ab41-09439d2d5f88",
-    "productName": "HP Ryzen 5 | 16GB RAM | 512GB SSD | 15\" Display | 255 G10 15\" 7th",
-    "status": 1
-  },
-  {
     "productID": "58202bb1-f452-4110-ab68-b73ae9eb9b65",
     "productName": "Infinix Hot 70 (256GB + 6GB)",
     "status": 1
@@ -747,11 +837,6 @@
   {
     "productID": "535c4825-32d2-4d52-a0b2-6892fac7cdcd",
     "productName": "Infinix Hot 70 (128GB + 4GB)",
-    "status": 1
-  },
-  {
-    "productID": "70ac1a90-1b58-4545-8a40-46a07efee0fa",
-    "productName": "Samsung Galaxy A57 (256GB + 8GB)",
     "status": 1
   },
   {
@@ -867,6 +952,11 @@
   {
     "productID": "a307c896-6329-476a-b994-9acb78646841",
     "productName": "Dell i5 | 1334u | 8GB RAM | 512GB SSD | Dc 15250",
+    "status": 1
+  },
+  {
+    "productID": "57996eec-c802-4b5d-8e23-d969427b8dec",
+    "productName": "HP i3 | 8GB RAM | 256 SSD | 15-Fd0230wm (N305) | 15.6\" Display | Touchscreen",
     "status": 1
   },
   {
@@ -1095,6 +1185,11 @@
     "status": 1
   },
   {
+    "productID": "2147314c-04cf-4e90-b409-9e0c1fdb8019",
+    "productName": "Franko Microwave Oven (F23M5A4) 23L",
+    "status": 1
+  },
+  {
     "productID": "51c705ec-6d8e-4859-8c15-06342e3e1d43",
     "productName": "Samsung Galaxy Z Fold 7 (12GB + 256GB)",
     "status": 1
@@ -1142,16 +1237,6 @@
   {
     "productID": "963f0dd4-7e04-4798-a2a7-24d9d978318c",
     "productName": "Franko Speaker 906 (5.1)",
-    "status": 1
-  },
-  {
-    "productID": "3ea4762f-9f0c-45e6-9afb-8c1c744e4164",
-    "productName": "HP i7 | 8GB RAM | 512GB SSD | 15.6\" Display | 15 - FD0229Nia",
-    "status": 1
-  },
-  {
-    "productID": "466524c1-a12a-4207-92e3-8ea76979ea97",
-    "productName": "Acer | Aspire 3 | i3 | 8GB RAM | 512SSD | 15.6\" Display - A325-53",
     "status": 1
   },
   {
@@ -1240,6 +1325,11 @@
     "status": 1
   },
   {
+    "productID": "1ca73624-af69-4dd4-9097-c8c747d231ab",
+    "productName": "Itel 2165 - Classic Feature Phone",
+    "status": 1
+  },
+  {
     "productID": "87c08103-37e6-417a-9e6d-9dd157cd5b1e",
     "productName": "Anker Soundcore Air  2  Earbud",
     "status": 1
@@ -1282,6 +1372,11 @@
   {
     "productID": "2a9870de-8bbd-48c6-9735-2be6d30e8752",
     "productName": "Asano Double Door Fridge (As-230) 38kg",
+    "status": 1
+  },
+  {
+    "productID": "cb4f3919-1556-45c1-82f7-bfd10e2c6975",
+    "productName": "Skyworth 32” Tv",
     "status": 1
   },
   {
@@ -1340,13 +1435,13 @@
     "status": 1
   },
   {
-    "productID": "f2ddcfa7-441f-4479-b328-5b9b1ab0a0f9",
-    "productName": "Heatz Smart Watch",
+    "productID": "fa2647fa-d3be-4592-a5ce-f53fcc043198",
+    "productName": "Heatz Smart Watch (Hw17)",
     "status": 1
   },
   {
-    "productID": "fa2647fa-d3be-4592-a5ce-f53fcc043198",
-    "productName": "Heatz Smart Watch (Hw17)",
+    "productID": "f2ddcfa7-441f-4479-b328-5b9b1ab0a0f9",
+    "productName": "Heatz Smart Watch",
     "status": 1
   },
   {
@@ -1407,11 +1502,6 @@
   {
     "productID": "7b6124bf-bab4-4846-81f6-18e1d1d0fefe",
     "productName": "Skyworth 100\" Google Tv, QLED+, 4K",
-    "status": 1
-  },
-  {
-    "productID": "2528eff2-2176-435e-8559-a90c6e66e55b",
-    "productName": "Tecno Phantom V Fold 2 (512GB + 12GB)",
     "status": 1
   },
   {
@@ -1752,11 +1842,6 @@
   {
     "productID": "e2304d6f-ebb1-4701-b86d-3d542f03da7a",
     "productName": "HP Spectre | Ultra 7 | 16GB RAM | 1TB SSD |  14\" Display | 14-EU0013Dx",
-    "status": 1
-  },
-  {
-    "productID": "f25391ac-f5e7-48b0-93cd-216390c02dc3",
-    "productName": "Lenovo Amd Ryzen 3 | 8GB | 256GB SSD | 15.6\" Display | Ideapad 1-15amn7",
     "status": 1
   },
   {

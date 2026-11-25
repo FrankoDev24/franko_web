@@ -1,5 +1,6 @@
 node_modules
 node_modules
+.env
 # local env files
 
 # build and deps
@@ -9,3 +10,24 @@ build/
 public/_redirects
 public/seo-index.json
 seo-redirects.nginx.conf
+.env
+# Environment files — never commit or deploy .env files
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Dependencies & build artifacts
+node_modules/
+dist/
+dist-ssr/
+build/
+.vite/
+
+# OS & editor artifacts
+.DS_Store
+Thumbs.db
+*.log
+*.local

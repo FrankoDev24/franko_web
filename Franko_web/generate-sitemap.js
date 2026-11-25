@@ -1,5 +1,6 @@
-// Generate sitemap + genuine hosting redirects from the SAME live catalogue.
-import 'dotenv/config';
+// Generate sitemap + genuine hosting redirects from the SAME catalogue.
+// Deployments run without a `.env` file: configuration is read from process.env
+// (injected by the hosting provider / CI) or from the checked-in SEO snapshot.
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { seoArtifacts } from './scripts/seo-artifacts.mjs';
