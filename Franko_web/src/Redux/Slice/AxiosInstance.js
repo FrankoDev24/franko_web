@@ -77,6 +77,51 @@ export const updateLastActivity = () => {
   }
 };
 
+/* ═══════════════════════════════════════════════════════════════
+   BLACK FRIDAY PRODUCT FILTER
+   Hide every product whose showRoomName is "Black Friday" from the
+   entire website. Applied centrally on the axios response so no page
+   (Home, category pages, Products, Brands, Showroom, /blackfriday,
+   /telecel-blackfriday, …) needs its own filter.
+   ═══════════════════════════════════════════════════════════════ */
+const BLACK_FRIDAY_SHOWROOM = "black friday";
+
+export const isBlackFridayProduct = (item) => {
+  if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+  const showroom = String(
+    item.showRoomName ?? item.ShowRoomName ?? item.showroomName ?? ""
+  )
+    .trim()
+    .toLowerCase();
+  return showroom === BLACK_FRIDAY_SHOWROOM;
+};
+
+const isPlainData = (value) =>
+  value !== null &&
+  typeof value === "object" &&
+  !Array.isArray(value) &&
+  Object.getPrototypeOf(value) === Object.prototype;
+
+export const stripBlackFridayProducts = (value) => {
+  if (Array.isArray(value)) {
+    const out = [];
+    for (const item of value) {
+      if (isBlackFridayProduct(item)) continue;
+      out.push(stripBlackFridayProducts(item));
+    }
+    return out;
+  }
+  if (isPlainData(value)) {
+    if (isBlackFridayProduct(value)) return null;
+    const out = {};
+    for (const [key, child] of Object.entries(value)) {
+      out[key] = stripBlackFridayProducts(child);
+    }
+    return out;
+  }
+  return value;
+};
+
 const axiosInstance = axios.create({
   baseURL: LAMBDA_BASE_URL,
   timeout: 30000,
@@ -118,7 +163,12 @@ axiosInstance.interceptors.request.use(
  * decide whether the user is active and whether the token can be refreshed.
  */
 axiosInstance.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (response?.data) {
+      response.data = stripBlackFridayProducts(response.data);
+    }
+    return response;
+  },
   (error) => Promise.reject(error)
 );
 
