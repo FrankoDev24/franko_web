@@ -1,21 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Button,
+  Checkbox,
   Form,
   Input,
   InputNumber,
   Modal,
   Select,
-  Tag,
 } from 'antd';
 import {
   AimOutlined,
-  ArrowLeftOutlined,
-  CarOutlined,
+  CheckCircleFilled,
   CheckCircleOutlined,
   DollarOutlined,
   EditOutlined,
   EnvironmentOutlined,
+  InfoCircleOutlined,
   LockOutlined,
   PhoneOutlined,
   PushpinOutlined,
@@ -35,15 +35,15 @@ const checkoutFormStyles = `
   margin-bottom: 18px;
 }
 .cf-form-ui .ant-form-item-label > label {
-  color: #243247;
+  color: #1f3327;
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 700;
 }
 .cf-form-ui .ant-input-affix-wrapper,
 .cf-form-ui .ant-input,
 .cf-form-ui .ant-input-number,
 .cf-form-ui .ant-select-selector {
-  border-color: #dce5e1 !important;
+  border-color: #d7e7dd !important;
   border-radius: 12px !important;
 }
 .cf-form-ui .ant-input-affix-wrapper,
@@ -54,14 +54,14 @@ const checkoutFormStyles = `
 .cf-form-ui .ant-input-affix-wrapper-focused,
 .cf-form-ui .ant-input:focus,
 .cf-form-ui .ant-select-focused .ant-select-selector {
-  border-color: #16a34a !important;
-  box-shadow: 0 0 0 3px rgba(22, 163, 74, .10) !important;
+  border-color: #22c55e !important;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, .14) !important;
 }
 .cf-form-ui .cf-locked-field {
-  background: #f4f8f5;
+  background: #f3fbf6;
 }
 .cf-form-ui .cf-locked-field input {
-  color: #344b3d;
+  color: #264d36;
   font-weight: 700;
 }
 .cf-field-note {
@@ -69,22 +69,22 @@ const checkoutFormStyles = `
   align-items: flex-start;
   gap: 7px;
   margin-top: 8px;
-  color: #65736b;
+  color: #64756b;
   font-size: 12px;
   line-height: 1.5;
 }
 .cf-lock-note {
-  color: #14532d;
+  color: #15803d;
 }
 .cf-address-card {
   display: flex;
   width: 100%;
   align-items: center;
   gap: 14px;
-  padding: 16px;
-  border: 1px solid #dce8e0;
+  padding: 15px 16px;
+  border: 1px solid #d2ecd9;
   border-radius: 16px;
-  background: linear-gradient(135deg, #ffffff 0%, #f6fbf7 100%);
+  background: linear-gradient(135deg, #ffffff 0%, #f3fbf6 100%);
   color: #1f2937;
   cursor: pointer;
   text-align: left;
@@ -93,7 +93,7 @@ const checkoutFormStyles = `
 .cf-address-card:hover {
   transform: translateY(-1px);
   border-color: #4ade80;
-  box-shadow: 0 10px 24px rgba(20, 83, 45, .10);
+  box-shadow: 0 10px 24px rgba(34, 197, 94, .12);
 }
 .cf-address-card-selected {
   border-color: #86efac;
@@ -101,15 +101,15 @@ const checkoutFormStyles = `
 }
 .cf-address-icon {
   display: grid;
-  width: 46px;
-  height: 46px;
-  flex: 0 0 46px;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
   place-items: center;
-  border-radius: 15px;
-  background: linear-gradient(135deg, #16a34a, #15803d);
-  box-shadow: 0 5px 12px rgba(22, 163, 74, .22);
-  color: white;
-  font-size: 20px;
+  border-radius: 14px;
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+  color: #16a34a;
+  font-size: 19px;
 }
 .cf-address-copy {
   min-width: 0;
@@ -117,25 +117,25 @@ const checkoutFormStyles = `
 }
 .cf-address-eyebrow {
   display: block;
-  margin-bottom: 4px;
-  color: #15803d;
+  margin-bottom: 3px;
+  color: #16a34a;
   font-size: 10px;
-  font-weight: 850;
-  letter-spacing: .10em;
+  font-weight: 800;
+  letter-spacing: .09em;
   text-transform: uppercase;
 }
 .cf-address-value {
   display: block;
-  color: #17251c;
+  color: #14281d;
   font-size: 14px;
   font-weight: 800;
-  line-height: 1.45;
+  line-height: 1.4;
   overflow-wrap: anywhere;
 }
 .cf-address-subtitle {
   display: block;
-  margin-top: 4px;
-  color: #718078;
+  margin-top: 3px;
+  color: #6b7c72;
   font-size: 12px;
   line-height: 1.4;
 }
@@ -144,21 +144,25 @@ const checkoutFormStyles = `
   flex: 0 0 auto;
   align-items: center;
   gap: 6px;
-  padding: 8px 10px;
-  border: 1px solid #d9e9de;
+  padding: 8px 11px;
+  border: 1px solid #bbf7d0;
   border-radius: 10px;
-  background: white;
-  color: #166534;
+  background: #f0fdf4;
+  color: #15803d;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 750;
+  transition: background .15s ease;
+}
+.cf-address-card:hover .cf-address-action {
+  background: #dcfce7;
 }
 .cf-guest-gate {
   display: flex;
   gap: 12px;
   padding: 15px;
-  border: 1px solid #dbeafe;
+  border: 1px solid #d1fae5;
   border-radius: 14px;
-  background: linear-gradient(135deg, #f0f9ff, #ffffff);
+  background: #f0fdf4;
 }
 .cf-guest-gate-icon {
   display: grid;
@@ -167,19 +171,19 @@ const checkoutFormStyles = `
   flex: 0 0 38px;
   place-items: center;
   border-radius: 12px;
-  background: #e0f2fe;
-  color: #0369a1;
+  background: #dcfce7;
+  color: #15803d;
   font-size: 17px;
 }
 .cf-guest-gate strong {
   display: block;
   margin: 1px 0 4px;
-  color: #164e63;
+  color: #14532d;
   font-size: 13px;
 }
 .cf-guest-gate p {
   margin: 0;
-  color: #526875;
+  color: #4f6b59;
   font-size: 12px;
   line-height: 1.5;
 }
@@ -191,79 +195,148 @@ const checkoutFormStyles = `
 .cf-agent-fee-row .ant-input-number {
   width: 170px;
 }
+
+/* ── Minimal Light-Green Delivery Modal ── */
 .cf-location-modal .ant-modal-content {
   overflow: hidden;
-  border-radius: 20px;
+  border-radius: 22px;
+  border: 1px solid #dcfce7;
+  box-shadow: 0 24px 60px rgba(15, 45, 25, .14);
 }
 .cf-location-modal .ant-modal-close {
-  color: white;
+  top: 18px;
+  right: 18px;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid #dcfce7;
+  color: #4b6354;
+  transition: background .15s ease, color .15s ease;
 }
 .cf-location-modal .ant-modal-close:hover {
-  color: #dcfce7;
+  background: #dcfce7;
+  color: #14532d;
 }
+
 .cf-location-hero {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 22px 56px 20px 22px;
-  background:
-    radial-gradient(circle at top right, rgba(187, 247, 208, .25), transparent 38%),
-    linear-gradient(135deg, #14532d, #15803d);
-  color: white;
+  padding: 20px 56px 18px 22px;
+  background: linear-gradient(135deg, #f4fdf7 0%, #e6f9ed 100%);
+  border-bottom: 1px solid #dcfce7;
 }
 .cf-location-hero-icon {
   display: grid;
-  width: 48px;
-  height: 48px;
-  flex: 0 0 48px;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
   place-items: center;
-  border: 1px solid rgba(255,255,255,.25);
-  border-radius: 16px;
-  background: rgba(255,255,255,.13);
-  font-size: 22px;
-}
-.cf-location-kicker {
-  margin: 0 0 3px;
-  color: #bbf7d0;
-  font-size: 10px;
-  font-weight: 850;
-  letter-spacing: .14em;
+  border-radius: 14px;
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+  color: #16a34a;
+  font-size: 20px;
 }
 .cf-location-hero h3 {
   margin: 0;
-  color: white;
-  font-size: 19px;
-  font-weight: 850;
+  color: #112a1b;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -.01em;
 }
 .cf-location-hero p {
-  margin: 4px 0 0;
-  color: rgba(255,255,255,.82);
-  font-size: 12px;
-  line-height: 1.45;
+  margin: 2px 0 0;
+  color: #5c7666;
+  font-size: 12.5px;
+  line-height: 1.4;
 }
+
 .cf-location-content {
-  padding: 20px;
+  padding: 18px 22px 20px;
+  background: #ffffff;
 }
+
+/* Mode switcher */
+.cf-mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 18px;
+  border-radius: 12px;
+  background: #f2faf5;
+  border: 1px solid #dcfce7;
+}
+.cf-mode-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #5c7666;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .18s ease;
+}
+.cf-mode-tab:hover:not(.is-active) {
+  color: #166534;
+}
+.cf-mode-tab.is-active {
+  background: #ffffff;
+  color: #15803d;
+  box-shadow: 0 2px 8px rgba(22, 163, 74, .10);
+  border: 1px solid #bbf7d0;
+}
+
 .cf-location-step-label {
   display: block;
-  margin-bottom: 8px;
-  color: #37483d;
+  margin-bottom: 7px;
+  color: #364e3f;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 750;
 }
+
 .cf-location-search {
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 .cf-location-search .ant-input-affix-wrapper {
-  min-height: 48px;
-  border-radius: 13px;
+  min-height: 44px;
+  border-radius: 12px !important;
+  border-color: #d7ebe0 !important;
+  background: #fafdfb;
 }
+.cf-location-search .ant-input-affix-wrapper-focused,
+.cf-location-search .ant-input-affix-wrapper:hover {
+  border-color: #4ade80 !important;
+  background: #ffffff;
+}
+.cf-location-search .ant-input-affix-wrapper-focused {
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, .14) !important;
+}
+.cf-location-search .ant-input {
+  background: transparent;
+}
+
 .cf-location-results {
   display: grid;
-  max-height: 230px;
-  gap: 7px;
-  margin: 10px 0 15px;
-  overflow: auto;
+  max-height: 220px;
+  gap: 6px;
+  margin: 0 0 14px;
+  padding-right: 2px;
+  overflow-y: auto;
+}
+.cf-location-results::-webkit-scrollbar {
+  width: 5px;
+}
+.cf-location-results::-webkit-scrollbar-thumb {
+  background: #cdebd7;
+  border-radius: 99px;
 }
 .cf-location-result {
   display: flex;
@@ -271,48 +344,62 @@ const checkoutFormStyles = `
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 11px 13px;
-  border: 1px solid #e5eee8;
+  padding: 10px 13px;
+  border: 1px solid #e7f3ec;
   border-radius: 12px;
-  background: #fff;
+  background: #ffffff;
   cursor: pointer;
   text-align: left;
-  transition: background .15s ease, border-color .15s ease;
+  transition: background .15s ease, border-color .15s ease, transform .12s ease;
 }
 .cf-location-result:hover {
   border-color: #86efac;
   background: #f0fdf4;
 }
 .cf-location-result-name {
-  color: #24352a;
+  display: block;
+  color: #162c1e;
   font-size: 13px;
   font-weight: 750;
 }
 .cf-location-result-region {
   display: block;
-  margin-top: 2px;
-  color: #7b8980;
+  margin-top: 1px;
+  color: #72887a;
   font-size: 11px;
 }
 .cf-location-result-fee {
   flex: 0 0 auto;
-  color: #166534;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #15803d;
   font-size: 11px;
   font-weight: 800;
 }
+
 .cf-location-selects {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  margin-top: 12px;
+  gap: 12px;
 }
 .cf-location-selects .ant-select {
   width: 100%;
 }
 .cf-location-selects .ant-select-selector {
-  min-height: 48px !important;
+  min-height: 44px !important;
   align-items: center;
   border-radius: 12px !important;
+  border-color: #d7ebe0 !important;
+  background: #fafdfb !important;
+}
+.cf-location-selects .ant-select-focused .ant-select-selector,
+.cf-location-selects .ant-select:hover .ant-select-selector {
+  border-color: #4ade80 !important;
+  background: #ffffff !important;
+}
+.cf-location-selects .ant-select-focused .ant-select-selector {
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, .14) !important;
 }
 .cf-town-option {
   display: flex;
@@ -321,23 +408,24 @@ const checkoutFormStyles = `
   gap: 10px;
 }
 .cf-town-option-fee {
-  color: #15803d;
+  color: #16a34a;
   font-size: 11px;
   font-weight: 750;
 }
+
 .cf-selected-location {
   display: flex;
   align-items: center;
   gap: 11px;
-  margin-top: 16px;
-  padding: 13px;
+  margin-top: 14px;
+  padding: 12px 14px;
   border: 1px solid #bbf7d0;
   border-radius: 13px;
   background: #f0fdf4;
 }
 .cf-selected-location-icon {
   color: #16a34a;
-  font-size: 19px;
+  font-size: 18px;
 }
 .cf-selected-location-copy {
   min-width: 0;
@@ -345,7 +433,7 @@ const checkoutFormStyles = `
 }
 .cf-selected-location-copy span {
   display: block;
-  color: #548060;
+  color: #4d7c5c;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: .08em;
@@ -353,47 +441,126 @@ const checkoutFormStyles = `
 }
 .cf-selected-location-copy strong {
   display: block;
-  margin-top: 3px;
+  margin-top: 2px;
   color: #14532d;
-  font-size: 13px;
+  font-size: 13.5px;
 }
-.cf-location-note {
-  margin-top: 14px;
-  padding: 11px 13px;
-  border: 1px solid #e4eee7;
-  border-radius: 12px;
-  background: #f8fbf9;
-  color: #64736a;
-  font-size: 12px;
-  line-height: 1.5;
-}
-.cf-manual-link {
-  margin-top: 10px;
-  padding-left: 0;
+.cf-fee-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
   color: #15803d;
-  font-weight: 750;
+  font-size: 11.5px;
+  font-weight: 800;
+  white-space: nowrap;
 }
+
+.cf-manual-textarea.ant-input-textarea-affix-wrapper,
+.cf-manual-textarea .ant-input {
+  border-radius: 12px !important;
+  border-color: #d7ebe0 !important;
+  background: #fafdfb;
+}
+.cf-manual-textarea .ant-input:focus {
+  border-color: #4ade80 !important;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, .14) !important;
+}
+
+.cf-save-row {
+  display: flex;
+  align-items: center;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 11px;
+  background: #f6fbf8;
+  border: 1px solid #e2f2e8;
+}
+.cf-save-row .ant-checkbox-checked .ant-checkbox-inner {
+  background-color: #22c55e;
+  border-color: #22c55e;
+}
+.cf-save-row .ant-checkbox-wrapper {
+  color: #274432;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.cf-location-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 10px;
+  color: #6b7f72;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+.cf-location-hint .anticon {
+  margin-top: 2px;
+  color: #22c55e;
+}
+
+.cf-location-empty {
+  padding: 18px 14px;
+  border: 1px dashed #cdebd7;
+  border-radius: 12px;
+  background: #f8fdf9;
+  color: #5b7263;
+  font-size: 12.5px;
+  text-align: center;
+}
+.cf-location-empty button {
+  margin-top: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #16a34a;
+  font-size: 12.5px;
+  font-weight: 750;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 .cf-location-footer {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 18px;
-  padding-top: 16px;
-  border-top: 1px solid #edf1ee;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #eaf4ed;
 }
 .cf-location-footer .ant-btn {
   min-height: 42px;
+  padding: 0 18px;
   border-radius: 11px;
+  font-size: 13px;
   font-weight: 750;
+}
+.cf-location-footer .cf-cancel-btn {
+  border-color: #d7ebe0;
+  color: #466150;
+}
+.cf-location-footer .cf-cancel-btn:hover {
+  border-color: #86efac !important;
+  color: #15803d !important;
+  background: #f0fdf4 !important;
 }
 .cf-location-footer .cf-save-location {
   border: 0;
-  background: linear-gradient(135deg, #15803d, #16a34a);
-  box-shadow: 0 5px 12px rgba(22, 163, 74, .18);
+  background: #22c55e;
+  color: #ffffff;
+  box-shadow: 0 6px 16px rgba(34, 197, 94, .24);
 }
-.cf-location-footer .cf-save-location:hover {
-  background: linear-gradient(135deg, #166534, #15803d) !important;
+.cf-location-footer .cf-save-location:hover:not(:disabled) {
+  background: #16a34a !important;
 }
+.cf-location-footer .cf-save-location:disabled {
+  background: #dcfce7;
+  color: #86b395;
+  box-shadow: none;
+}
+
 @media (max-width: 600px) {
   .cf-address-card {
     align-items: flex-start;
@@ -403,7 +570,7 @@ const checkoutFormStyles = `
     width: 40px;
     height: 40px;
     flex-basis: 40px;
-    border-radius: 13px;
+    border-radius: 12px;
   }
   .cf-address-action {
     padding: 7px;
@@ -419,10 +586,14 @@ const checkoutFormStyles = `
     padding: 16px;
   }
   .cf-location-hero {
-    padding: 18px 48px 17px 16px;
+    padding: 16px 48px 15px 16px;
   }
   .cf-location-hero h3 {
-    font-size: 16px;
+    font-size: 15.5px;
+  }
+  .cf-location-footer {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
   }
 }
 `;
@@ -482,6 +653,7 @@ const CheckoutForm = ({
   const [manualMode, setManualMode] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [saveAddress, setSaveAddress] = useState(false);
 
   const [agentManualAddress, setAgentManualAddress] = useState(
     () => deliveryInfo?.address || ''
@@ -501,9 +673,10 @@ const CheckoutForm = ({
 
     return locationList.flatMap(location =>
       (location.towns || [])
-        .filter(townData =>
-          String(townData.name || '').toLowerCase().includes(query) ||
-          String(location.region || '').toLowerCase().includes(query)
+        .filter(
+          townData =>
+            String(townData.name || '').toLowerCase().includes(query) ||
+            String(location.region || '').toLowerCase().includes(query)
         )
         .map(townData => ({
           region: location.region,
@@ -524,14 +697,10 @@ const CheckoutForm = ({
     if (!isAuthenticated || isAgent || customerAccountId == null) return;
 
     try {
-      const saved = readStoredObject(
-        localStorage.getItem('deliveryInfo')
-      );
+      const saved = readStoredObject(localStorage.getItem('deliveryInfo'));
 
       const owner =
-        saved?.customerId ??
-        saved?.Customerid ??
-        saved?.CustomerId;
+        saved?.customerId ?? saved?.Customerid ?? saved?.CustomerId;
 
       if (
         !saved?.address ||
@@ -554,12 +723,7 @@ const CheckoutForm = ({
     } catch {
       // Address restoration is best effort.
     }
-  }, [
-    isAuthenticated,
-    isAgent,
-    customerAccountId,
-    setDeliveryInfo,
-  ]);
+  }, [isAuthenticated, isAgent, customerAccountId, setDeliveryInfo]);
 
   // Keep the agent address and fee reflected in the checkout state.
   useEffect(() => {
@@ -670,8 +834,8 @@ const CheckoutForm = ({
       feeDisplay = isFreeFee(fee)
         ? 'Free delivery'
         : finalFee === 0
-          ? 'N/A'
-          : `₵${finalFee}`;
+        ? 'N/A'
+        : `₵${finalFee}`;
     }
 
     const info = {
@@ -685,8 +849,10 @@ const CheckoutForm = ({
     setDeliveryInfo(info);
 
     try {
-      if (isAuthenticated && customerAccountId != null) {
+      if (saveAddress && isAuthenticated && customerAccountId != null) {
         localStorage.setItem('deliveryInfo', info);
+      } else if (!saveAddress) {
+        localStorage.removeItem('deliveryInfo');
       }
     } catch {
       // Storage is best effort.
@@ -700,17 +866,16 @@ const CheckoutForm = ({
     : Boolean(region && town && fee !== null);
 
   const savedFeeIsFree =
-    isFreeFee(deliveryInfo?.feeDisplay) ||
-    isFreeFee(deliveryInfo?.fee);
+    isFreeFee(deliveryInfo?.feeDisplay) || isFreeFee(deliveryInfo?.fee);
 
   const savedFeeLabel = savedFeeIsFree
     ? 'Free delivery'
     : deliveryInfo?.feeDisplay &&
-        String(deliveryInfo.feeDisplay).toLowerCase() !== 'n/a'
-      ? `Delivery: ${deliveryInfo.feeDisplay}`
-      : Number(deliveryInfo?.fee) > 0
-        ? `Delivery: GH₵ ${Number(deliveryInfo.fee).toFixed(2)}`
-        : 'Delivery fee to be confirmed';
+      String(deliveryInfo.feeDisplay).toLowerCase() !== 'n/a'
+    ? `Delivery: ${deliveryInfo.feeDisplay}`
+    : Number(deliveryInfo?.fee) > 0
+    ? `Delivery: GH₵ ${Number(deliveryInfo.fee).toFixed(2)}`
+    : 'Delivery fee to be confirmed';
 
   return (
     <>
@@ -734,9 +899,9 @@ const CheckoutForm = ({
             autoComplete="tel"
             prefix={<PhoneOutlined style={{ color: '#8a9790' }} />}
             suffix={
-              phoneLocked
-                ? <LockOutlined style={{ color: '#15803d' }} />
-                : null
+              phoneLocked ? (
+                <LockOutlined style={{ color: '#16a34a' }} />
+              ) : null
             }
             className={phoneLocked ? 'cf-locked-field' : ''}
             value={customerNumber || ''}
@@ -757,8 +922,8 @@ const CheckoutForm = ({
             <div className="cf-field-note cf-lock-note">
               <LockOutlined />
               <span>
-                This number is fixed to your registered Mobile Money
-                account. The recipient name can still be changed.
+                This number is fixed to your registered Mobile Money account.
+                The recipient name can still be changed.
               </span>
             </div>
           )}
@@ -773,9 +938,8 @@ const CheckoutForm = ({
               <div>
                 <strong>Sign in to choose a delivery location</strong>
                 <p>
-                  Delivery addresses are not displayed to guests. Once you
-                  sign in, choose a region and town or enter an address
-                  manually.
+                  Delivery addresses are not displayed to guests. Once you sign
+                  in, choose a region and town or enter an address manually.
                 </p>
               </div>
             </div>
@@ -784,9 +948,7 @@ const CheckoutForm = ({
               <TextArea
                 rows={3}
                 value={agentManualAddress}
-                onChange={event =>
-                  setAgentManualAddress(event.target.value)
-                }
+                onChange={event => setAgentManualAddress(event.target.value)}
                 placeholder="Enter the delivery address for your customer"
                 maxLength={300}
                 showCount
@@ -795,8 +957,8 @@ const CheckoutForm = ({
               <div className="cf-field-note">
                 <PushpinOutlined />
                 <span>
-                  Add a clear address, landmark or directions for the
-                  delivery team.
+                  Add a clear address, landmark or directions for the delivery
+                  team.
                 </span>
               </div>
 
@@ -808,9 +970,7 @@ const CheckoutForm = ({
                     step={0.01}
                     precision={2}
                     value={agentDeliveryFee}
-                    onChange={value =>
-                      setAgentDeliveryFee(Number(value) || 0)
-                    }
+                    onChange={value => setAgentDeliveryFee(Number(value) || 0)}
                     prefix={<DollarOutlined />}
                     placeholder="0.00"
                   />
@@ -845,8 +1005,7 @@ const CheckoutForm = ({
                 </span>
 
                 <span className="cf-address-value">
-                  {deliveryInfo?.address ||
-                    'Choose your region and town'}
+                  {deliveryInfo?.address || 'Choose your region and town'}
                 </span>
 
                 <span className="cf-address-subtitle">
@@ -857,9 +1016,7 @@ const CheckoutForm = ({
               </span>
 
               <span className="cf-address-action">
-                {deliveryInfo?.address
-                  ? <EditOutlined />
-                  : <AimOutlined />}
+                {deliveryInfo?.address ? <EditOutlined /> : <AimOutlined />}
                 {deliveryInfo?.address ? 'Change' : 'Choose'}
               </span>
             </button>
@@ -884,7 +1041,7 @@ const CheckoutForm = ({
         onCancel={resetModal}
         title={null}
         footer={null}
-        width={680}
+        width={560}
         centered
         destroyOnClose
         styles={{ body: { padding: 0 } }}
@@ -894,29 +1051,46 @@ const CheckoutForm = ({
             <EnvironmentOutlined />
           </div>
           <div>
-            <p className="cf-location-kicker">DELIVERY DETAILS</p>
-            <h3>Select your delivery location</h3>
-            <p>
-              Choose a town for an accurate delivery estimate, or enter
-              your address manually.
-            </p>
+            <h3>Select delivery address</h3>
+            <p>Pick your town for instant pricing or type your address manually.</p>
           </div>
         </div>
 
         <div className="cf-location-content">
+          {/* Minimal 2-mode pill switch */}
+          <div className="cf-mode-switch" role="tablist" aria-label="Address entry mode">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={!manualMode}
+              className={`cf-mode-tab ${!manualMode ? 'is-active' : ''}`}
+              onClick={() => setManualMode(false)}
+            >
+              <SearchOutlined />
+              <span>Select Town</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={manualMode}
+              className={`cf-mode-tab ${manualMode ? 'is-active' : ''}`}
+              onClick={() => {
+                setManualMode(true);
+                setSearchText('');
+              }}
+            >
+              <EditOutlined />
+              <span>Enter Manually</span>
+            </button>
+          </div>
+
           {!manualMode ? (
             <>
-              <label className="cf-location-step-label">
-                Search by town or region
-              </label>
-
               <div className="cf-location-search">
                 <Input
                   size="large"
-                  prefix={
-                    <SearchOutlined style={{ color: '#829087' }} />
-                  }
-                  placeholder="For example, Madina or Greater Accra"
+                  prefix={<SearchOutlined style={{ color: '#22c55e' }} />}
+                  placeholder="Search town or region (e.g. Madina, Accra)…"
                   value={searchText}
                   onChange={event => setSearchText(event.target.value)}
                   allowClear
@@ -931,9 +1105,7 @@ const CheckoutForm = ({
                         type="button"
                         key={`${regionName}-${townData.name}`}
                         className="cf-location-result"
-                        onClick={() =>
-                          handleTownSelect(townData.name, regionName)
-                        }
+                        onClick={() => handleTownSelect(townData.name, regionName)}
                       >
                         <span>
                           <span className="cf-location-result-name">
@@ -949,23 +1121,30 @@ const CheckoutForm = ({
                       </button>
                     ))
                   ) : (
-                    <div className="cf-location-note">
-                      No matching locations found. Try another spelling or
-                      enter your address manually.
+                    <div className="cf-location-empty">
+                      <div>No matching location found for &ldquo;{searchText}&rdquo;.</div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setManualMode(true);
+                          setManualAddress(searchText);
+                          setSearchText('');
+                        }}
+                      >
+                        Enter &ldquo;{searchText}&rdquo; manually instead →
+                      </button>
                     </div>
                   )}
                 </div>
               ) : (
                 <div className="cf-location-selects">
                   <div>
-                    <label className="cf-location-step-label">
-                      1. Select region
-                    </label>
+                    <label className="cf-location-step-label">Region</label>
                     <Select
                       size="large"
                       showSearch
                       value={region || undefined}
-                      placeholder="Choose a region"
+                      placeholder="Select region"
                       onChange={handleRegionChange}
                       filterOption={(input, option) =>
                         String(option?.value || '')
@@ -974,10 +1153,7 @@ const CheckoutForm = ({
                       }
                     >
                       {locationList.map(location => (
-                        <Option
-                          key={location.region}
-                          value={location.region}
-                        >
+                        <Option key={location.region} value={location.region}>
                           {location.region}
                         </Option>
                       ))}
@@ -985,16 +1161,12 @@ const CheckoutForm = ({
                   </div>
 
                   <div>
-                    <label className="cf-location-step-label">
-                      2. Select town
-                    </label>
+                    <label className="cf-location-step-label">Town / Area</label>
                     <Select
                       size="large"
                       showSearch
                       value={town || undefined}
-                      placeholder={
-                        region ? 'Choose a town' : 'Select a region first'
-                      }
+                      placeholder={region ? 'Select town' : 'Choose region first'}
                       disabled={!region}
                       onChange={handleTownChange}
                       filterOption={(input, option) =>
@@ -1024,73 +1196,57 @@ const CheckoutForm = ({
 
               {!searchText.trim() && town && fee !== null && (
                 <div className="cf-selected-location">
-                  <EnvironmentOutlined className="cf-selected-location-icon" />
+                  <CheckCircleFilled className="cf-selected-location-icon" />
                   <div className="cf-selected-location-copy">
                     <span>Selected location</span>
-                    <strong>{town}, {region}</strong>
+                    <strong>
+                      {town}, {region}
+                    </strong>
                   </div>
-                  <Tag color={isFreeFee(fee) ? 'green' : 'blue'}>
-                    {locationFeeLabel(fee)}
-                  </Tag>
+                  <span className="cf-fee-pill">{locationFeeLabel(fee)}</span>
                 </div>
               )}
-
-              <div className="cf-location-note">
-                Delivery fees are estimates based on the selected town.
-                For an address entered manually, the delivery team may need
-                to confirm the fee.
-              </div>
-
-              <Button
-                type="link"
-                className="cf-manual-link"
-                icon={<EditOutlined />}
-                onClick={() => {
-                  setManualMode(true);
-                  setManualAddress('');
-                  setSearchText('');
-                }}
-              >
-                My location is not listed
-              </Button>
             </>
           ) : (
-            <>
-              <Button
-                type="link"
-                className="cf-manual-link"
-                icon={<ArrowLeftOutlined />}
-                onClick={() => {
-                  setManualMode(false);
-                  setManualAddress('');
-                }}
-              >
-                Back to location search
-              </Button>
-
+            <div>
               <label className="cf-location-step-label">
-                Enter your full delivery address
+                Full delivery address &amp; landmark
               </label>
-
               <TextArea
-                rows={4}
+                className="cf-manual-textarea"
+                rows={3}
                 value={manualAddress}
                 onChange={event => setManualAddress(event.target.value)}
-                placeholder="Enter your area, street, house number and a nearby landmark"
+                placeholder="e.g. East Legon, Lagos Avenue, House #14 near Shell Station"
                 maxLength={300}
                 showCount
                 autoFocus
               />
-
-              <div className="cf-location-note">
-                The delivery fee for a manually entered address may need to
-                be confirmed by the delivery team.
-              </div>
-            </>
+            </div>
           )}
 
+          <div className="cf-save-row">
+            <Checkbox
+              checked={saveAddress}
+              onChange={e => setSaveAddress(e.target.checked)}
+            >
+              Save as default delivery address
+            </Checkbox>
+          </div>
+
+          <div className="cf-location-hint">
+            <InfoCircleOutlined />
+            <span>
+              {manualMode
+                ? 'Our delivery team will confirm the delivery fee for manually entered addresses.'
+                : 'Delivery fees are estimated by town. Switch to "Enter Manually" if your location is not listed.'}
+            </span>
+          </div>
+
           <div className="cf-location-footer">
-            <Button onClick={resetModal}>Cancel</Button>
+            <Button className="cf-cancel-btn" onClick={resetModal}>
+              Cancel
+            </Button>
             <Button
               type="primary"
               className="cf-save-location"

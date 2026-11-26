@@ -448,7 +448,7 @@ const Airconditioners = () => {
           });
         }, 1600);
       } catch {
-        showNotice("Failed to add to cart", "error");
+        showNotice("Item Already Exists in the cart", "error");
       } finally {
         setAddingIds((prev) => {
           const next = new Set(prev);

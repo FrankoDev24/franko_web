@@ -1,10 +1,5 @@
-import { appStorage as localStorage } from "../utils/secureLocalStorageInit";
 import { useEffect, useState } from "react";
-import { useDispatch } from "react-redux";
-import { useParams, useNavigate } from "react-router-dom";
-import { checkOutOrder, updateOrderDelivery } from "../Redux/Slice/orderSlice";
-import { clearCart } from "../Redux/Slice/cartSlice";
-import { message } from "antd";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Confetti from "react-confetti";
 import useWindowSize from "react-use/lib/useWindowSize";
 import {
@@ -40,9 +35,9 @@ const AnimatedCheck = () => (
 );
 
 const OrderSuccess = () => {
-  const dispatch = useDispatch();
   const { orderId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { width, height } = useWindowSize();
 
   const [showConfetti, setShowConfetti] = useState(true);
@@ -70,76 +65,19 @@ const OrderSuccess = () => {
       });
     }
 
-    const handleOrderCompletion = async () => {
-      try {
-        let checkoutDetails = localStorage.getItem("checkoutDetails");
-        const addressDetails = localStorage.getItem("orderAddressDetails");
+    // The order + delivery are already persisted by CheckoutShared.postOrder
+    // before navigating here. This page only fires analytics.
+    trackCompleteRegistration({
+      value: location.state?.totalAmount ?? null,
+      currency: "GHS",
+      orderId,
+      contentName: "Franko Trading Order",
+      contentCategory: "Retail",
+      numItems: 1,
+    });
 
-        if (!checkoutDetails || !addressDetails) return;
-
-        // ✅ localStorage getItem is patched to auto-parse JSON, so an
-        // object is returned directly. Only plain strings need parsing.
-        if (typeof checkoutDetails === "string") {
-          try {
-            checkoutDetails = JSON.parse(checkoutDetails);
-          } catch {
-            checkoutDetails = null;
-          }
-        }
-
-        if (!checkoutDetails || checkoutDetails.orderCode !== orderId) return;
-
-        const checkoutPayload = {
-          Cartid: localStorage.getItem("cartId"),
-          customerId: checkoutDetails.customerId,
-          orderCode: checkoutDetails.orderCode,
-          address: checkoutDetails.address || "N/A",
-          PaymentMode: checkoutDetails.PaymentMode,
-          PaymentAccountNumber: checkoutDetails.PaymentAccountNumber || "0000000000",
-          customerAccountType: checkoutDetails.customerAccountType || "Customer",
-          paymentService: "Mtn",
-          totalAmount: checkoutDetails.totalAmount,
-        };
-        const addressPayload = {
-          Customerid: addressDetails.Customerid,
-          orderCode: addressDetails.orderCode,
-          address: addressDetails.address,
-          recipientName:
-            addressDetails.recipientName ||
-            `Guest ${Math.floor(1000 + Math.random() * 9000)}`,
-          recipientContactNumber:
-            addressDetails.recipientContactNumber || "0000000000",
-          orderNote: addressDetails.orderNote || "N/A",
-          geoLocation: addressDetails.geoLocation,
-        };
-
-        await dispatch(checkOutOrder(checkoutPayload)).unwrap();
-        await dispatch(updateOrderDelivery(addressPayload)).unwrap();
-        dispatch(clearCart());
-        localStorage.removeItem("checkoutDetails");
-        localStorage.removeItem("orderAddressDetails");
-        message.success("Your order has been confirmed!");
-
-        // ✅✅✅ FIRE META PIXEL CompleteRegistration WITH VALUE
-        // Only fire AFTER API calls succeed
-        trackCompleteRegistration({
-          value: checkoutDetails.totalAmount,
-          currency: "USD", // ← Change to your actual currency (GHS, EUR, etc.)
-          orderId: orderId,
-          contentName: "Franko Trading Course",
-          contentCategory: "Education",
-          numItems: 1,
-        });
-
-        setTimeout(() => setShowConfetti(false), 5000);
-      } catch (err) {
-        console.error("Order completion error:", err);
-        message.error("Failed to process your order. Please try again.");
-      }
-    };
-
-    handleOrderCompletion();
-  }, [dispatch, orderId]);
+    setTimeout(() => setShowConfetti(false), 5000);
+  }, [orderId, location.state]);
 
   const steps = [
     { icon: PhoneCall, label: "You will receive a call from our order fulfillment team shortly" },

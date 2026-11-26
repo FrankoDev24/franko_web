@@ -2,6 +2,8 @@ import { appStorage as localStorage } from "../../utils/secureLocalStorageInit";
 // src/Redux/Slice/cartSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "./AxiosInstance";
+import { message } from "antd";
+const pendingProducts = new Set();
 import {
   extractCartItems,
   normalizeCartItem,
@@ -172,7 +174,14 @@ const syncCart = (state) => {
  * actually picked) — the endpoint's acknowledgement body is only used to
  * fill fields the request somehow lacked, never to replace the product.
  */
-const postCartItem = async (item, { rejectWithValue }) => {
+const postCartItem = async (item, { rejectWithValue, getState }) => {
+  const productKey = String(getCartProductId(item) ?? '');
+  if (productKey && (pendingProducts.has(productKey) || (getState().cart?.cart || []).some(line => String(getCartProductId(line)) === productKey))) {
+    const msg = 'This product already exists in your cart. Update its quantity on the cart page.';
+    message.warning(msg);
+    return rejectWithValue({ message: msg });
+  }
+  if (productKey) pendingProducts.add(productKey);
   try {
     const cartId = getOrCreateCartId(item?.CartId ?? item?.cartId);
     const requested = normalizeCartItem(item, { cartId });
@@ -197,7 +206,7 @@ const postCartItem = async (item, { rejectWithValue }) => {
     return normalizeCartItem(serverLine || {}, requested) || requested;
   } catch (error) {
     return rejectWithValue(error.response?.data || { message: error.message });
-  }
+  } finally { if (productKey) pendingProducts.delete(productKey); }
 };
 
 export const addToCart = createAsyncThunk("cart/addToCart", postCartItem);

@@ -19,6 +19,59 @@ const toErrorPayload = (error, fallback) => {
 
 // ==================== ASYNC THUNKS ====================
 
+// 0️⃣A Send Mobile Money SMS OTP (SMS provider URL & API key hidden in Lambda)
+export const sendMoMoOtp = createAsyncThunk(
+  "payment/sendMoMoOtp",
+  async ({ msisdn }, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.post(
+        "",
+        { msisdn },
+        {
+          params: {
+            endpoint: "/Payment/Send-MoMo-OTP",
+            target: LAMBDA_TARGET,
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue({
+        message: toErrorPayload(error, "Failed to send OTP verification SMS"),
+        retryAfterSeconds: error.response?.data?.retryAfterSeconds || 0,
+        status: error.response?.status || 0,
+      });
+    }
+  }
+);
+
+// 0️⃣B Verify Mobile Money SMS OTP (passes stateless otpToken + otpTokens so verification works across Lambda containers)
+export const verifyMoMoOtp = createAsyncThunk(
+  "payment/verifyMoMoOtp",
+  async ({ msisdn, code, otpToken, otpTokens }, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.post(
+        "",
+        { msisdn, code, otpToken, otpTokens },
+        {
+          params: {
+            endpoint: "/Payment/Verify-MoMo-OTP",
+            target: LAMBDA_TARGET,
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue({
+        message: toErrorPayload(error, "Invalid or expired verification code"),
+        attemptsRemaining: error.response?.data?.attemptsRemaining,
+        expired: Boolean(error.response?.data?.expired),
+        status: error.response?.status || 0,
+      });
+    }
+  }
+);
+
 // 1️⃣ Generate Payment Code (Lambda generates 6-digit random code)
 export const generatePaymentCode = createAsyncThunk(
   "payment/generatePaymentCode",
@@ -258,12 +311,16 @@ const initialState = {
   verificationCodeData: null,
   verifiedPaymentData: null,
   verifiedTransactionStatus: null,
+  otpData: null,
 
   loading: false,
   validating: false,
   checkingStatus: false,
   generatingCode: false,
   verifyingCode: false,
+  sendingOtp: false,
+  verifyingOtp: false,
+  otpError: null,
   error: null,
 };
 
@@ -281,13 +338,23 @@ const paymentSlice = createSlice({
       state.verificationCodeData = null;
       state.verifiedPaymentData = null;
       state.verifiedTransactionStatus = null;
+      state.otpData = null;
 
       state.loading = false;
       state.validating = false;
       state.checkingStatus = false;
       state.generatingCode = false;
       state.verifyingCode = false;
+      state.sendingOtp = false;
+      state.verifyingOtp = false;
+      state.otpError = null;
       state.error = null;
+    },
+    resetOtpState: (state) => {
+      state.otpData = null;
+      state.sendingOtp = false;
+      state.verifyingOtp = false;
+      state.otpError = null;
     },
     resetPSPTransactionsReport: (state) => {
       state.pspTransactionsReport = null;
@@ -309,6 +376,34 @@ const paymentSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // Send MoMo SMS OTP
+      .addCase(sendMoMoOtp.pending, (state) => {
+        state.sendingOtp = true;
+        state.otpError = null;
+      })
+      .addCase(sendMoMoOtp.fulfilled, (state, action) => {
+        state.sendingOtp = false;
+        state.otpData = action.payload;
+      })
+      .addCase(sendMoMoOtp.rejected, (state, action) => {
+        state.sendingOtp = false;
+        state.otpError = action.payload?.message || action.payload || action.error?.message;
+      })
+
+      // Verify MoMo SMS OTP
+      .addCase(verifyMoMoOtp.pending, (state) => {
+        state.verifyingOtp = true;
+        state.otpError = null;
+      })
+      .addCase(verifyMoMoOtp.fulfilled, (state, action) => {
+        state.verifyingOtp = false;
+        state.otpData = action.payload;
+      })
+      .addCase(verifyMoMoOtp.rejected, (state, action) => {
+        state.verifyingOtp = false;
+        state.otpError = action.payload?.message || action.payload || action.error?.message;
+      })
+
       // Generate Payment Code
       .addCase(generatePaymentCode.pending, (state) => {
         state.generatingCode = true;
@@ -444,6 +539,7 @@ const paymentSlice = createSlice({
 
 export const {
   resetPaymentState,
+  resetOtpState,
   resetPSPTransactionsReport,
   resetValidateAccountData,
   resetTransactionStatus,

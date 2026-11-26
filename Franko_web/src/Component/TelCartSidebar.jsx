@@ -37,15 +37,16 @@ import telecelWhite from "../assets/Telecel White.png";
 import speedLogo from "../assets/speed-logo.png";
 
 /* ============================================================================
-   Telecel cart drawer. It renders the SAME Redux cart as the cart pages
+   Black Friday cart drawer. It renders the SAME Redux cart as the cart pages
    (state.cart via cartSlice) — every product line, keyed by productId.
 
    Like CartView, it owns no cart data: opening the drawer fires ONE
    merge-fetch for the canonical cart id, and quantity/remove go through
-   the slice thunks, which update the store directly. The previous version
-   rewrote localStorage by hand and refetched after every click; because
-   getCartById replaced the cart with the single record it returned, that
-   refetch is what made all-but-one product disappear from the drawer too.
+   the slice thunks, which update the store directly.
+
+   Theme: Black Friday (matches the announcement bar)
+   black #080808 / #171717 · red #E50914 · orange #FF9F0F
+   yellow #FFD400 · white #FFFFFF
    ========================================================================== */
 
 const TEL_CHECKOUT_ROUTE = "/tel-checkout";
@@ -76,7 +77,7 @@ const CartProductImage = ({ imagePath, productName }) => {
   return <img src={imageUrl} alt={productName || "Product"} loading="lazy" onError={() => setFailed(true)} />;
 };
 
-/* Provider lets any page open the same Telecel cart drawer. */
+/* Provider lets any page open the same Black Friday cart drawer. */
 const TelCartSidebarContext = createContext(null);
 
 export const TelCartSidebarProvider = ({
@@ -299,7 +300,7 @@ const TelCartSidebar = ({
         className={`telcart-drawer ${open ? "is-open" : ""}`}
         role="dialog"
         aria-modal="true"
-        aria-label="Telecel shopping cart"
+        aria-label="Black Friday shopping cart"
         aria-hidden={!open}
       >
         <header className="telcart-header">
@@ -318,10 +319,20 @@ const TelCartSidebar = ({
             <span className="telcart-header-icon"><ShoppingCartIcon className="h-5 w-5" /></span>
             <div className="telcart-header-text">
               <h2 className="telcart-title">Your Cart</h2>
-              <p className="telcart-cartid" title={cartId || ""}>{cartId || "Tel cart"}</p>
+              <p className="telcart-cartid" title={cartId || ""}>{cartId || "Black Friday cart"}</p>
             </div>
             <span className="telcart-count-badge">{totals.totalItems} {totals.totalItems === 1 ? "item" : "items"}</span>
           </div>
+
+          {/* Black Friday promo strip */}
+          <div className="telcart-bf-strip">
+            <span className="telcart-bf-pulse" aria-hidden="true" />
+            <span className="telcart-bf-text">BLACK FRIDAY DEALS</span>
+            <span className="telcart-bf-sep" aria-hidden="true">·</span>
+            <span className="telcart-bf-sub">UP TO 40% OFF · LIMITED TIME</span>
+          </div>
+
+          <span className="telcart-accent-bar" aria-hidden="true" />
         </header>
 
         {!isLoggedIn && items.length > 0 && (
@@ -341,13 +352,13 @@ const TelCartSidebar = ({
           {loading && items.length === 0 ? (
             <div className="telcart-loading">
               <div className="telcart-spinner" />
-              <p></p>
+              <p>Loading your cart…</p>
             </div>
           ) : items.length === 0 ? (
             <div className="telcart-empty">
               <span className="telcart-empty-icon"><ShoppingBagIcon className="h-7 w-7" /></span>
               <h3>Your cart is empty</h3>
-              <p>Add a Speed Shopping deal and it will show up here.</p>
+              <p>Add a Black Friday deal and it will show up here.</p>
               <button type="button" className="telcart-btn telcart-btn-primary" onClick={onClose}>
                 Continue shopping
               </button>
@@ -449,43 +460,66 @@ const TelCartSidebar = ({
         initialMode="signup"
         allowGuest={false}
         autoLoginAfterSignup
-        notice="Create an account or sign in to complete your Speed Shopping order."
+        notice="Create an account or sign in to complete your Black Friday order."
       />
     </>
   );
 };
 
 const sidebarStyles = `
-  .telcart-backdrop { position: fixed; inset: 0; border: 0; padding: 0; background: rgba(20,26,22,.45); opacity: 0; pointer-events: none; transition: opacity .25s ease; z-index: 9000; }
+  /* ══════════════ Black Friday cart drawer ══════════════
+     Palette: black #080808/#171717 · red #E50914 · orange #FF9F0F
+     yellow #FFD400 · white #FFFFFF                                  */
+
+  .telcart-backdrop { position: fixed; inset: 0; border: 0; padding: 0; background: rgba(8,8,8,.55); opacity: 0; pointer-events: none; transition: opacity .25s ease; z-index: 9000; }
   .telcart-backdrop.is-open { opacity: 1; pointer-events: auto; }
-  .telcart-drawer { position: fixed; top: 0; right: 0; height: 100%; width: 100%; max-width: 420px; background: #fff; box-shadow: -8px 0 30px rgba(0,0,0,.18); display: flex; flex-direction: column; transform: translateX(100%); transition: transform .28s cubic-bezier(.32,.72,0,1); z-index: 9001; }
+
+  .telcart-drawer { position: fixed; top: 0; right: 0; height: 100%; width: 100%; max-width: 420px; background: #fff; box-shadow: -8px 0 30px rgba(0,0,0,.28); display: flex; flex-direction: column; transform: translateX(100%); transition: transform .28s cubic-bezier(.32,.72,0,1); z-index: 9001; }
   .telcart-drawer, .telcart-drawer * { font-family: 'Plus Jakarta Sans',sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; box-sizing: border-box; }
   .telcart-drawer.is-open { transform: translateX(0); }
-  .telcart-header { padding: 14px 18px 16px; border-bottom: 1px solid #eee6e7; background: linear-gradient(90deg,#A80F1B 0%,#BB1420 50%,#A80F1B 100%); color: #fff; }
+
+  /* ── Header: midnight gradient + Black Friday accent bar ── */
+  .telcart-header { position: relative; padding: 14px 18px 18px; background: radial-gradient(130% 170% at 50% -70%, #3a3a3a 0%, #171717 45%, #080808 100%); color: #fff; }
+  .telcart-accent-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: linear-gradient(90deg,#FFD400 0%,#FF9F0F 50%,#E50914 100%); }
+
   .telcart-brand-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .telcart-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .telcart-brand-logo { width: auto; object-fit: contain; }
   .telcart-telecel-logo { height: 22px; max-width: 108px; }
   .telcart-speed-logo { height: 32px; max-width: 135px; }
   .telcart-brand-divider { width: 1px; height: 22px; background: rgba(255,255,255,.28); flex-shrink: 0; }
+
   .telcart-title-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
   .telcart-header-text { min-width: 0; flex: 1; }
-  .telcart-header-icon { width: 36px; height: 36px; border-radius: 12px; background: rgba(255,255,255,.16); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #FFD400; }
+  .telcart-header-icon { width: 36px; height: 36px; border-radius: 12px; background: rgba(255,212,0,.14); box-shadow: inset 0 0 0 1px rgba(255,212,0,.30); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #FFD400; }
   .telcart-title { margin: 0; font-size: 16px; font-weight: 800; letter-spacing: -.01em; }
-  .telcart-cartid { margin: 2px 0 0; font: 10px ui-monospace,SFMono-Regular,Menlo,monospace; color: rgba(255,255,255,.75); max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .telcart-count-badge { margin-left: 4px; padding: 3px 10px; border-radius: 100px; background: #FFD400; color: #7A0B13; font-size: 11px; font-weight: 800; white-space: nowrap; }
-  .telcart-close { background: rgba(255,255,255,.14); border: 0; color: #fff; width: 34px; height: 34px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .2s ease; flex-shrink: 0; }
-  .telcart-close:hover { background: rgba(255,255,255,.24); }
-  .telcart-auth-strip { display: flex; align-items: flex-start; gap: 8px; padding: 10px 18px; background: #FFF8DB; border-bottom: 1px solid #E5CD75; color: #6f5410; font-size: 12px; line-height: 1.45; }
+  .telcart-cartid { margin: 2px 0 0; font: 10px ui-monospace,SFMono-Regular,Menlo,monospace; color: rgba(255,255,255,.6); max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .telcart-count-badge { margin-left: 4px; padding: 3px 10px; border-radius: 100px; background: #FFD400; color: #080808; font-size: 11px; font-weight: 800; white-space: nowrap; box-shadow: 0 2px 8px rgba(255,212,0,.35); }
+
+  .telcart-close { background: rgba(255,255,255,.12); border: 0; color: #fff; width: 34px; height: 34px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .2s ease; flex-shrink: 0; }
+  .telcart-close:hover { background: rgba(255,255,255,.22); }
+
+  /* ── Black Friday promo strip (inside header) ── */
+  .telcart-bf-strip { margin-top: 12px; display: flex; align-items: center; gap: 7px; padding: 7px 11px; border-radius: 9px; background: rgba(255,212,0,.09); border: 1px solid rgba(255,212,0,.22); overflow: hidden; white-space: nowrap; }
+  .telcart-bf-pulse { width: 7px; height: 7px; border-radius: 50%; background: #FFD400; flex-shrink: 0; animation: telcart-bf-pulse 1.6s ease-out infinite; }
+  @keyframes telcart-bf-pulse { 0% { box-shadow: 0 0 0 0 rgba(255,212,0,.5); } 70% { box-shadow: 0 0 0 6px rgba(255,212,0,0); } 100% { box-shadow: 0 0 0 0 rgba(255,212,0,0); } }
+  .telcart-bf-text { font-size: 10px; font-weight: 900; letter-spacing: .16em; color: #FFD400; flex-shrink: 0; }
+  .telcart-bf-sep { color: rgba(255,255,255,.35); flex-shrink: 0; }
+  .telcart-bf-sub { font-size: 10px; font-weight: 700; letter-spacing: .08em; color: rgba(255,255,255,.7); overflow: hidden; text-overflow: ellipsis; }
+
+  /* ── Strips & notices ── */
+  .telcart-auth-strip { display: flex; align-items: flex-start; gap: 8px; padding: 10px 18px; background: #FFF7DB; border-bottom: 1px solid #F0DC9A; color: #6f5410; font-size: 12px; line-height: 1.45; }
   .telcart-auth-strip p { margin: 0; }
   .telcart-auth-strip svg { color: #A87D00; margin-top: 1px; }
   .telcart-notice { display: flex; align-items: center; gap: 8px; padding: 10px 18px; font-size: 12px; font-weight: 600; }
-  .telcart-notice-error { background: #F6EEEE; color: #8C3D45; }
+  .telcart-notice-error { background: #FDECEC; color: #A3111B; }
+
+  /* ── Body / line items ── */
   .telcart-body { flex: 1; overflow-y: auto; padding: 14px 18px; background: #fcfbfa; }
   .telcart-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; background: #fff; border: 1px solid #e0e0e0; border-radius: 4px; overflow: hidden; }
   .telcart-item { display: flex; flex-direction: column; align-items: stretch; gap: 16px; padding: 16px; background: #fff; border-bottom: 1px solid #e0e0e0; transition: background .2s ease; }
   .telcart-item:last-child { border-bottom: 0; }
-  .telcart-item:hover { background: #f0fdf4; }
+  .telcart-item:hover { background: #FFFCED; }
   .telcart-item-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
   .telcart-item-image { width: 72px; height: 72px; border-radius: 4px; background: #f7f7f7; flex-shrink: 0; overflow: hidden; }
   .telcart-item-image img { display: block; width: 100%; height: 100%; object-fit: cover; }
@@ -493,39 +527,49 @@ const sidebarStyles = `
   .telcart-item-no-image span { color: #888; font-size: 11px; }
   .telcart-item-main { flex: 1; min-width: 0; }
   .telcart-item-name { margin: 0 0 4px; color: #1a1a1a; font-size: 15px; font-weight: 600; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .telcart-item-price { margin: 0; color: #dc2626; font-size: 15px; font-weight: 900; }
+  .telcart-item-price { margin: 0; color: #E50914; font-size: 15px; font-weight: 900; }
+
   .telcart-item-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .telcart-qty { display: flex; align-items: center; background: #f7f7f7; border: 1px solid #e0e0e0; border-radius: 4px; overflow: hidden; }
-  .telcart-qty button { width: 28px; height: 28px; border: 0; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #555; }
-  .telcart-qty button:hover:not(:disabled) { background: #dcfce7; color: #14532d; }
+  .telcart-qty button { width: 28px; height: 28px; border: 0; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #555; transition: background .15s ease,color .15s ease; }
+  .telcart-qty button:hover:not(:disabled) { background: #FFE98A; color: #080808; }
   .telcart-qty button:disabled { opacity: .35; cursor: not-allowed; }
   .telcart-qty span { min-width: 30px; text-align: center; font-size: 12px; font-weight: 700; color: #1a1a1a; }
   .telcart-line-total { margin: 0; min-width: 84px; text-align: right; font-size: 14px; font-weight: 800; color: #1a1a1a; }
-  .telcart-remove { width: 30px; height: 30px; border: 0; border-radius: 4px; cursor: pointer; background: #fef2f2; color: #dc2626; display: flex; align-items: center; justify-content: center; }
-  .telcart-remove:hover:not(:disabled) { background: #fecaca; }
+  .telcart-remove { width: 30px; height: 30px; border: 0; border-radius: 4px; cursor: pointer; background: #FDECEC; color: #E50914; display: flex; align-items: center; justify-content: center; transition: background .15s ease; }
+  .telcart-remove:hover:not(:disabled) { background: #FBD0D0; }
   .telcart-remove:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ── Loading / empty states ── */
   .telcart-loading,.telcart-empty { min-height: 260px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px 16px; gap: 6px; background: #fff; border: 1px solid #e0e0e0; border-radius: 4px; }
   .telcart-loading p { margin: 0; font-size: 13px; color: #6d7a74; }
-  .telcart-spinner { width: 34px; height: 34px; border: 3px solid #FDF0F0; border-top-color: #BB1420; border-radius: 50%; animation: telcart-spin .8s linear infinite; margin-bottom: 10px; }
+  .telcart-spinner { width: 34px; height: 34px; border: 3px solid #f1f1f1; border-top-color: #E50914; border-radius: 50%; animation: telcart-spin .8s linear infinite; margin-bottom: 10px; }
   @keyframes telcart-spin { to { transform: rotate(360deg); } }
-  .telcart-empty-icon { width: 64px; height: 64px; border-radius: 50%; background: #FDF0F0; color: #BB1420; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
+  .telcart-empty-icon { width: 64px; height: 64px; border-radius: 50%; background: #080808; color: #FFD400; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; box-shadow: 0 6px 16px rgba(8,8,8,.22); }
   .telcart-empty h3 { margin: 0; font-size: 17px; font-weight: 800; color: #2c3330; }
   .telcart-empty p { margin: 0 0 14px; font-size: 13px; color: #6d7a74; line-height: 1.5; }
+
+  /* ── Footer: dark total card + red CTA ── */
   .telcart-footer { border-top: 1px solid #eee6e7; padding: 14px 18px 18px; display: flex; flex-direction: column; gap: 10px; background: #fff; }
-  .telcart-total-card { border-radius: 10px; padding: 12px 14px 10px; background: linear-gradient(135deg,#FDF0F0 0%,#FBF7F5 100%); border: 1px solid #F0DCDC; }
-  .telcart-total-row { display: flex; align-items: center; justify-content: space-between; font-size: 14px; color: #555; }
-  .telcart-total-row strong { font-size: 20px; font-weight: 900; color: #BB1420; }
-  .telcart-note { margin: 4px 0 0; font-size: 11px; color: #8a928e; }
+  .telcart-total-card { border-radius: 12px; padding: 12px 14px 10px; background: linear-gradient(135deg,#1c1c1c 0%,#080808 100%); border: 1px solid rgba(255,212,0,.28); }
+  .telcart-total-row { display: flex; align-items: center; justify-content: space-between; font-size: 14px; color: rgba(255,255,255,.72); }
+  .telcart-total-row strong { font-size: 20px; font-weight: 900; color: #FFD400; }
+  .telcart-note { margin: 4px 0 0; font-size: 11px; color: rgba(255,255,255,.45); }
   .telcart-note-warning { color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 8px 10px; font-weight: 600; text-align: center; }
+
   .telcart-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; border: 2px solid transparent; transition: all .2s ease; font-family: inherit; }
   .telcart-btn-block { width: 100%; }
-  .telcart-btn-primary { background: #BB1420; border-color: #BB1420; color: #fff; }
-  .telcart-btn-primary:hover:not(:disabled) { background: #A80F1B; border-color: #A80F1B; }
+  .telcart-btn-primary { background: #E50914; border-color: #E50914; color: #fff; box-shadow: 0 6px 16px rgba(229,9,20,.28); }
+  .telcart-btn-primary:hover:not(:disabled) { background: #C00812; border-color: #C00812; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(229,9,20,.36); }
   .telcart-btn:disabled { opacity: .5; cursor: not-allowed; }
   .telcart-btn-ghost { background: #fff; border-color: #e3ded9; color: #5c6661; }
-  .telcart-btn-ghost:hover { background: #f7f5f3; border-color: #E4CFD1; }
+  .telcart-btn-ghost:hover { background: #f7f5f3; border-color: #d8cfc9; }
+
   @media (max-width: 360px) { .telcart-body { padding: 10px; } }
-  @media (prefers-reduced-motion: reduce) { .telcart-drawer,.telcart-backdrop { transition: none !important; } }
+  @media (prefers-reduced-motion: reduce) {
+    .telcart-drawer,.telcart-backdrop { transition: none !important; }
+    .telcart-bf-pulse { animation: none !important; }
+  }
 `;
 
 export default TelCartSidebar;

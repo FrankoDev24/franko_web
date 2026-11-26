@@ -11,8 +11,9 @@ import {
   isVerificationExpired,
 } from './checkoutFlow.mjs';
 
-const success = {responseCode:null,responseMessage:'Successfully Processed Transaction',flag:null,name:null,data:{transactionReference:null,checkoutUrl:null}};
-test('null-code success is immediate success', () => assert.equal(paymentOutcome(success),'success'));
+const success = {responseCode:'01',responseMessage:'Successfully processed transaction.',flag:null,name:null,data:{transactionReference:null,checkoutUrl:null}};
+test('confirmed code and message indicate success', () => assert.equal(paymentOutcome(success),'success'));
+test('missing code is not confirmation', () => assert.equal(paymentOutcome({...success,responseCode:null}),'pending'));
 test('stringified and nested success', () => assert.equal(paymentOutcome({data:JSON.stringify(success)}),'success'));
 test('explicit failure cancels', () => assert.equal(paymentOutcome({responseCode:'02',responseMessage:'Transaction declined'}),'failed'));
 test('pending is not cancelled', () => assert.equal(paymentOutcome({responseCode:null,responseMessage:'Awaiting approval'}),'pending'));
@@ -118,3 +119,61 @@ test('detectMoMoNetwork rejects invalid prefixes or lengths', async () => {
   assert.equal(detectMoMoNetwork(''), null);
   assert.equal(detectMoMoNetwork(null), null);
 });
+
+test('toGhanaMsisdn normalizes valid Ghana MoMo formats to 233XXXXXXXXX', async () => {
+  const { toGhanaMsisdn } = await import('./checkoutFlow.mjs');
+  assert.equal(toGhanaMsisdn('0246840201'), '233246840201');
+  assert.equal(toGhanaMsisdn('+233 24 684 0201'), '233246840201');
+  assert.equal(toGhanaMsisdn('233246840201'), '233246840201');
+  assert.equal(toGhanaMsisdn('2330246840201'), '233246840201');
+  assert.equal(toGhanaMsisdn('020-123-4567'), '233201234567');
+  assert.equal(toGhanaMsisdn('0281234567'), '');
+  assert.equal(toGhanaMsisdn('12345'), '');
+});
+
+test('verified MoMo numbers persist in localStorage and recognize alternate formats', async () => {
+  const {
+    VERIFIED_MOMO_STORAGE_KEY,
+    isMoMoNumberVerified,
+    markMoMoNumberVerified,
+    clearVerifiedMoMoNumber,
+    readVerifiedMoMoNumbers,
+  } = await import('./checkoutFlow.mjs');
+
+  const backing = new Map();
+  const mockStorage = {
+    getItem: (k) => (backing.has(k) ? backing.get(k) : null),
+    setItem: (k, v) => backing.set(k, String(v)),
+    removeItem: (k) => backing.delete(k),
+  };
+
+  assert.equal(isMoMoNumberVerified('0246840201', mockStorage), false);
+
+  // Verify first number
+  markMoMoNumberVerified('0246840201', { network: 'MTN' }, mockStorage);
+  assert.ok(backing.has(VERIFIED_MOMO_STORAGE_KEY));
+
+  // Same number recognized regardless of input formatting
+  assert.equal(isMoMoNumberVerified('0246840201', mockStorage), true);
+  assert.equal(isMoMoNumberVerified('+233 24 684 0201', mockStorage), true);
+  assert.equal(isMoMoNumberVerified('233246840201', mockStorage), true);
+
+  // Different unverified number still requires OTP
+  assert.equal(isMoMoNumberVerified('0551234567', mockStorage), false);
+
+  // Verify second number and confirm both remain stored
+  markMoMoNumberVerified('0201234567', { network: 'VODAFONE' }, mockStorage);
+  assert.equal(isMoMoNumberVerified('0246840201', mockStorage), true);
+  assert.equal(isMoMoNumberVerified('0201234567', mockStorage), true);
+  assert.equal(Object.keys(readVerifiedMoMoNumbers(mockStorage)).length, 2);
+
+  // Clearing one number leaves the other intact
+  clearVerifiedMoMoNumber('0246840201', mockStorage);
+  assert.equal(isMoMoNumberVerified('0246840201', mockStorage), false);
+  assert.equal(isMoMoNumberVerified('0201234567', mockStorage), true);
+
+  // Corrupted storage degrades safely to empty map
+  mockStorage.setItem(VERIFIED_MOMO_STORAGE_KEY, '{not-valid-json');
+  assert.equal(isMoMoNumberVerified('0201234567', mockStorage), false);
+});
+

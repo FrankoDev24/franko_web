@@ -495,6 +495,7 @@ const AuthModal = ({
     isVisible: false,
   });
 
+  const [guestRegistration, setGuestRegistration] = useState(false);
   const [signupData, setSignupData] = useState({
     customerAccountNumber: "",
     firstName: "",
@@ -603,17 +604,17 @@ const AuthModal = ({
     const { firstName, lastName, contactNumber, password } = signupData;
     const phone = normalizePhone(contactNumber);
 
-    if (!firstName.trim()) {
+    if (!guestRegistration && !firstName.trim()) {
       showNotif("First name is required.", "error");
       return false;
     }
 
-    if (isReservedName(firstName) || isReservedName(lastName)) {
+    if (!guestRegistration && (isReservedName(firstName) || isReservedName(lastName))) {
       showNotif("Please enter your real name — placeholder names are not accepted.", "error");
       return false;
     }
 
-    if (!lastName.trim()) {
+    if (!guestRegistration && !lastName.trim()) {
       showNotif("Last name is required.", "error");
       return false;
     }
@@ -669,9 +670,9 @@ const AuthModal = ({
       const payload = {
         ...signupData,
         customerAccountNumber: signupData.customerAccountNumber || uuidv4(),
-        firstName: signupData.firstName.trim(),
-        lastName: signupData.lastName.trim(),
-        address: signupData.address.trim(),
+        firstName: guestRegistration ? "Guest" : signupData.firstName.trim(),
+        lastName: guestRegistration ? normalizePhone(signupData.contactNumber).slice(-4) : signupData.lastName.trim(),
+        address: guestRegistration ? "N/A" : signupData.address.trim(),
         email: signupData.email.trim(),
         contactNumber: normalizePhone(signupData.contactNumber),
       };
@@ -1032,7 +1033,8 @@ const AuthModal = ({
                 {/* ══════════ REGISTER ══════════ */}
                 {authMode === "signup" && (
                   <div className="am-form-fields">
-                    <div className="am-field-row">
+                    <label style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={guestRegistration} onChange={e => setGuestRegistration(e.target.checked)} /> Register as guest (phone and password only)</label>
+                    {!guestRegistration && <div className="am-field-row">
                       <Field
                         icon={UserIcon}
                         label="First Name"
@@ -1062,7 +1064,7 @@ const AuthModal = ({
                           }))
                         }
                       />
-                    </div>
+                    </div>}
 
                     <Field
                       icon={PhoneIcon}
@@ -1081,7 +1083,7 @@ const AuthModal = ({
                       }
                     />
 
-                    <Field
+                    {!guestRegistration && <><Field
                       icon={EnvelopeIcon}
                       type="email"
                       label="Email (optional)"
@@ -1112,6 +1114,7 @@ const AuthModal = ({
                       }
                     />
 
+                    </>}
                     <Field
                       icon={LockClosedIcon}
                       label="Password"

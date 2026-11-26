@@ -14,7 +14,7 @@ export function paymentOutcome(raw) {
   const text = String(value.responseMessage ?? value.ResponseMessage ?? '').trim().toLowerCase();
   const code = String(value.responseCode ?? value.ResponseCode ?? '').trim();
   if (text === 'target_authorization_error') return 'failed';
-  if (text === 'successfully processed transaction' && (code === '' || code === '01' || code === '1')) return 'success';
+  if (text.replace(/\.$/, '') === 'successfully processed transaction' && code === '01') return 'success';
   // A gateway can send a provisional responseCode (including 0/02) while
   // processing the prompt. Only an explicit terminal *message* may cancel.
   if (/fail(?:ed|ure)?|declin(?:ed|e)?|reject(?:ed)?|cancel(?:led|ed)?|revers(?:ed|al)?|unsuccessful|insufficient funds|expired/.test(text)) return 'failed';
@@ -103,8 +103,9 @@ export const AIRTELTIGO_PREFIXES = ['026', '027', '056', '057'];
 
 export function normalizeGhanaNumber(phone) {
   let clean = String(phone || '').replace(/\D/g, '');
-  if (clean.startsWith('233')) clean = '0' + clean.slice(3);
-  if (clean.length === 9) clean = '0' + clean;
+  if (clean.startsWith('2330') && clean.length === 13) clean = '0' + clean.slice(4);
+  else if (clean.startsWith('233') && clean.length === 12) clean = '0' + clean.slice(3);
+  else if (clean.length === 9) clean = '0' + clean;
   return clean;
 }
 
@@ -122,6 +123,98 @@ export function detectMoMoNetwork(phone) {
     return { network: 'airteltigo', service: 'AIRTELTIGO', name: 'AT Money', prefix };
   }
   return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// VERIFIED MOMO NUMBERS (LOCAL STORAGE PERSISTENCE)
+// ═══════════════════════════════════════════════════════════════════
+export const VERIFIED_MOMO_STORAGE_KEY = 'verifiedMoMoNumbers';
+
+/**
+ * Normalize a valid Ghana MoMo phone number to canonical 12-digit 233XXXXXXXXX form.
+ * Returns "" if the number is not a valid Ghana MoMo number.
+ */
+export function toGhanaMsisdn(phone) {
+  const detected = detectMoMoNetwork(phone);
+  if (!detected) return '';
+  const local = normalizeGhanaNumber(phone);
+  return `233${local.slice(1)}`;
+}
+
+const resolveStorage = (storage) => {
+  if (storage) return storage;
+  try { return globalThis?.localStorage ?? null; } catch { return null; }
+};
+
+export function readVerifiedMoMoNumbers(storage = null) {
+  const store = resolveStorage(storage);
+  if (!store) return {};
+  try {
+    const raw = store.getItem(VERIFIED_MOMO_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (Array.isArray(parsed)) {
+      const normalized = {};
+      for (const entry of parsed) {
+        const key = toGhanaMsisdn(typeof entry === 'string' ? entry : entry?.msisdn);
+        if (key) normalized[key] = { verified: true, msisdn: key, verifiedAt: Number(entry?.verifiedAt) || 0 };
+      }
+      return normalized;
+    }
+    if (!parsed || typeof parsed !== 'object') return {};
+    const normalized = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      const key = toGhanaMsisdn(k) || toGhanaMsisdn(v?.msisdn);
+      if (key && (v === true || v?.verified === true)) {
+        normalized[key] = typeof v === 'object' && v !== null
+          ? { ...v, verified: true, msisdn: key }
+          : { verified: true, msisdn: key, verifiedAt: 0 };
+      }
+    }
+    return normalized;
+  } catch {
+    return {};
+  }
+}
+
+export function isMoMoNumberVerified(phone, storage = null) {
+  const key = toGhanaMsisdn(phone);
+  if (!key) return false;
+  const map = readVerifiedMoMoNumbers(storage);
+  return Boolean(map[key]?.verified);
+}
+
+export function markMoMoNumberVerified(phone, metadata = {}, storage = null) {
+  const key = toGhanaMsisdn(phone);
+  if (!key) return readVerifiedMoMoNumbers(storage);
+  const store = resolveStorage(storage);
+  const current = readVerifiedMoMoNumbers(store);
+  const next = {
+    ...current,
+    [key]: {
+      ...metadata,
+      verified: true,
+      msisdn: key,
+      verifiedAt: Number(metadata?.verifiedAt) || Date.now(),
+    },
+  };
+  try {
+    store?.setItem(VERIFIED_MOMO_STORAGE_KEY, JSON.stringify(next));
+  } catch { /* best effort */ }
+  return next;
+}
+
+export function clearVerifiedMoMoNumber(phone, storage = null) {
+  const key = toGhanaMsisdn(phone);
+  const store = resolveStorage(storage);
+  const current = readVerifiedMoMoNumbers(store);
+  if (!key || !current[key]) return current;
+  const next = { ...current };
+  delete next[key];
+  try {
+    store?.setItem(VERIFIED_MOMO_STORAGE_KEY, JSON.stringify(next));
+  } catch { /* best effort */ }
+  return next;
 }
 
 export const readJSON = (key, fallback = null) => {

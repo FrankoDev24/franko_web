@@ -1,7 +1,16 @@
-
 import { appStorage as localStorage } from "../utils/secureLocalStorageInit";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import {
   FunnelIcon,
@@ -12,6 +21,8 @@ import {
   TruckIcon,
   BuildingStorefrontIcon,
   CalendarDaysIcon,
+  UserCircleIcon,
+  UserIcon,
 } from "@heroicons/react/24/outline";
 import {
   ShoppingCartIcon,
@@ -22,6 +33,11 @@ import {
 
 import { fetchProductsByShowroom } from "../Redux/Slice/productSlice";
 import { getCartById } from "../Redux/Slice/cartSlice";
+import {
+  logoutCustomer,
+  syncWithStorage,
+  validateSession,
+} from "../Redux/Slice/customerSlice";
 import { CircularPagination } from "../Component/CircularPagination";
 import ProductDetailModal from "../Component/ProductDetailModal";
 import TelCartSidebar from "../Component/TelCartSidebar";
@@ -29,9 +45,12 @@ import useAddToCart from "../Component/Cart";
 import speedLogo from "../assets/frankoIcon.png";
 import telecelWhite from "../assets/Telecel White.png";
 
+// Auth modal is only needed when a guest taps "Sign in" — keep it out of the first paint.
+const AuthModal = lazy(() => import("../Component/AuthModal"));
+
 /* ============================ CONFIG ============================ */
 
-const SHOWROOM_ID = "1eb2a7fe-7c6d-4b98-b806-3e9a82164f1f";
+const SHOWROOM_ID = "553ef5d0-7e1c-4401-9d33-8c2c60e854ea";
 const PRODUCTS_PER_PAGE = 10;
 const MAX_PRICE = 200000;
 
@@ -107,6 +126,32 @@ const sortProducts = (list, sortBy) => {
   return [...list].sort(sorters[sortBy] || sorters.newest);
 };
 
+/* ---------- customer display helpers ---------- */
+
+const getDisplayName = (customer) => {
+  if (!customer) return "Customer";
+  const full = [customer.firstName, customer.lastName, customer.otherNames]
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return full || customer.email || customer.contactNumber || "Customer";
+};
+
+const getInitials = (customer) => {
+  if (!customer) return "U";
+  const first = (customer.firstName || "").trim();
+  const last = (customer.lastName || customer.otherNames || "").trim();
+  if (first || last) {
+    return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase();
+  }
+  const fallback = (customer.email || customer.contactNumber || "U").trim();
+  return fallback.charAt(0).toUpperCase();
+};
+
+const getSubtitle = (customer) =>
+  customer?.email || customer?.contactNumber || customer?.accountType || "Customer";
+
 const useCountdown = () => {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -150,9 +195,7 @@ const Notification = ({ message, type, visible, onClose }) => {
     >
       <div
         className={`flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg text-xs sm:text-sm font-medium ${
-          type === "success"
-            ? "bg-[#080808] text-[#FFD400]"
-            : "bg-[#E50914] text-white"
+          type === "success" ? "bg-[#080808] text-[#FFD400]" : "bg-[#E50914] text-white"
         }`}
       >
         <Icon className="w-5 h-5 flex-shrink-0" />
@@ -170,6 +213,209 @@ const Notification = ({ message, type, visible, onClose }) => {
   );
 };
 
+/* ============================ LOGOUT ICON (inline, no extra imports) ============================ */
+
+const LogoutIcon = ({ className = "w-4 h-4" }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    aria-hidden="true"
+  >
+    <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" />
+    <path d="M10 17l-5-5 5-5" />
+    <path d="M5 12h10" />
+  </svg>
+);
+
+/* ============================ ACCOUNT (avatar + dropdown + sign out) ============================ */
+
+/**
+ * Login-aware avatar. Shows the signed-in customer's initials (and first name on
+ * larger screens), opens a profile dropdown with Account / Orders / Logout, and
+ * falls back to a yellow "Sign in" pill when nobody is logged in.
+ *
+ * All state lives in PhoneSpeed so the desktop and mobile instances never drift.
+ */
+const AccountMenu = memo(function AccountMenu({
+  showUser,
+  customer,
+  open,
+  mobile = false,
+  onToggle,
+  onClose,
+  onAccount,
+  onOrders,
+  onLogout,
+  onSignIn,
+}) {
+  if (!showUser) {
+    return (
+      <button
+        type="button"
+        onClick={onSignIn}
+        aria-label="Sign in or create an account"
+        className={`${
+          mobile ? "h-10 px-3" : "h-10 px-3.5"
+        } inline-flex items-center gap-1.5 rounded-full bg-[#FFD400] text-[#080808] text-xs font-bold transition hover:bg-[#FF9F0F] active:scale-[0.97] flex-shrink-0`}
+      >
+        <UserIcon className="w-4 h-4" />
+        <span className={mobile ? "text-[11px]" : ""}>Sign up</span>
+      </button>
+    );
+  }
+
+  const initials = getInitials(customer);
+  const displayName = getDisplayName(customer);
+  const firstName = (customer?.firstName || "").trim() || displayName;
+
+  return (
+    <div
+      className={`relative flex-shrink-0 ${open ? "z-[80]" : "z-20"}`}
+      data-account-menu
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Account menu for ${displayName}`}
+        title={displayName}
+        className={`inline-flex items-center gap-2 h-10 rounded-full bg-white/10 border border-white/15 text-white transition hover:bg-white/15 active:scale-[0.97] ${
+          mobile ? "w-10 justify-center p-0" : "pl-1 pr-2.5"
+        }`}
+      >
+        <span
+          aria-hidden="true"
+          className="h-8 w-8 rounded-full bg-[#FFD400] text-[#080808] text-[11px] font-extrabold flex items-center justify-center flex-shrink-0"
+        >
+          {initials}
+        </span>
+        {!mobile && (
+          <>
+            <span className="max-w-[8.5rem] truncate text-xs font-semibold">
+              {firstName}
+            </span>
+            <ChevronDownIcon
+              className={`w-3.5 h-3.5 text-white/60 transition-transform ${
+                open ? "rotate-180" : ""
+              }`}
+            />
+          </>
+        )}
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          aria-label="Account menu"
+          className={`absolute top-[calc(100%+0.5rem)] z-[80] w-60 max-w-[calc(100vw-2rem)] rounded-xl bg-white ring-1 ring-black/10 shadow-2xl overflow-hidden animate-[bfSlideIn_0.16s_ease-out] ${
+            mobile ? "right-0" : "right-0"
+          }`}
+        >
+          <div className="px-4 py-3 bg-neutral-50 border-b border-neutral-200/80">
+            <p className="text-sm font-bold text-[#080808] truncate">{displayName}</p>
+            <p className="text-[11px] text-neutral-500 truncate mt-0.5">
+              {getSubtitle(customer)}
+            </p>
+          </div>
+
+          <div className="p-1">
+            <button
+              type="button"
+              role="menuitem"
+              onClick={onAccount}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-semibold text-neutral-700 hover:bg-neutral-100 hover:text-[#080808] transition text-left"
+            >
+              <UserCircleIcon className="w-4 h-4 text-neutral-400" />
+              My Account
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={onOrders}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-semibold text-neutral-700 hover:bg-neutral-100 hover:text-[#080808] transition text-left"
+            >
+              <TruckIcon className="w-4 h-4 text-neutral-400" />
+              My Orders
+            </button>
+            <div className="h-px bg-neutral-200/80 my-1" />
+            <button
+              type="button"
+              role="menuitem"
+              onClick={onLogout}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-bold text-[#E50914] hover:bg-[#E50914]/10 transition text-left"
+            >
+              <LogoutIcon className="w-4 h-4" />
+              Log out
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
+/* ============================ LOGOUT CONFIRM ============================ */
+
+const LogoutConfirm = memo(function LogoutConfirm({ open, name, onCancel, onConfirm }) {
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") onCancel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onCancel]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 animate-[bfSlideIn_0.15s_ease-out]"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="bf-logout-title"
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-[22rem] rounded-2xl bg-white shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-5 py-4 border-b border-neutral-200/80">
+          <h2 id="bf-logout-title" className="text-sm font-extrabold text-[#080808]">
+            Confirm logout
+          </h2>
+        </div>
+        <p className="px-5 py-4 text-xs sm:text-sm text-neutral-600 leading-relaxed">
+          {name ? `Sign out of ${name}'s account? ` : "Are you sure you want to log out? "}
+          You&apos;ll need to sign in again to see your cart, orders and wishlist.
+        </p>
+        <div className="flex gap-2 px-5 pb-5">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 min-h-[40px] rounded-lg bg-neutral-100 text-xs font-bold text-neutral-700 hover:bg-neutral-200 transition"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="flex-1 min-h-[40px] rounded-lg bg-[#E50914] text-xs font-bold text-white hover:bg-[#c00812] transition"
+          >
+            Log out
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 /* Animated Shopping Cart Filled with Smartphones Only */
 const AnimatedPhonesCart = () => (
   <div className="relative inline-flex items-center justify-center mb-5">
@@ -177,8 +423,7 @@ const AnimatedPhonesCart = () => (
       <div
         className="pointer-events-none absolute inset-0 opacity-20"
         style={{
-          background:
-            "radial-gradient(circle at 50% 45%, #FFD400 0%, transparent 70%)",
+          background: "radial-gradient(circle at 50% 45%, #FFD400 0%, transparent 70%)",
         }}
       />
 
@@ -189,211 +434,49 @@ const AnimatedPhonesCart = () => (
         aria-hidden="true"
       >
         {/* Speed lines */}
-        <line
-          x1="8"
-          y1="48"
-          x2="22"
-          y2="48"
-          stroke="#FF9F0F"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          className="bf-speed-1"
-        />
-        <line
-          x1="4"
-          y1="62"
-          x2="20"
-          y2="62"
-          stroke="#FFD400"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          className="bf-speed-2"
-        />
-        <line
-          x1="10"
-          y1="76"
-          x2="24"
-          y2="76"
-          stroke="#E50914"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          className="bf-speed-1"
-        />
+        <line x1="8" y1="48" x2="22" y2="48" stroke="#FF9F0F" strokeWidth="2.5" strokeLinecap="round" className="bf-speed-1" />
+        <line x1="4" y1="62" x2="20" y2="62" stroke="#FFD400" strokeWidth="2.5" strokeLinecap="round" className="bf-speed-2" />
+        <line x1="10" y1="76" x2="24" y2="76" stroke="#E50914" strokeWidth="2.5" strokeLinecap="round" className="bf-speed-1" />
 
         {/* Cart & Smartphones Group */}
         <g className="bf-cart-drive">
           {/* Phone 1 (Left, tilted left) */}
           <g className="bf-item-float-1">
-            <rect
-              x="36"
-              y="20"
-              width="16"
-              height="28"
-              rx="3"
-              transform="rotate(-12 36 20)"
-              fill="#171717"
-              stroke="#FFD400"
-              strokeWidth="2"
-            />
-            <rect
-              x="38.5"
-              y="23"
-              width="11"
-              height="21"
-              rx="1.5"
-              transform="rotate(-12 38.5 23)"
-              fill="#262626"
-            />
-            <line
-              x1="41"
-              y1="22"
-              x2="45"
-              y2="21.2"
-              stroke="#FFD400"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
+            <rect x="36" y="20" width="16" height="28" rx="3" transform="rotate(-12 36 20)" fill="#171717" stroke="#FFD400" strokeWidth="2" />
+            <rect x="38.5" y="23" width="11" height="21" rx="1.5" transform="rotate(-12 38.5 23)" fill="#262626" />
+            <line x1="41" y1="22" x2="45" y2="21.2" stroke="#FFD400" strokeWidth="1.5" strokeLinecap="round" />
           </g>
 
           {/* Phone 2 (Center, upright flagship phone) */}
           <g className="bf-item-float-2">
-            <rect
-              x="55"
-              y="15"
-              width="17"
-              height="30"
-              rx="3"
-              fill="#171717"
-              stroke="#FFFFFF"
-              strokeWidth="2"
-            />
-            <rect
-              x="57.5"
-              y="18"
-              width="12"
-              height="23"
-              rx="1.5"
-              fill="#E50914"
-            />
-            <line
-              x1="61.5"
-              y1="17"
-              x2="65.5"
-              y2="17"
-              stroke="#FFFFFF"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
+            <rect x="55" y="15" width="17" height="30" rx="3" fill="#171717" stroke="#FFFFFF" strokeWidth="2" />
+            <rect x="57.5" y="18" width="12" height="23" rx="1.5" fill="#E50914" />
+            <line x1="61.5" y1="17" x2="65.5" y2="17" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" />
             <circle cx="63.5" cy="38.5" r="1" fill="#FFD400" />
           </g>
 
           {/* Phone 3 (Right, tilted right) */}
           <g className="bf-item-float-3">
-            <rect
-              x="75"
-              y="21"
-              width="16"
-              height="27"
-              rx="3"
-              transform="rotate(12 75 21)"
-              fill="#171717"
-              stroke="#FF9F0F"
-              strokeWidth="2"
-            />
-            <rect
-              x="77.5"
-              y="24"
-              width="11"
-              height="20"
-              rx="1.5"
-              transform="rotate(12 77.5 24)"
-              fill="#FFD400"
-            />
-            <line
-              x1="81.5"
-              y1="23.5"
-              x2="85.5"
-              y2="24.2"
-              stroke="#080808"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
+            <rect x="75" y="21" width="16" height="27" rx="3" transform="rotate(12 75 21)" fill="#171717" stroke="#FF9F0F" strokeWidth="2" />
+            <rect x="77.5" y="24" width="11" height="20" rx="1.5" transform="rotate(12 77.5 24)" fill="#FFD400" />
+            <line x1="81.5" y1="23.5" x2="85.5" y2="24.2" stroke="#080808" strokeWidth="1.5" strokeLinecap="round" />
           </g>
 
           {/* --- SHOPPING CART BODY --- */}
-          <path
-            d="M18 32 H27 L36 70 H88"
-            stroke="#FFFFFF"
-            strokeWidth="3.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M30 40 H96 L89 64 H35 Z"
-            fill="#171717"
-            fillOpacity="0.9"
-            stroke="#FFD400"
-            strokeWidth="3"
-            strokeLinejoin="round"
-          />
-          <line
-            x1="48"
-            y1="41"
-            x2="46"
-            y2="63"
-            stroke="#FFD400"
-            strokeWidth="1.5"
-            strokeOpacity="0.4"
-          />
-          <line
-            x1="64"
-            y1="41"
-            x2="63"
-            y2="63"
-            stroke="#FFD400"
-            strokeWidth="1.5"
-            strokeOpacity="0.4"
-          />
-          <line
-            x1="80"
-            y1="41"
-            x2="77"
-            y2="63"
-            stroke="#FFD400"
-            strokeWidth="1.5"
-            strokeOpacity="0.4"
-          />
-          <line
-            x1="33"
-            y1="52"
-            x2="92"
-            y2="52"
-            stroke="#FFD400"
-            strokeWidth="1.5"
-            strokeOpacity="0.4"
-          />
+          <path d="M18 32 H27 L36 70 H88" stroke="#FFFFFF" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M30 40 H96 L89 64 H35 Z" fill="#171717" fillOpacity="0.9" stroke="#FFD400" strokeWidth="3" strokeLinejoin="round" />
+          <line x1="48" y1="41" x2="46" y2="63" stroke="#FFD400" strokeWidth="1.5" strokeOpacity="0.4" />
+          <line x1="64" y1="41" x2="63" y2="63" stroke="#FFD400" strokeWidth="1.5" strokeOpacity="0.4" />
+          <line x1="80" y1="41" x2="77" y2="63" stroke="#FFD400" strokeWidth="1.5" strokeOpacity="0.4" />
+          <line x1="33" y1="52" x2="92" y2="52" stroke="#FFD400" strokeWidth="1.5" strokeOpacity="0.4" />
 
           {/* Wheels */}
           <g>
-            <circle
-              cx="43"
-              cy="80"
-              r="7"
-              fill="#080808"
-              stroke="#FFFFFF"
-              strokeWidth="3"
-            />
+            <circle cx="43" cy="80" r="7" fill="#080808" stroke="#FFFFFF" strokeWidth="3" />
             <circle cx="43" cy="80" r="2.5" fill="#FFD400" />
           </g>
           <g>
-            <circle
-              cx="81"
-              cy="80"
-              r="7"
-              fill="#080808"
-              stroke="#FFFFFF"
-              strokeWidth="3"
-            />
+            <circle cx="81" cy="80" r="7" fill="#080808" stroke="#FFFFFF" strokeWidth="3" />
             <circle cx="81" cy="80" r="2.5" fill="#FFD400" />
           </g>
         </g>
@@ -588,9 +671,13 @@ const ProductCard = memo(function ProductCard({
 
 const PhoneSpeed = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   const { productsByShowroom = {}, loading } = useSelector((s) => s.products);
   const { cart: reduxCart = [], cartId: reduxCartId } = useSelector((s) => s.cart);
+  const { currentCustomer, isAuthenticated } = useSelector(
+    (s) => s.customer || {}
+  );
   const { addProductToCart, loading: cartLoading } = useAddToCart();
 
   const countdown = useCountdown();
@@ -615,6 +702,18 @@ const PhoneSpeed = () => {
   const [selectedProductId, setSelectedProductId] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+
+  /* ---------- account state ---------- */
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  // AuthModal opens on "signin"; the modal itself asks for a Telecel number.
+  const openAuthModal = useCallback(() => {
+    setProfileOpen(false);
+    setShowAuthModal(true);
+  }, []);
+
+  const closeAuthModal = useCallback(() => setShowAuthModal(false), []);
 
   const gridTopRef = useRef(null);
 
@@ -693,8 +792,7 @@ const PhoneSpeed = () => {
         ) === String(id);
       const sum = (list) =>
         (list || []).reduce(
-          (total, item) =>
-            matches(item) ? total + (Number(item.quantity) || 1) : total,
+          (total, item) => (matches(item) ? total + (Number(item.quantity) || 1) : total),
           0
         );
       return Math.max(sum(cartRef.current), sum(readStoredCart()));
@@ -757,7 +855,84 @@ const PhoneSpeed = () => {
     [addProductToCart, flashAdded, getCartLineQty, showNotice]
   );
 
+  /* ---------- account handlers (mirror the Nav dropdown) ---------- */
+
+  const showUser = Boolean(isAuthenticated && currentCustomer);
+  const customerName = showUser ? getDisplayName(currentCustomer) : "";
+
+  const closeAccountMenu = useCallback(() => setProfileOpen(false), []);
+  const toggleAccountMenu = useCallback(() => setProfileOpen((p) => !p), []);
+
+  // Signing in from the avatar opens the modal on the Sign In tab
+  const handleSignInClick = useCallback(() => openAuthModal(), [openAuthModal]);
+
+  const handleAccountClick = useCallback(() => {
+    setProfileOpen(false);
+    navigate("/account");
+  }, [navigate]);
+
+  const handleOrdersClick = useCallback(() => {
+    setProfileOpen(false);
+    navigate("/order-history");
+  }, [navigate]);
+
+  const requestLogout = useCallback(() => {
+    setProfileOpen(false);
+    setShowLogoutModal(true);
+  }, []);
+
+  const cancelLogout = useCallback(() => setShowLogoutModal(false), []);
+
+  const confirmLogout = useCallback(() => {
+    dispatch(logoutCustomer());
+    try {
+      localStorage.removeItem("cartId");
+    } catch {
+      /* ignore storage errors */
+    }
+    setShowLogoutModal(false);
+    setProfileOpen(false);
+    showNotice("You've been logged out");
+  }, [dispatch, showNotice]);
+
+  /* close the account dropdown on outside click / Escape / route-ish interaction */
+  useEffect(() => {
+    if (!profileOpen) return undefined;
+    const onDown = (e) => {
+      if (e.target instanceof Element && e.target.closest("[data-account-menu]")) {
+        return;
+      }
+      setProfileOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") setProfileOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [profileOpen]);
+
   /* ---------- effects ---------- */
+
+  useEffect(() => {
+    dispatch(syncWithStorage());
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (isAuthenticated && currentCustomer?.contactNumber) {
+      dispatch(validateSession());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!showUser) setProfileOpen(false);
+  }, [showUser]);
 
   useEffect(() => {
     if (teaserLines.length < 2) return undefined;
@@ -928,17 +1103,13 @@ const PhoneSpeed = () => {
             >
               {key}
               <div className="relative mt-1">
-                <span className="absolute left-2.5 top-2 text-xs text-neutral-400">
-                  ₵
-                </span>
+                <span className="absolute left-2.5 top-2 text-xs text-neutral-400">₵</span>
                 <input
                   type="number"
                   min="0"
                   inputMode="numeric"
                   value={inputPrice[key]}
-                  onChange={(e) =>
-                    setInputPrice((p) => ({ ...p, [key]: e.target.value }))
-                  }
+                  onChange={(e) => setInputPrice((p) => ({ ...p, [key]: e.target.value }))}
                   className={priceInputClass}
                 />
               </div>
@@ -1081,16 +1252,20 @@ const PhoneSpeed = () => {
       <div className="bf-scroll min-h-screen bg-[#fafafa] text-[#171717]">
         <div className="mx-auto w-full max-w-[1600px] px-2.5 sm:px-6 lg:px-8 py-3 sm:py-6">
           {/* ---------- Minimal Black Friday Header (Telecel | Franko) ---------- */}
-          <header className="relative overflow-hidden bg-[#080808] text-white rounded-2xl p-3.5 sm:px-6 sm:py-5 border border-neutral-800">
-            <div
-              className="pointer-events-none absolute top-0 inset-x-0 h-[3px]"
-              style={{
-                background: "linear-gradient(90deg, #FFD400, #FF9F0F, #E50914)",
-              }}
-            />
+          {/* NOTE: no `overflow-hidden` on the header itself — it would clip the
+              account dropdown. Only the 3px gradient bar is clipped. */}
+          <header className="relative bg-[#080808] text-white rounded-2xl p-3.5 sm:px-6 sm:py-5 border border-neutral-800">
+            <div className="pointer-events-none absolute top-0 inset-x-0 h-[3px] overflow-hidden rounded-t-2xl">
+              <div
+                className="h-full w-full"
+                style={{
+                  background: "linear-gradient(90deg, #FFD400, #FF9F0F, #E50914)",
+                }}
+              />
+            </div>
 
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 sm:gap-4">
-              {/* Top Row on Mobile: High-Visibility Partner Logos + Mobile Cart Button */}
+              {/* Top Row on Mobile: High-Visibility Partner Logos + Account + Mobile Cart */}
               <div className="flex items-center justify-between md:justify-start gap-3">
                 <div className="inline-flex items-center gap-3 sm:gap-3.5 flex-shrink-0 bg-white/[0.06] border border-white/15 rounded-xl px-3 py-2">
                   <img
@@ -1115,32 +1290,47 @@ const PhoneSpeed = () => {
                   </div>
                 </div>
 
-                {/* Mobile Cart Icon */}
-                <button
-                  type="button"
-                  onClick={() => setIsCartOpen(true)}
-                  aria-label={`Open cart, ${cartItemCount} item${
-                    cartItemCount === 1 ? "" : "s"
-                  }`}
-                  className="bf-cart-btn md:hidden relative inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white flex-shrink-0"
-                >
-                  {cartBusy ? (
-                    <span
-                      aria-hidden="true"
-                      className="h-4 w-4 rounded-full border-2 border-white/30 border-t-[#FFD400] animate-spin"
-                    />
-                  ) : (
-                    <ShoppingCartIcon className="w-5 h-5 text-[#FFD400]" />
-                  )}
-                  {cartItemCount > 0 && !cartBusy && (
-                    <span
-                      key={cartItemCount}
-                      className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 text-[9px] font-black rounded-full flex items-center justify-center cart-bounce ring-2 ring-[#080808] bg-[#E50914] text-white"
-                    >
-                      {cartItemCount}
-                    </span>
-                  )}
-                </button>
+                {/* Mobile: account avatar + cart */}
+                <div className="flex items-center gap-2 md:hidden">
+                  <AccountMenu
+                    mobile
+                    showUser={showUser}
+                    customer={currentCustomer}
+                    open={profileOpen}
+                    onToggle={toggleAccountMenu}
+                    onClose={closeAccountMenu}
+                    onAccount={handleAccountClick}
+                    onOrders={handleOrdersClick}
+                    onLogout={requestLogout}
+                    onSignIn={handleSignInClick}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setIsCartOpen(true)}
+                    aria-label={`Open cart, ${cartItemCount} item${
+                      cartItemCount === 1 ? "" : "s"
+                    }`}
+                    className="bf-cart-btn relative inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white flex-shrink-0"
+                  >
+                    {cartBusy ? (
+                      <span
+                        aria-hidden="true"
+                        className="h-4 w-4 rounded-full border-2 border-white/30 border-t-[#FFD400] animate-spin"
+                      />
+                    ) : (
+                      <ShoppingCartIcon className="w-5 h-5 text-[#FFD400]" />
+                    )}
+                    {cartItemCount > 0 && !cartBusy && (
+                      <span
+                        key={cartItemCount}
+                        className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 text-[9px] font-black rounded-full flex items-center justify-center cart-bounce ring-2 ring-[#080808] bg-[#E50914] text-white"
+                      >
+                        {cartItemCount}
+                      </span>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Center/Left Title & Rotating Copy */}
@@ -1166,7 +1356,7 @@ const PhoneSpeed = () => {
                 </p>
               </div>
 
-              {/* Right: Countdown + Desktop Cart Button */}
+              {/* Right: Countdown + Account + Desktop Cart */}
               <div className="flex items-center justify-between md:justify-end gap-3 pt-2.5 md:pt-0 border-t border-white/10 md:border-0">
                 {phase !== "ended" && (
                   <div className="flex items-center justify-between w-full md:w-auto gap-2">
@@ -1179,34 +1369,56 @@ const PhoneSpeed = () => {
                   </div>
                 )}
 
-                {/* Desktop Cart Icon */}
-                <button
-                  type="button"
-                  onClick={() => setIsCartOpen(true)}
-                  aria-label={`Open cart, ${cartItemCount} item${
-                    cartItemCount === 1 ? "" : "s"
-                  }`}
-                  className="bf-cart-btn hidden md:inline-flex relative h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white flex-shrink-0"
-                >
-                  {cartBusy ? (
-                    <span
-                      aria-hidden="true"
-                      className="h-5 w-5 rounded-full border-2 border-white/30 border-t-[#FFD400] animate-spin"
-                    />
-                  ) : (
-                    <ShoppingCartIcon className="w-5 h-5 text-[#FFD400]" />
-                  )}
-                  {cartItemCount > 0 && !cartBusy && (
-                    <span
-                      key={cartItemCount}
-                      className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 text-[10px] font-black rounded-full flex items-center justify-center cart-bounce ring-2 ring-[#080808] bg-[#E50914] text-white"
-                    >
-                      {cartItemCount}
-                    </span>
-                  )}
-                </button>
+                {/* Desktop: account avatar (name + initials) + cart */}
+                <div className="hidden md:flex items-center gap-2">
+                  <AccountMenu
+                    showUser={showUser}
+                    customer={currentCustomer}
+                    open={profileOpen}
+                    onToggle={toggleAccountMenu}
+                    onClose={closeAccountMenu}
+                    onAccount={handleAccountClick}
+                    onOrders={handleOrdersClick}
+                    onLogout={requestLogout}
+                    onSignIn={handleSignInClick}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setIsCartOpen(true)}
+                    aria-label={`Open cart, ${cartItemCount} item${
+                      cartItemCount === 1 ? "" : "s"
+                    }`}
+                    className="bf-cart-btn relative h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white flex-shrink-0 inline-flex"
+                  >
+                    {cartBusy ? (
+                      <span
+                        aria-hidden="true"
+                        className="h-5 w-5 rounded-full border-2 border-white/30 border-t-[#FFD400] animate-spin"
+                      />
+                    ) : (
+                      <ShoppingCartIcon className="w-5 h-5 text-[#FFD400]" />
+                    )}
+                    {cartItemCount > 0 && !cartBusy && (
+                      <span
+                        key={cartItemCount}
+                        className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 text-[10px] font-black rounded-full flex items-center justify-center cart-bounce ring-2 ring-[#080808] bg-[#E50914] text-white"
+                      >
+                        {cartItemCount}
+                      </span>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
+
+            {/* Signed-in greeting (mobile only — desktop shows the name in the avatar pill) */}
+            {showUser && (
+              <p className="md:hidden mt-2.5 text-[11px] text-white/60 truncate">
+                Signed in as{" "}
+                <span className="text-[#FFD400] font-semibold">{customerName}</span>
+              </p>
+            )}
 
             {/* Minimal Perks Strip */}
             <div className="hidden sm:flex mt-3.5 pt-3 border-t border-white/10 flex-wrap items-center gap-x-5 gap-y-1 text-[11px] text-white/70">
@@ -1266,9 +1478,7 @@ const PhoneSpeed = () => {
               />
               <div className="bf-sheet absolute inset-x-0 bottom-0 max-h-[82vh] bg-[#fafafa] rounded-t-2xl overflow-hidden flex flex-col">
                 <div className="flex items-center justify-between px-4 py-3.5 bg-white border-b border-neutral-200">
-                  <span className="text-sm font-bold text-[#080808]">
-                    Filters &amp; Sort
-                  </span>
+                  <span className="text-sm font-bold text-[#080808]">Filters &amp; Sort</span>
                   <button
                     type="button"
                     onClick={() => setDrawerOpen(false)}
@@ -1336,9 +1546,7 @@ const PhoneSpeed = () => {
                 <div className="flex flex-wrap items-center gap-2 mb-4">
                   {!priceIsDefault && (
                     <FilterChip
-                      label={`${formatPrice(priceRange[0])} – ${formatPrice(
-                        priceRange[1]
-                      )}`}
+                      label={`${formatPrice(priceRange[0])} – ${formatPrice(priceRange[1])}`}
                       onRemove={removePrice}
                     />
                   )}
@@ -1348,9 +1556,7 @@ const PhoneSpeed = () => {
                       onRemove={() => setDiscountedOnly(false)}
                     />
                   )}
-                  {brand && (
-                    <FilterChip label={brand} onRemove={() => setBrand("")} />
-                  )}
+                  {brand && <FilterChip label={brand} onRemove={() => setBrand("")} />}
                   {sortBy !== DEFAULT_SORT && (
                     <FilterChip
                       label={SORT_OPTIONS.find((o) => o.value === sortBy)?.label}
@@ -1460,6 +1666,32 @@ const PhoneSpeed = () => {
         open={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         checkoutPath="/tel-checkout"
+      />
+
+      {/* ---------- Auth modal (guests only, lazy) ---------- */}
+      {showAuthModal && (
+        <Suspense
+          fallback={
+            <div className="fixed inset-0 z-[9998] bg-black/40" aria-hidden="true" />
+          }
+        >
+          <AuthModal
+            open={showAuthModal}
+            onClose={closeAuthModal}
+            initialMode="signup"
+            requireTelecel
+            notice="Please register or sign in with your Telecel contact number to complete your Black Friday order."
+          />
+        </Suspense>
+      )}
+
+
+      {/* ---------- Logout confirmation ---------- */}
+      <LogoutConfirm
+        open={showLogoutModal}
+        name={customerName}
+        onCancel={cancelLogout}
+        onConfirm={confirmLogout}
       />
     </>
   );

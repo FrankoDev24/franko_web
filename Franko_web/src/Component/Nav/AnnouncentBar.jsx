@@ -231,6 +231,13 @@ const ICONS = {
       <circle cx="18.5" cy="18.5" r="2.5" />
     </>
   ),
+  bag: (
+    <>
+      <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <path d="M16 10a4 4 0 0 1-8 0" />
+    </>
+  ),
   phone: (
     <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
   ),
@@ -523,6 +530,19 @@ const CallModal = ({ open, onClose }) => {
   );
 };
 
+/* ─────────────────────────── shop now ─────────────────────────── */
+
+const ShopNowButton = () => (
+  <a
+    href="/blackfriday"
+    aria-label="Shop Black Friday deals"
+    className="inline-flex h-[26px] shrink-0 items-center justify-center gap-1.5 rounded-full bg-[#FFD400] px-3 text-[11px] font-black uppercase tracking-wide text-[#080808] shadow-[0_2px_0_rgba(0,0,0,0.25)] ring-1 ring-white/25 transition-transform duration-200 hover:-translate-y-px hover:scale-105 hover:bg-[#FFE14D] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:h-8 sm:px-3.5 sm:text-[13px] lg:h-[30px]"
+  >
+    <Icon name="bag" size={14} strokeWidth={2.6} />
+    <span className="whitespace-nowrap">Shop Now</span>
+  </a>
+);
+
 /* ─────────────────────────── contact ─────────────────────────── */
 
 const Contact = ({ onOpenCallModal }) => (
@@ -530,6 +550,8 @@ const Contact = ({ onOpenCallModal }) => (
     <MobileDivider />
     <Divider />
     <div className="ml-auto flex shrink-0 items-center gap-1.5 lg:ml-0 lg:gap-2">
+      <ShopNowButton />
+
       <span className="fk-text hidden text-[11px] font-black uppercase tracking-[0.12em] text-white sm:inline lg:hidden xl:inline">
         Need help?
       </span>
