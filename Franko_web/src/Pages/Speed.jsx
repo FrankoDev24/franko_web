@@ -27,7 +27,7 @@ import useAddToCart from "../Component/Cart";
 
 /* ============================ CONFIG ============================ */
 
-const SHOWROOM_ID = "a0631779-0be9-4cc3-825d-5b381343859c";
+const SHOWROOM_ID = "b9a77018-7097-4132-9603-b68947c8ff4d";
 const PRODUCTS_PER_PAGE = 10;
 const MAX_PRICE = 200000;
 const BROWSE_ALL_URL = "/";

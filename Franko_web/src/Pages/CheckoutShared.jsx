@@ -107,12 +107,12 @@ export default function CheckoutShared({ telecel = false }) {
   // ═════════════════════════════════════════════════════════════════
   const [recipient, setRecipient] = useState(() => {
     if (isAgent) return '';
-    const v = stored.recipientName || accountName || '';
+    const v = accountName || '';
     return isGuestValue(v) ? '' : v;
   });
   const [phone, setPhone] = useState(() => {
     if (isAgent) return '';
-    return stored.recipientContactNumber || accountPhone || '';
+    return accountPhone || '';
   });
   const [different, setDifferent] = useState(() => {
     if (isAgent) return false;
@@ -195,7 +195,7 @@ export default function CheckoutShared({ telecel = false }) {
   const subtotal = useMemo(() => items.reduce((sum, item) => sum + price(item) * qty(item), 0), [items]);
   const shipping = Number(delivery?.fee) || 0;
   const serviceCharge = Math.min(20, (subtotal + shipping) * .01);
-  const amount = subtotal + shipping + (method === 'Mobile Money' ? serviceCharge : 0);
+  const amount = subtotal;
 
   const detectedNetworkInfo = useMemo(() => (isAgent ? null : detectMoMoNetwork(momoNumber)), [isAgent, momoNumber]);
   const normalizedMomoMsisdn = useMemo(() => (isAgent ? '' : toGhanaMsisdn(momoNumber)), [isAgent, momoNumber]);
@@ -753,7 +753,7 @@ export default function CheckoutShared({ telecel = false }) {
     const orderId = generateOrderCode(telecel);
     const { checkout, delivery: address } = buildOrderDetails({
       cartId, customerId: customerId(c), orderId, paymentMode: method,
-      contact, accountType: c.accountType, subtotal: amount,
+      contact, accountType: c.accountType, subtotal,
       recipientName: name, recipientContactNumber: contact,
       orderNote: note, orderDate: new Date().toISOString(),
       address: addressText, paymentService: telecel ? NETWORKS.vodafone : 'N/A',
@@ -1116,7 +1116,7 @@ function CheckoutView({ flow }) {
                 </div>
               </div>
               <div className="pm-header-right">
-                <p className="pm-amount-value-small">{money(amount)}</p>
+                <p className="pm-amount-value-small">{money(displayTotal)}</p>
               </div>
             </div>
             <div className="pm-body">
@@ -1126,7 +1126,12 @@ function CheckoutView({ flow }) {
                     <span className="pm-field-step-num">1</span>
                     <span className="pm-field-label">Enter Mobile Money Number</span>
                   </div>
-            
+                  {normalizedMomoMsisdn && isMomoVerified && (
+                    <span className="co-badge-verified">
+                      <CheckCircleSolid style={{ width: 12, height: 12 }} />
+                      Verified on device
+                    </span>
+                  )}
                 </div>
                 <div className="pm-field-body">
                   <Input
@@ -1225,7 +1230,7 @@ function CheckoutView({ flow }) {
                 disabled={!accountValidated || validatingAccount || busy || otpBusy}
               >
                 <ShieldCheckIcon style={{ width: 18, height: 18 }} />
-                {otpBusy ? 'Sending OTP…' : busy ? 'Sending Payment Prompt…' : `Pay Now · ${money(amount)}`}
+                {otpBusy ? 'Sending OTP…' : busy ? 'Sending Payment Prompt…' : `Pay Now · ${money(displayTotal)}`}
               </button>
               <div className="pm-security">
                 <ShieldCheckIcon style={{ width: 12, height: 12 }} />
@@ -1256,7 +1261,7 @@ function CheckoutView({ flow }) {
                 </div>
               </div>
               <div className="pm-header-right">
-                <p className="pm-amount-value-small" style={{ fontSize: 18 }}>{money(amount)}</p>
+                <p className="pm-amount-value-small" style={{ fontSize: 18 }}>{money(displayTotal)}</p>
               </div>
             </div>
             <div className="pm-body">
@@ -1376,7 +1381,7 @@ function CheckoutView({ flow }) {
                   We have sent an authorization prompt to <strong>{number}</strong> ({currentNetwork?.name || 'Mobile Money'}).
                 </p>
                 <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>
-                  Reference: <strong>{orderId}</strong> · Amount: <strong>{money(amount)}</strong>
+                  Reference: <strong>{orderId}</strong> · Amount: <strong>{money(displayTotal)}</strong>
                 </p>
                 <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#166534', fontWeight: 600 }}>
                   Enter your MoMo PIN on your phone to complete payment. We will confirm your order automatically as soon as you approve.
