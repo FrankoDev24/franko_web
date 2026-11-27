@@ -54,10 +54,10 @@ const SHOWROOM_ID = "553ef5d0-7e1c-4401-9d33-8c2c60e854ea";
 const PRODUCTS_PER_PAGE = 10;
 const MAX_PRICE = 200000;
 
-// Black Friday is on Friday, 27th November 2026 (GMT / Accra time)
+// Black Friday: Friday 27th November – Monday 30th November 2026 (GMT / Accra time)
 const BLACK_FRIDAY_START = Date.parse("2026-11-27T00:00:00Z");
-const PROMO_END = Date.parse("2026-11-27T23:59:59Z");
-const LAUNCH_LABEL = "Friday, 27th November 2026";
+const PROMO_END = Date.parse("2026-11-30T18:00:00Z");
+const LAUNCH_LABEL = "Extended to Monday, 30th November 2026";
 
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest First" },
@@ -72,9 +72,9 @@ const DEFAULT_SORT = "newest";
 
 const TEASERS = {
   live: [
-    "Telecel | Franko · Exclusive smartphone deals up to 40% OFF.",
-    "Free delivery within Accra & Kumasi for online phone purchases.",
-    "Available across all Franko branches nationwide — 27th Nov 2026.",
+  " extended to Monday, 30th November 2026.",
+    "Free delivery within Accra & Kumasi",
+    
   ],
   ended: ["Black Friday 2026 has ended — thank you for shopping with us."],
 };
@@ -247,7 +247,7 @@ const AccountMenu = memo(function AccountMenu({
   open,
   mobile = false,
   onToggle,
-  onClose,
+ 
   onAccount,
   onOrders,
   onLogout,
@@ -1197,7 +1197,7 @@ const PhoneSpeed = () => {
   return (
     <>
       <Helmet>
-        <title>Telecel | Franko Black Friday Phones – 27th November 2026</title>
+        <title>Telecel | Franko Black Friday Phones – Extended to 30th November 2026</title>
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, viewport-fit=cover"
@@ -1337,7 +1337,7 @@ const PhoneSpeed = () => {
               <div className="min-w-0 flex-1 md:pl-2">
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                   <span className="px-1.5 py-0.5 rounded bg-[#E50914] text-white text-[9px] sm:text-[10px] font-bold uppercase tracking-wider">
-                    27 Nov 2026
+                    27 – 30 Nov 2026
                   </span>
                   <span className="px-1.5 py-0.5 rounded bg-[#FFD400]/15 text-[#FFD400] text-[9px] sm:text-[10px] font-bold uppercase tracking-wider">
                     Phones · Up to 40% Off
@@ -1633,7 +1633,7 @@ const PhoneSpeed = () => {
                       ? "Try adjusting your price range or clearing a filter to see available phone deals."
                       : phase === "ended"
                       ? "Thank you for being part of the Telecel | Franko Black Friday promotion."
-                      : "Telecel in collaboration with Franko is preparing exclusive Black Friday smartphone deals up to 40% OFF for Friday, 27th November 2026."}
+                      : "Telecel in collaboration with Franko is preparing exclusive Black Friday smartphone deals up to 40% OFF — extended to Monday, 30th November 2026."}
                   </p>
 
                   <div className="flex items-center justify-center">

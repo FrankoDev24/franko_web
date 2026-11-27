@@ -32,10 +32,10 @@ const PRODUCTS_PER_PAGE = 10;
 const MAX_PRICE = 200000;
 const BROWSE_ALL_URL = "/";
 
-// Black Friday is on Friday, 27th November 2026 (GMT / Accra time)
+// Black Friday: Friday 27th November – Monday 30th November 2026 (GMT / Accra time)
 const BLACK_FRIDAY_START = Date.parse("2026-11-27T00:00:00Z");
-const PROMO_END = Date.parse("2026-11-27T23:59:59Z");
-const LAUNCH_LABEL = "Friday, 27th November 2026";
+const PROMO_END = Date.parse("2026-11-30T18:00:00Z");
+const LAUNCH_LABEL = "Extended to Monday, 30th November 2026";
 
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest First" },
@@ -51,7 +51,7 @@ const DEFAULT_SORT = "newest";
 const TEASERS = {
   before: ["Black Friday Super Sale — Friday, 27th November 2026."],
   live: [
-    "Discounts up to 40% OFF — Friday, 27th November 2026.",
+    "Discounts up to 40% OFF — extended to Monday, 30th November 2026.",
     "Free delivery within Accra & Kumasi for online purchases.",
     "Promotion across all Franko branches nationwide.",
   ],
@@ -935,7 +935,7 @@ const Speed = () => {
   return (
     <>
       <Helmet>
-        <title>Black Friday – 27th November 2026 | Franko Trading</title>
+        <title>Black Friday – Extended to 30th November 2026 | Franko Trading</title>
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, viewport-fit=cover"
@@ -999,7 +999,7 @@ const Speed = () => {
                 <div className="flex items-center justify-between md:justify-start gap-2">
                   <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                     <span className="px-1.5 py-0.5 rounded bg-[#E50914] text-white text-[9px] sm:text-[10px] font-bold uppercase tracking-wider">
-                      27 Nov 2026
+                      27 – 30 Nov 2026
                     </span>
                     <span className="px-1.5 py-0.5 rounded bg-[#FFD400]/15 text-[#FFD400] text-[9px] sm:text-[10px] font-bold uppercase tracking-wider">
                       Up to 40% Off
@@ -1264,7 +1264,7 @@ const Speed = () => {
                       ? "Try adjusting your price range or clearing a filter to see available deals."
                       : phase === "ended"
                       ? "Thank you for being part of our Black Friday promotion. Explore our store for more offers."
-                      : "We're preparing exclusive Black Friday deals on phones, laptops, and electronics up to 40% OFF for Friday, 27th November 2026."}
+                      : "We're preparing exclusive Black Friday deals on phones, laptops, and electronics up to 40% OFF — extended to Monday, 30th November 2026."}
                   </p>
 
                   <div className="flex items-center justify-center gap-2.5">

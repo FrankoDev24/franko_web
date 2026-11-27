@@ -24,7 +24,7 @@ gsap.registerPlugin(useGSAP);
 
 /* ── Black Friday timing. Ghana is on GMT all year, so "Z" = Accra time. ── */
 const PROMO_START = Date.parse("2026-11-27T00:00:00Z");
-const PROMO_END = Date.parse("2026-11-28T00:00:00Z");
+const PROMO_END = Date.parse("2026-11-30T18:00:00Z");
 
 const SLIDE_SECONDS = 4.5;
 
@@ -39,16 +39,31 @@ const SLIDES = [
     id: "teaser",
     icon: "calendar",
     full: [
-      { t: "BLACK FRIDAY IS COMING! ", hl: true },
-      { t: "Mark your calendar - 27th November." },
+      { t: "BLACK FRIDAY IS HERE! ", hl: true },
+      { t: "27th-30th November." },
     ],
     short: [
       { t: "BLACK FRIDAY · ", hl: true },
-      { t: " 27TH NOVEMBER" },
+      { t: " 27TH - 30TH NOVEMBER" },
     ],
     tiny: [
       { t: "BLACK FRIDAY · ", hl: true },
-      { t: "NOV 27" },
+      { t: "NOV 27 - 30 " },
+    ],
+  },
+  {
+    id: "extended",
+    full: [
+      { t: "EXTENDED! ", hl: true },
+      { t: "TO MONDAY 30TH NOVEMBER" },
+    ],
+    short: [
+      { t: "EXTENDED · ", hl: true },
+      { t: "NOW THROUGH MON 30TH NOV" },
+    ],
+    tiny: [
+      { t: "EXTENDED · ", hl: true },
+      { t: "TO NOV 30" },
     ],
   },
   {
@@ -186,7 +201,7 @@ const useCountdown = () => {
   const h = Math.floor((total % 86400) / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
-  const label = phase === "before" ? "Black Friday starts in" : "Black Friday ends in";
+  const label = phase === "before" ? "Black Friday starts in" : "ends in";
   const shortLabel = phase === "before" ? "Starts in" : "Ends in";
 
   return {
