@@ -77,6 +77,59 @@ export const updateLastActivity = () => {
   }
 };
 
+/* ═══════════════════════════════════════════════════════════════
+   TELECEL BLACK FRIDAY PRODUCT FILTER
+   Hide every product whose showRoomName is "Telecel black Friday"
+   from the whole website — EXCEPT on the /telecel-blackfriday page.
+   Applied centrally on the axios response so no other page/component
+   needs its own filter.
+   ═══════════════════════════════════════════════════════════════ */
+const TELECEL_BF_SHOWROOM = "telecel black friday";
+const TELECEL_BF_ROUTE = "/telecel-blackfriday";
+
+const isOnTelecelBlackFridayPage = () => {
+  if (typeof window === "undefined") return false;
+  const path = window.location.pathname || "";
+  return path === TELECEL_BF_ROUTE || path.startsWith(`${TELECEL_BF_ROUTE}/`);
+};
+
+export const isTelecelBlackFridayProduct = (item) => {
+  if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+  const showroom = String(
+    item.showRoomName ?? item.ShowRoomName ?? item.showroomName ?? ""
+  )
+    .trim()
+    .toLowerCase();
+  return showroom === TELECEL_BF_SHOWROOM;
+};
+
+const isPlainData = (value) =>
+  value !== null &&
+  typeof value === "object" &&
+  !Array.isArray(value) &&
+  Object.getPrototypeOf(value) === Object.prototype;
+
+export const stripTelecelBlackFridayProducts = (value) => {
+  if (isOnTelecelBlackFridayPage()) return value;
+  if (Array.isArray(value)) {
+    const out = [];
+    for (const item of value) {
+      if (isTelecelBlackFridayProduct(item)) continue;
+      out.push(stripTelecelBlackFridayProducts(item));
+    }
+    return out;
+  }
+  if (isPlainData(value)) {
+    if (isTelecelBlackFridayProduct(value)) return null;
+    const out = {};
+    for (const [key, child] of Object.entries(value)) {
+      out[key] = stripTelecelBlackFridayProducts(child);
+    }
+    return out;
+  }
+  return value;
+};
+
 const axiosInstance = axios.create({
   baseURL: LAMBDA_BASE_URL,
   timeout: 30000,
@@ -118,7 +171,12 @@ axiosInstance.interceptors.request.use(
  * decide whether the user is active and whether the token can be refreshed.
  */
 axiosInstance.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (response?.data) {
+      response.data = stripTelecelBlackFridayProducts(response.data);
+    }
+    return response;
+  },
   (error) => Promise.reject(error)
 );
 
