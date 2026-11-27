@@ -241,7 +241,7 @@ function FirstVisitBlackFriday() {
   const [open, setOpen] = useState(() => {
     try {
       if (
-        Date.now() > Date.parse("2026-11-27T23:59:59Z") ||
+        Date.now() > Date.parse("2026-11-30T18:00:00Z") ||
         localStorage.getItem("blackFridayFirstVisit") ||
         localStorage.getItem("customer")
       ) {
@@ -271,7 +271,7 @@ function FirstVisitBlackFriday() {
   if (!open) return null;
 
   const start = Date.parse("2026-11-27T00:00:00Z");
-  const end = Date.parse("2026-11-27T23:59:59Z");
+  const end = Date.parse("2026-11-30T18:00:00Z");
   const isBeforeStart = now < start;
   const remaining = Math.max(0, Math.floor(((isBeforeStart ? start : end) - now) / 1000));
 
@@ -362,7 +362,7 @@ function FirstVisitBlackFriday() {
             textTransform: "uppercase",
           }}
         >
-          FRANKO TRADING · 27 NOV 2026
+          FRANKO TRADING · EXTENDED TO 30 NOV 2026
         </div>
 
         {/* Discount Callout */}
@@ -408,7 +408,7 @@ function FirstVisitBlackFriday() {
           }}
         >
           Save <strong style={{ color: "#FFD400" }}>up to 40% OFF</strong> on phones,
-          laptops &amp; home appliances - online &amp; across all Franko branches.
+          laptops , home appliances &amp; electronics.
         </p>
 
         {/* Countdown */}
@@ -551,7 +551,7 @@ function App() {
           <Route path="/air-condition" element={<Airconditioners />} />
           <Route path="/cart/:cartId" element={<Cart />} />
 
-          {/* ═══════════════════════════════════════════════════
+          {/* ═══════════════════════════════════════════════════════
             PRODUCT ROUTE - SLUG MIGRATION
             New canonical path uses product-name slug:
               /product/samsung-galaxy-a56-5g
@@ -561,7 +561,7 @@ function App() {
             + server 301 (see SEO_MIGRATION_GUIDE.md).
             Keep the single route below - it matches BOTH
             slugs and UUIDs (UUID = just another string).
-        ═══════════════════════════════════════════════════ */}
+        ═══════════════════════════════════════════════════════ */}
           <Route
             path="/product/:slug"
             element={
