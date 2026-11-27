@@ -172,8 +172,8 @@ const useCountdown = () => {
   if (now === null) {
     return {
       phase: "live",
-      label: "Black Friday starts in",
-      shortLabel: "Starts in",
+      label: "Black Friday ends in",
+      shortLabel: "Ends in",
       units: ["--", "--", "--", "--"],
       aria: "Countdown to Black Friday on Friday, 27 November 2026",
     };
@@ -186,8 +186,8 @@ const useCountdown = () => {
   const h = Math.floor((total % 86400) / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
-  const label = phase === "ended" ? "Black Friday is live" : "Black Friday starts in";
-  const shortLabel = phase === "ended" ? "Live now" : "Starts in";
+  const label = phase === "before" ? "Black Friday starts in" : "Black Friday ends in";
+  const shortLabel = phase === "before" ? "Starts in" : "Ends in";
 
   return {
     phase,

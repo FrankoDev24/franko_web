@@ -832,9 +832,9 @@ export default function CheckoutShared({ telecel = false }) {
 }
 
 const netTiles = [
-  { value: 'mtn', logo: mtnLogo, name: 'MTN MoMo', sub: 'Dial *170#', bg: '#fffbeb', border: '#fbbf24', color: '#d97706' },
-  { value: 'vodafone', logo: vodafoneLogo, name: 'Telecel Cash', sub: 'Dial *110#', bg: '#fff1f2', border: '#fda4af', color: '#e11d48' },
-  { value: 'airteltigo', logo: airteltigoLogo, name: 'AT Money', sub: 'Dial *110#', bg: '#eff6ff', border: '#93c5fd', color: '#2563eb' },
+  { value: 'mtn', logo: mtnLogo, name: 'MTN MoMo',  bg: '#fffbeb', border: '#fbbf24', color: '#d97706' },
+  { value: 'vodafone', logo: vodafoneLogo, name: 'Telecel Cash',  bg: '#fff1f2', border: '#fda4af', color: '#e11d48' },
+  { value: 'airteltigo', logo: airteltigoLogo, name: 'AT Money', bg: '#eff6ff', border: '#93c5fd', color: '#2563eb' },
 ];
 
 const money = n => `GH₵${(Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -848,10 +848,11 @@ function CheckoutView({ flow }) {
   const {
     items, customer, loggedIn, different, toggleRecipient, recipient, setRecipient,
     phone, setPhone, note, setNote, delivery, setDelivery, method, setMethod,
-    subtotal, shipping, serviceCharge, amount, error, stage, setStage, busy, begin,
+    subtotal, shipping, serviceCharge, 
+   error, stage, setStage, busy, begin,
     number, setMomoNumber, network, handleSelectNetwork,
     validatingAccount, accountValidated, accountValidationError, retryAccountValidation,
-    normalizedMomoMsisdn, isMomoVerified, subscriberName,
+    normalizedMomoMsisdn,  subscriberName,
     handlePayNow,
     otpCode, setOtpCode, otpError, otpBusy, otpResendTimer, otpTargetNumber, promptCountdown,
     requestMoMoOtp, confirmMoMoOtp, cancelOtpModal, checkAgain, cancel,
@@ -1126,12 +1127,7 @@ function CheckoutView({ flow }) {
                     <span className="pm-field-step-num">1</span>
                     <span className="pm-field-label">Enter Mobile Money Number</span>
                   </div>
-                  {normalizedMomoMsisdn && isMomoVerified && (
-                    <span className="co-badge-verified">
-                      <CheckCircleSolid style={{ width: 12, height: 12 }} />
-                      Verified on device
-                    </span>
-                  )}
+                 
                 </div>
                 <div className="pm-field-body">
                   <Input
