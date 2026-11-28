@@ -512,11 +512,6 @@ const ProductCard = memo(function ProductCard({
         }}
         aria-label={`View ${name}`}
       >
-        {discount > 0 && !soldOut && (
-          <span className="absolute top-2.5 left-2.5 z-10 px-2 py-0.5 text-[10px] font-bold rounded bg-[#E50914] text-white">
-            -{discount}%
-          </span>
-        )}
         {soldOut && (
           <span className="absolute top-2.5 left-2.5 z-10 px-2 py-0.5 text-[10px] font-semibold rounded bg-[#080808] text-white">
             Sold out

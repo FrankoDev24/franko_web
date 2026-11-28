@@ -72,9 +72,9 @@ const DEFAULT_SORT = "newest";
 
 const TEASERS = {
   live: [
-  " extended to Monday, 30th November 2026.",
-    "Free delivery within Accra & Kumasi",
-    
+    "Telecel | Franko · Exclusive smartphone deals up to 40% OFF — extended to Monday, 30th November 2026.",
+    "Free delivery within Accra & Kumasi for online phone purchases.",
+    "Available across all Franko branches nationwide.",
   ],
   ended: ["Black Friday 2026 has ended — thank you for shopping with us."],
 };
@@ -247,7 +247,7 @@ const AccountMenu = memo(function AccountMenu({
   open,
   mobile = false,
   onToggle,
- 
+  onClose,
   onAccount,
   onOrders,
   onLogout,
@@ -594,11 +594,6 @@ const ProductCard = memo(function ProductCard({
         }}
         aria-label={`View details for ${name}`}
       >
-        {discount > 0 && !soldOut && (
-          <span className="absolute top-2.5 left-2.5 z-10 px-2 py-0.5 text-[10px] font-bold rounded bg-[#E50914] text-white">
-            -{discount}%
-          </span>
-        )}
         {soldOut && (
           <span className="absolute top-2.5 left-2.5 z-10 px-2 py-0.5 text-[10px] font-semibold rounded bg-[#080808] text-white">
             Sold out
